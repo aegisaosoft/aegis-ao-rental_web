@@ -22,7 +22,7 @@ import 'react-toastify/dist/ReactToastify.css';
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import { apiService } from './services/api';
+import { translatedApiService as apiService } from './services/translatedApi';
 
 // Pages
 import Home from './pages/Home';
@@ -111,15 +111,30 @@ function App() {
             </main>
             <Footer />
             <ToastContainer
-              position="top-right"
-              autoClose={5000}
+              position="top-center"
+              autoClose={3000}
               hideProgressBar={false}
-              newestOnTop={false}
+              newestOnTop={true}
               closeOnClick
               rtl={false}
               pauseOnFocusLoss
               draggable
               pauseOnHover
+              theme="light"
+              style={{
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'auto',
+                maxWidth: '500px',
+              }}
+              toastStyle={{
+                borderRadius: '12px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+                padding: '16px 24px',
+                fontSize: '16px',
+                fontWeight: '500',
+              }}
             />
           </div>
         </Router>

@@ -16,15 +16,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, Car, Calendar, Settings, LogOut } from 'lucide-react';
+import { Menu, X, User, Car, Calendar, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { useQuery } from 'react-query';
-import { apiService } from '../services/api';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
+import { translatedApiService as apiService } from '../services/translatedApi';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isMainAdmin } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -133,38 +136,49 @@ const Navbar = () => {
             </select>
             
             {/* Rentals text */}
-            <span className="text-xl font-bold text-gray-900">Rentals</span>
+            <span className="text-xl font-bold text-gray-900">{t('nav.allRentals')}</span>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Home
+              {t('nav.home')}
             </Link>
             <Link to="/vehicles" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Vehicles
+              {t('nav.vehicles')}
             </Link>
             {isAuthenticated && (
               <Link to="/my-bookings" className="text-gray-700 hover:text-blue-600 transition-colors">
-                My Bookings
+                {t('nav.myBookings')}
               </Link>
             )}
-            {isAuthenticated && user?.isAdmin && (
-              <Link to="/admin" className="text-gray-700 hover:text-blue-600 transition-colors">
-                Admin
-              </Link>
-            )}
+          </div>
+
+          {/* Language Switcher - Always Visible */}
+          <div className="hidden md:flex">
+            <LanguageSwitcher />
           </div>
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                {/* Main Admin Dashboard Button - Only for Main Admin */}
+                {isMainAdmin && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors p-2 rounded-md hover:bg-gray-100"
+                    title={t('nav.adminDashboard')}
+                  >
+                    <LayoutDashboard className="h-5 w-5" />
+                  </Link>
+                )}
+
                 {/* Settings Button */}
                 <Link
                   to="/settings"
                   className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors p-2 rounded-md hover:bg-gray-100"
-                  title="Settings"
+                  title={t('nav.settings')}
                 >
                   <Settings className="h-5 w-5" />
                 </Link>
@@ -213,13 +227,13 @@ const Navbar = () => {
                   to="/login"
                   className="text-gray-700 hover:text-blue-600 transition-colors"
                 >
-                  Login
+                  {t('nav.login')}
                 </Link>
                 <Link
                   to="/register"
                   className="btn-primary"
                 >
-                  Sign Up
+                  {t('nav.signUp')}
                 </Link>
               </div>
             )}

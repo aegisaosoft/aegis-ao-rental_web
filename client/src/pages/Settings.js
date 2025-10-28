@@ -17,8 +17,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 
 const Settings = () => {
+  const { t } = useTranslation();
   const { user, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
@@ -81,33 +83,33 @@ const Settings = () => {
         };
         
         await updateProfile(profileData);
-        toast.success('Profile settings saved successfully!');
+        toast.success(t('settings.saved'));
       } else {
         // For other tabs, just show success (they're not persisted yet)
-        toast.success('Settings saved locally!');
+        toast.success(t('settings.savedLocally'));
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Failed to save settings. Please try again.');
+      toast.error(t('settings.failed'));
     }
   };
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'privacy', label: 'Privacy', icon: Shield },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'general', label: 'General', icon: Globe }
+    { id: 'profile', label: t('settings.tabs.profile'), icon: User },
+    { id: 'notifications', label: t('settings.tabs.notifications'), icon: Bell },
+    { id: 'privacy', label: t('settings.tabs.privacy'), icon: Shield },
+    { id: 'appearance', label: t('settings.tabs.appearance'), icon: Palette },
+    { id: 'general', label: t('settings.tabs.general'), icon: Globe }
   ];
 
   const renderProfileTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.profile.title')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              First Name
+              {t('settings.profile.firstName')}
             </label>
             <input
               type="text"
@@ -119,7 +121,7 @@ const Settings = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Last Name
+              {t('settings.profile.lastName')}
             </label>
             <input
               type="text"
@@ -131,7 +133,7 @@ const Settings = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
+              {t('settings.profile.email')}
             </label>
             <input
               type="email"
@@ -143,7 +145,7 @@ const Settings = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone
+              {t('settings.profile.phone')}
             </label>
             <input
               type="tel"
@@ -161,12 +163,12 @@ const Settings = () => {
   const renderNotificationsTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.notifications.title')}</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Email Notifications</h4>
-              <p className="text-sm text-gray-500">Receive notifications via email</p>
+              <h4 className="text-sm font-medium text-gray-900">{t('settings.notifications.email')}</h4>
+              <p className="text-sm text-gray-500">{t('settings.notifications.emailDesc')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -181,8 +183,8 @@ const Settings = () => {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">SMS Notifications</h4>
-              <p className="text-sm text-gray-500">Receive notifications via SMS</p>
+              <h4 className="text-sm font-medium text-gray-900">{t('settings.notifications.sms')}</h4>
+              <p className="text-sm text-gray-500">{t('settings.notifications.smsDesc')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -197,8 +199,8 @@ const Settings = () => {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Push Notifications</h4>
-              <p className="text-sm text-gray-500">Receive push notifications in browser</p>
+              <h4 className="text-sm font-medium text-gray-900">{t('settings.notifications.push')}</h4>
+              <p className="text-sm text-gray-500">{t('settings.notifications.pushDesc')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -219,11 +221,11 @@ const Settings = () => {
   const renderPrivacyTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Privacy Settings</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.privacy.title')}</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Profile Visibility
+              {t('settings.privacy.profileVisibility')}
             </label>
             <select
               name="privacy.profileVisibility"
@@ -231,15 +233,15 @@ const Settings = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="public">Public</option>
+              <option value="public">{t('settings.privacy.public')}</option>
               <option value="friends">Friends Only</option>
-              <option value="private">Private</option>
+              <option value="private">{t('settings.privacy.private')}</option>
             </select>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Show Email</h4>
-              <p className="text-sm text-gray-500">Allow others to see your email address</p>
+              <h4 className="text-sm font-medium text-gray-900">{t('settings.privacy.showEmail')}</h4>
+              <p className="text-sm text-gray-500">{t('settings.privacy.showEmailDesc')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -254,8 +256,8 @@ const Settings = () => {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Show Phone</h4>
-              <p className="text-sm text-gray-500">Allow others to see your phone number</p>
+              <h4 className="text-sm font-medium text-gray-900">{t('settings.privacy.showPhone')}</h4>
+              <p className="text-sm text-gray-500">{t('settings.privacy.showPhoneDesc')}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -276,26 +278,26 @@ const Settings = () => {
   const renderAppearanceTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Appearance Settings</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.appearance.title')}</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Theme
+              {t('settings.appearance.theme')}
             </label>
             <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="auto">Auto</option>
+              <option value="light">{t('settings.appearance.light')}</option>
+              <option value="dark">{t('settings.appearance.dark')}</option>
+              <option value="auto">{t('settings.appearance.auto')}</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Language
+              {t('settings.general.language')}
             </label>
             <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="en">English</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
+              <option value="es">Español</option>
+              <option value="pt">Português</option>
             </select>
           </div>
         </div>
@@ -306,11 +308,11 @@ const Settings = () => {
   const renderGeneralTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">General Settings</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.general.title')}</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Time Zone
+              {t('settings.general.timezone')}
             </label>
             <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="UTC">UTC</option>
@@ -358,9 +360,9 @@ const Settings = () => {
           <div className="py-6">
             <div className="flex items-center">
               <SettingsIcon className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{t('settings.title')}</h1>
             </div>
-            <p className="mt-2 text-gray-600">Manage your account settings and preferences</p>
+            <p className="mt-2 text-gray-600">{t('settings.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -404,7 +406,7 @@ const Settings = () => {
                   className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                  {t('settings.save')}
                 </button>
               </div>
             </div>

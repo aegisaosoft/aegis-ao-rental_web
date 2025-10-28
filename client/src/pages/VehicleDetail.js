@@ -17,11 +17,13 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { MapPin, Users, Fuel, Settings, Star, Shield, Clock, Edit2, X } from 'lucide-react';
-import { apiService } from '../services/api';
+import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const VehicleDetail = () => {
   const { id } = useParams();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isAuthenticated, isAdmin } = useAuth();
   const [selectedDates, setSelectedDates] = useState({
@@ -117,10 +119,10 @@ const VehicleDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Vehicle Not Found</h2>
-          <p className="text-gray-600 mb-4">The vehicle you're looking for doesn't exist.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('vehicleDetail.vehicleNotFound')}</h2>
+          <p className="text-gray-600 mb-4">{t('vehicleDetail.vehicleNotFoundDesc')}</p>
           <Link to="/vehicles" className="btn-primary">
-            Browse Vehicles
+            {t('vehicleDetail.browseVehicles')}
           </Link>
         </div>
       </div>
@@ -169,7 +171,7 @@ const VehicleDetail = () => {
                 )}
               </div>
               <p className="text-xl text-blue-600 font-semibold mb-4">
-                ${vehicle.daily_rate || vehicle.DailyRate} per day
+                ${vehicle.daily_rate || vehicle.DailyRate} {t('vehicleDetail.perDay')}
               </p>
             </div>
 
@@ -182,7 +184,7 @@ const VehicleDetail = () => {
               
               <div className="flex items-center text-gray-600">
                 <Users className="h-5 w-5 mr-3" />
-                <span>{vehicle.seats} seats</span>
+                <span>{vehicle.seats} {t('vehicleDetail.seats')}</span>
               </div>
               
               <div className="flex items-center text-gray-600">
@@ -199,7 +201,7 @@ const VehicleDetail = () => {
             {/* Features */}
             {vehicle.features && vehicle.features.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Features</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('vehicleDetail.features')}</h3>
                 <div className="flex flex-wrap gap-2">
                   {vehicle.features.map((feature, index) => (
                     <span key={index} className="feature-tag">
@@ -212,12 +214,12 @@ const VehicleDetail = () => {
 
             {/* Booking Form */}
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Book This Vehicle</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('vehicleDetail.bookThisVehicle')}</h3>
               
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Pickup Date</label>
+                    <label className="form-label">{t('vehicleDetail.pickupDate')}</label>
                     <input
                       type="date"
                       value={selectedDates.pickupDate}
@@ -227,7 +229,7 @@ const VehicleDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Return Date</label>
+                    <label className="form-label">{t('vehicleDetail.returnDate')}</label>
                     <input
                       type="date"
                       value={selectedDates.returnDate}
@@ -241,7 +243,7 @@ const VehicleDetail = () => {
                 {selectedDates.pickupDate && selectedDates.returnDate && (
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total for {Math.ceil((new Date(selectedDates.returnDate) - new Date(selectedDates.pickupDate)) / (1000 * 60 * 60 * 24))} days:</span>
+                      <span className="text-gray-600">{t('vehicleDetail.totalFor')} {Math.ceil((new Date(selectedDates.returnDate) - new Date(selectedDates.pickupDate)) / (1000 * 60 * 60 * 24))} {t('vehicleDetail.days')}:</span>
                       <span className="text-xl font-bold text-blue-600">${calculateTotal()}</span>
                     </div>
                   </div>
@@ -251,26 +253,26 @@ const VehicleDetail = () => {
                   to={`/booking/${vehicle.vehicle_id}?pickup=${selectedDates.pickupDate}&return=${selectedDates.returnDate}`}
                   className="btn-primary w-full text-center block"
                 >
-                  Proceed to Booking
+                  {t('vehicleDetail.proceedToBooking')}
                 </Link>
               </div>
             </div>
 
             {/* Benefits */}
             <div className="bg-blue-50 p-6 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">What's Included</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('vehicleDetail.whatsIncluded')}</h3>
               <div className="space-y-3">
                 <div className="flex items-center text-gray-700">
                   <Shield className="h-5 w-5 mr-3 text-blue-600" />
-                  <span>Comprehensive Insurance</span>
+                  <span>{t('vehicleDetail.comprehensiveInsurance')}</span>
                 </div>
                 <div className="flex items-center text-gray-700">
                   <Clock className="h-5 w-5 mr-3 text-blue-600" />
-                  <span>24/7 Roadside Assistance</span>
+                  <span>{t('vehicleDetail.roadsideAssistance')}</span>
                 </div>
                 <div className="flex items-center text-gray-700">
                   <Star className="h-5 w-5 mr-3 text-blue-600" />
-                  <span>Premium Customer Service</span>
+                  <span>{t('vehicleDetail.premiumService')}</span>
                 </div>
               </div>
             </div>

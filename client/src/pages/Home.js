@@ -13,37 +13,40 @@
  *
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Shield, Clock, Star, ArrowRight, Calendar } from 'lucide-react';
-// import { useQuery } from 'react-query';
-// import { apiService } from '../services/api';
+import { useQuery } from 'react-query';
+import { translatedApiService as apiService } from '../services/translatedApi';
+import { useTranslation } from 'react-i18next';
 
 const Home = () => {
+  const { t } = useTranslation();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
-  const companyName = 'All Rentals';
+  const [companyName, setCompanyName] = useState('All Rentals');
   
   // Fetch companies
-  // const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  // const companiesData = companiesResponse?.data || companiesResponse;
+  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
+  const companiesData = companiesResponse?.data || companiesResponse;
   
-  // Get company from session
-  // useEffect(() => {
-  //   // Session functionality not implemented yet, skip for now
-  //   // TODO: Implement session company functionality
-  //   // const companies = Array.isArray(companiesData) ? companiesData : [];
-  //   // apiService.getSessionCompany().then(response => {
-  //   //   const companyId = response.data.companyId;
-  //   //   if (companyId && companies.length > 0) {
-  //   //     const selectedCompany = companies.find(c => (c.company_id || c.companyId) === companyId);
-  //   //     if (selectedCompany) {
-  //   //       setCompanyName(selectedCompany.company_name || selectedCompany.companyName);
-  //   //     }
-  //   //   }
-  //   // });
-  // }, [companiesData]);
+  // Get company from localStorage
+  useEffect(() => {
+    const selectedCompanyId = localStorage.getItem('selectedCompanyId');
+    const companies = Array.isArray(companiesData) ? companiesData : [];
+    
+    if (selectedCompanyId && companies.length > 0) {
+      const selectedCompany = companies.find(c => 
+        String(c.company_id || c.companyId) === String(selectedCompanyId)
+      );
+      if (selectedCompany) {
+        setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'All Rentals');
+      }
+    } else {
+      setCompanyName('All Rentals');
+    }
+  }, [companiesData]);
 
   const features = [
     {
@@ -79,14 +82,14 @@ const Home = () => {
             {/* Booking Form - Left Side */}
             <div className="bg-white rounded-lg shadow-2xl p-6 lg:p-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Book your car rental
+                {t('home.bookYourCar')}
               </h2>
 
               {/* Start and End Dates */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date
+                    {t('home.startDate')}
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -100,7 +103,7 @@ const Home = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Date
+                    {t('home.endDate')}
                   </label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -118,21 +121,21 @@ const Home = () => {
               {/* Car Category */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Car Category
+                  {t('home.carCategory')}
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 >
-                  <option value="">All Categories</option>
-                  <option value="economy">Economy</option>
-                  <option value="compact">Compact</option>
-                  <option value="mid-size">Mid-Size</option>
-                  <option value="full-size">Full-Size</option>
-                  <option value="suv">SUV</option>
-                  <option value="luxury">Luxury</option>
-                  <option value="sports">Sports</option>
+                  <option value="">{t('home.selectCategory')}</option>
+                  <option value="economy">{t('categories.economy')}</option>
+                  <option value="compact">{t('categories.compact')}</option>
+                  <option value="mid-size">{t('categories.mid-size')}</option>
+                  <option value="full-size">{t('categories.full-size')}</option>
+                  <option value="suv">{t('categories.suv')}</option>
+                  <option value="luxury">{t('categories.luxury')}</option>
+                  <option value="sports">{t('categories.sports')}</option>
                 </select>
               </div>
 
@@ -177,10 +180,10 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose {companyName}?
+              {t('home.whyChoose', { companyName })}
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We provide exceptional car rental services with a focus on quality, reliability, and customer satisfaction.
+              {t('home.description')}
             </p>
           </div>
 

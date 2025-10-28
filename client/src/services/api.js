@@ -96,6 +96,20 @@ export const apiService = {
   // Companies
     getCompanies: (params = {}) => api.get('/RentalCompanies', { params }),
 
+  // Locations
+  getLocations: (params = {}) => api.get('/Locations', { params }),
+  getLocation: (id) => api.get(`/Locations/${id}`),
+  getLocationsByCompany: (companyId) => api.get(`/Locations/company/${companyId}`),
+  getPickupLocations: (companyId = null) => api.get('/Locations/pickup', { params: { companyId } }),
+  getReturnLocations: (companyId = null) => api.get('/Locations/return', { params: { companyId } }),
+  getLocationStates: (companyId = null) => api.get('/Locations/states', { params: { companyId } }),
+  getLocationCities: (params = {}) => api.get('/Locations/cities', { params }),
+  createLocation: (data) => api.post('/Locations', data),
+  updateLocation: (id, data) => api.put(`/Locations/${id}`, data),
+  deleteLocation: (id) => api.delete(`/Locations/${id}`),
+  activateLocation: (id) => api.patch(`/Locations/${id}/activate`),
+  deactivateLocation: (id) => api.patch(`/Locations/${id}/deactivate`),
+
   // Session
   setSessionCompany: (companyId) => api.post('/session/company', { companyId }),
   getSessionCompany: () => api.get('/session/company'),

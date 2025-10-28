@@ -17,9 +17,11 @@ import React from 'react';
 import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { apiService } from '../services/api';
+import { translatedApiService as apiService } from '../services/translatedApi';
+import { useTranslation } from 'react-i18next';
 
 const MyBookings = () => {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
 
   const { data: bookings, isLoading, error } = useQuery(
@@ -60,8 +62,8 @@ const MyBookings = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Please Login</h2>
-          <p className="text-gray-600">You need to be logged in to view your bookings.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('myBookings.pleaseLogin')}</h2>
+          <p className="text-gray-600">{t('myBookings.needLogin')}</p>
         </div>
       </div>
     );
@@ -79,8 +81,8 @@ const MyBookings = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Bookings</h2>
-          <p className="text-gray-600">Please try again later.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('myBookings.errorLoading')}</h2>
+          <p className="text-gray-600">{t('myBookings.tryAgainLater')}</p>
         </div>
       </div>
     );
@@ -90,17 +92,17 @@ const MyBookings = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
-          <p className="text-gray-600">Manage your vehicle reservations</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('myBookings.title')}</h1>
+          <p className="text-gray-600">{t('myBookings.subtitle')}</p>
         </div>
 
         {!bookings || bookings.length === 0 ? (
           <div className="text-center py-12">
             <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings found</h3>
-            <p className="text-gray-600 mb-4">You haven't made any reservations yet.</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('myBookings.noBookings')}</h3>
+            <p className="text-gray-600 mb-4">{t('myBookings.noBookingsDesc')}</p>
             <a href="/vehicles" className="btn-primary">
-              Browse Vehicles
+              {t('myBookings.browseVehicles')}
             </a>
           </div>
         ) : (
@@ -127,22 +129,22 @@ const MyBookings = () => {
                       <div className="flex items-center text-gray-600">
                         <Calendar className="h-4 w-4 mr-2" />
                         <div>
-                          <p className="text-sm">Pickup: {new Date(booking.pickup_date).toLocaleDateString()}</p>
-                          <p className="text-sm">Return: {new Date(booking.return_date).toLocaleDateString()}</p>
+                          <p className="text-sm">{t('myBookings.pickupDate')}: {new Date(booking.pickup_date).toLocaleDateString()}</p>
+                          <p className="text-sm">{t('myBookings.returnDate')}: {new Date(booking.return_date).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="flex items-center text-gray-600">
                         <MapPin className="h-4 w-4 mr-2" />
                         <div>
-                          <p className="text-sm">Pickup: {booking.pickup_location}</p>
-                          <p className="text-sm">Return: {booking.return_location}</p>
+                          <p className="text-sm">{t('booking.pickupLocation')}: {booking.pickup_location}</p>
+                          <p className="text-sm">{t('booking.returnLocation')}: {booking.return_location}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-semibold text-blue-600">
-                        Total: ${booking.total_amount}
+                        {t('myBookings.totalCost')}: ${booking.total_amount}
                       </div>
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                         {getStatusIcon(booking.status)}
@@ -153,11 +155,11 @@ const MyBookings = () => {
 
                   <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2">
                     <button className="btn-outline text-sm">
-                      View Details
+                      {t('vehicleDetail.viewDetails')}
                     </button>
                     {booking.status === 'confirmed' && (
                       <button className="btn-secondary text-sm">
-                        Cancel Booking
+                        {t('myBookings.cancelBooking', 'Cancel Booking')}
                       </button>
                     )}
                   </div>

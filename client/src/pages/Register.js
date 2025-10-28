@@ -18,8 +18,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { Car, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Register = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -46,12 +48,12 @@ const Register = () => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error(t('register.passwordsNotMatch'));
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error(t('register.passwordTooShort'));
       return;
     }
 
@@ -65,10 +67,10 @@ const Register = () => {
         phone: formData.phone,
         password: formData.password
       });
-      toast.success('Registration successful!');
+      toast.success(t('register.success'));
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      toast.error(error.response?.data?.message || t('register.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -81,15 +83,15 @@ const Register = () => {
           <Car className="h-12 w-12 text-blue-600" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Create your account
+          {t('register.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Already have an account?{' '}
+          {t('register.subtitle')}{' '}
           <Link
             to="/login"
             className="font-medium text-blue-600 hover:text-blue-500"
           >
-            Sign in
+            {t('register.signIn')}
           </Link>
         </p>
       </div>
@@ -100,7 +102,7 @@ const Register = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="firstName" className="form-label">
-                  First Name
+                  {t('register.firstName')}
                 </label>
                 <div className="mt-1 relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -115,14 +117,14 @@ const Register = () => {
                     value={formData.firstName}
                     onChange={handleChange}
                     className="form-input pl-10"
-                    placeholder="First name"
+                    placeholder={t('register.firstName')}
                   />
                 </div>
               </div>
 
               <div>
                 <label htmlFor="lastName" className="form-label">
-                  Last Name
+                  {t('register.lastName')}
                 </label>
                 <div className="mt-1 relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -137,7 +139,7 @@ const Register = () => {
                     value={formData.lastName}
                     onChange={handleChange}
                     className="form-input pl-10"
-                    placeholder="Last name"
+                    placeholder={t('register.lastName')}
                   />
                 </div>
               </div>
@@ -145,7 +147,7 @@ const Register = () => {
 
             <div>
               <label htmlFor="email" className="form-label">
-                Email address
+                {t('register.emailAddress')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -160,14 +162,14 @@ const Register = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className="form-input pl-10"
-                  placeholder="Enter your email"
+                  placeholder={t('register.emailAddress')}
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="phone" className="form-label">
-                Phone Number
+                {t('register.phoneNumber')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -181,14 +183,14 @@ const Register = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   className="form-input pl-10"
-                  placeholder="Enter your phone number"
+                  placeholder={t('register.phoneNumber')}
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="password" className="form-label">
-                Password
+                {t('register.password')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -203,7 +205,7 @@ const Register = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="form-input pl-10 pr-10"
-                  placeholder="Create a password"
+                  placeholder={t('register.password')}
                 />
                 <button
                   type="button"
@@ -221,7 +223,7 @@ const Register = () => {
 
             <div>
               <label htmlFor="confirmPassword" className="form-label">
-                Confirm Password
+                {t('register.confirmPassword')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -236,7 +238,7 @@ const Register = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className="form-input pl-10 pr-10"
-                  placeholder="Confirm your password"
+                  placeholder={t('register.confirmPassword')}
                 />
                 <button
                   type="button"
@@ -281,10 +283,10 @@ const Register = () => {
                 {isLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating account...
+                    {t('register.creatingAccount')}
                   </div>
                 ) : (
-                  'Create account'
+                  t('register.createAccount')
                 )}
               </button>
             </div>

@@ -18,8 +18,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { Car, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -43,10 +45,10 @@ const Login = () => {
 
     try {
       await login(formData);
-      toast.success('Login successful!');
+      toast.success(t('login.success'));
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      toast.error(error.response?.data?.message || t('login.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -59,15 +61,15 @@ const Login = () => {
           <Car className="h-12 w-12 text-blue-600" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to your account
+          {t('login.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
+          {t('login.subtitle')}{' '}
           <Link
             to="/register"
             className="font-medium text-blue-600 hover:text-blue-500"
           >
-            create a new account
+            {t('login.createAccount')}
           </Link>
         </p>
       </div>
@@ -77,7 +79,7 @@ const Login = () => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="form-label">
-                Email address
+                {t('login.emailAddress')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -92,14 +94,14 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className="form-input pl-10"
-                  placeholder="Enter your email"
+                  placeholder={t('login.emailAddress')}
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="password" className="form-label">
-                Password
+                {t('login.password')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -114,7 +116,7 @@ const Login = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="form-input pl-10 pr-10"
-                  placeholder="Enter your password"
+                  placeholder={t('login.password')}
                 />
                 <button
                   type="button"
@@ -139,7 +141,7 @@ const Login = () => {
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                  Remember me
+                  {t('login.rememberMe')}
                 </label>
               </div>
 
@@ -148,7 +150,7 @@ const Login = () => {
                   to="/forgot-password"
                   className="font-medium text-blue-600 hover:text-blue-500"
                 >
-                  Forgot your password?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
             </div>
@@ -162,10 +164,10 @@ const Login = () => {
                 {isLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Signing in...
+                    {t('login.signingIn')}
                   </div>
                 ) : (
-                  'Sign in'
+                  t('login.signIn')
                 )}
               </button>
             </div>

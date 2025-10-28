@@ -17,9 +17,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from 'react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, Filter, Car, MapPin, Users, Fuel, Settings, Calendar } from 'lucide-react';
-import { apiService } from '../services/api';
+import { translatedApiService as apiService } from '../services/translatedApi';
+import { useTranslation } from 'react-i18next';
 
 const VehicleList = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -202,8 +204,8 @@ const VehicleList = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Vehicles</h2>
-          <p className="text-gray-600">Please try again later.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('vehicles.errorLoading')}</h2>
+          <p className="text-gray-600">{t('vehicles.tryAgainLater')}</p>
         </div>
       </div>
     );
@@ -221,7 +223,7 @@ const VehicleList = () => {
         
                  <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
            <div className="flex items-center">
-             <span className="text-3xl font-bold text-white">Vehicle Fleet</span>
+             <span className="text-3xl font-bold text-white">{t('vehicles.title')}</span>
            </div>
          </div>
       </section>
@@ -237,7 +239,7 @@ const VehicleList = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search vehicles..."
+                  placeholder={t('vehicles.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
@@ -251,7 +253,7 @@ const VehicleList = () => {
               className="btn-outline flex items-center"
             >
               <Filter className="h-4 w-4 mr-2" />
-              Filters
+              {t('vehicles.filters')}
             </button>
           </div>
 
@@ -261,13 +263,13 @@ const VehicleList = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Category */}
                 <div>
-                  <label className="form-label">Category</label>
+                  <label className="form-label">{t('vehicles.category')}</label>
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
                     className="form-input"
                   >
-                    <option value="">All Categories</option>
+                    <option value="">{t('vehicles.allCategories')}</option>
                     {categories?.map(category => {
                       const categoryId = category.category_id || category.CategoryId || category.categoryId;
                       const categoryName = category.category_name || category.CategoryName || category.categoryName;
@@ -282,13 +284,13 @@ const VehicleList = () => {
 
                 {/* Make */}
                 <div>
-                  <label className="form-label">Make</label>
+                  <label className="form-label">{t('vehicles.make')}</label>
                   <select
                     value={filters.make}
                     onChange={(e) => handleFilterChange('make', e.target.value)}
                     className="form-input"
                   >
-                    <option value="">All Makes</option>
+                    <option value="">{t('vehicles.allMakes')}</option>
                     {makes?.map(make => (
                       <option key={make} value={make}>
                         {make}
@@ -299,13 +301,13 @@ const VehicleList = () => {
 
                 {/* Model */}
                 <div>
-                  <label className="form-label">Model</label>
+                  <label className="form-label">{t('vehicles.model')}</label>
                   <select
                     value={filters.model}
                     onChange={(e) => handleFilterChange('model', e.target.value)}
                     className="form-input"
                   >
-                    <option value="">All Models</option>
+                    <option value="">{t('vehicles.allModels')}</option>
                     {Array.from(new Set(vehicles.map(v => v.model || v.Model))).filter(Boolean).map(model => (
                       <option key={model} value={model}>
                         {model}
@@ -316,18 +318,18 @@ const VehicleList = () => {
 
                 {/* Price Range */}
                 <div>
-                  <label className="form-label">Price Range</label>
+                  <label className="form-label">{t('vehicles.priceRange')}</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
-                      placeholder="Min"
+                      placeholder={t('vehicles.min')}
                       value={filters.minPrice}
                       onChange={(e) => handleFilterChange('minPrice', e.target.value)}
                       className="form-input flex-1"
                     />
                     <input
                       type="number"
-                      placeholder="Max"
+                      placeholder={t('vehicles.max')}
                       value={filters.maxPrice}
                       onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
                       className="form-input flex-1"
@@ -341,7 +343,7 @@ const VehicleList = () => {
                   onClick={clearFilters}
                   className="btn-secondary mr-2"
                 >
-                  Clear Filters
+                  {t('vehicles.clearFilters')}
                 </button>
               </div>
             </div>
@@ -351,7 +353,7 @@ const VehicleList = () => {
         {/* Results */}
         <div className="mb-4">
           <p className="text-gray-600">
-            Showing {currentVehicles.length} of {filteredVehicles.length} vehicles (Page {currentPage} of {totalPages})
+            {t('vehicles.showing')} {currentVehicles.length} {t('vehicles.of')} {filteredVehicles.length} {t('vehicles.vehicles')} ({t('vehicles.page')} {currentPage} {t('vehicles.of')} {totalPages})
           </p>
         </div>
 
@@ -359,8 +361,8 @@ const VehicleList = () => {
         {currentVehicles.length === 0 ? (
           <div className="text-center py-12">
             <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No vehicles found</h3>
-            <p className="text-gray-600">Try adjusting your search criteria</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('vehicles.noVehicles')}</h3>
+            <p className="text-gray-600">{t('vehicles.tryAdjusting')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -423,7 +425,7 @@ const VehicleList = () => {
                       }}
                     />
                     <div className="absolute top-4 right-4 bg-yellow-500 text-black px-2 py-1 rounded-full text-sm font-semibold">
-                      ${dailyRate}/day
+                      ${dailyRate}/{t('vehicles.day')}
                     </div>
                   </div>
                   
@@ -440,7 +442,7 @@ const VehicleList = () => {
                       
                       <div className="flex items-center text-gray-600">
                         <Users className="h-4 w-4 mr-2" />
-                        <span>{seats} seats</span>
+                        <span>{seats} {t('vehicles.seats')}</span>
                       </div>
                       
                       <div className="flex items-center text-gray-600">
@@ -463,7 +465,7 @@ const VehicleList = () => {
                         ))}
                         {vehicle.features.length > 3 && (
                           <span className="feature-tag">
-                            +{vehicle.features.length - 3} more
+                            +{vehicle.features.length - 3} {t('vehicles.more')}
                           </span>
                         )}
                       </div>
@@ -472,7 +474,7 @@ const VehicleList = () => {
                     <div className="flex justify-between items-center mt-4">
                       <div className="vehicle-price">
                         ${dailyRate}
-                        <span className="text-sm text-gray-600">/day</span>
+                        <span className="text-sm text-gray-600">/{t('vehicles.day')}</span>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -480,13 +482,13 @@ const VehicleList = () => {
                           className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
                         >
                           <Calendar className="h-4 w-4" />
-                          Book
+                          {t('vehicles.book')}
                         </button>
                         <Link
                           to={`/vehicles/${vehicleId}`}
                           className="btn-primary"
                         >
-                          View Details
+                          {t('vehicles.viewDetails')}
                         </Link>
                       </div>
                     </div>

@@ -13,34 +13,37 @@
  *
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Phone, Mail, MapPin } from 'lucide-react';
-// import { useQuery } from 'react-query';
-// import { apiService } from '../services/api';
+import { useQuery } from 'react-query';
+import { translatedApiService as apiService } from '../services/translatedApi';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
-  const companyName = 'All Rentals';
+  const { t } = useTranslation();
+  const [companyName, setCompanyName] = useState('All Rentals');
   
   // Fetch companies
-  // const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  // const companiesData = companiesResponse?.data || companiesResponse;
+  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
+  const companiesData = companiesResponse?.data || companiesResponse;
   
-  // Get company from session
-  // useEffect(() => {
-  //   // Session functionality not implemented yet, skip for now
-  //   // TODO: Implement session company functionality
-  //   // const companies = Array.isArray(companiesData) ? companiesData : [];
-  //   // apiService.getSessionCompany().then(response => {
-  //   //   const companyId = response.data.companyId;
-  //   //   if (companyId && companies.length > 0) {
-  //   //     const selectedCompany = companies.find(c => (c.company_id || c.companyId) === companyId);
-  //   //     if (selectedCompany) {
-  //   //       setCompanyName(selectedCompany.company_name || selectedCompany.companyName);
-  //   //     }
-  //   //   }
-  //   // });
-  // }, [companiesData]);
+  // Get company from localStorage
+  useEffect(() => {
+    const selectedCompanyId = localStorage.getItem('selectedCompanyId');
+    const companies = Array.isArray(companiesData) ? companiesData : [];
+    
+    if (selectedCompanyId && companies.length > 0) {
+      const selectedCompany = companies.find(c => 
+        String(c.company_id || c.companyId) === String(selectedCompanyId)
+      );
+      if (selectedCompany) {
+        setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'All Rentals');
+      }
+    } else {
+      setCompanyName('All Rentals');
+    }
+  }, [companiesData]);
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -53,8 +56,7 @@ const Footer = () => {
               <span className="text-xl font-bold">{companyName}</span>
             </div>
             <p className="text-gray-300 mb-4 max-w-md">
-              Your trusted partner for premium car rental services. 
-              Experience the freedom of the road with our wide selection of vehicles.
+              {t('footer.description')}
             </p>
             <div className="space-y-2">
               <div className="flex items-center space-x-2 text-gray-300">
@@ -74,26 +76,26 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('footer.quickLinks')}</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-gray-300 hover:text-white transition-colors">
-                  Home
+                  {t('footer.home')}
                 </Link>
               </li>
               <li>
                 <Link to="/vehicles" className="text-gray-300 hover:text-white transition-colors">
-                  Vehicles
+                  {t('footer.vehicles')}
                 </Link>
               </li>
               <li>
                 <Link to="/about" className="text-gray-300 hover:text-white transition-colors">
-                  About Us
+                  {t('footer.about')}
                 </Link>
               </li>
               <li>
                 <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">
-                  Contact
+                  {t('footer.contact')}
                 </Link>
               </li>
             </ul>
@@ -101,19 +103,19 @@ const Footer = () => {
 
           {/* Services */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Services</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('footer.services')}</h3>
             <ul className="space-y-2">
               <li>
-                <span className="text-gray-300">Economy Cars</span>
+                <span className="text-gray-300">{t('footer.economyCars')}</span>
               </li>
               <li>
-                <span className="text-gray-300">Luxury Vehicles</span>
+                <span className="text-gray-300">{t('footer.luxuryVehicles')}</span>
               </li>
               <li>
-                <span className="text-gray-300">SUV Rentals</span>
+                <span className="text-gray-300">{t('footer.suvRentals')}</span>
               </li>
               <li>
-                <span className="text-gray-300">Long-term Rentals</span>
+                <span className="text-gray-300">{t('footer.longTermRentals')}</span>
               </li>
             </ul>
           </div>
@@ -122,14 +124,14 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 {companyName}. All rights reserved.
+              © 2024 {companyName}. {t('footer.allRightsReserved')}
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
-                Privacy Policy
+                {t('footer.privacy')}
               </Link>
               <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
-                Terms of Service
+                {t('footer.terms')}
               </Link>
             </div>
           </div>
