@@ -13,7 +13,7 @@
  *
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { Car, Users, Calendar, DollarSign, TrendingUp, Building2, Save, X, LayoutDashboard } from 'lucide-react';
@@ -41,7 +41,7 @@ const AdminDashboard = () => {
   });
 
   // Get company ID from user or localStorage
-  const getCompanyId = () => {
+  const getCompanyId = useCallback(() => {
     // First try user's companyId
     if (user?.companyId) {
       return user.companyId;
@@ -49,7 +49,7 @@ const AdminDashboard = () => {
     // Fallback to selected company from localStorage
     const selectedCompanyId = localStorage.getItem('selectedCompanyId');
     return selectedCompanyId || null;
-  };
+  }, [user]);
 
   // Initialize and watch for company changes
   useEffect(() => {
@@ -83,7 +83,7 @@ const AdminDashboard = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('companyChanged', handleCompanyChange);
     };
-  }, [user, queryClient]);
+  }, [user, queryClient, getCompanyId]);
 
   // Fetch current user's company data
   const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
