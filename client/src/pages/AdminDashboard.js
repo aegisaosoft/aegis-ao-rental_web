@@ -29,6 +29,7 @@ const AdminDashboard = () => {
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
+  const [activeTab, setActiveTab] = useState('info'); // 'info' or 'design'
   const [uploadProgress, setUploadProgress] = useState({
     video: 0,
     banner: 0,
@@ -560,6 +561,40 @@ const AdminDashboard = () => {
             </div>
           ) : isEditingCompany ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
+                {/* Tab Navigation */}
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('info')}
+                      className={`
+                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeTab === 'info'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.companyInfo')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('design')}
+                      className={`
+                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeTab === 'design'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.design')}
+                    </button>
+                  </nav>
+                </div>
+
+                {/* Company Info Tab */}
+                {activeTab === 'info' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Basic Information */}
                   <div>
@@ -928,7 +963,197 @@ const AdminDashboard = () => {
                       {t('admin.testsHelp')}
                     </p>
                   </div>
+
+                  {/* Additional Content Fields */}
+                  <div className="md:col-span-2">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
+                      {t('admin.additionalContent')}
+                    </h4>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.about')}
+                    </label>
+                    <textarea
+                      name="about"
+                      value={companyFormData.about || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      rows="5"
+                      placeholder="Tell us about your company..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.backgroundLink')}
+                    </label>
+                    <input
+                      type="text"
+                      name="backgroundLink"
+                      value={companyFormData.backgroundLink || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      placeholder="https://example.com/background.jpg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.companyPath')}
+                    </label>
+                    <input
+                      type="text"
+                      name="companyPath"
+                      value={companyFormData.companyPath || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      placeholder="my-company"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.bookingIntegrated')}
+                    </label>
+                    <textarea
+                      name="bookingIntegrated"
+                      value={companyFormData.bookingIntegrated || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      rows="3"
+                      placeholder="Booking integration code or information..."
+                    />
+                  </div>
+
                 </div>
+                )}
+
+                {/* Design Tab */}
+                {activeTab === 'design' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Branding Fields */}
+                  <div className="md:col-span-2">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4">
+                      {t('admin.branding')}
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.subdomain')}
+                    </label>
+                    <input
+                      type="text"
+                      name="subdomain"
+                      value={companyFormData.subdomain || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      placeholder="mycompany"
+                      maxLength="100"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Used for: [subdomain].aegis-rental.com
+                    </p>
+                  </div>
+
+                  <div className="md:col-span-2"></div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.primaryColor')}
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="color"
+                        name="primaryColor"
+                        value={companyFormData.primaryColor || '#3B82F6'}
+                        onChange={handleCompanyInputChange}
+                        className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        name="primaryColor"
+                        value={companyFormData.primaryColor || ''}
+                        onChange={handleCompanyInputChange}
+                        className="input-field flex-1"
+                        placeholder="#FF5733"
+                        maxLength="7"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.secondaryColor')}
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="color"
+                        name="secondaryColor"
+                        value={companyFormData.secondaryColor || '#10B981'}
+                        onChange={handleCompanyInputChange}
+                        className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        name="secondaryColor"
+                        value={companyFormData.secondaryColor || ''}
+                        onChange={handleCompanyInputChange}
+                        className="input-field flex-1"
+                        placeholder="#33C1FF"
+                        maxLength="7"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.logoUrl')}
+                    </label>
+                    <input
+                      type="text"
+                      name="logoUrl"
+                      value={companyFormData.logoUrl || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      placeholder="https://example.com/logo.png"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.faviconUrl')}
+                    </label>
+                    <input
+                      type="text"
+                      name="faviconUrl"
+                      value={companyFormData.faviconUrl || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      placeholder="https://example.com/favicon.ico"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.customCss')}
+                    </label>
+                    <textarea
+                      name="customCss"
+                      value={companyFormData.customCss || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field font-mono text-sm"
+                      rows="6"
+                      placeholder=".custom-class { color: #FF5733; }"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Add custom CSS styles for your company's branding
+                    </p>
+                  </div>
+                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
