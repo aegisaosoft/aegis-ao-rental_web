@@ -16,8 +16,8 @@
 import axios from 'axios';
 
 // Get API URL from environment variable
-// For Azure deployment, set this to your deployed .NET API URL: https://your-api-name.azurewebsites.net/api
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7163/api';
+// For production, this should be empty to use relative paths through the Node.js server
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Create axios instance
 const api = axios.create({
