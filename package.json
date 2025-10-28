@@ -1,0 +1,34 @@
+{
+  "name": "aegis-ao-rental-app",
+  "version": "1.0.0",
+  "description": "Car rental application with React frontend and Node.js backend",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "build": "cd client && npm run build",
+    "install-client": "cd client && npm install",
+    "build-client": "cd client && npm run build",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "cd client && npm start",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "car-rental",
+    "react",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "Aegis-AO Rentals",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "express-session": "^1.18.2"
+  }
+}

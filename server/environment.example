@@ -1,0 +1,22 @@
+# Node.js Server Environment Variables
+NODE_ENV=development
+PORT=5000
+API_BASE_URL=http://localhost:5000/api
+
+# Database Configuration (if using local database)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=aegis_ao_rental
+DB_USER=alex
+DB_PASSWORD=Kis@1963
+
+# JWT Settings
+JWT_SECRET=your-super-secret-jwt-key-that-should-be-at-least-32-characters-long-for-production-use
+JWT_EXPIRES_IN=24h
+
+# CORS Settings
+CORS_ORIGIN=http://localhost:3000
+
+# External Services
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
