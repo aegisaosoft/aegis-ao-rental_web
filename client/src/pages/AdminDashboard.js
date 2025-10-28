@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Building2, Save, X, LayoutDashboard } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
