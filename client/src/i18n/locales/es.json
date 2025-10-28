@@ -332,6 +332,7 @@
       "companyProfile": "Perfil de la Empresa",
       "companyInfo": "Información de la Empresa",
       "design": "Diseño",
+      "locations": "Ubicaciones",
       "companyName": "Nombre de la Empresa",
       "email": "Correo Electrónico",
       "phone": "Teléfono",
@@ -375,7 +376,27 @@
       "companyLoadFailed": "Error al cargar datos de la empresa",
       "noCompanyData": "No hay datos de empresa disponibles",
       "companyUpdated": "¡Perfil de empresa actualizado exitosamente!",
-      "companyUpdateFailed": "Error al actualizar el perfil de la empresa. Por favor intenta de nuevo."
+      "companyUpdateFailed": "Error al actualizar el perfil de la empresa. Por favor intenta de nuevo.",
+      "addLocation": "Agregar Ubicación",
+      "editLocation": "Editar Ubicación",
+      "locationName": "Nombre de la Ubicación",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "openingHours": "Horario de Apertura",
+      "isPickupLocation": "Ubicación de Recogida",
+      "isReturnLocation": "Ubicación de Devolución",
+      "isActive": "Activo",
+      "pickup": "Recogida",
+      "return": "Devolución",
+      "noLocations": "No se encontraron ubicaciones. Agrega tu primera ubicación para comenzar.",
+      "locationCreated": "¡Ubicación creada exitosamente!",
+      "locationUpdated": "¡Ubicación actualizada exitosamente!",
+      "locationDeleted": "¡Ubicación eliminada exitosamente!",
+      "locationCreateFailed": "Error al crear la ubicación. Por favor intenta de nuevo.",
+      "locationUpdateFailed": "Error al actualizar la ubicación. Por favor intenta de nuevo.",
+      "locationDeleteFailed": "Error al eliminar la ubicación. Por favor intenta de nuevo.",
+      "confirmDeleteLocation": "¿Estás seguro de que quieres eliminar esta ubicación?",
+      "locationsLoadFailed": "Error al cargar ubicaciones"
     }
 }
 

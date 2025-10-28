@@ -332,6 +332,7 @@
            "companyProfile": "Company Profile",
            "companyInfo": "Company Info",
            "design": "Design",
+           "locations": "Locations",
            "companyName": "Company Name",
            "email": "Email",
            "phone": "Phone",
@@ -375,7 +376,27 @@
            "companyLoadFailed": "Failed to load company data",
            "noCompanyData": "No company data available",
            "companyUpdated": "Company profile updated successfully!",
-           "companyUpdateFailed": "Failed to update company profile. Please try again."
+           "companyUpdateFailed": "Failed to update company profile. Please try again.",
+           "addLocation": "Add Location",
+           "editLocation": "Edit Location",
+           "locationName": "Location Name",
+           "latitude": "Latitude",
+           "longitude": "Longitude",
+           "openingHours": "Opening Hours",
+           "isPickupLocation": "Pickup Location",
+           "isReturnLocation": "Return Location",
+           "isActive": "Active",
+           "pickup": "Pickup",
+           "return": "Return",
+           "noLocations": "No locations found. Add your first location to get started.",
+           "locationCreated": "Location created successfully!",
+           "locationUpdated": "Location updated successfully!",
+           "locationDeleted": "Location deleted successfully!",
+           "locationCreateFailed": "Failed to create location. Please try again.",
+           "locationUpdateFailed": "Failed to update location. Please try again.",
+           "locationDeleteFailed": "Failed to delete location. Please try again.",
+           "confirmDeleteLocation": "Are you sure you want to delete this location?",
+           "locationsLoadFailed": "Failed to load locations"
          }
 }
 
