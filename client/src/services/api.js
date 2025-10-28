@@ -94,7 +94,11 @@ export const apiService = {
   getPaymentMethods: (customerId) => api.get(`/payments/methods/${customerId}`),
 
   // Companies
-    getCompanies: (params = {}) => api.get('/RentalCompanies', { params }),
+  getCompanies: (params = {}) => api.get('/RentalCompanies', { params }),
+  getCompany: (id) => api.get(`/RentalCompanies/${id}`),
+  createCompany: (data) => api.post('/RentalCompanies', data),
+  updateCompany: (id, data) => api.put(`/RentalCompanies/${id}`, data),
+  deleteCompany: (id) => api.delete(`/RentalCompanies/${id}`),
 
   // Locations
   getLocations: (params = {}) => api.get('/Locations', { params }),
@@ -119,6 +123,61 @@ export const apiService = {
   getAdminVehicles: (params = {}) => api.get('/admin/vehicles', { params }),
   getAdminReservations: (params = {}) => api.get('/admin/reservations', { params }),
   getAdminCustomers: (params = {}) => api.get('/admin/customers', { params }),
+
+  // Media uploads
+  uploadCompanyVideo: (companyId, file, onProgress) => {
+    const formData = new FormData();
+    formData.append('video', file);
+    
+    return api.post(`/Media/companies/${companyId}/video`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percentCompleted);
+        }
+      },
+    });
+  },
+  deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
+  
+  uploadCompanyBanner: (companyId, file, onProgress) => {
+    const formData = new FormData();
+    formData.append('banner', file);
+    
+    return api.post(`/Media/companies/${companyId}/banner`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percentCompleted);
+        }
+      },
+    });
+  },
+  deleteCompanyBanner: (companyId) => api.delete(`/Media/companies/${companyId}/banner`),
+  
+  uploadCompanyLogo: (companyId, file, onProgress) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    
+    return api.post(`/Media/companies/${companyId}/logo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percentCompleted);
+        }
+      },
+    });
+  },
+  deleteCompanyLogo: (companyId) => api.delete(`/Media/companies/${companyId}/logo`),
 };
 
 export default api;

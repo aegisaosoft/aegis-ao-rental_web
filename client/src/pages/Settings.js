@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
+import { PageContainer, PageHeader, Card } from '../components/common';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -353,23 +354,15 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center">
-              <SettingsIcon className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-3xl font-bold text-gray-900">{t('settings.title')}</h1>
-            </div>
-            <p className="mt-2 text-gray-600">{t('settings.subtitle')}</p>
-          </div>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={t('settings.title')}
+        subtitle={t('settings.subtitle')}
+        icon={<SettingsIcon className="h-8 w-8" />}
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow">
-          <div className="flex flex-col lg:flex-row">
+      <Card noPadding>
+        <div className="flex flex-col lg:flex-row">
             {/* Sidebar */}
             <div className="lg:w-64 bg-gray-50 rounded-l-lg">
               <nav className="p-4">
@@ -411,9 +404,8 @@ const Settings = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+      </Card>
+    </PageContainer>
   );
 };
 

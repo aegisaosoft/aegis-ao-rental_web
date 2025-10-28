@@ -347,11 +347,21 @@
     "invitation": "Mensagem de Convite",
     "motto": "Lema",
     "mottoDescription": "Descrição do Lema",
-    "viewLogo": "Ver Logo",
-    "viewBanner": "Ver Banner",
-    "viewVideo": "Ver Vídeo",
-    "companyUpdated": "Perfil da empresa atualizado com sucesso!",
-    "companyUpdateFailed": "Falha ao atualizar o perfil da empresa. Por favor, tente novamente."
-  }
+      "viewLogo": "Ver Logo",
+      "viewBanner": "Ver Banner",
+      "viewVideo": "Ver Vídeo",
+      "testsData": "Dados de Teste",
+      "tests": "Testes (JSONB)",
+      "testsHelp": "Digite formato JSON válido. Exemplo: {\"chave\": \"valor\"}",
+      "editingMode": "Editando Perfil da Empresa - Outras ações desabilitadas",
+      "editingInProgress": "Edição de perfil da empresa em andamento",
+      "editingNotice": "Outras ações do painel estão temporariamente desabilitadas. Salve ou cancele suas alterações para continuar.",
+      "noCompany": "Nenhuma Empresa Selecionada",
+      "noCompanyMessage": "Por favor selecione uma empresa no menu suspenso para visualizar o painel.",
+      "companyLoadFailed": "Falha ao carregar dados da empresa",
+      "noCompanyData": "Não há dados da empresa disponíveis",
+      "companyUpdated": "Perfil da empresa atualizado com sucesso!",
+      "companyUpdateFailed": "Falha ao atualizar o perfil da empresa. Por favor, tente novamente."
+    }
 }
 

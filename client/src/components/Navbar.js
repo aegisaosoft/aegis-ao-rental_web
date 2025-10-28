@@ -66,6 +66,11 @@ const Navbar = () => {
         localStorage.removeItem('selectedCompanyId');
       }
       
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('companyChanged', { 
+        detail: { companyId } 
+      }));
+      
       // Update URL with company filter for current page
       const params = new URLSearchParams(location.search);
       if (companyId) {

@@ -202,6 +202,26 @@ export const translatedApiService = {
     return translateResponse(response);
   },
 
+  getCompany: async (id) => {
+    const response = await apiService.getCompany(id);
+    return translateResponse(response);
+  },
+
+  updateCompany: async (id, data) => {
+    const response = await apiService.updateCompany(id, data);
+    return translateResponse(response);
+  },
+
+  createCompany: async (data) => {
+    const response = await apiService.createCompany(data);
+    return translateResponse(response);
+  },
+
+  deleteCompany: async (id) => {
+    const response = await apiService.deleteCompany(id);
+    return translateResponse(response);
+  },
+
   // Locations
   getLocations: async (params = {}) => {
     const response = await apiService.getLocations(params);
@@ -310,6 +330,31 @@ export const translatedApiService = {
   
   updateProfile: async (data) => {
     return await apiService.updateProfile(data);
+  },
+
+  // Media uploads (no translation needed for binary data)
+  uploadCompanyVideo: async (companyId, file, onProgress) => {
+    return await apiService.uploadCompanyVideo(companyId, file, onProgress);
+  },
+  
+  deleteCompanyVideo: async (companyId) => {
+    return await apiService.deleteCompanyVideo(companyId);
+  },
+  
+  uploadCompanyBanner: async (companyId, file, onProgress) => {
+    return await apiService.uploadCompanyBanner(companyId, file, onProgress);
+  },
+  
+  deleteCompanyBanner: async (companyId) => {
+    return await apiService.deleteCompanyBanner(companyId);
+  },
+  
+  uploadCompanyLogo: async (companyId, file, onProgress) => {
+    return await apiService.uploadCompanyLogo(companyId, file, onProgress);
+  },
+  
+  deleteCompanyLogo: async (companyId) => {
+    return await apiService.deleteCompanyLogo(companyId);
   }
 };
 

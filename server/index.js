@@ -138,6 +138,19 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Handle favicon requests gracefully
+app.get('/favicon.ico', (req, res) => {
+  const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+  
+  // Check if favicon exists
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    // Return 204 No Content if favicon doesn't exist
+    res.status(204).end();
+  }
+});
+
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, 'public')));
 

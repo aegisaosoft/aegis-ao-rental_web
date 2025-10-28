@@ -350,6 +350,16 @@
       "viewLogo": "Ver Logo",
       "viewBanner": "Ver Banner",
       "viewVideo": "Ver Video",
+      "testsData": "Datos de Prueba",
+      "tests": "Pruebas (JSONB)",
+      "testsHelp": "Ingrese formato JSON válido. Ejemplo: {\"clave\": \"valor\"}",
+      "editingMode": "Editando Perfil de Empresa - Otras acciones deshabilitadas",
+      "editingInProgress": "Edición de perfil de empresa en curso",
+      "editingNotice": "Otras acciones del panel están temporalmente deshabilitadas. Guarda o cancela tus cambios para continuar.",
+      "noCompany": "Ninguna Empresa Seleccionada",
+      "noCompanyMessage": "Por favor seleccione una empresa del menú desplegable para ver el panel.",
+      "companyLoadFailed": "Error al cargar datos de la empresa",
+      "noCompanyData": "No hay datos de empresa disponibles",
       "companyUpdated": "¡Perfil de empresa actualizado exitosamente!",
       "companyUpdateFailed": "Error al actualizar el perfil de la empresa. Por favor intenta de nuevo."
     }

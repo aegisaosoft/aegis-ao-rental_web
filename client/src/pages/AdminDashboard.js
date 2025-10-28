@@ -13,13 +13,14 @@
  *
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Car, Users, Calendar, DollarSign, TrendingUp, Building2, Save, X } from 'lucide-react';
+import { Car, Users, Calendar, DollarSign, TrendingUp, Building2, Save, X, LayoutDashboard } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
+import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -27,25 +28,99 @@ const AdminDashboard = () => {
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
+  const [currentCompanyId, setCurrentCompanyId] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState({
+    video: 0,
+    banner: 0,
+    logo: 0
+  });
+  const [isUploading, setIsUploading] = useState({
+    video: false,
+    banner: false,
+    logo: false
+  });
 
-  // Fetch company data
-  const { data: companyData, isLoading: isLoadingCompany } = useQuery(
-    ['company', user?.companyId],
-    () => apiService.getCompany(user?.companyId),
+  // Get company ID from user or localStorage
+  const getCompanyId = () => {
+    // First try user's companyId
+    if (user?.companyId) {
+      return user.companyId;
+    }
+    // Fallback to selected company from localStorage
+    const selectedCompanyId = localStorage.getItem('selectedCompanyId');
+    return selectedCompanyId || null;
+  };
+
+  // Initialize and watch for company changes
+  useEffect(() => {
+    const companyId = getCompanyId();
+    setCurrentCompanyId(companyId);
+
+    // Listen for storage changes (when company is changed in navbar)
+    const handleStorageChange = (e) => {
+      if (e.key === 'selectedCompanyId' || e.key === null) {
+        const newCompanyId = getCompanyId();
+        console.log('Company changed in storage:', newCompanyId);
+        setCurrentCompanyId(newCompanyId);
+        // Invalidate and refetch company data
+        queryClient.invalidateQueries(['company']);
+      }
+    };
+
+    // Listen for custom event (more reliable for same-tab changes)
+    const handleCompanyChange = (e) => {
+      const newCompanyId = getCompanyId();
+      console.log('Company changed via event:', newCompanyId);
+      setCurrentCompanyId(newCompanyId);
+      // Invalidate and refetch company data
+      queryClient.invalidateQueries(['company']);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('companyChanged', handleCompanyChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('companyChanged', handleCompanyChange);
+    };
+  }, [user, queryClient]);
+
+  // Fetch current user's company data
+  const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
+    ['company', currentCompanyId],
+    () => apiService.getCompany(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!user?.companyId,
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
       onSuccess: (data) => {
-        setCompanyFormData(data);
+        console.log('Company data loaded:', data);
+        console.log('Company data type:', typeof data);
+        console.log('Company data keys:', data ? Object.keys(data) : 'no data');
+        
+        // Handle both axios response format and direct data
+        const companyInfo = data?.data || data;
+        console.log('Processed company info:', companyInfo);
+        
+        setCompanyFormData(companyInfo);
+      },
+      onError: (error) => {
+        console.error('Error loading company:', error);
+        toast.error(t('admin.companyLoadFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
       }
     }
   );
 
+  // Check if currently editing - this will disable other actions
+  const isEditing = isEditingCompany;
+
   // Update company mutation
   const updateCompanyMutation = useMutation(
-    (data) => apiService.updateCompany(user?.companyId, data),
+    (data) => apiService.updateCompany(currentCompanyId, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries(['company', user?.companyId]);
+        queryClient.invalidateQueries(['company', currentCompanyId]);
         toast.success(t('admin.companyUpdated'), {
           position: 'top-center',
           autoClose: 3000,
@@ -53,11 +128,19 @@ const AdminDashboard = () => {
         setIsEditingCompany(false);
       },
       onError: (error) => {
-        toast.error(t('admin.companyUpdateFailed'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
         console.error('Error updating company:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Error message:', error.message);
+        
+        const errorMessage = error.response?.data?.message 
+          || error.response?.data 
+          || t('admin.companyUpdateFailed');
+          
+        toast.error(typeof errorMessage === 'string' ? errorMessage : t('admin.companyUpdateFailed'), {
+          position: 'top-center',
+          autoClose: 5000,
+        });
       }
     }
   );
@@ -88,42 +171,282 @@ const AdminDashboard = () => {
 
   const handleSaveCompany = async (e) => {
     e.preventDefault();
-    updateCompanyMutation.mutate(companyFormData);
+    
+    // Only send fields that the API expects (exclude read-only and navigation properties)
+    const updateData = {
+      companyName: companyFormData.companyName,
+      email: companyFormData.email || null,
+      phone: companyFormData.phone || null,
+      website: companyFormData.website || null,
+      address: companyFormData.address || null,
+      city: companyFormData.city || null,
+      state: companyFormData.state || null,
+      country: companyFormData.country || null,
+      postalCode: companyFormData.postalCode || null,
+      logoLink: companyFormData.logoLink || null,
+      bannerLink: companyFormData.bannerLink || null,
+      videoLink: companyFormData.videoLink || null,
+      invitation: companyFormData.invitation || null,
+      motto: companyFormData.motto || null,
+      mottoDescription: companyFormData.mottoDescription || null,
+      tests: companyFormData.tests || null
+    };
+    
+    // Auto-add https:// to URLs if missing
+    if (updateData.website && !updateData.website.match(/^https?:\/\//i)) {
+      updateData.website = 'https://' + updateData.website;
+    }
+    
+    if (updateData.logoLink && !updateData.logoLink.match(/^https?:\/\//i)) {
+      updateData.logoLink = 'https://' + updateData.logoLink;
+    }
+    
+    if (updateData.bannerLink && !updateData.bannerLink.match(/^https?:\/\//i)) {
+      updateData.bannerLink = 'https://' + updateData.bannerLink;
+    }
+    
+    if (updateData.videoLink && !updateData.videoLink.match(/^https?:\/\//i)) {
+      updateData.videoLink = 'https://' + updateData.videoLink;
+    }
+    
+    console.log('Sending update data:', updateData);
+    console.log('Update data stringified:', JSON.stringify(updateData, null, 2));
+    console.log('Current company ID:', currentCompanyId);
+    updateCompanyMutation.mutate(updateData);
   };
 
   const handleCancelEdit = () => {
-    setCompanyFormData(companyData);
+    // Handle both axios response format and direct data
+    const companyInfo = companyData?.data || companyData;
+    setCompanyFormData(companyInfo);
     setIsEditingCompany(false);
   };
 
+  // Video upload handler
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/webm', 'video/mkv'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a video file (MP4, AVI, MOV, WMV, WebM, MKV)');
+      return;
+    }
+
+    // Validate file size (500 MB)
+    if (file.size > 524_288_000) {
+      toast.error('File size exceeds 500 MB limit');
+      return;
+    }
+
+    setIsUploading(prev => ({ ...prev, video: true }));
+    setUploadProgress(prev => ({ ...prev, video: 0 }));
+
+    try {
+      const response = await apiService.uploadCompanyVideo(
+        currentCompanyId,
+        file,
+        (progress) => setUploadProgress(prev => ({ ...prev, video: progress }))
+      );
+
+      // Update company data with new video link
+      setCompanyFormData(prev => ({
+        ...prev,
+        videoLink: response.data.videoUrl
+      }));
+
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Video uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading video:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload video');
+    } finally {
+      setIsUploading(prev => ({ ...prev, video: false }));
+      setUploadProgress(prev => ({ ...prev, video: 0 }));
+      event.target.value = ''; // Reset file input
+    }
+  };
+
+  // Video delete handler
+  const handleVideoDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this video?')) {
+      return;
+    }
+
+    try {
+      await apiService.deleteCompanyVideo(currentCompanyId);
+
+      // Update company data
+      setCompanyFormData(prev => ({
+        ...prev,
+        videoLink: null
+      }));
+
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Video deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting video:', error);
+      toast.error('Failed to delete video');
+    }
+  };
+
+  // Banner upload handler
+  const handleBannerUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload an image file (JPG, PNG, GIF, WebP)');
+      return;
+    }
+
+    if (file.size > 10_485_760) {
+      toast.error('File size exceeds 10 MB limit');
+      return;
+    }
+
+    setIsUploading(prev => ({ ...prev, banner: true }));
+    setUploadProgress(prev => ({ ...prev, banner: 0 }));
+
+    try {
+      const response = await apiService.uploadCompanyBanner(
+        currentCompanyId,
+        file,
+        (progress) => setUploadProgress(prev => ({ ...prev, banner: progress }))
+      );
+
+      setCompanyFormData(prev => ({
+        ...prev,
+        bannerLink: response.data.bannerUrl
+      }));
+
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Banner uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading banner:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload banner');
+    } finally {
+      setIsUploading(prev => ({ ...prev, banner: false }));
+      setUploadProgress(prev => ({ ...prev, banner: 0 }));
+      event.target.value = '';
+    }
+  };
+
+  const handleBannerDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this banner?')) {
+      return;
+    }
+
+    try {
+      await apiService.deleteCompanyBanner(currentCompanyId);
+      setCompanyFormData(prev => ({ ...prev, bannerLink: null }));
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Banner deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting banner:', error);
+      toast.error('Failed to delete banner');
+    }
+  };
+
+  // Logo upload handler
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload an image file (JPG, PNG, SVG, WebP)');
+      return;
+    }
+
+    if (file.size > 5_242_880) {
+      toast.error('File size exceeds 5 MB limit');
+      return;
+    }
+
+    setIsUploading(prev => ({ ...prev, logo: true }));
+    setUploadProgress(prev => ({ ...prev, logo: 0 }));
+
+    try {
+      const response = await apiService.uploadCompanyLogo(
+        currentCompanyId,
+        file,
+        (progress) => setUploadProgress(prev => ({ ...prev, logo: progress }))
+      );
+
+      setCompanyFormData(prev => ({
+        ...prev,
+        logoLink: response.data.logoUrl
+      }));
+
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Logo uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload logo');
+    } finally {
+      setIsUploading(prev => ({ ...prev, logo: false }));
+      setUploadProgress(prev => ({ ...prev, logo: 0 }));
+      event.target.value = '';
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this logo?')) {
+      return;
+    }
+
+    try {
+      await apiService.deleteCompanyLogo(currentCompanyId);
+      setCompanyFormData(prev => ({ ...prev, logoLink: null }));
+      queryClient.invalidateQueries(['company', currentCompanyId]);
+      toast.success('Logo deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting logo:', error);
+      toast.error('Failed to delete logo');
+    }
+  };
+
+  // Extract actual company data from response
+  const actualCompanyData = companyData?.data || companyData;
+
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.pleaseLogin')}</h2>
-          <p className="text-gray-600">{t('admin.needLogin')}</p>
-        </div>
-      </div>
+      <PageContainer>
+        <EmptyState
+          title={t('admin.pleaseLogin')}
+          message={t('admin.needLogin')}
+        />
+      </PageContainer>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('admin.accessDenied')}</h2>
-          <p className="text-gray-600">{t('admin.noPermission')}</p>
-        </div>
-      </div>
+      <PageContainer>
+        <EmptyState
+          title={t('admin.accessDenied')}
+          message={t('admin.noPermission')}
+        />
+      </PageContainer>
+    );
+  }
+
+  if (!currentCompanyId) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title={t('admin.noCompany')}
+          message={t('admin.noCompanyMessage')}
+        />
+      </PageContainer>
     );
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text={t('common.loading')} />;
   }
 
   const stats = [
@@ -154,17 +477,21 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('admin.title')}</h1>
-          <p className="text-gray-600">{t('admin.welcome')}, {user?.firstName}!</p>
-        </div>
+    <PageContainer>
+      <PageHeader
+        title={t('admin.title')}
+        subtitle={
+          isEditing 
+            ? t('admin.editingMode') 
+            : `${t('admin.welcome')}, ${user?.firstName}!`
+        }
+        icon={<LayoutDashboard className="h-8 w-8" />}
+      />
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
           {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-md p-6">
+          <Card key={index}>
               <div className="flex items-center">
                 <div className={`p-3 rounded-full bg-gray-100 ${stat.color}`}>
                   <stat.icon className="h-6 w-6" />
@@ -174,33 +501,64 @@ const AdminDashboard = () => {
                   <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
                 </div>
               </div>
-            </div>
+          </Card>
           ))}
         </div>
 
-        {/* Company Profile Section */}
-        <div className="bg-white rounded-lg shadow-md mb-8">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <div className="flex items-center">
-              <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">{t('admin.companyProfile')}</h3>
+      {/* Editing Overlay Notice */}
+      {isEditing && (
+        <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
             </div>
-            {!isEditingCompany && (
-              <button
-                onClick={() => setIsEditingCompany(true)}
-                className="btn-primary text-sm"
-              >
-                {t('common.edit')}
-              </button>
-            )}
+            <div className="ml-3">
+              <p className="text-sm text-blue-700 font-medium">
+                {t('admin.editingInProgress')}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                {t('admin.editingNotice')}
+              </p>
+            </div>
           </div>
-          
-          <div className="p-6">
-            {isLoadingCompany ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            ) : isEditingCompany ? (
+        </div>
+      )}
+
+      {/* Company Profile Section */}
+      <Card
+        title={
+          <div className="flex items-center">
+            <Building2 className="h-6 w-6 text-blue-600 mr-2" />
+            <span>{t('admin.companyProfile')}</span>
+          </div>
+        }
+        headerActions={
+          !isEditingCompany && (
+            <button
+              onClick={() => setIsEditingCompany(true)}
+              className="btn-primary text-sm"
+            >
+              {t('common.edit')}
+            </button>
+          )
+        }
+        className="mb-8"
+      >
+          <div>
+          {isLoadingCompany ? (
+            <LoadingSpinner text={t('common.loading')} />
+          ) : companyError ? (
+            <div className="text-center py-8">
+              <p className="text-red-600 font-medium">{t('admin.companyLoadFailed')}</p>
+              <p className="text-sm text-gray-600 mt-2">{companyError.message}</p>
+            </div>
+          ) : !companyData ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">{t('admin.noCompanyData')}</p>
+            </div>
+          ) : isEditingCompany ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Basic Information */}
@@ -250,13 +608,16 @@ const AdminDashboard = () => {
                       {t('admin.website')}
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       name="website"
                       value={companyFormData.website || ''}
                       onChange={handleCompanyInputChange}
                       className="input-field"
-                      placeholder="https://example.com"
+                      placeholder="www.example.com or https://example.com"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Protocol (https://) will be added automatically if not provided
+                    </p>
                   </div>
 
                   {/* Address Information */}
@@ -332,46 +693,166 @@ const AdminDashboard = () => {
                     </h4>
                   </div>
 
+                  {/* Logo Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.logoLink')}
                     </label>
-                    <input
-                      type="url"
-                      name="logoLink"
-                      value={companyFormData.logoLink || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://example.com/logo.png"
-                    />
+                    {companyFormData.logoLink ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <img 
+                            src={companyFormData.logoLink} 
+                            alt="Logo" 
+                            className="h-20 w-20 object-contain border border-gray-300 rounded"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleLogoDelete}
+                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100"
+                          disabled={isUploading.logo}
+                        />
+                        {isUploading.logo && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress.logo}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.logo}%</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Max 5 MB (JPG, PNG, SVG, WebP)
+                        </p>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Banner Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.bannerLink')}
                     </label>
-                    <input
-                      type="url"
-                      name="bannerLink"
-                      value={companyFormData.bannerLink || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://example.com/banner.jpg"
-                    />
+                    {companyFormData.bannerLink ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <img 
+                            src={companyFormData.bannerLink} 
+                            alt="Banner" 
+                            className="h-20 w-40 object-cover border border-gray-300 rounded"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleBannerDelete}
+                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleBannerUpload}
+                          className="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100"
+                          disabled={isUploading.banner}
+                        />
+                        {isUploading.banner && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress.banner}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.banner}%</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Max 10 MB (JPG, PNG, GIF, WebP)
+                        </p>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Video Upload */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.videoLink')}
                     </label>
-                    <input
-                      type="url"
-                      name="videoLink"
-                      value={companyFormData.videoLink || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://youtube.com/watch?v=..."
-                    />
+                    {companyFormData.videoLink ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <video 
+                            src={companyFormData.videoLink} 
+                            className="h-32 w-56 border border-gray-300 rounded"
+                            controls
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVideoDelete}
+                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="file"
+                          accept="video/*"
+                          onChange={handleVideoUpload}
+                          className="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100"
+                          disabled={isUploading.video}
+                        />
+                        {isUploading.video && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress.video}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.video}%</p>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Max 500 MB (MP4, AVI, MOV, WMV, WebM, MKV)
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Marketing Content */}
@@ -422,6 +903,31 @@ const AdminDashboard = () => {
                       placeholder="New rental cars. No lines. Let's go!"
                     />
                   </div>
+
+                  {/* Tests JSONB field */}
+                  <div className="md:col-span-2">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
+                      {t('admin.testsData')}
+                    </h4>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.tests')}
+                      <span className="text-xs text-gray-500 ml-2">(JSON format)</span>
+                    </label>
+                    <textarea
+                      name="tests"
+                      value={companyFormData.tests || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                      rows="4"
+                      placeholder='{"key1": "value1", "key2": "value2"}'
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t('admin.testsHelp')}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -449,25 +955,25 @@ const AdminDashboard = () => {
                 {/* Display Mode */}
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.companyName')}</p>
-                  <p className="text-base text-gray-900">{companyData?.companyName || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.companyName || '-'}</p>
                 </div>
 
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.email')}</p>
-                  <p className="text-base text-gray-900">{companyData?.email || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.email || '-'}</p>
                 </div>
 
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.phone')}</p>
-                  <p className="text-base text-gray-900">{companyData?.phone || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.phone || '-'}</p>
                 </div>
 
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.website')}</p>
                   <p className="text-base text-gray-900">
-                    {companyData?.website ? (
-                      <a href={companyData.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {companyData.website}
+                    {actualCompanyData?.website ? (
+                      <a href={actualCompanyData.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {actualCompanyData.website}
                       </a>
                     ) : '-'}
                   </p>
@@ -476,7 +982,7 @@ const AdminDashboard = () => {
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium text-gray-600">{t('admin.address')}</p>
                   <p className="text-base text-gray-900">
-                    {[companyData?.address, companyData?.city, companyData?.state, companyData?.postalCode, companyData?.country]
+                    {[actualCompanyData?.address, actualCompanyData?.city, actualCompanyData?.state, actualCompanyData?.postalCode, actualCompanyData?.country]
                       .filter(Boolean)
                       .join(', ') || '-'}
                   </p>
@@ -488,17 +994,34 @@ const AdminDashboard = () => {
 
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium text-gray-600">{t('admin.invitation')}</p>
-                  <p className="text-base text-gray-900">{companyData?.invitation || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.invitation || '-'}</p>
                 </div>
 
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.motto')}</p>
-                  <p className="text-base text-gray-900">{companyData?.motto || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.motto || '-'}</p>
                 </div>
 
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.mottoDescription')}</p>
-                  <p className="text-base text-gray-900">{companyData?.mottoDescription || '-'}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.mottoDescription || '-'}</p>
+                </div>
+
+                <div className="md:col-span-2 pt-4 border-t border-gray-200">
+                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.testsData')}</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <p className="text-sm font-medium text-gray-600">{t('admin.tests')}</p>
+                  <pre className="text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto">
+                    {actualCompanyData?.tests ? (() => {
+                      try {
+                        return JSON.stringify(JSON.parse(actualCompanyData.tests), null, 2);
+                      } catch (e) {
+                        return actualCompanyData.tests;
+                      }
+                    })() : '-'}
+                  </pre>
                 </div>
 
                 <div className="md:col-span-2 pt-4 border-t border-gray-200">
@@ -508,8 +1031,8 @@ const AdminDashboard = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.logoLink')}</p>
                   <p className="text-base text-gray-900">
-                    {companyData?.logoLink ? (
-                      <a href={companyData.logoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    {actualCompanyData?.logoLink ? (
+                      <a href={actualCompanyData.logoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {t('admin.viewLogo')}
                       </a>
                     ) : '-'}
@@ -519,8 +1042,8 @@ const AdminDashboard = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.bannerLink')}</p>
                   <p className="text-base text-gray-900">
-                    {companyData?.bannerLink ? (
-                      <a href={companyData.bannerLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    {actualCompanyData?.bannerLink ? (
+                      <a href={actualCompanyData.bannerLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {t('admin.viewBanner')}
                       </a>
                     ) : '-'}
@@ -530,25 +1053,21 @@ const AdminDashboard = () => {
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium text-gray-600">{t('admin.videoLink')}</p>
                   <p className="text-base text-gray-900">
-                    {companyData?.videoLink ? (
-                      <a href={companyData.videoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    {actualCompanyData?.videoLink ? (
+                      <a href={actualCompanyData.videoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         {t('admin.viewVideo')}
                       </a>
                     ) : '-'}
                   </p>
                 </div>
               </div>
-            )}
-          </div>
+          )}
         </div>
+      </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
           {/* Recent Vehicles */}
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">{t('vehicles.title')}</h3>
-            </div>
-            <div className="p-6">
+        <Card title={t('vehicles.title')}>
               {dashboardData?.recentVehicles?.length > 0 ? (
                 <div className="space-y-4">
                   {dashboardData.recentVehicles.slice(0, 5).map((vehicle) => (
@@ -575,17 +1094,12 @@ const AdminDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
+              <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
               )}
-            </div>
-          </div>
+        </Card>
 
           {/* Recent Reservations */}
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">{t('admin.recentActivity')}</h3>
-            </div>
-            <div className="p-6">
+        <Card title={t('admin.recentActivity')}>
               {dashboardData?.recentReservations?.length > 0 ? (
                 <div className="space-y-4">
                   {dashboardData.recentReservations.slice(0, 5).map((reservation) => (
@@ -617,32 +1131,29 @@ const AdminDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-4">{t('myBookings.noBookings')}</p>
+              <p className="text-gray-500 text-center py-4">{t('myBookings.noBookings')}</p>
               )}
-            </div>
-          </div>
+        </Card>
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('admin.quickActions')}</h3>
+      <Card title={t('admin.quickActions')} className={`mt-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="btn-primary flex items-center justify-center">
+            <button className="btn-primary flex items-center justify-center" disabled={isEditing}>
               <Car className="h-4 w-4 mr-2" />
               {t('admin.addVehicle')}
             </button>
-            <button className="btn-outline flex items-center justify-center">
+            <button className="btn-outline flex items-center justify-center" disabled={isEditing}>
               <Users className="h-4 w-4 mr-2" />
               {t('admin.manageUsers')}
             </button>
-            <button className="btn-secondary flex items-center justify-center">
+          <button className="btn-secondary flex items-center justify-center" disabled={isEditing}>
               <TrendingUp className="h-4 w-4 mr-2" />
-              {t('admin.viewReports')}
+            {t('admin.viewReports')}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+      </Card>
+    </PageContainer>
   );
 };
 

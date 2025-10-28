@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
 
 const MyBookings = () => {
   const { t } = useTranslation();
@@ -60,55 +61,53 @@ const MyBookings = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('myBookings.pleaseLogin')}</h2>
-          <p className="text-gray-600">{t('myBookings.needLogin')}</p>
-        </div>
-      </div>
+      <PageContainer>
+        <EmptyState
+          icon={<Car className="h-16 w-16" />}
+          title={t('myBookings.pleaseLogin')}
+          message={t('myBookings.needLogin')}
+        />
+      </PageContainer>
     );
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text={t('common.loading')} />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('myBookings.errorLoading')}</h2>
-          <p className="text-gray-600">{t('myBookings.tryAgainLater')}</p>
-        </div>
-      </div>
+      <PageContainer>
+        <EmptyState
+          title={t('myBookings.errorLoading')}
+          message={t('myBookings.tryAgainLater')}
+        />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('myBookings.title')}</h1>
-          <p className="text-gray-600">{t('myBookings.subtitle')}</p>
-        </div>
+    <PageContainer>
+      <PageHeader
+        title={t('myBookings.title')}
+        subtitle={t('myBookings.subtitle')}
+        icon={<Calendar className="h-8 w-8" />}
+      />
 
-        {!bookings || bookings.length === 0 ? (
-          <div className="text-center py-12">
-            <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('myBookings.noBookings')}</h3>
-            <p className="text-gray-600 mb-4">{t('myBookings.noBookingsDesc')}</p>
-            <a href="/vehicles" className="btn-primary">
-              {t('myBookings.browseVehicles')}
-            </a>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {bookings.map((booking) => (
-              <div key={booking.reservation_id} className="bg-white rounded-lg shadow-md p-6">
+      {!bookings || bookings.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<Car className="h-16 w-16" />}
+            title={t('myBookings.noBookings')}
+            message={t('myBookings.noBookingsDesc')}
+            actionText={t('myBookings.browseVehicles')}
+            actionLink="/vehicles"
+          />
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {bookings.map((booking) => (
+            <Card key={booking.reservation_id}>
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-4">
@@ -164,12 +163,11 @@ const MyBookings = () => {
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PageContainer>
   );
 };
 

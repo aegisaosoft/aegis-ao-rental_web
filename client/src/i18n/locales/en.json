@@ -350,6 +350,16 @@
       "viewLogo": "View Logo",
       "viewBanner": "View Banner",
       "viewVideo": "View Video",
+      "testsData": "Test Data",
+      "tests": "Tests (JSONB)",
+      "testsHelp": "Enter valid JSON format. Example: {\"key\": \"value\"}",
+      "editingMode": "Editing Company Profile - Other actions disabled",
+      "editingInProgress": "Company profile editing in progress",
+      "editingNotice": "Other dashboard actions are temporarily disabled. Please save or cancel your changes to continue.",
+      "noCompany": "No Company Selected",
+      "noCompanyMessage": "Please select a company from the dropdown to view the dashboard.",
+      "companyLoadFailed": "Failed to load company data",
+      "noCompanyData": "No company data available",
       "companyUpdated": "Company profile updated successfully!",
       "companyUpdateFailed": "Failed to update company profile. Please try again."
     }
