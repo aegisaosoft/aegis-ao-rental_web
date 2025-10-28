@@ -2,9 +2,9 @@
   "name": "aegis-ao-rental-app",
   "version": "1.0.1",
   "description": "Car rental application with React frontend and Node.js backend",
-  "main": "server/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
+    "start": "node index.js",
     "build": "cd client && npm run build",
     "install-client": "cd client && npm install",
     "build-client": "cd client && npm run build",
