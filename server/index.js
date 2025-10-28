@@ -47,12 +47,14 @@ app.use(helmet({
         "https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net",
         "https://*.azurewebsites.net",
         "https://localhost:5000",
-        "http://localhost:5000"
+        "http://localhost:5000",
+        "https://fonts.googleapis.com"
       ],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "data:"]
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"]
     }
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }
