@@ -117,13 +117,13 @@ app.use((err, req, res, next) => {
 });
 
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, '../client/build')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Server start
