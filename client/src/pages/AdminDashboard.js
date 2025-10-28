@@ -310,20 +310,25 @@ const AdminDashboard = () => {
     const updateData = {
       companyName: companyFormData.companyName,
       email: companyFormData.email || null,
-      phone: companyFormData.phone || null,
       website: companyFormData.website || null,
-      address: companyFormData.address || null,
-      city: companyFormData.city || null,
-      state: companyFormData.state || null,
-      country: companyFormData.country || null,
-      postalCode: companyFormData.postalCode || null,
+      taxId: companyFormData.taxId || null,
       logoLink: companyFormData.logoLink || null,
       bannerLink: companyFormData.bannerLink || null,
       videoLink: companyFormData.videoLink || null,
       invitation: companyFormData.invitation || null,
       motto: companyFormData.motto || null,
       mottoDescription: companyFormData.mottoDescription || null,
-      tests: companyFormData.tests || null
+      tests: companyFormData.tests || null,
+      backgroundLink: companyFormData.backgroundLink || null,
+      about: companyFormData.about || null,
+      bookingIntegrated: companyFormData.bookingIntegrated || null,
+      companyPath: companyFormData.companyPath || null,
+      subdomain: companyFormData.subdomain || null,
+      primaryColor: companyFormData.primaryColor || null,
+      secondaryColor: companyFormData.secondaryColor || null,
+      logoUrl: companyFormData.logoUrl || null,
+      faviconUrl: companyFormData.faviconUrl || null,
+      customCss: companyFormData.customCss || null
     };
     
     // Auto-add https:// to URLs if missing
@@ -878,19 +883,6 @@ const AdminDashboard = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.phone')}
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={companyFormData.phone || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.website')}
                     </label>
                     <input
@@ -906,67 +898,14 @@ const AdminDashboard = () => {
                     </p>
                   </div>
 
-                  {/* Address Information */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.address')}
+                      {t('admin.taxId')}
                     </label>
                     <input
                       type="text"
-                      name="address"
-                      value={companyFormData.address || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.city')}
-                    </label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={companyFormData.city || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.state')}
-                    </label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={companyFormData.state || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.country')}
-                    </label>
-                    <input
-                      type="text"
-                      name="country"
-                      value={companyFormData.country || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.postalCode')}
-                    </label>
-                    <input
-                      type="text"
-                      name="postalCode"
-                      value={companyFormData.postalCode || ''}
+                      name="taxId"
+                      value={companyFormData.taxId || ''}
                       onChange={handleCompanyInputChange}
                       className="input-field"
                     />
@@ -1749,11 +1688,6 @@ const AdminDashboard = () => {
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.phone')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.phone || '-'}</p>
-                </div>
-
-                <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.website')}</p>
                   <p className="text-base text-gray-900">
                     {actualCompanyData?.website ? (
@@ -1765,12 +1699,8 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.address')}</p>
-                  <p className="text-base text-gray-900">
-                    {[actualCompanyData?.address, actualCompanyData?.city, actualCompanyData?.state, actualCompanyData?.postalCode, actualCompanyData?.country]
-                      .filter(Boolean)
-                      .join(', ') || '-'}
-                  </p>
+                  <p className="text-sm font-medium text-gray-600">{t('admin.taxId')}</p>
+                  <p className="text-base text-gray-900">{actualCompanyData?.taxId || '-'}</p>
                 </div>
 
                 <div className="md:col-span-2 pt-4 border-t border-gray-200">
