@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Car, Users, Calendar, DollarSign, TrendingUp, Building2, Save, X, LayoutDashboard } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -693,33 +693,6 @@ const AdminDashboard = () => {
     return <LoadingSpinner fullScreen text={t('common.loading')} />;
   }
 
-  const stats = [
-    {
-      name: t('admin.stats.totalVehicles'),
-      value: dashboardData?.recentVehicles?.length || 0,
-      icon: Car,
-      color: 'text-blue-600'
-    },
-    {
-      name: t('admin.stats.activeReservations'),
-      value: dashboardData?.recentReservations?.length || 0,
-      icon: Calendar,
-      color: 'text-green-600'
-    },
-    {
-      name: t('admin.stats.totalCustomers'),
-      value: dashboardData?.recentCustomers?.length || 0,
-      icon: Users,
-      color: 'text-purple-600'
-    },
-    {
-      name: t('admin.stats.revenue'),
-      value: '$0',
-      icon: DollarSign,
-      color: 'text-yellow-600'
-    }
-  ];
-
   return (
     <PageContainer>
       <PageHeader
@@ -731,23 +704,6 @@ const AdminDashboard = () => {
         }
         icon={<LayoutDashboard className="h-8 w-8" />}
       />
-
-        {/* Stats Grid */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
-          {stats.map((stat, index) => (
-          <Card key={index}>
-              <div className="flex items-center">
-                <div className={`p-3 rounded-full bg-gray-100 ${stat.color}`}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
-                </div>
-              </div>
-          </Card>
-          ))}
-        </div>
 
       {/* Editing Overlay Notice */}
       {isEditing && (
