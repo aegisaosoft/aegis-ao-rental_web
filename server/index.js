@@ -20,6 +20,8 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const axios = require('axios');
+const https = require('https');
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
@@ -129,11 +131,28 @@ app.get('*', (req, res) => {
 // Server start
 const startServer = async () => {
   try {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-      console.log(`API Base URL: ${process.env.API_BASE_URL}`);
-    });
+    const useHTTPS = process.env.USE_HTTPS === 'true' || process.env.NODE_ENV === 'development';
+    
+    if (useHTTPS && fs.existsSync(path.join(__dirname, '../certs/server.crt'))) {
+      // HTTPS server
+      const httpsOptions = {
+        cert: fs.readFileSync(path.join(__dirname, '../certs/server.crt')),
+        key: fs.readFileSync(path.join(__dirname, '../certs/server.key'))
+      };
+      
+      https.createServer(httpsOptions, app).listen(PORT, () => {
+        console.log(`HTTPS Server running on https://localhost:${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV}`);
+        console.log(`API Base URL: ${process.env.API_BASE_URL}`);
+      });
+    } else {
+      // HTTP server
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV}`);
+        console.log(`API Base URL: ${process.env.API_BASE_URL}`);
+      });
+    }
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
