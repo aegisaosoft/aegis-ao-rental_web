@@ -318,7 +318,7 @@ const AdminDashboard = () => {
       invitation: companyFormData.invitation || null,
       motto: companyFormData.motto || null,
       mottoDescription: companyFormData.mottoDescription || null,
-      tests: companyFormData.tests || null,
+      texts: companyFormData.texts || null,
       backgroundLink: companyFormData.backgroundLink || null,
       about: companyFormData.about || null,
       bookingIntegrated: companyFormData.bookingIntegrated || null,
@@ -713,7 +713,7 @@ const AdminDashboard = () => {
               <svg className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
-            </div>
+        </div>
             <div className="ml-3">
               <p className="text-sm text-blue-700 font-medium">
                 {t('admin.editingInProgress')}
@@ -729,10 +729,10 @@ const AdminDashboard = () => {
       {/* Company Profile Section */}
       <Card
         title={
-          <div className="flex items-center">
+              <div className="flex items-center">
             <Building2 className="h-6 w-6 text-blue-600 mr-2" />
             <span>{t('admin.companyProfile')}</span>
-          </div>
+                </div>
         }
         headerActions={
           !isEditingCompany && (
@@ -753,11 +753,11 @@ const AdminDashboard = () => {
             <div className="text-center py-8">
               <p className="text-red-600 font-medium">{t('admin.companyLoadFailed')}</p>
               <p className="text-sm text-gray-600 mt-2">{companyError.message}</p>
-            </div>
+                </div>
           ) : !companyData ? (
             <div className="text-center py-8">
               <p className="text-gray-600">{t('admin.noCompanyData')}</p>
-            </div>
+              </div>
           ) : isEditingCompany ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
                 {/* Tab Navigation */}
@@ -803,7 +803,7 @@ const AdminDashboard = () => {
                       {t('admin.locations')}
                     </button>
                   </nav>
-                </div>
+            </div>
 
                 {/* Company Info Tab */}
                 {activeTab === 'info' && (
@@ -821,7 +821,7 @@ const AdminDashboard = () => {
                       className="input-field"
                       required
                     />
-                  </div>
+        </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -835,7 +835,7 @@ const AdminDashboard = () => {
                       className="input-field"
                       required
                     />
-                  </div>
+            </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1085,28 +1085,28 @@ const AdminDashboard = () => {
                     />
                   </div>
 
-                  {/* Tests JSONB field */}
+                  {/* Texts JSONB field */}
                   <div className="md:col-span-2">
                     <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
-                      {t('admin.testsData')}
+                      {t('admin.textsData')}
                     </h4>
                   </div>
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.tests')}
+                      {t('admin.texts')}
                       <span className="text-xs text-gray-500 ml-2">(JSON format)</span>
                     </label>
                     <textarea
-                      name="tests"
-                      value={companyFormData.tests || ''}
+                      name="texts"
+                      value={companyFormData.texts || ''}
                       onChange={handleCompanyInputChange}
                       className="input-field"
                       rows="4"
                       placeholder='{"key1": "value1", "key2": "value2"}'
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {t('admin.testsHelp')}
+                      {t('admin.textsHelp')}
                     </p>
                   </div>
 
@@ -1679,17 +1679,17 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.testsData')}</p>
+                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.textsData')}</p>
                 </div>
 
                 <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.tests')}</p>
+                  <p className="text-sm font-medium text-gray-600">{t('admin.texts')}</p>
                   <pre className="text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto">
-                    {actualCompanyData?.tests ? (() => {
+                    {actualCompanyData?.texts ? (() => {
                       try {
-                        return JSON.stringify(JSON.parse(actualCompanyData.tests), null, 2);
+                        return JSON.stringify(JSON.parse(actualCompanyData.texts), null, 2);
                       } catch (e) {
-                        return actualCompanyData.tests;
+                        return actualCompanyData.texts;
                       }
                     })() : '-'}
                   </pre>
