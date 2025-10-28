@@ -1,0 +1,13 @@
+Deployment Information
+======================
+Version: 1.0.1
+Deployed: 2025-10-28
+Changes:
+- Increased API timeout to 30 seconds for cold starts
+- Fixed AdminDashboard React hooks warning
+- Added company profile editor
+- Added internationalization (ES/PT)
+- Fixed client API to use relative paths
+
+This file is included to verify deployment freshness.
+

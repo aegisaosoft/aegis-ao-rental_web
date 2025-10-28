@@ -1,6 +1,6 @@
 {
   "name": "aegis-ao-rental-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Car rental application with React frontend and Node.js backend",
   "main": "server/index.js",
   "scripts": {
