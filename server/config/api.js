@@ -16,7 +16,7 @@
 const axios = require('axios');
 const https = require('https');
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://localhost:7163';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
