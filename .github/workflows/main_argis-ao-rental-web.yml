@@ -62,6 +62,12 @@ jobs:
         with:
           name: node-app
       
+      - name: Install dependencies for deployment
+        run: |
+          npm install
+          cd server
+          npm install
+      
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
