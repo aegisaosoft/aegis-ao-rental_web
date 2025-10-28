@@ -37,8 +37,26 @@ const mockRoutes = require('./routes/mock');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware with CSP
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        "https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net",
+        "https://*.azurewebsites.net",
+        "https://localhost:5000",
+        "http://localhost:5000"
+      ],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "data:"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(compression());
 
 // Rate limiting (disabled for development)
