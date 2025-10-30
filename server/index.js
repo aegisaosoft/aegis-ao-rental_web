@@ -69,11 +69,7 @@ app.use(helmet({
 app.use(compression());
 
 // Enable cross-origin isolation for WebAssembly-based SDKs (BlinkID)
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
+// Note: COOP/COEP disabled to allow cross-origin QR images to render in the modal
 
 // Rate limiting (disabled for development)
 const limiter = rateLimit({
