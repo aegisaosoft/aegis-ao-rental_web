@@ -69,6 +69,9 @@ app.use(helmet({
 }));
 app.use(compression());
 
+// Behind reverse proxy (Azure, etc.) so Express should trust X-Forwarded-* headers
+app.set('trust proxy', 1);
+
 // Enable cross-origin isolation for WebAssembly-based SDKs (BlinkID)
 // Note: COOP/COEP disabled to allow cross-origin QR images to render in the modal
 
