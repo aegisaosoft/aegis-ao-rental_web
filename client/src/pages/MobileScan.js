@@ -10,6 +10,7 @@ const MobileScan = () => {
   const location = useLocation();
   const [status, setStatus] = useState('ready');
   const [capturedDataUrl, setCapturedDataUrl] = useState('');
+  const [videoReady, setVideoReady] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
@@ -79,7 +80,17 @@ const MobileScan = () => {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
-        await videoRef.current.play().catch(() => {});
+        // Wait for metadata to ensure videoWidth/Height are known
+        await new Promise((resolve) => {
+          const onReady = () => {
+            setVideoReady(true);
+            resolve();
+          };
+          videoRef.current.addEventListener('loadedmetadata', onReady, { once: true });
+          // Fallback timeout in case event doesn't fire
+          setTimeout(() => resolve(), 1500);
+          videoRef.current.play().catch(() => {});
+        });
       }
       setStatus('camera');
     } catch (err) {
@@ -149,6 +160,7 @@ const MobileScan = () => {
         s.getTracks().forEach(t => t.stop());
         streamRef.current = null;
       }
+      setVideoReady(false);
     } catch {}
   };
 
@@ -192,7 +204,7 @@ const MobileScan = () => {
           <div>
             <video ref={videoRef} playsInline autoPlay muted className="w-full rounded mb-3" />
             <div className="flex gap-2">
-              <button onClick={captureFrame} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Capture</button>
+              <button onClick={captureFrame} disabled={!videoReady} className={`flex-1 py-2 rounded-md font-semibold ${videoReady ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'}`}>{videoReady ? 'Capture' : 'Preparing camera...'}</button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Continue</button>
             </div>
           </div>
