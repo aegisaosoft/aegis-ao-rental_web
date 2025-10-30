@@ -43,6 +43,7 @@ import MobileHome from './pages/MobileHome';
 import MobileVehicles from './pages/MobileVehicles';
 import MobileBooking from './pages/MobileBooking';
 import MobileMyBookings from './pages/MobileMyBookings';
+import DriverLicenseScanner from './pages/DriverLicenseScanner';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
@@ -120,6 +121,7 @@ function App() {
                 <Route path="/m/vehicles" element={<MobileVehicles />} />
                 <Route path="/m/booking" element={<MobileBooking />} />
                 <Route path="/m/my-bookings" element={<MobileMyBookings />} />
+                <Route path="/dl-scan" element={<DriverLicenseScanner />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
