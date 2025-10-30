@@ -44,6 +44,61 @@ const Home = () => {
       enabled: true // Always fetch, even if companyId is empty
     }
   );
+
+  // Fetch available vehicles for the current company to count by model
+  const { data: vehiclesResponse } = useQuery(
+    ['vehicles', selectedCompanyId, 'available'],
+    () => apiService.getVehicles({
+      companyId: selectedCompanyId,
+      status: 'Available',
+      pageSize: 10000 // Get all available vehicles
+    }),
+    {
+      enabled: !!selectedCompanyId,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+  
+  // Create a map of vehicle counts by make and model
+  const vehicleCountByModel = useMemo(() => {
+    const countMap = {};
+    const vehiclesData = vehiclesResponse?.data || vehiclesResponse;
+    
+    // Extract vehicles array (handle different response structures)
+    let vehicles = [];
+    if (vehiclesData && typeof vehiclesData === 'object') {
+      if (vehiclesData.Vehicles) {
+        vehicles = vehiclesData.Vehicles;
+      } else if (vehiclesData.vehicles) {
+        vehicles = vehiclesData.vehicles;
+      } else if (vehiclesData.data && vehiclesData.data.Vehicles) {
+        vehicles = vehiclesData.data.Vehicles;
+      } else if (vehiclesData.data && vehiclesData.data.vehicles) {
+        vehicles = vehiclesData.data.vehicles;
+      } else if (Array.isArray(vehiclesData)) {
+        vehicles = vehiclesData;
+      } else if (vehiclesData.data && Array.isArray(vehiclesData.data)) {
+        vehicles = vehiclesData.data;
+      } else if (vehiclesData.items && Array.isArray(vehiclesData.items)) {
+        vehicles = vehiclesData.items;
+      }
+    } else if (Array.isArray(vehiclesData)) {
+      vehicles = vehiclesData;
+    }
+    
+    // Count vehicles by make and model (case-insensitive, spaces normalized to underscores)
+    vehicles.forEach(vehicle => {
+      const make = (vehicle.make || vehicle.Make || '').toUpperCase();
+      const model = (vehicle.model || vehicle.Model || '').toUpperCase().replace(/\s+/g, '_');
+      if (make && model) {
+        const key = `${make}_${model}`;
+        countMap[key] = (countMap[key] || 0) + 1;
+      }
+    });
+    
+    return countMap;
+  }, [vehiclesResponse]);
   
   // Debug logging
   useEffect(() => {
@@ -331,10 +386,27 @@ const Home = () => {
                           return acc;
                         }, {});
                         
-                        const groupedModels = Object.values(grouped).map(group => ({
-                          ...group,
-                          years: group.years.sort((a, b) => b - a) // Sort years descending
-                        }));
+                        const groupedModels = Object.values(grouped)
+                          .map(group => ({
+                            ...group,
+                            years: group.years.sort((a, b) => b - a) // Sort years descending
+                          }))
+                          .filter(group => {
+                            // If company is selected, only show models with available vehicles
+                            if (selectedCompanyId) {
+                              const makeUpper = (group.make || '').toUpperCase();
+                              const modelKey = `${makeUpper}_${group.modelName.toUpperCase().replace(/\s+/g, '_')}`;
+                              const vehicleCount = vehicleCountByModel[modelKey] || 0;
+                              return vehicleCount > 0;
+                            }
+                            // If no company selected, show all models
+                            return true;
+                          });
+                        
+                        // Don't show category if no models are available
+                        if (groupedModels.length === 0 && selectedCompanyId) {
+                          return null;
+                        }
                         
                         return (
                           <div className="overflow-x-auto pb-4 -mx-4 px-4 model-cards-scroll">
@@ -351,6 +423,10 @@ const Home = () => {
                               const modelUpper = (group.modelName || '').toUpperCase().replace(/\s+/g, '_');
                               const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
                               
+                              // Get vehicle count for this model (normalize spaces to underscores)
+                              const modelKey = `${makeUpper}_${group.modelName.toUpperCase().replace(/\s+/g, '_')}`;
+                              const vehicleCount = vehicleCountByModel[modelKey] || 0;
+                              
                               return (
                                 <div key={`${group.make}_${group.modelName}_${index}`} className="vehicle-card flex-shrink-0" style={{ width: '320px', minWidth: '320px' }}>
                                   <div className="relative">
@@ -360,12 +436,24 @@ const Home = () => {
                                       className="vehicle-image"
                                       onError={(e) => {
                                         // Fallback to category default image if model-specific image doesn't exist
-                                        e.target.src = defaultImage;
+                                        // Only change if it's not already the default to prevent infinite loops
+                                        if (e.target.src !== window.location.origin + defaultImage) {
+                                          e.target.src = defaultImage;
+                                        }
+                                      }}
+                                      onLoad={(e) => {
+                                        // If image fails to load, the onError will handle it
+                                        // This ensures the image loads correctly
                                       }}
                                     />
                                     {group.dailyRate && (
                                       <div className="absolute top-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-semibold">
                                         ${parseFloat(group.dailyRate).toFixed(2)}/day
+                                      </div>
+                                    )}
+                                    {selectedCompanyId && vehicleCount > 0 && (
+                                      <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                        {vehicleCount} available
                                       </div>
                                     )}
                                   </div>
@@ -447,15 +535,27 @@ const Home = () => {
                           const make = (model.make || '').toUpperCase();
                           const modelName = (model.modelName || model.model_name || '').toUpperCase();
                           const key = `${make}_${modelName}`;
-                          if (!acc[key]) acc[key] = true;
+                          if (!acc[key]) {
+                            acc[key] = { make, modelName };
+                          }
                           return acc;
                         }, {});
-                        const uniqueModelsCount = Object.keys(grouped).length;
+                        
+                        // Filter to only count models with available vehicles if company is selected
+                        let uniqueModels = Object.values(grouped);
+                        if (selectedCompanyId) {
+                          uniqueModels = uniqueModels.filter(({ make, modelName }) => {
+                            const modelKey = `${make}_${modelName.toUpperCase().replace(/\s+/g, '_')}`;
+                            const vehicleCount = vehicleCountByModel[modelKey] || 0;
+                            return vehicleCount > 0;
+                          });
+                        }
+                        const uniqueModelsCount = uniqueModels.length;
                         
                         return uniqueModelsCount > 6 && (
                           <div className="text-center pt-4">
                             <Link
-                              to={`/vehicles?category=${categoryId}`}
+                              to={`/vehicles?category=${categoryId}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
                               className="text-yellow-500 hover:text-yellow-600 font-semibold inline-flex items-center text-lg"
                             >
                               View All {uniqueModelsCount} {categoryName} Models

@@ -126,9 +126,16 @@ const Booking = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Vehicle Details</h3>
                   <div className="flex items-center space-x-4">
                     <img
-                      src={vehicle.image_url || '/economy.jpg'}
+                      src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
                       alt={`${vehicle.make} ${vehicle.model}`}
                       className="w-20 h-15 object-cover rounded"
+                      onError={(e) => {
+                        // Fallback to vehicle image_url or economy.jpg
+                        const fallback = vehicle.image_url || '/economy.jpg';
+                        if (!e.target.src.includes(fallback.replace('/', ''))) {
+                          e.target.src = fallback;
+                        }
+                      }}
                     />
                     <div>
                       <h4 className="font-semibold text-gray-900">

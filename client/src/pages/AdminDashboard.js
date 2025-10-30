@@ -1744,9 +1744,16 @@ const AdminDashboard = () => {
                   {dashboardData.recentVehicles.slice(0, 5).map((vehicle) => (
                     <div key={vehicle.vehicle_id} className="flex items-center space-x-4">
                       <img
-                        src={vehicle.image_url || '/economy.jpg'}
+                        src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
                         alt={`${vehicle.make} ${vehicle.model}`}
                         className="w-15 h-11 object-cover rounded"
+                        onError={(e) => {
+                          // Fallback to vehicle image_url or economy.jpg
+                          const fallback = vehicle.image_url || '/economy.jpg';
+                          if (!e.target.src.includes(fallback.replace('/', ''))) {
+                            e.target.src = fallback;
+                          }
+                        }}
                       />
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900">

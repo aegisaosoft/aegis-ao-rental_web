@@ -132,9 +132,16 @@ const VehicleDetail = () => {
           {/* Vehicle Image */}
           <div>
             <img
-              src={vehicle.image_url || '/economy.jpg'}
+              src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
               alt={`${vehicle.make} ${vehicle.model}`}
               className="w-full h-96 object-cover rounded-lg shadow-lg"
+              onError={(e) => {
+                // Fallback to vehicle image_url or economy.jpg
+                const fallback = vehicle.image_url || '/economy.jpg';
+                if (!e.target.src.includes(fallback.replace('/', ''))) {
+                  e.target.src = fallback;
+                }
+              }}
             />
           </div>
 

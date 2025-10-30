@@ -37,6 +37,12 @@ import MyBookings from './pages/MyBookings';
 import AdminDashboard from './pages/AdminDashboard';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
+import ScanLicense from './pages/ScanLicense';
+import MobileScan from './pages/MobileScan';
+import MobileHome from './pages/MobileHome';
+import MobileVehicles from './pages/MobileVehicles';
+import MobileBooking from './pages/MobileBooking';
+import MobileMyBookings from './pages/MobileMyBookings';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
@@ -108,6 +114,12 @@ function App() {
                 <Route path="/my-bookings" element={<MyBookings />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/settings" element={<Settings />} />
+              <Route path="/scan" element={<ScanLicense />} />
+                <Route path="/scan-mobile" element={<MobileScan />} />
+                <Route path="/m" element={<MobileHome />} />
+                <Route path="/m/vehicles" element={<MobileVehicles />} />
+                <Route path="/m/booking" element={<MobileBooking />} />
+                <Route path="/m/my-bookings" element={<MobileMyBookings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

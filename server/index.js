@@ -32,6 +32,7 @@ const customerRoutes = require('./routes/customers');
 const paymentRoutes = require('./routes/payments');
 const adminRoutes = require('./routes/admin');
 const companiesRoutes = require('./routes/companies');
+const scanRoutes = require('./routes/scan');
 const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
 
@@ -49,12 +50,15 @@ app.use(helmet({
         "https://*.azurewebsites.net",
         "https://localhost:5000",
         "http://localhost:5000",
-        "https://fonts.googleapis.com"
+        "https://fonts.googleapis.com",
+        "https://unpkg.com"
       ],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"]
     }
   },
@@ -127,6 +131,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/companies', companiesRoutes);
 app.use('/api/Models', modelsRoutes);
+app.use('/api/scan', scanRoutes);
 
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);
@@ -153,14 +158,45 @@ app.get('/favicon.ico', (req, res) => {
   }
 });
 
+// Serve model images - check both locations and return 404 if not found
+const clientPublicPath = path.join(__dirname, '../client/public');
+const serverPublicPath = path.join(__dirname, 'public');
+
+app.get('/models/:filename', (req, res, next) => {
+  const filename = req.params.filename;
+  
+  // Try client/public/models first (for development)
+  const clientModelPath = path.join(clientPublicPath, 'models', filename);
+  if (fs.existsSync(clientModelPath)) {
+    return res.sendFile(clientModelPath);
+  }
+  
+  // Try server/public/models (for production)
+  const serverModelPath = path.join(serverPublicPath, 'models', filename);
+  if (fs.existsSync(serverModelPath)) {
+    return res.sendFile(serverModelPath);
+  }
+  
+  // If not found, return 404 instead of 500
+  res.status(404).send('Image not found');
+});
+
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Also serve from client/public in development
+if (fs.existsSync(clientPublicPath)) {
+  app.use(express.static(clientPublicPath, { fallthrough: true }));
+}
+app.use(express.static(serverPublicPath, { fallthrough: true }));
 
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  // Don't catch API routes or model image requests
+  if (req.path.startsWith('/api/') || req.path.startsWith('/models/')) {
+    return res.status(404).send('Not found');
+  }
+  res.sendFile(path.join(serverPublicPath, 'index.html'));
 });
 
 // Server start

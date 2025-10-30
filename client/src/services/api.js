@@ -94,6 +94,10 @@ export const apiService = {
   getCustomer: (id) => api.get(`/customers/${id}`),
   createCustomer: (data) => api.post('/customers', data),
   updateCustomer: (id, data) => api.put(`/customers/${id}`, data),
+  
+  // Customer Licenses
+  getCustomerLicense: (customerId) => api.get(`/customers/${customerId}/license`),
+  upsertCustomerLicense: (customerId, data) => api.post(`/customers/${customerId}/license`, data),
 
   // Payments
   createPaymentIntent: (data) => api.post('/payments/intent', data),

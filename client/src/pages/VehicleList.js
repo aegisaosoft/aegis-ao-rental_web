@@ -45,7 +45,7 @@ const VehicleList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [vehiclesPerPage] = useState(12); // Show 12 vehicles per page
 
-  // Fetch vehicles
+  // Fetch vehicles - only show available ones
   const { data: vehiclesResponse, isLoading, error } = useQuery(
     ['vehicles', filters],
     () => {
@@ -53,6 +53,8 @@ const VehicleList = () => {
       // Request a large page size to get all vehicles
       params.pageSize = 3000;
       params.pageNumber = 1;
+      // Only fetch available vehicles
+      params.status = 'Available';
       return apiService.getVehicles(params);
     },
     {
@@ -130,6 +132,12 @@ const VehicleList = () => {
     const vehicleModel = vehicle.model || vehicle.Model || '';
     const vehicleCategoryName = vehicle.category_name || vehicle.CategoryName || vehicle.categoryName || '';
     const vehicleDailyRate = vehicle.daily_rate || vehicle.DailyRate || vehicle.dailyRate || 0;
+    const vehicleStatus = vehicle.status || vehicle.Status || '';
+    
+    // Only show available vehicles
+    if (vehicleStatus.toLowerCase() !== 'available') {
+      return false;
+    }
     
     // Search filter
     if (searchTerm) {
@@ -369,7 +377,6 @@ const VehicleList = () => {
             {currentVehicles.map((vehicle, index) => {
               // Support both snake_case and PascalCase
               const dailyRate = vehicle.daily_rate || vehicle.DailyRate || vehicle.dailyRate || 0;
-              const imageUrl = vehicle.image_url || vehicle.ImageUrl;
               const make = vehicle.make || vehicle.Make;
               const model = vehicle.model || vehicle.Model;
               const year = vehicle.year || vehicle.Year;
@@ -380,9 +387,14 @@ const VehicleList = () => {
               const vehicleId = vehicle.vehicle_id || vehicle.VehicleId || vehicle.vehicleId || vehicle.id;
               const categoryName = vehicle.category_name || vehicle.CategoryName || vehicle.categoryName || '';
               
-              // Determine default image based on category
+              // Construct model image path: /models/MAKE_MODEL.png
+              const makeUpper = (make || '').toUpperCase();
+              const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
+              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
+              
+              // Determine default image based on category (fallback)
               const getDefaultImage = (category) => {
-                const cat = category.toLowerCase();
+                const cat = (category || '').toLowerCase();
                 if (cat.includes('suv')) return '/SUV.png';
                 if (cat.includes('luxury') || cat.includes('premium')) return '/luxury.jpg';
                 if (cat.includes('sedan')) return '/sedan.jpg';
@@ -390,16 +402,7 @@ const VehicleList = () => {
                 return '/economy.jpg'; // default fallback
               };
               
-              // Filter out invalid placeholder URLs
-              const isValidImageUrl = (url) => {
-                if (!url) return false;
-                if (url.includes('placeholder')) return false;
-                if (url.includes('api/placeholder')) return false;
-                if (url.startsWith('http://localhost:3000/api/')) return false;
-                return true;
-              };
-              
-              const finalImageUrl = isValidImageUrl(imageUrl) ? imageUrl : getDefaultImage(categoryName);
+              const defaultImage = getDefaultImage(categoryName);
               
               // Debug log for first vehicle
               if (index === 0) {
@@ -417,11 +420,15 @@ const VehicleList = () => {
                 <div key={vehicleId} className="vehicle-card">
                   <div className="relative">
                     <img
-                      src={finalImageUrl}
+                      src={modelImagePath}
                       alt={`${make} ${model}`}
                       className="vehicle-image"
                       onError={(e) => {
-                        e.target.src = '/economy.jpg'; // fallback to economy image
+                        // Fallback to category default image if model-specific image doesn't exist
+                        // Only change if it's not already the default to prevent infinite loops
+                        if (!e.target.src.includes(defaultImage.replace('/', ''))) {
+                          e.target.src = defaultImage;
+                        }
                       }}
                     />
                     <div className="absolute top-4 right-4 bg-yellow-500 text-black px-2 py-1 rounded-full text-sm font-semibold">

@@ -191,6 +191,17 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  // Customer Licenses
+  getCustomerLicense: async (customerId) => {
+    const response = await apiService.getCustomerLicense(customerId);
+    return translateResponse(response);
+  },
+  
+  upsertCustomerLicense: async (customerId, data) => {
+    const response = await apiService.upsertCustomerLicense(customerId, data);
+    return translateResponse(response);
+  },
+  
   // Payments
   createPaymentIntent: async (data) => {
     const response = await apiService.createPaymentIntent(data);

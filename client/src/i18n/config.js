@@ -20,6 +20,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import enTranslations from './locales/en.json';
 import esTranslations from './locales/es.json';
 import ptTranslations from './locales/pt.json';
+import frTranslations from './locales/fr.json';
+import deTranslations from './locales/de.json';
 
 i18n
   .use(LanguageDetector) // Detects user language
@@ -34,6 +36,12 @@ i18n
       },
       pt: {
         translation: ptTranslations
+      },
+      fr: {
+        translation: frTranslations
+      },
+      de: {
+        translation: deTranslations
       }
     },
     fallbackLng: 'en',

@@ -15,16 +15,19 @@
 
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Car, Users, Fuel, Settings, Shield, Clock, Star, ArrowLeft } from 'lucide-react';
+import { Car, Users, Fuel, Settings, Shield, Clock, Star, ArrowLeft, CreditCard, Camera } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { useTranslation } from 'react-i18next';
 
 const BookPage = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   // Get filters from URL
   const categoryId = searchParams.get('category');
@@ -33,6 +36,8 @@ const BookPage = () => {
   const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [qrData, setQrData] = useState({ open: false, sessionId: '', url: '', polling: false });
   const [formData, setFormData] = useState({
     pickupDate: '',
     returnDate: '',
@@ -40,6 +45,121 @@ const BookPage = () => {
     returnLocation: '',
     additionalNotes: ''
   });
+
+  // Driver License form data
+  const [licenseData, setLicenseData] = useState({
+    licenseNumber: '',
+    stateIssued: '',
+    countryIssued: 'US',
+    sex: '',
+    height: '',
+    eyeColor: '',
+    middleName: '',
+    issueDate: '',
+    expirationDate: '',
+    licenseAddress: '',
+    licenseCity: '',
+    licenseState: '',
+    licensePostalCode: '',
+    licenseCountry: 'US',
+    restrictionCode: '',
+    endorsements: ''
+  });
+
+  // Prefill from localStorage if mobile scan placed data
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('scannedLicense');
+      if (raw) {
+        const d = JSON.parse(raw);
+        setLicenseData(prev => ({
+          ...prev,
+          licenseNumber: d.licenseNumber || prev.licenseNumber,
+          stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
+          countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
+          sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
+          height: d.height || prev.height,
+          eyeColor: d.eyeColor || prev.eyeColor,
+          middleName: d.middleName || prev.middleName,
+          issueDate: d.issueDate || prev.issueDate,
+          expirationDate: d.expirationDate || prev.expirationDate,
+          licenseAddress: d.address || prev.licenseAddress,
+          licenseCity: d.city || prev.licenseCity,
+          licenseState: d.state || prev.licenseState,
+          licensePostalCode: d.postalCode || prev.licensePostalCode,
+          licenseCountry: d.country || prev.licenseCountry,
+        }));
+        localStorage.removeItem('scannedLicense');
+        toast.success('License data imported');
+      }
+    } catch {}
+  }, []);
+
+  // Fetch existing license if customer is logged in
+  const { data: customerLicense } = useQuery(
+    ['customerLicense', user?.id],
+    async () => {
+      if (!user?.id) return null;
+      try {
+        const response = await apiService.getCustomerLicense(user.id);
+        const data = response?.data || response || null;
+        return data;
+      } catch (error) {
+        // If license not found, that's okay - user can create one
+        if (error.response?.status === 404) {
+          return null;
+        }
+        console.error('Error fetching customer license:', error);
+        return null;
+      }
+    },
+    {
+      enabled: !!user?.id && isAuthenticated,
+      retry: false,
+      onSuccess: (data) => {
+        if (data) {
+          setLicenseData({
+            licenseNumber: data.licenseNumber || '',
+            stateIssued: data.stateIssued || '',
+            countryIssued: data.countryIssued || 'US',
+            sex: data.sex || '',
+            height: data.height || '',
+            eyeColor: data.eyeColor || '',
+            middleName: data.middleName || '',
+            issueDate: data.issueDate ? new Date(data.issueDate).toISOString().split('T')[0] : '',
+            expirationDate: data.expirationDate ? new Date(data.expirationDate).toISOString().split('T')[0] : '',
+            licenseAddress: data.licenseAddress || '',
+            licenseCity: data.licenseCity || '',
+            licenseState: data.licenseState || '',
+            licensePostalCode: data.licensePostalCode || '',
+            licenseCountry: data.licenseCountry || 'US',
+            restrictionCode: data.restrictionCode || '',
+            endorsements: data.endorsements || ''
+          });
+        }
+      }
+    }
+  );
+
+  // Save license mutation
+  const saveLicenseMutation = useMutation(
+    async (licenseData) => {
+      const customerId = user?.id || user?.customer_id || user?.customerId;
+      if (!customerId) throw new Error('Customer ID not found');
+      
+      return apiService.upsertCustomerLicense(customerId, licenseData);
+    },
+    {
+      onSuccess: () => {
+        toast.success(t('bookPage.licenseSaved'));
+        queryClient.invalidateQueries(['customerLicense', user?.id]);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || error.message || t('bookPage.licenseSaveFailed'));
+        console.error('Error saving license:', error);
+      }
+    }
+  );
 
   // Fetch available vehicles matching the model filters
   const { data: vehiclesResponse, isLoading: vehiclesLoading } = useQuery(
@@ -79,6 +199,134 @@ const BookPage = () => {
     });
   };
 
+  const handleLicenseChange = (e) => {
+    setLicenseData({
+      ...licenseData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSaveLicense = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      toast.error(t('bookPage.loginToSaveLicense'));
+      return;
+    }
+
+    // Validate required fields
+    if (!licenseData.licenseNumber || !licenseData.stateIssued || !licenseData.expirationDate) {
+      toast.error(t('bookPage.fillRequiredLicenseFields'));
+      return;
+    }
+
+    saveLicenseMutation.mutate(licenseData);
+  };
+
+  // Microblink BlinkID: dynamic loader and prep
+  const loadBlinkID = () => new Promise((resolve, reject) => {
+    if (window.BlinkIDSDK) return resolve(window.BlinkIDSDK);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
+    script.async = true;
+    script.onload = () => resolve(window.BlinkIDSDK);
+    script.onerror = () => reject(new Error('Failed to load BlinkID SDK'));
+    document.body.appendChild(script);
+  });
+
+  const handleScanLicense = async () => {
+    try {
+      setIsScanning(true);
+      const BlinkIDSDK = await loadBlinkID();
+      // Choose platform-specific license key if provided, otherwise use generic web key
+      const ua = navigator.userAgent || navigator.vendor || '';
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      const isAndroid = /android/i.test(ua);
+      const licenseKey = (
+        (isIOS && process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS) ||
+        (isAndroid && process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID) ||
+        process.env.REACT_APP_BLINKID_LICENSE_KEY ||
+        ''
+      );
+      if (!licenseKey) {
+        toast.error('BlinkID license key missing');
+        setIsScanning(false);
+        return;
+      }
+      // Load engine (required before scanning). Resources hosted on unpkg
+      await BlinkIDSDK.loadWasmModule({
+        licenseKey,
+        engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
+      });
+      // At this point engine is ready; full camera scanning flow can be added next
+      toast.success('Scanner ready');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to initialize scanner');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Create session and show QR for phone scanning
+  const handleScanOnPhone = async () => {
+    try {
+      const resp = await fetch('/api/scan/session', { method: 'POST' });
+      const data = await resp.json();
+      const sessionId = data.id;
+      const origin = window.location.origin;
+      const url = `${origin}/scan?sessionId=${encodeURIComponent(sessionId)}`;
+      setQrData({ open: true, sessionId, url, polling: true });
+      // Start polling for result
+      pollForResult(sessionId);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create scan session');
+    }
+  };
+
+  const pollForResult = async (sessionId) => {
+    const interval = 2000;
+    const maxMs = 10 * 60 * 1000;
+    const start = Date.now();
+    const timer = setInterval(async () => {
+      if (Date.now() - start > maxMs) {
+        clearInterval(timer);
+        setQrData(prev => ({ ...prev, polling: false }));
+        return;
+      }
+      try {
+        const r = await fetch(`/api/scan/session/${encodeURIComponent(sessionId)}`);
+        if (!r.ok) return;
+        const s = await r.json();
+        if (s.status === 'completed' && s.result) {
+          clearInterval(timer);
+          setQrData(prev => ({ ...prev, polling: false, open: false }));
+          const d = s.result;
+          setLicenseData(prev => ({
+            ...prev,
+            licenseNumber: d.licenseNumber || prev.licenseNumber,
+            stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
+            countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
+            sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
+            height: d.height || prev.height,
+            eyeColor: d.eyeColor || prev.eyeColor,
+            middleName: d.middleName || prev.middleName,
+            issueDate: d.issueDate || prev.issueDate,
+            expirationDate: d.expirationDate || prev.expirationDate,
+            licenseAddress: d.address || prev.licenseAddress,
+            licenseCity: d.city || prev.licenseCity,
+            licenseState: d.state || prev.licenseState,
+            licensePostalCode: d.postalCode || prev.licensePostalCode,
+            licenseCountry: d.country || prev.licenseCountry,
+          }));
+          toast.success('License data received');
+        }
+      } catch (e) {
+        // ignore transient errors
+      }
+    }, interval);
+  };
+
   const calculateTotal = () => {
     if (!formData.pickupDate || !formData.returnDate || !selectedVehicle) return 0;
     
@@ -94,18 +342,18 @@ const BookPage = () => {
     e.preventDefault();
     
     if (!isAuthenticated) {
-      toast.error('Please login to make a booking');
+      toast.error(t('bookPage.pleaseLoginToBook'));
       navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
       return;
     }
 
     if (!selectedVehicleId) {
-      toast.error('Please select a vehicle');
+      toast.error(t('bookPage.pleaseSelectVehicle'));
       return;
     }
 
     if (!formData.pickupDate || !formData.returnDate) {
-      toast.error('Please select pickup and return dates');
+      toast.error(t('bookPage.selectPickupAndReturn'));
       return;
     }
 
@@ -113,13 +361,13 @@ const BookPage = () => {
     const returnDate = new Date(formData.returnDate);
 
     if (returnDate <= pickupDate) {
-      toast.error('Return date must be after pickup date');
+      toast.error(t('bookPage.returnDateAfterPickup'));
       return;
     }
 
     try {
       if (!Array.isArray(vehicles)) {
-        toast.error('Vehicle data is not available');
+        toast.error(t('bookPage.vehicleDataNotAvailable'));
         return;
       }
 
@@ -128,7 +376,7 @@ const BookPage = () => {
       );
 
       if (!vehicle) {
-        toast.error('Selected vehicle not found');
+        toast.error(t('bookPage.selectedVehicleNotFound'));
         return;
       }
 
@@ -148,10 +396,10 @@ const BookPage = () => {
       };
 
       await apiService.createReservation(bookingData);
-      toast.success('Booking created successfully!');
+      toast.success(t('bookPage.bookingCreated'));
       navigate('/my-bookings');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Booking failed');
+      toast.error(error.response?.data?.message || t('bookPage.bookingFailed'));
       console.error('Booking error:', error);
     }
   };
@@ -161,10 +409,10 @@ const BookPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Model Selected</h2>
-          <p className="text-gray-600 mb-4">Please select a vehicle model to book.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('bookPage.noModelSelected')}</h2>
+          <p className="text-gray-600 mb-4">{t('bookPage.selectModelToBook')}</p>
           <Link to="/" className="btn-primary">
-            Return to Home
+            {t('bookPage.returnToHome')}
           </Link>
         </div>
       </div>
@@ -176,134 +424,347 @@ const BookPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-4">
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Home
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Book {make} {model}
-          </h1>
-          <p className="text-gray-600">Select a vehicle and complete your booking</p>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Vehicle Selection */}
+          {/* Left Part - Header and Vehicle Selection */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Available Vehicles */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Vehicles</h2>
-              
-              {vehiclesLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <p className="mt-4 text-gray-600">Loading vehicles...</p>
+            {/* Back Button */}
+            <Link to="/" className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-4">
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              {t('bookPage.backToHome')}
+            </Link>
+
+            {/* Header with Model Picture */}
+            <div>
+              <div className="flex flex-col gap-4 mb-6">
+                {/* Model Picture */}
+                {make && model && (
+                  <div className="relative">
+                    <img
+                      src={`/models/${(make || '').toUpperCase()}_${(model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+                      alt={`${make} ${model}`}
+                      className="w-full h-64 object-cover rounded-lg shadow-md"
+                      onError={(e) => {
+                        // Fallback to economy image if model image doesn't exist
+                        // Only change if it's not already the default to prevent infinite loops
+                        if (!e.target.src.includes('/economy.jpg')) {
+                          e.target.src = '/economy.jpg';
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleScanLicense}
+                      className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md inline-flex items-center"
+                      disabled={isScanning}
+                      title="Scan driver license"
+                    >
+                      <Camera className="h-4 w-4 mr-1" />
+                      {isScanning ? 'Scanning...' : 'Scan License'}
+                    </button>
+                  </div>
+                )}
+                {/* Header Text */}
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    {t('bookPage.bookModel', { make, model })}
+                  </h1>
+                  <p className="text-gray-600">{t('bookPage.selectVehicleAndComplete')}</p>
                 </div>
-              ) : vehicles.length === 0 ? (
-                <div className="text-center py-12">
-                  <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No available vehicles found for this model.</p>
-                  <Link to="/vehicles" className="btn-primary mt-4 inline-block">
-                    Browse All Vehicles
+              </div>
+            </div>
+
+            {/* Driver License Information */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <CreditCard className="h-5 w-5 mr-2" />
+                {t('bookPage.driverLicenseInformation')}
+                {customerLicense && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">{t('bookPage.editExisting')}</span>
+                )}
+                {!customerLicense && isAuthenticated && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">{t('bookPage.createNew')}</span>
+                )}
+              </h2>
+              
+              {!isAuthenticated ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">{t('bookPage.loginToEnterLicense')}</p>
+                  <Link to="/login" className="btn-primary inline-block">
+                    {t('bookPage.login')}
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {vehicles.map((vehicle) => {
-                    const vehicleId = vehicle.vehicle_id || vehicle.vehicleId || vehicle.id;
-                    const isSelected = selectedVehicleId === vehicleId;
-                    const imageUrl = vehicle.image_url || vehicle.imageUrl || '/economy.jpg';
-                    const dailyRate = vehicle.daily_rate || vehicle.dailyRate || 0;
-                    
-                    return (
-                      <div
-                        key={vehicleId}
-                        onClick={() => setSelectedVehicleId(vehicleId)}
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-blue-600 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex gap-4">
-                          <img
-                            src={imageUrl}
-                            alt={`${vehicle.make} ${vehicle.model}`}
-                            className="w-32 h-24 object-cover rounded"
-                            onError={(e) => {
-                              e.target.src = '/economy.jpg';
-                            }}
-                          />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                  {vehicle.year} {vehicle.make} {vehicle.model}
-                                </h3>
-                                {vehicle.color && (
-                                  <p className="text-sm text-gray-600">Color: {vehicle.color}</p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-blue-600">
-                                  ${parseFloat(dailyRate).toFixed(2)}
-                                </div>
-                                <div className="text-sm text-gray-600">per day</div>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-3 gap-4 mt-3">
-                              {vehicle.seats && (
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Users className="h-4 w-4 mr-1" />
-                                  {vehicle.seats} seats
-                                </div>
-                              )}
-                              {vehicle.fuel_type && (
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Fuel className="h-4 w-4 mr-1" />
-                                  {vehicle.fuel_type}
-                                </div>
-                              )}
-                              {vehicle.transmission && (
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Settings className="h-4 w-4 mr-1" />
-                                  {vehicle.transmission}
-                                </div>
-                              )}
-                            </div>
+                <form onSubmit={handleSaveLicense} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* License Number */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.licenseNumber')} *
+                      </label>
+                      <input
+                        type="text"
+                        name="licenseNumber"
+                        value={licenseData.licenseNumber}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
 
-                            {vehicle.features && vehicle.features.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {vehicle.features.slice(0, 3).map((feature, idx) => (
-                                  <span key={idx} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                    {feature}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                    {/* State Issued */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.stateIssued')} *
+                      </label>
+                      <input
+                        type="text"
+                        name="stateIssued"
+                        value={licenseData.stateIssued}
+                        onChange={handleLicenseChange}
+                        maxLength="2"
+                        placeholder="e.g., NJ"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    {/* Country Issued */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.countryIssued')}
+                      </label>
+                      <input
+                        type="text"
+                        name="countryIssued"
+                        value={licenseData.countryIssued}
+                        onChange={handleLicenseChange}
+                        maxLength="2"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Expiration Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.expirationDate')} *
+                      </label>
+                      <input
+                        type="date"
+                        name="expirationDate"
+                        value={licenseData.expirationDate}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    {/* Issue Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.issueDate')}
+                      </label>
+                      <input
+                        type="date"
+                        name="issueDate"
+                        value={licenseData.issueDate}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Sex */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.sex')}
+                      </label>
+                      <select
+                        name="sex"
+                        value={licenseData.sex}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">{t('bookPage.select')}</option>
+                        <option value="M">{t('bookPage.male')}</option>
+                        <option value="F">{t('bookPage.female')}</option>
+                        <option value="X">{t('bookPage.other')}</option>
+                      </select>
+                    </div>
+
+                    {/* Height */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.height')}
+                      </label>
+                      <input
+                        type="text"
+                        name="height"
+                        value={licenseData.height}
+                        onChange={handleLicenseChange}
+                        placeholder="e.g., 5'10 inches"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Eye Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.eyeColor')}
+                      </label>
+                      <input
+                        type="text"
+                        name="eyeColor"
+                        value={licenseData.eyeColor}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Middle Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.middleName')}
+                      </label>
+                      <input
+                        type="text"
+                        name="middleName"
+                        value={licenseData.middleName}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* License Address */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('bookPage.address')}
+                    </label>
+                    <input
+                      type="text"
+                      name="licenseAddress"
+                      value={licenseData.licenseAddress}
+                      onChange={handleLicenseChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* License City */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.city')}
+                      </label>
+                      <input
+                        type="text"
+                        name="licenseCity"
+                        value={licenseData.licenseCity}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* License State */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.state')}
+                      </label>
+                      <input
+                        type="text"
+                        name="licenseState"
+                        value={licenseData.licenseState}
+                        onChange={handleLicenseChange}
+                        maxLength="2"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* License Postal Code */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.postalCode')}
+                      </label>
+                      <input
+                        type="text"
+                        name="licensePostalCode"
+                        value={licenseData.licensePostalCode}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* License Country */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.country')}
+                      </label>
+                      <input
+                        type="text"
+                        name="licenseCountry"
+                        value={licenseData.licenseCountry}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Restriction Code */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('bookPage.restrictionCode')}
+                      </label>
+                      <input
+                        type="text"
+                        name="restrictionCode"
+                        value={licenseData.restrictionCode}
+                        onChange={handleLicenseChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Endorsements */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('bookPage.endorsements')}
+                    </label>
+                    <input
+                      type="text"
+                      name="endorsements"
+                      value={licenseData.endorsements}
+                      onChange={handleLicenseChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full btn-primary py-2"
+                    disabled={saveLicenseMutation.isLoading}
+                  >
+                    {saveLicenseMutation.isLoading 
+                      ? t('bookPage.saving') 
+                      : customerLicense 
+                        ? t('bookPage.updateLicenseInformation') 
+                        : t('bookPage.createLicenseInformation')}
+                  </button>
+                </form>
               )}
             </div>
+
           </div>
 
-          {/* Right Column - Booking Form */}
+          {/* Right Part - Booking Form */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
               {selectedVehicle ? (
                 <>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Booking Details</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('bookPage.bookingDetails')}</h2>
                   
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pickup Date *
+                        {t('booking.pickupDate')} *
                       </label>
                       <input
                         type="date"
@@ -318,7 +779,7 @@ const BookPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Return Date *
+                        {t('bookPage.returnDateLabel')} *
                       </label>
                       <input
                         type="date"
@@ -333,7 +794,7 @@ const BookPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Pickup Location
+                        {t('bookPage.pickupLocationLabel')}
                       </label>
                       <input
                         type="text"
@@ -347,7 +808,7 @@ const BookPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Return Location
+                        {t('bookPage.returnLocationLabel')}
                       </label>
                       <input
                         type="text"
@@ -361,14 +822,14 @@ const BookPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Additional Notes
+                        {t('bookPage.additionalNotes')}
                       </label>
                       <textarea
                         name="additionalNotes"
                         value={formData.additionalNotes}
                         onChange={handleChange}
                         rows="3"
-                        placeholder="Special requests or notes..."
+                        placeholder={t('bookPage.specialRequests')}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -377,7 +838,7 @@ const BookPage = () => {
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-gray-600">
-                            {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} days
+                            {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} {t('bookPage.days')}
                           </span>
                           <span className="text-xl font-bold text-blue-600">
                             ${calculateTotal().toFixed(2)}
@@ -391,14 +852,14 @@ const BookPage = () => {
                       className="w-full btn-primary py-3 text-lg"
                       disabled={!isAuthenticated}
                     >
-                      {isAuthenticated ? 'Complete Booking' : 'Login to Book'}
+                      {isAuthenticated ? t('bookPage.completeBooking') : t('bookPage.loginToBook')}
                     </button>
 
                     {!isAuthenticated && (
                       <p className="text-sm text-center text-gray-600">
                         <Link to="/login" className="text-blue-600 hover:underline">
-                          Sign in
-                        </Link> to complete your booking
+                          {t('bookPage.login')}
+                        </Link> {t('bookPage.signInToComplete')}
                       </p>
                     )}
                   </form>
@@ -406,25 +867,25 @@ const BookPage = () => {
               ) : (
                 <div className="text-center py-8">
                   <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Please select a vehicle to continue</p>
+                  <p className="text-gray-600">{t('bookPage.selectVehicleToContinue')}</p>
                 </div>
               )}
 
               {/* Benefits */}
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">What's Included</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('bookPage.whatsIncluded')}</h3>
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-gray-600">
                     <Shield className="h-4 w-4 mr-2 text-blue-600" />
-                    Comprehensive Insurance
+                    {t('bookPage.comprehensiveInsurance')}
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Clock className="h-4 w-4 mr-2 text-blue-600" />
-                    24/7 Roadside Assistance
+                    {t('bookPage.roadsideAssistance')}
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Star className="h-4 w-4 mr-2 text-blue-600" />
-                    Premium Service
+                    {t('bookPage.premiumService')}
                   </div>
                 </div>
               </div>
