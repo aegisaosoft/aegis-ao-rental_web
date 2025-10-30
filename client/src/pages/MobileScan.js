@@ -243,6 +243,28 @@ const MobileScan = () => {
                 {error}
               </div>
             )}
+            {(error || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.isSecureContext) && (
+              <div className="text-left bg-yellow-50 border border-yellow-300 text-yellow-900 px-4 py-3 rounded mb-3 text-sm">
+                <div className="font-semibold mb-2">To enable camera, please allow these permissions:</div>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <span className="font-semibold">Use HTTPS:</span> open this site with <span className="font-mono">https://</span> in the main browser (not in-app browser)
+                  </li>
+                  <li>
+                    <span className="font-semibold">Chrome (site):</span> tap the lock icon → Permissions → Camera → Allow
+                  </li>
+                  <li>
+                    <span className="font-semibold">Chrome (global):</span> Settings → Site settings → Camera → “Sites can ask” ON → ensure your site is Allowed
+                  </li>
+                  <li>
+                    <span className="font-semibold">Samsung Internet:</span> Settings → Sites and downloads → Site permissions → Camera → Allow for this site
+                  </li>
+                  <li>
+                    <span className="font-semibold">Android app permission:</span> Settings → Apps → Chrome/Samsung Internet → Permissions → Camera → Allow while using app
+                  </li>
+                </ul>
+              </div>
+            )}
             {debugLogs.length > 0 && (
               <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto">
                 <div className="font-semibold mb-1">Debug Logs:</div>
