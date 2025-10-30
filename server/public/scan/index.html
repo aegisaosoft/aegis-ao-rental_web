@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barcode Scanner</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #000; color: #fff; }
+    .wrap { min-height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 12px 16px; background: #111; font-weight: 600; }
+    main { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+    #video { width: 100%; height: auto; background: #000; border-radius: 8px; }
+    .controls { display: flex; gap: 8px; }
+    button { flex: 1; padding: 12px; font-weight: 600; border-radius: 8px; border: 0; cursor: pointer; }
+    .primary { background: #0ea5e9; color: #fff; }
+    .secondary { background: #374151; color: #fff; }
+    .danger { background: #ef4444; color: #fff; }
+    .log { background: #111; border-radius: 8px; padding: 8px 10px; font-size: 12px; max-height: 140px; overflow: auto; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0b0b0b; color: #fff; }
+    a { color: #93c5fd; }
+  </style>
+  <script defer src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+  <script defer src="./scan.js"></script>
+  <!-- Fallback for older browsers -->
+  <script>
+    if (!window.isSecureContext && location.protocol !== 'https:') {
+      console.warn('Camera requires HTTPS or localhost.');
+    }
+  </script>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>Barcode Scanner</header>
+      <main>
+        <div class="row">
+          <label for="callback" style="min-width: 88px;">Callback</label>
+          <input id="callback" type="text" placeholder="https://example.com/receive" />
+        </div>
+        <video id="video" playsinline></video>
+        <div class="controls">
+          <button id="start" class="primary">Start</button>
+          <button id="switch" class="secondary">Switch Camera</button>
+          <button id="stop" class="danger">Stop</button>
+        </div>
+        <div id="status" class="log"></div>
+        <div class="log" id="result"></div>
+        <div class="row">
+          <button id="openCallback" class="primary">Open Callback with Result</button>
+        </div>
+        <div style="font-size: 12px; opacity: .8;">
+          Tip: You can pass a callback via query param, e.g. <code>?callback=https://yourapp.com/path</code>
+        </div>
+      </main>
+    </div>
+  </body>
+  </html>
+
+
