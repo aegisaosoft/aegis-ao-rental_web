@@ -113,6 +113,12 @@ const MobileScan = () => {
 
   useEffect(() => () => stopCamera(), []);
 
+  const continueWithoutCapture = () => {
+    stopCamera();
+    const from = (location.state && location.state.returnTo) || '/book';
+    navigate(from, { replace: true });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
@@ -127,9 +133,14 @@ const MobileScan = () => {
               onChange={handleFile}
               className="block w-full text-sm"
             />
-            <button onClick={startCamera} className="mt-3 w-full bg-blue-600 text-white py-2 rounded-md font-semibold">
-              Open Camera
-            </button>
+            <div className="flex gap-2 mt-3">
+              <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
+                Capture
+              </button>
+              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
+                Continue
+              </button>
+            </div>
           </div>
         )}
         {status === 'camera' && (
@@ -137,7 +148,7 @@ const MobileScan = () => {
             <video ref={videoRef} playsInline muted className="w-full rounded mb-3" />
             <div className="flex gap-2">
               <button onClick={captureFrame} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Capture</button>
-              <button onClick={()=>{ stopCamera(); setStatus('ready'); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Cancel</button>
+              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Continue</button>
             </div>
           </div>
         )}
