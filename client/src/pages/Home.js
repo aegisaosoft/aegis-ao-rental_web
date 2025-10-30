@@ -13,18 +13,15 @@
  *
  */
 
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings, MapPin } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
 
 const Home = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
@@ -55,7 +52,9 @@ const Home = () => {
     console.log('Models Error:', modelsError);
   }, [modelsGroupedResponse, modelsLoading, modelsError]);
   
-  const modelsGrouped = modelsGroupedResponse?.data || modelsGroupedResponse || [];
+  const modelsGrouped = useMemo(() => {
+    return modelsGroupedResponse?.data || modelsGroupedResponse || [];
+  }, [modelsGroupedResponse]);
   
   // Debug logging
   useEffect(() => {

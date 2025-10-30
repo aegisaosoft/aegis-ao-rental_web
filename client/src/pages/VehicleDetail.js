@@ -44,11 +44,6 @@ const VehicleDetail = () => {
   const vehicleData = vehicleResponse?.data || vehicleResponse;
   const vehicle = vehicleData;
 
-  // Fetch categories for the dropdown
-  const { data: categoriesResponse } = useQuery('categories', apiService.getVehicleCategories);
-  const categoriesData = categoriesResponse?.data || categoriesResponse;
-  const categories = Array.isArray(categoriesData) ? categoriesData : [];
-
   // Update mutation
   const updateMutation = useMutation(
     (data) => apiService.updateVehicle(id, data),

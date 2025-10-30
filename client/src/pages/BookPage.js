@@ -13,17 +13,15 @@
  *
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Car, Calendar, MapPin, Users, Fuel, Settings, Shield, Clock, Star, ArrowLeft } from 'lucide-react';
+import { Car, Users, Fuel, Settings, Shield, Clock, Star, ArrowLeft } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
-import { useTranslation } from 'react-i18next';
 
 const BookPage = () => {
-  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -174,7 +172,6 @@ const BookPage = () => {
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
