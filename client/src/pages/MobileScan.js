@@ -96,13 +96,26 @@ const MobileScan = () => {
     try {
       if (!videoRef.current) return;
       setStatus('processing');
+      // Ensure camera is actually producing frames
+      const vw = videoRef.current.videoWidth;
+      const vh = videoRef.current.videoHeight;
+      if (!vw || !vh) {
+        setStatus('camera');
+        toast.error('Camera not ready. Please allow camera access and try again.');
+        return;
+      }
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth || 1280;
-      canvas.height = videoRef.current.videoHeight || 720;
+      canvas.width = vw;
+      canvas.height = vh;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       // Convert to Blob
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      if (!blob) {
+        setStatus('camera');
+        toast.error('Failed to capture image. Try again.');
+        return;
+      }
 
       // Send to API
       const formData = new FormData();
