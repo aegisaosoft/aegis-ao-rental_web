@@ -16,7 +16,6 @@ const MobileScan = () => {
   const [error, setError] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const canvasRef = useRef(null);
 
   const handleFile = async (e) => {
     try {
