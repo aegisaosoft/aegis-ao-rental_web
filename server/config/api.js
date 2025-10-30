@@ -86,6 +86,13 @@ const apiService = {
     return apiClient.put(`/api/vehicles/${id}`, data, config);
   },
 
+  // Models
+  getModelsGroupedByCategory: (companyId) => {
+    const params = companyId ? { companyId } : {};
+    return apiClient.get('/api/Models/grouped-by-category', { params });
+  },
+  getModels: (params = {}) => apiClient.get('/api/Models', { params }),
+
   // Reservations
   getReservations: (params = {}) => apiClient.get('/api/reservations', { params }),
   getReservation: (id) => apiClient.get(`/api/reservations/${id}`),

@@ -118,6 +118,30 @@ body {
   @apply transform scale-105;
 }
 
+/* Horizontal scrolling container for model cards */
+.model-cards-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.model-cards-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.model-cards-scroll::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.model-cards-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.model-cards-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
 .vehicle-image {
   @apply w-full h-48 object-cover;
 }

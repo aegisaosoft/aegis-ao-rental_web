@@ -28,6 +28,7 @@ import { translatedApiService as apiService } from './services/translatedApi';
 import Home from './pages/Home';
 import VehicleList from './pages/VehicleList';
 import VehicleDetail from './pages/VehicleDetail';
+import BookPage from './pages/BookPage';
 import Booking from './pages/Booking';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -57,7 +58,7 @@ const TitleUpdater = () => {
 
   useEffect(() => {
     // Session functionality not implemented yet, skip for now
-    let companyName = 'All Rentals';
+    let companyName = 'Rentals';
     
     document.title = `${companyName} - Premium Car Rental Services`;
     
@@ -99,6 +100,7 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/vehicles" element={<VehicleList />} />
                 <Route path="/vehicles/:id" element={<VehicleDetail />} />
+                <Route path="/book" element={<BookPage />} />
                 <Route path="/booking/:vehicleId" element={<Booking />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />

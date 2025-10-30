@@ -375,7 +375,7 @@ const VehicleList = () => {
               const year = vehicle.year || vehicle.Year;
               const location = vehicle.location || vehicle.Location;
               const seats = vehicle.seats || vehicle.Seats || 0;
-              const fuelType = vehicle.fuel_type || vehicle.FuelType;
+              const fuelType = vehicle.fuel_type || vehicle.FuelType || vehicle.fuelType || '';
               const transmission = vehicle.transmission || vehicle.Transmission;
               const vehicleId = vehicle.vehicle_id || vehicle.VehicleId || vehicle.vehicleId || vehicle.id;
               const categoryName = vehicle.category_name || vehicle.CategoryName || vehicle.categoryName || '';
@@ -445,10 +445,12 @@ const VehicleList = () => {
                         <span>{seats} {t('vehicles.seats')}</span>
                       </div>
                       
-                      <div className="flex items-center text-gray-600">
-                        <Fuel className="h-4 w-4 mr-2" />
-                        <span>{fuelType || 'N/A'}</span>
-                      </div>
+                      {fuelType && (
+                        <div className="flex items-center text-gray-600">
+                          <Fuel className="h-4 w-4 mr-2" />
+                          <span>{fuelType}</span>
+                        </div>
+                      )}
                       
                       <div className="flex items-center text-gray-600">
                         <Settings className="h-4 w-4 mr-2" />

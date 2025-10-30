@@ -32,6 +32,7 @@ const customerRoutes = require('./routes/customers');
 const paymentRoutes = require('./routes/payments');
 const adminRoutes = require('./routes/admin');
 const companiesRoutes = require('./routes/companies');
+const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
 
 const app = express();
@@ -125,6 +126,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/companies', companiesRoutes);
+app.use('/api/Models', modelsRoutes);
 
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);

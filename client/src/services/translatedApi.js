@@ -132,6 +132,17 @@ export const translatedApiService = {
     const response = await apiService.updateVehicle(id, data);
     return translateResponse(response);
   },
+
+  // Models
+  getModelsGroupedByCategory: async () => {
+    const response = await apiService.getModelsGroupedByCategory();
+    return translateResponse(response);
+  },
+  
+  getModels: async (params = {}) => {
+    const response = await apiService.getModels(params);
+    return translateResponse(response);
+  },
   
   // Reservations
   getReservations: async (params = {}) => {

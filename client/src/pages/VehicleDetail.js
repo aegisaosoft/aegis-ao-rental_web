@@ -64,8 +64,6 @@ const VehicleDetail = () => {
   React.useEffect(() => {
     if (vehicle) {
       setEditForm({
-        categoryId: vehicle.category_id || vehicle.categoryId || '',
-        fuelType: vehicle.fuel_type || vehicle.fuelType || '',
         year: vehicle.year || '',
         dailyRate: vehicle.daily_rate || vehicle.dailyRate || 0
       });
@@ -78,17 +76,9 @@ const VehicleDetail = () => {
 
   const handleSave = () => {
     const payload = {
-      categoryId: editForm.categoryId || null,
-      fuelType: editForm.fuelType || null,
       year: parseInt(editForm.year) || null,
       dailyRate: parseFloat(editForm.dailyRate) || null
     };
-
-    // Include make and model for bulk category update
-    if (editForm.categoryId && editForm.categoryId !== (vehicle.category_id || vehicle.categoryId)) {
-      payload.make = vehicle.make || vehicle.Make;
-      payload.model = vehicle.model || vehicle.Model;
-    }
 
     updateMutation.mutate(payload);
   };
@@ -187,10 +177,12 @@ const VehicleDetail = () => {
                 <span>{vehicle.seats} {t('vehicleDetail.seats')}</span>
               </div>
               
-              <div className="flex items-center text-gray-600">
-                <Fuel className="h-5 w-5 mr-3" />
-                <span>{vehicle.fuel_type}</span>
-              </div>
+              {vehicle.fuel_type && (
+                <div className="flex items-center text-gray-600">
+                  <Fuel className="h-5 w-5 mr-3" />
+                  <span>{vehicle.fuel_type}</span>
+                </div>
+              )}
               
               <div className="flex items-center text-gray-600">
                 <Settings className="h-5 w-5 mr-3" />
@@ -294,40 +286,6 @@ const VehicleDetail = () => {
               </div>
 
               <div className="p-6 space-y-4">
-                {/* Category */}
-                <div>
-                  <label className="form-label">Category</label>
-                  <select
-                    value={editForm.categoryId}
-                    onChange={(e) => handleEditChange('categoryId', e.target.value)}
-                    className="form-input"
-                  >
-                    <option value="">Select Category</option>
-                    {categories?.map(category => (
-                      <option key={category.category_id || category.categoryId} value={category.category_id || category.categoryId}>
-                        {category.category_name || category.categoryName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Fuel Type */}
-                <div>
-                  <label className="form-label">Fuel Type</label>
-                  <select
-                    value={editForm.fuelType}
-                    onChange={(e) => handleEditChange('fuelType', e.target.value)}
-                    className="form-input"
-                  >
-                    <option value="">Select Fuel Type</option>
-                    <option value="Gasoline">Gasoline</option>
-                    <option value="Diesel">Diesel</option>
-                    <option value="Hybrid">Hybrid</option>
-                    <option value="Electric">Electric</option>
-                    <option value="Plug-in Hybrid">Plug-in Hybrid</option>
-                  </select>
-                </div>
-
                 {/* Year */}
                 <div>
                   <label className="form-label">Year</label>

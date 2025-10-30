@@ -75,6 +75,13 @@ export const apiService = {
   getVehicleLocations: () => api.get('/vehicles/locations'),
   updateVehicle: (id, data) => api.put(`/vehicles/${id}`, data),
 
+  // Models
+  getModelsGroupedByCategory: (companyId) => {
+    const params = companyId ? { companyId } : {};
+    return api.get('/Models/grouped-by-category', { params });
+  },
+  getModels: (params = {}) => api.get('/Models', { params }),
+
   // Reservations
   getReservations: (params = {}) => api.get('/reservations', { params }),
   getReservation: (id) => api.get(`/reservations/${id}`),
