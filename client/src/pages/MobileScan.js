@@ -14,8 +14,17 @@ const MobileScan = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState('environment');
   const [error, setError] = useState('');
+  const [debugLogs, setDebugLogs] = useState([]);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+
+  // Debug logging function
+  const addDebugLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    console.log(logEntry);
+    setDebugLogs(prev => [...prev.slice(-9), logEntry]); // Keep last 10 logs
+  };
 
   const handleFile = async (e) => {
     try {
@@ -63,9 +72,9 @@ const MobileScan = () => {
         throw new Error('Camera requires HTTPS or localhost');
       }
 
-      console.log('Starting camera with facingMode:', facingMode);
-      console.log('Secure context:', window.isSecureContext);
-      console.log('Protocol:', location.protocol);
+      addDebugLog(`Starting camera with facingMode: ${facingMode}`);
+      addDebugLog(`Secure context: ${window.isSecureContext}`);
+      addDebugLog(`Protocol: ${location.protocol}`);
 
       // Try multiple constraint variants for better compatibility (iOS/Android)
       const variants = [
@@ -79,13 +88,13 @@ const MobileScan = () => {
       let lastErr = null;
       for (let i = 0; i < variants.length; i++) {
         try {
-          console.log(`Trying constraint variant ${i + 1}:`, variants[i]);
+          addDebugLog(`Trying constraint variant ${i + 1}`);
           // eslint-disable-next-line no-await-in-loop
           stream = await navigator.mediaDevices.getUserMedia(variants[i]);
-          console.log('Stream obtained:', stream);
+          addDebugLog('Stream obtained successfully');
           if (stream) break;
         } catch (e) {
-          console.log(`Variant ${i + 1} failed:`, e.name, e.message);
+          addDebugLog(`Variant ${i + 1} failed: ${e.name} - ${e.message}`);
           lastErr = e;
         }
       }
@@ -103,21 +112,21 @@ const MobileScan = () => {
         // Wait for metadata to ensure videoWidth/Height are known
         await new Promise((resolve) => {
           const onReady = () => {
-            console.log('Video metadata loaded:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+            addDebugLog(`Video metadata loaded: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
             setVideoReady(true);
             resolve();
           };
           videoRef.current.addEventListener('loadedmetadata', onReady, { once: true });
           // Fallback timeout in case event doesn't fire
           setTimeout(() => {
-            console.log('Video metadata timeout, proceeding anyway');
+            addDebugLog('Video metadata timeout, proceeding anyway');
             resolve();
           }, 3000);
           
           videoRef.current.play().then(() => {
-            console.log('Video play started');
+            addDebugLog('Video play started');
           }).catch((playErr) => {
-            console.log('Video play failed:', playErr);
+            addDebugLog(`Video play failed: ${playErr.message}`);
           });
         });
       }
@@ -125,9 +134,9 @@ const MobileScan = () => {
       setIsCameraActive(true);
       setError('');
       setStatus('camera');
-      console.log('Camera started successfully');
+      addDebugLog('Camera started successfully');
     } catch (err) {
-      console.error('Camera start failed:', err);
+      addDebugLog(`Camera start failed: ${err.message || err.name || 'Unknown error'}`);
       setStatus('ready');
       const errorMsg = err.message || err.name || 'Unknown error';
       setError(`Camera failed: ${errorMsg}`);
@@ -232,6 +241,14 @@ const MobileScan = () => {
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-3 text-sm">
                 {error}
+              </div>
+            )}
+            {debugLogs.length > 0 && (
+              <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto">
+                <div className="font-semibold mb-1">Debug Logs:</div>
+                {debugLogs.map((log, i) => (
+                  <div key={i} className="font-mono text-xs">{log}</div>
+                ))}
               </div>
             )}
             <input
