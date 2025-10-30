@@ -22,7 +22,13 @@
     try {
       const url = new URL(window.location.href);
       const cb = url.searchParams.get('callback');
-      if (cb) callbackInput.value = cb;
+      if (cb) {
+        callbackInput.value = cb;
+      } else {
+        // Default callback to DL scan page
+        const base = `${window.location.origin}/dl-scan`;
+        callbackInput.value = base;
+      }
     } catch {}
   }
 
@@ -49,6 +55,13 @@
             lastCode = res.getText();
             resultEl.textContent = `Scanned: ${lastCode}`;
             log('Scan success');
+            // Auto-navigate: if QR is a URL, go there; otherwise go to /dl-scan with barcode param
+            try {
+              const maybeUrl = new URL(lastCode);
+              window.location.href = maybeUrl.toString();
+            } catch {
+              openCallback();
+            }
           }
           if (err && !(err instanceof ZXing.NotFoundException)){
             // ignore NotFound spam; log other errors
