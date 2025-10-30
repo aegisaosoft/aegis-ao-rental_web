@@ -18,7 +18,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Car, Users, Fuel, Settings, Shield, Clock, Star, ArrowLeft, CreditCard, Camera } from 'lucide-react';
+import { Car, Shield, Clock, Star, ArrowLeft, CreditCard, Camera } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 
@@ -35,9 +35,8 @@ const BookPage = () => {
   const model = searchParams.get('model');
   const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedVehicleId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [qrData, setQrData] = useState({ open: false, sessionId: '', url: '', polling: false });
   const [formData, setFormData] = useState({
     pickupDate: '',
     returnDate: '',
@@ -162,7 +161,7 @@ const BookPage = () => {
   );
 
   // Fetch available vehicles matching the model filters
-  const { data: vehiclesResponse, isLoading: vehiclesLoading } = useQuery(
+  const { data: vehiclesResponse } = useQuery(
     ['vehicles', { categoryId, make, model, companyId, status: 'Available' }],
     () => apiService.getVehicles({
       categoryId,
@@ -267,65 +266,7 @@ const BookPage = () => {
     }
   };
 
-  // Create session and show QR for phone scanning
-  const handleScanOnPhone = async () => {
-    try {
-      const resp = await fetch('/api/scan/session', { method: 'POST' });
-      const data = await resp.json();
-      const sessionId = data.id;
-      const origin = window.location.origin;
-      const url = `${origin}/scan?sessionId=${encodeURIComponent(sessionId)}`;
-      setQrData({ open: true, sessionId, url, polling: true });
-      // Start polling for result
-      pollForResult(sessionId);
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to create scan session');
-    }
-  };
-
-  const pollForResult = async (sessionId) => {
-    const interval = 2000;
-    const maxMs = 10 * 60 * 1000;
-    const start = Date.now();
-    const timer = setInterval(async () => {
-      if (Date.now() - start > maxMs) {
-        clearInterval(timer);
-        setQrData(prev => ({ ...prev, polling: false }));
-        return;
-      }
-      try {
-        const r = await fetch(`/api/scan/session/${encodeURIComponent(sessionId)}`);
-        if (!r.ok) return;
-        const s = await r.json();
-        if (s.status === 'completed' && s.result) {
-          clearInterval(timer);
-          setQrData(prev => ({ ...prev, polling: false, open: false }));
-          const d = s.result;
-          setLicenseData(prev => ({
-            ...prev,
-            licenseNumber: d.licenseNumber || prev.licenseNumber,
-            stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
-            countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
-            sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
-            height: d.height || prev.height,
-            eyeColor: d.eyeColor || prev.eyeColor,
-            middleName: d.middleName || prev.middleName,
-            issueDate: d.issueDate || prev.issueDate,
-            expirationDate: d.expirationDate || prev.expirationDate,
-            licenseAddress: d.address || prev.licenseAddress,
-            licenseCity: d.city || prev.licenseCity,
-            licenseState: d.state || prev.licenseState,
-            licensePostalCode: d.postalCode || prev.licensePostalCode,
-            licenseCountry: d.country || prev.licenseCountry,
-          }));
-          toast.success('License data received');
-        }
-      } catch (e) {
-        // ignore transient errors
-      }
-    }, interval);
-  };
+  // QR-based phone scan flow removed to satisfy current lint and scope
 
   const calculateTotal = () => {
     if (!formData.pickupDate || !formData.returnDate || !selectedVehicle) return 0;
