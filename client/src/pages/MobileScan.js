@@ -50,11 +50,23 @@ const MobileScan = () => {
   const startCamera = async () => {
     try {
       setStatus('loading');
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setStatus('ready');
-        toast.error('Camera API unavailable. Ensure HTTPS and browser permissions.');
-        return;
+      setError('');
+      
+      // Check basic requirements
+      if (!navigator.mediaDevices) {
+        throw new Error('MediaDevices API not available');
       }
+      if (!navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia not available');
+      }
+      if (!window.isSecureContext && location.protocol !== 'https:') {
+        throw new Error('Camera requires HTTPS or localhost');
+      }
+
+      console.log('Starting camera with facingMode:', facingMode);
+      console.log('Secure context:', window.isSecureContext);
+      console.log('Protocol:', location.protocol);
+
       // Try multiple constraint variants for better compatibility (iOS/Android)
       const variants = [
         { audio: false, video: { facingMode: { exact: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
@@ -65,46 +77,61 @@ const MobileScan = () => {
 
       let stream = null;
       let lastErr = null;
-      for (const v of variants) {
+      for (let i = 0; i < variants.length; i++) {
         try {
+          console.log(`Trying constraint variant ${i + 1}:`, variants[i]);
           // eslint-disable-next-line no-await-in-loop
-          stream = await navigator.mediaDevices.getUserMedia(v);
+          stream = await navigator.mediaDevices.getUserMedia(variants[i]);
+          console.log('Stream obtained:', stream);
           if (stream) break;
         } catch (e) {
+          console.log(`Variant ${i + 1} failed:`, e.name, e.message);
           lastErr = e;
         }
       }
+      
       if (!stream) {
-        setStatus('ready');
         throw lastErr || new Error('No camera stream available');
       }
+      
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
+        
         // Wait for metadata to ensure videoWidth/Height are known
         await new Promise((resolve) => {
           const onReady = () => {
+            console.log('Video metadata loaded:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
             setVideoReady(true);
             resolve();
           };
           videoRef.current.addEventListener('loadedmetadata', onReady, { once: true });
           // Fallback timeout in case event doesn't fire
-          setTimeout(() => resolve(), 1500);
-          videoRef.current.play().catch(() => {});
+          setTimeout(() => {
+            console.log('Video metadata timeout, proceeding anyway');
+            resolve();
+          }, 3000);
+          
+          videoRef.current.play().then(() => {
+            console.log('Video play started');
+          }).catch((playErr) => {
+            console.log('Video play failed:', playErr);
+          });
         });
       }
+      
       setIsCameraActive(true);
       setError('');
       setStatus('camera');
+      console.log('Camera started successfully');
     } catch (err) {
-      console.error(err);
+      console.error('Camera start failed:', err);
       setStatus('ready');
-      // Fall back to file input
-      const reason = err && (err.name || err.message) ? ` (${err.name || err.message})` : '';
-      toast.error(`Camera unavailable${reason}. You can use file capture.`);
-      setError('Camera access denied or unavailable');
+      const errorMsg = err.message || err.name || 'Unknown error';
+      setError(`Camera failed: ${errorMsg}`);
+      toast.error(`Camera unavailable: ${errorMsg}. Try file capture instead.`);
     }
   };
 
@@ -196,15 +223,23 @@ const MobileScan = () => {
         {status === 'ready' && (
           <div>
             <p className="mb-4">Use your phone camera to capture the license.</p>
-            <div className="text-xs text-gray-500 mb-3">
-              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'} • MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
+            <div className="text-xs text-gray-500 mb-3 space-y-1">
+              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'}</p>
+              <p>Protocol: {location.protocol}</p>
+              <p>MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
+              <p>User Agent: {navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'}</p>
             </div>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-3 text-sm">
+                {error}
+              </div>
+            )}
             <input
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFile}
-              className="block w-full text-sm"
+              className="block w-full text-sm mb-3"
             />
             <div className="flex gap-2 mt-3">
               <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
