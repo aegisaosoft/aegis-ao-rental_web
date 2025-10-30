@@ -14,25 +14,25 @@ router.post('/validate', upload.single('file'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid or missing image' });
     }
 
-    // TODO: Integrate real OCR/validation. For now do basic checks.
+    // TODO: Integrate real OCR/validation. For now do basic checks and return sample data.
     const sizeOk = file.size > 0;
     const result = {
       isValid: sizeOk,
-      // Placeholder fields; replace when integrating real OCR
+      // Sample data for testing; replace when integrating real OCR
       data: {
-        licenseNumber: '',
-        issuingState: '',
+        licenseNumber: 'D123456789',
+        issuingState: 'CA',
         issuingCountry: 'US',
-        sex: '',
-        height: '',
-        eyeColor: '',
-        middleName: '',
-        issueDate: '',
-        expirationDate: '',
-        address: '',
-        city: '',
-        state: '',
-        postalCode: '',
+        sex: 'M',
+        height: '5\'10"',
+        eyeColor: 'Brown',
+        middleName: 'John',
+        issueDate: '2020-01-15',
+        expirationDate: '2028-01-15',
+        address: '123 Main St',
+        city: 'Los Angeles',
+        state: 'CA',
+        postalCode: '90210',
         country: 'US',
       }
     };

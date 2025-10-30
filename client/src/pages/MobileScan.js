@@ -30,9 +30,10 @@ const MobileScan = () => {
       const payload = await resp.json();
       if (payload && payload.data) {
         localStorage.setItem('scannedLicense', JSON.stringify(payload.data));
+        console.log('License data saved:', payload.data);
       }
       localStorage.setItem('scannedLicenseImage', previewUrl);
-      toast.success('License validated');
+      toast.success(`License validated: ${payload.data?.licenseNumber || 'Sample data'}`);
       setStatus('captured');
     } catch (e) {
       console.error(e);
@@ -116,9 +117,10 @@ const MobileScan = () => {
       localStorage.setItem('scannedLicenseImage', dataUrl);
       if (payload && payload.data) {
         localStorage.setItem('scannedLicense', JSON.stringify(payload.data));
+        console.log('License data saved:', payload.data);
       }
       stopCamera();
-      toast.success('License validated');
+      toast.success(`License validated: ${payload.data?.licenseNumber || 'Sample data'}`);
       setStatus('captured');
     } catch (e) {
       console.error(e);
