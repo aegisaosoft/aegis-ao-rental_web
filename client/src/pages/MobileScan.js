@@ -11,8 +11,12 @@ const MobileScan = () => {
   const [status, setStatus] = useState('ready');
   const [capturedDataUrl, setCapturedDataUrl] = useState('');
   const [videoReady, setVideoReady] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState('environment');
+  const [error, setError] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const handleFile = async (e) => {
     try {
@@ -54,9 +58,9 @@ const MobileScan = () => {
       }
       // Try multiple constraint variants for better compatibility (iOS/Android)
       const variants = [
-        { audio: false, video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        { audio: false, video: { facingMode: 'environment' } },
+        { audio: false, video: { facingMode: { exact: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+        { audio: false, video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { audio: false, video: { facingMode } },
         { audio: false, video: true }
       ];
 
@@ -92,6 +96,8 @@ const MobileScan = () => {
           videoRef.current.play().catch(() => {});
         });
       }
+      setIsCameraActive(true);
+      setError('');
       setStatus('camera');
     } catch (err) {
       console.error(err);
@@ -99,6 +105,7 @@ const MobileScan = () => {
       // Fall back to file input
       const reason = err && (err.name || err.message) ? ` (${err.name || err.message})` : '';
       toast.error(`Camera unavailable${reason}. You can use file capture.`);
+      setError('Camera access denied or unavailable');
     }
   };
 
@@ -161,10 +168,20 @@ const MobileScan = () => {
         streamRef.current = null;
       }
       setVideoReady(false);
+      setIsCameraActive(false);
     } catch {}
   };
 
   useEffect(() => () => stopCamera(), []);
+
+  const switchCamera = async () => {
+    const next = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(next);
+    if (isCameraActive) {
+      stopCamera();
+      await startCamera();
+    }
+  };
 
   const continueWithoutCapture = () => {
     stopCamera();
@@ -192,7 +209,7 @@ const MobileScan = () => {
             />
             <div className="flex gap-2 mt-3">
               <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
-                Capture
+                Open Camera
               </button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
                 Continue
@@ -201,11 +218,17 @@ const MobileScan = () => {
           </div>
         )}
         {status === 'camera' && (
-          <div>
-            <video ref={videoRef} playsInline autoPlay muted className="w-full rounded mb-3" />
-            <div className="flex gap-2">
-              <button onClick={captureFrame} disabled={!videoReady} className={`flex-1 py-2 rounded-md font-semibold ${videoReady ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'}`}>{videoReady ? 'Capture' : 'Preparing camera...'}</button>
-              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Continue</button>
+          <div className="relative">
+            {error && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-red-600/80 text-white px-4 py-2 rounded z-10 text-sm">
+                {error}
+              </div>
+            )}
+            <video ref={videoRef} playsInline autoPlay muted className="w-full rounded mb-3 object-cover" />
+            <div className="flex items-center justify-around gap-3 py-3 bg-black/50 rounded">
+              <button onClick={switchCamera} className="w-12 h-12 rounded-full border-2 border-white text-white text-xl">↺</button>
+              <button onClick={captureFrame} disabled={!videoReady} className={`w-16 h-16 rounded-full ${videoReady ? 'bg-white border-4 border-white/50' : 'bg-gray-300 border-4 border-gray-300/50'}`} />
+              <button onClick={stopCamera} className="w-12 h-12 rounded-full border-2 border-white text-white text-xl">✕</button>
             </div>
           </div>
         )}
