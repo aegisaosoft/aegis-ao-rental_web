@@ -45,6 +45,11 @@ const MobileScan = () => {
   const startCamera = async () => {
     try {
       setStatus('loading');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('ready');
+        toast.error('Camera API unavailable. Ensure HTTPS and browser permissions.');
+        return;
+      }
       const constraints = {
         audio: false,
         video: {
@@ -64,7 +69,8 @@ const MobileScan = () => {
       console.error(err);
       setStatus('ready');
       // Fall back to file input
-      toast.error('Camera permission denied. Use file capture.');
+      const reason = err && (err.name || err.message) ? ` (${err.name || err.message})` : '';
+      toast.error(`Camera unavailable${reason}. You can use file capture.`);
     }
   };
 
@@ -131,6 +137,9 @@ const MobileScan = () => {
         {status === 'ready' && (
           <div>
             <p className="mb-4">Use your phone camera to capture the license.</p>
+            <div className="text-xs text-gray-500 mb-3">
+              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'} • MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
+            </div>
             <input
               type="file"
               accept="image/*"

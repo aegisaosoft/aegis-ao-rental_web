@@ -59,6 +59,8 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      // Allow camera streams and video playback from self/blob
+      mediaSrc: ["'self'", "blob:"],
       imgSrc: ["'self'", "data:", "https:"],
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"],
