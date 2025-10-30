@@ -9,6 +9,7 @@ const MobileScan = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [status, setStatus] = useState('ready');
+  const [capturedDataUrl, setCapturedDataUrl] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
@@ -17,28 +18,22 @@ const MobileScan = () => {
       const file = e.target.files?.[0];
       if (!file) return;
       setStatus('processing');
-      // Placeholder mapping; replace with actual BlinkID processing for production
-      const demoResult = {
-        licenseNumber: '',
-        issuingState: '',
-        issuingCountry: 'US',
-        sex: '',
-        height: '',
-        eyeColor: '',
-        middleName: '',
-        issueDate: '',
-        expirationDate: '',
-        address: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: 'US',
-      };
-      localStorage.setItem('scannedLicense', JSON.stringify(demoResult));
-      toast.success('License data captured');
-      // Navigate back to previous page or /book
-      const from = (location.state && location.state.returnTo) || '/book';
-      navigate(from, { replace: true });
+      // Show a quick preview
+      const previewUrl = URL.createObjectURL(file);
+      setCapturedDataUrl(previewUrl);
+
+      // Send to API for validation
+      const formData = new FormData();
+      formData.append('file', file, 'license.jpg');
+      const resp = await fetch('/api/license/validate', { method: 'POST', body: formData });
+      if (!resp.ok) throw new Error('API validation failed');
+      const payload = await resp.json();
+      if (payload && payload.data) {
+        localStorage.setItem('scannedLicense', JSON.stringify(payload.data));
+      }
+      localStorage.setItem('scannedLicenseImage', previewUrl);
+      toast.success('License validated');
+      setStatus('captured');
     } catch (e) {
       console.error(e);
       toast.error('Failed to process');
@@ -73,7 +68,7 @@ const MobileScan = () => {
     }
   };
 
-  // Capture a frame from the video and process like a file
+  // Capture a frame from the video and send to API for validation
   const captureFrame = async () => {
     try {
       if (!videoRef.current) return;
@@ -83,17 +78,26 @@ const MobileScan = () => {
       canvas.height = videoRef.current.videoHeight || 720;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      await new Promise(resolve => canvas.toBlob(() => resolve(), 'image/jpeg', 0.9));
-      // Placeholder mapping result
-      const demoResult = {
-        licenseNumber: '', issuingState: '', issuingCountry: 'US', sex: '', height: '', eyeColor: '', middleName: '',
-        issueDate: '', expirationDate: '', address: '', city: '', state: '', postalCode: '', country: 'US'
-      };
-      localStorage.setItem('scannedLicense', JSON.stringify(demoResult));
+      // Convert to Blob
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+
+      // Send to API
+      const formData = new FormData();
+      formData.append('file', blob, 'license.jpg');
+      const resp = await fetch('/api/license/validate', { method: 'POST', body: formData });
+      if (!resp.ok) throw new Error('API validation failed');
+      const payload = await resp.json();
+
+      // Save results
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setCapturedDataUrl(dataUrl);
+      localStorage.setItem('scannedLicenseImage', dataUrl);
+      if (payload && payload.data) {
+        localStorage.setItem('scannedLicense', JSON.stringify(payload.data));
+      }
       stopCamera();
-      toast.success('License photo captured');
-      const from = (location.state && location.state.returnTo) || '/book';
-      navigate(from, { replace: true });
+      toast.success('License validated');
+      setStatus('captured');
     } catch (e) {
       console.error(e);
       setStatus('camera');
@@ -129,7 +133,8 @@ const MobileScan = () => {
             <p className="mb-4">Use your phone camera to capture the license.</p>
             <input
               type="file"
-              accept="image/*;capture=camera"
+              accept="image/*"
+              capture="environment"
               onChange={handleFile}
               className="block w-full text-sm"
             />
@@ -145,10 +150,21 @@ const MobileScan = () => {
         )}
         {status === 'camera' && (
           <div>
-            <video ref={videoRef} playsInline muted className="w-full rounded mb-3" />
+            <video ref={videoRef} playsInline autoPlay muted className="w-full rounded mb-3" />
             <div className="flex gap-2">
               <button onClick={captureFrame} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Capture</button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Continue</button>
+            </div>
+          </div>
+        )}
+        {status === 'captured' && (
+          <div>
+            {capturedDataUrl ? (
+              <img src={capturedDataUrl} alt="Captured license" className="w-full rounded mb-3" />
+            ) : null}
+            <div className="flex gap-2">
+              <button onClick={() => { setStatus('ready'); setCapturedDataUrl(''); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Retake</button>
+              <button onClick={() => { const from = (location.state && location.state.returnTo) || '/book'; navigate(from, { replace: true }); }} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Use Photo</button>
             </div>
           </div>
         )}
