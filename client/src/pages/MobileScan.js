@@ -83,7 +83,7 @@ const MobileScan = () => {
       canvas.height = videoRef.current.videoHeight || 720;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+      await new Promise(resolve => canvas.toBlob(() => resolve(), 'image/jpeg', 0.9));
       // Placeholder mapping result
       const demoResult = {
         licenseNumber: '', issuingState: '', issuingCountry: 'US', sex: '', height: '', eyeColor: '', middleName: '',
