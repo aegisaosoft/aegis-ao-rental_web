@@ -390,7 +390,7 @@ const VehicleList = () => {
               // Construct model image path: /models/MAKE_MODEL.png
               const makeUpper = (make || '').toUpperCase();
               const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
+              const modelImagePath = `/api/models/${makeUpper}_${modelUpper}.png`;
               
               // Determine default image based on category (fallback)
               const getDefaultImage = (category) => {

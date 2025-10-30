@@ -33,6 +33,7 @@ const paymentRoutes = require('./routes/payments');
 const adminRoutes = require('./routes/admin');
 const companiesRoutes = require('./routes/companies');
 const scanRoutes = require('./routes/scan');
+const os = require('os');
 const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
 
@@ -66,6 +67,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(compression());
+
+// Enable cross-origin isolation for WebAssembly-based SDKs (BlinkID)
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
 
 // Rate limiting (disabled for development)
 const limiter = rateLimit({
@@ -163,7 +171,7 @@ app.get('/favicon.ico', (req, res) => {
 const clientPublicPath = path.join(__dirname, '../client/public');
 const serverPublicPath = path.join(__dirname, 'public');
 
-app.get('/models/:filename', (req, res, next) => {
+const sendModelImage = (req, res) => {
   const filename = req.params.filename;
   
   // Try client/public/models first (for development)
@@ -179,7 +187,38 @@ app.get('/models/:filename', (req, res, next) => {
   }
   
   // If not found, return 404 instead of 500
+  const fallback = path.join(serverPublicPath, 'economy.jpg');
+  if (fs.existsSync(fallback)) {
+    return res.sendFile(fallback);
+  }
   res.status(404).send('Image not found');
+};
+
+// Support both /models/* and /api/models/* for dev proxy
+app.get('/models/:filename', (req, res) => sendModelImage(req, res));
+app.get('/api/models/:filename', (req, res) => sendModelImage(req, res));
+
+// Helper: return LAN base URL for QR (detect first non-internal IPv4)
+app.get('/api/lan-ip', (req, res) => {
+  try {
+    const ifaces = os.networkInterfaces();
+    let ip = '';
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          ip = iface.address;
+          break;
+        }
+      }
+      if (ip) break;
+    }
+    const port = String(req.query.port || '3000');
+    if (!ip) return res.status(404).json({ message: 'LAN IP not found' });
+    const base = `http://${ip}:${port}`;
+    res.json({ base });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to get LAN IP' });
+  }
 });
 
 // Serve static files from the React app build directory

@@ -1744,7 +1744,7 @@ const AdminDashboard = () => {
                   {dashboardData.recentVehicles.slice(0, 5).map((vehicle) => (
                     <div key={vehicle.vehicle_id} className="flex items-center space-x-4">
                       <img
-                        src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+                        src={`/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
                         alt={`${vehicle.make} ${vehicle.model}`}
                         className="w-15 h-11 object-cover rounded"
                         onError={(e) => {

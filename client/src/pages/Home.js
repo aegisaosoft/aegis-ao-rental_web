@@ -100,23 +100,13 @@ const Home = () => {
     return countMap;
   }, [vehiclesResponse]);
   
-  // Debug logging
-  useEffect(() => {
-    console.log('Models Response:', modelsGroupedResponse);
-    console.log('Models Loading:', modelsLoading);
-    console.log('Models Error:', modelsError);
-  }, [modelsGroupedResponse, modelsLoading, modelsError]);
+  // Remove noisy debug logs in production/dev
   
   const modelsGrouped = useMemo(() => {
     return modelsGroupedResponse?.data || modelsGroupedResponse || [];
   }, [modelsGroupedResponse]);
   
-  // Debug logging
-  useEffect(() => {
-    console.log('Models Grouped:', modelsGrouped);
-    console.log('Is Array:', Array.isArray(modelsGrouped));
-    console.log('Length:', modelsGrouped?.length);
-  }, [modelsGrouped]);
+  //
   
   // Get company from localStorage and URL
   useEffect(() => {
@@ -421,7 +411,7 @@ const Home = () => {
                               // Construct model image path: /models/MAKE_MODEL.png
                               const makeUpper = (group.make || '').toUpperCase();
                               const modelUpper = (group.modelName || '').toUpperCase().replace(/\s+/g, '_');
-                              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
+                              const modelImagePath = `/api/models/${makeUpper}_${modelUpper}.png`;
                               
                               // Get vehicle count for this model (normalize spaces to underscores)
                               const modelKey = `${makeUpper}_${group.modelName.toUpperCase().replace(/\s+/g, '_')}`;

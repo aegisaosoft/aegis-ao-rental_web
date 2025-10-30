@@ -38,8 +38,28 @@ const BookPage = () => {
   const [selectedVehicleId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [qrSessionId, setQrSessionId] = useState('');
   const [qrUrl, setQrUrl] = useState('');
+  const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
+
+  // Auto-detect LAN base from server when running on localhost and no custom base set
+  React.useEffect(() => {
+    const current = process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl');
+    if (current) return;
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      (async () => {
+        try {
+          const r = await fetch(`/api/lan-ip?port=${encodeURIComponent(window.location.port || '3000')}`);
+          const j = await r.json();
+          if (j?.base) {
+            setQrBase(j.base);
+            localStorage.setItem('qrPublicBaseUrl', j.base);
+          }
+        } catch {}
+      })();
+    }
+  }, []);
+  const [modelImageSrc, setModelImageSrc] = useState('/economy.jpg');
   const [formData, setFormData] = useState({
     pickupDate: '',
     returnDate: '',
@@ -96,6 +116,27 @@ const BookPage = () => {
       }
     } catch {}
   }, []);
+
+  // Pre-check model image to avoid console errors; use default if missing
+  React.useEffect(() => {
+    const abort = new AbortController();
+    const makeUpper = (make || '').toUpperCase();
+    const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
+    const url = `/api/models/${makeUpper}_${modelUpper}.png`;
+    if (!makeUpper || !modelUpper) {
+      setModelImageSrc('/economy.jpg');
+      return () => abort.abort();
+    }
+    (async () => {
+      try {
+        const res = await fetch(url, { method: 'HEAD', signal: abort.signal });
+        setModelImageSrc(res.ok ? url : '/economy.jpg');
+      } catch {
+        setModelImageSrc('/economy.jpg');
+      }
+    })();
+    return () => abort.abort();
+  }, [make, model]);
 
   // Fetch existing license if customer is logged in
   const { data: customerLicense } = useQuery(
@@ -254,10 +295,13 @@ const BookPage = () => {
       const ua = navigator.userAgent || navigator.vendor || '';
       const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
       const isAndroid = /android/i.test(ua);
+      const lsWeb = localStorage.getItem('blinkid_license_key') || '';
+      const lsIOS = localStorage.getItem('blinkid_license_key_ios') || '';
+      const lsAndroid = localStorage.getItem('blinkid_license_key_android') || '';
       const licenseKey = (
-        (isIOS && process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS) ||
-        (isAndroid && process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID) ||
-        process.env.REACT_APP_BLINKID_LICENSE_KEY ||
+        (isIOS && (lsIOS || process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS)) ||
+        (isAndroid && (lsAndroid || process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID)) ||
+        lsWeb || process.env.REACT_APP_BLINKID_LICENSE_KEY ||
         ''
       );
       if (!licenseKey) {
@@ -280,71 +324,16 @@ const BookPage = () => {
     }
   };
 
-  // Create QR for phone scan (Azure/full-web): opens /scan with session
-  const handleScanOnPhone = async () => {
-    try {
-      const resp = await fetch('/api/scan/session', { method: 'POST' });
-      if (!resp.ok) throw new Error('Failed to create session');
-      const data = await resp.json();
-      const sessionId = data.id;
-      const origin = window.location.origin; // works on Azure and local
-      const url = `${origin}/scan?sessionId=${encodeURIComponent(sessionId)}`;
-      setQrSessionId(sessionId);
-      setQrUrl(url);
-      setQrOpen(true);
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to start phone scan');
-    }
+  // Create QR for phone scan: directly navigate to mobile scan page (no API session)
+  const handleScanOnPhone = () => {
+    // Prefer configured public base URL for LAN/External access; fallback to current origin
+    const configuredBase = qrBase || '';
+    const origin = configuredBase || window.location.origin;
+    const returnTo = window.location.pathname + window.location.search;
+    const url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+    setQrUrl(url);
+    setQrOpen(true);
   };
-
-  // Poll scan result while QR modal is open
-  React.useEffect(() => {
-    if (!qrOpen || !qrSessionId) return undefined;
-    let cancelled = false;
-    const start = Date.now();
-    const maxMs = 10 * 60 * 1000;
-    const tick = async () => {
-      if (cancelled) return;
-      try {
-        const r = await fetch(`/api/scan/session/${encodeURIComponent(qrSessionId)}`);
-        if (r.ok) {
-          const s = await r.json();
-          if (s.status === 'completed' && s.result) {
-            const d = s.result;
-            setLicenseData(prev => ({
-              ...prev,
-              licenseNumber: d.licenseNumber || prev.licenseNumber,
-              stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
-              countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
-              sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
-              height: d.height || prev.height,
-              eyeColor: d.eyeColor || prev.eyeColor,
-              middleName: d.middleName || prev.middleName,
-              issueDate: d.issueDate || prev.issueDate,
-              expirationDate: d.expirationDate || prev.expirationDate,
-              licenseAddress: d.address || prev.licenseAddress,
-              licenseCity: d.city || prev.licenseCity,
-              licenseState: d.state || prev.licenseState,
-              licensePostalCode: d.postalCode || prev.licensePostalCode,
-              licenseCountry: d.country || prev.licenseCountry,
-            }));
-            toast.success('License data received');
-            setQrOpen(false);
-            return; // stop polling
-          }
-        }
-      } catch (e) {
-        // ignore transient
-      }
-      if (Date.now() - start < maxMs) setTimeout(tick, 2000);
-    };
-    const handle = setTimeout(tick, 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [qrOpen, qrSessionId]);
 
   // QR-based phone scan flow removed to satisfy current lint and scope
 
@@ -461,16 +450,9 @@ const BookPage = () => {
                 {make && model && (
                   <div className="relative">
                     <img
-                      src={`/models/${(make || '').toUpperCase()}_${(model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+                      src={modelImageSrc}
                       alt={`${make} ${model}`}
                       className="w-full h-64 object-cover rounded-lg shadow-md"
-                      onError={(e) => {
-                        // Fallback to economy image if model image doesn't exist
-                        // Only change if it's not already the default to prevent infinite loops
-                        if (!e.target.src.includes('/economy.jpg')) {
-                          e.target.src = '/economy.jpg';
-                        }
-                      }}
                     />
                     <button
                       type="button"
@@ -515,6 +497,30 @@ const BookPage = () => {
                       className="mx-auto mb-2"
                     />
                     <div className="text-xs break-all text-gray-600 mb-3">{qrUrl}</div>
+                    <div className="text-left mb-3">
+                      <label className="block text-xs text-gray-600 mb-1">Public base URL (e.g. http://192.168.1.50:3000)</label>
+                      <input
+                        type="text"
+                        value={qrBase}
+                        onChange={(e)=>setQrBase(e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded"
+                        placeholder="http://YOUR_LAN_IP:3000"
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success('Saved'); }}
+                          className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
+                        >Save</button>
+                        <button
+                          onClick={()=>{
+                            const origin = (qrBase || window.location.origin).replace(/\/$/, '');
+                            const returnTo = window.location.pathname + window.location.search;
+                            setQrUrl(`${origin}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
+                          }}
+                          className="flex-1 bg-gray-200 text-gray-800 py-1 rounded text-sm"
+                        >Update QR</button>
+                      </div>
+                    </div>
                     <button
                       onClick={()=>setQrOpen(false)}
                       className="w-full bg-gray-200 text-gray-800 py-2 rounded-md font-semibold"

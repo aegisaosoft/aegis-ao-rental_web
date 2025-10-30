@@ -132,7 +132,7 @@ const VehicleDetail = () => {
           {/* Vehicle Image */}
           <div>
             <img
-              src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+              src={`/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
               alt={`${vehicle.make} ${vehicle.model}`}
               className="w-full h-96 object-cover rounded-lg shadow-lg"
               onError={(e) => {
