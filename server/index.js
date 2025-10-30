@@ -74,6 +74,12 @@ app.use(compression());
 // Behind reverse proxy (Azure, etc.) so Express should trust X-Forwarded-* headers
 app.set('trust proxy', 1);
 
+// Explicitly allow camera access via Permissions-Policy (formerly Feature-Policy)
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(self)');
+  next();
+});
+
 // Enable cross-origin isolation for WebAssembly-based SDKs (BlinkID)
 // Note: COOP/COEP disabled to allow cross-origin QR images to render in the modal
 

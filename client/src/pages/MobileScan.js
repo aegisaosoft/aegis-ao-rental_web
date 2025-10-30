@@ -50,19 +50,35 @@ const MobileScan = () => {
         toast.error('Camera API unavailable. Ensure HTTPS and browser permissions.');
         return;
       }
-      const constraints = {
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+      // Try multiple constraint variants for better compatibility (iOS/Android)
+      const variants = [
+        { audio: false, video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { audio: false, video: { facingMode: 'environment' } },
+        { audio: false, video: true }
+      ];
+
+      let stream = null;
+      let lastErr = null;
+      for (const v of variants) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          stream = await navigator.mediaDevices.getUserMedia(v);
+          if (stream) break;
+        } catch (e) {
+          lastErr = e;
         }
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      if (!stream) {
+        setStatus('ready');
+        throw lastErr || new Error('No camera stream available');
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.muted = true;
+        await videoRef.current.play().catch(() => {});
       }
       setStatus('camera');
     } catch (err) {
