@@ -51,9 +51,10 @@ app.use(helmet({
         "https://localhost:5000",
         "http://localhost:5000",
         "https://fonts.googleapis.com",
-        "https://unpkg.com"
+        "https://unpkg.com",
+        "https://cdn.jsdelivr.net"
       ],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:"],

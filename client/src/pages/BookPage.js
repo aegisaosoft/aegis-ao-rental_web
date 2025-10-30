@@ -37,6 +37,9 @@ const BookPage = () => {
 
   const [selectedVehicleId] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrSessionId, setQrSessionId] = useState('');
+  const [qrUrl, setQrUrl] = useState('');
   const [formData, setFormData] = useState({
     pickupDate: '',
     returnDate: '',
@@ -224,12 +227,23 @@ const BookPage = () => {
   // Microblink BlinkID: dynamic loader and prep
   const loadBlinkID = () => new Promise((resolve, reject) => {
     if (window.BlinkIDSDK) return resolve(window.BlinkIDSDK);
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
-    script.async = true;
-    script.onload = () => resolve(window.BlinkIDSDK);
-    script.onerror = () => reject(new Error('Failed to load BlinkID SDK'));
-    document.body.appendChild(script);
+    const tryLoad = (srcs) => {
+      if (!srcs.length) return reject(new Error('Failed to load BlinkID SDK'));
+      const [src, ...rest] = srcs;
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve(window.BlinkIDSDK);
+      script.onerror = () => {
+        script.remove();
+        tryLoad(rest);
+      };
+      document.body.appendChild(script);
+    };
+    tryLoad([
+      'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
+      'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js'
+    ]);
   });
 
   const handleScanLicense = async () => {
@@ -265,6 +279,72 @@ const BookPage = () => {
       setIsScanning(false);
     }
   };
+
+  // Create QR for phone scan (Azure/full-web): opens /scan with session
+  const handleScanOnPhone = async () => {
+    try {
+      const resp = await fetch('/api/scan/session', { method: 'POST' });
+      if (!resp.ok) throw new Error('Failed to create session');
+      const data = await resp.json();
+      const sessionId = data.id;
+      const origin = window.location.origin; // works on Azure and local
+      const url = `${origin}/scan?sessionId=${encodeURIComponent(sessionId)}`;
+      setQrSessionId(sessionId);
+      setQrUrl(url);
+      setQrOpen(true);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start phone scan');
+    }
+  };
+
+  // Poll scan result while QR modal is open
+  React.useEffect(() => {
+    if (!qrOpen || !qrSessionId) return undefined;
+    let cancelled = false;
+    const start = Date.now();
+    const maxMs = 10 * 60 * 1000;
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch(`/api/scan/session/${encodeURIComponent(qrSessionId)}`);
+        if (r.ok) {
+          const s = await r.json();
+          if (s.status === 'completed' && s.result) {
+            const d = s.result;
+            setLicenseData(prev => ({
+              ...prev,
+              licenseNumber: d.licenseNumber || prev.licenseNumber,
+              stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
+              countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
+              sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
+              height: d.height || prev.height,
+              eyeColor: d.eyeColor || prev.eyeColor,
+              middleName: d.middleName || prev.middleName,
+              issueDate: d.issueDate || prev.issueDate,
+              expirationDate: d.expirationDate || prev.expirationDate,
+              licenseAddress: d.address || prev.licenseAddress,
+              licenseCity: d.city || prev.licenseCity,
+              licenseState: d.state || prev.licenseState,
+              licensePostalCode: d.postalCode || prev.licensePostalCode,
+              licenseCountry: d.country || prev.licenseCountry,
+            }));
+            toast.success('License data received');
+            setQrOpen(false);
+            return; // stop polling
+          }
+        }
+      } catch (e) {
+        // ignore transient
+      }
+      if (Date.now() - start < maxMs) setTimeout(tick, 2000);
+    };
+    const handle = setTimeout(tick, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [qrOpen, qrSessionId]);
 
   // QR-based phone scan flow removed to satisfy current lint and scope
 
@@ -402,6 +482,14 @@ const BookPage = () => {
                       <Camera className="h-4 w-4 mr-1" />
                       {isScanning ? 'Scanning...' : 'Scan License'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleScanOnPhone}
+                      className="absolute top-3 right-40 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md"
+                      title="Scan on phone via QR"
+                    >
+                      Scan on phone
+                    </button>
                   </div>
                 )}
                 {/* Header Text */}
@@ -416,6 +504,24 @@ const BookPage = () => {
 
             {/* Driver License Information */}
             <div className="bg-white rounded-lg shadow-md p-6">
+              {/* QR Modal */}
+              {qrOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-4 w-80 text-center">
+                    <div className="text-lg font-semibold mb-2">Scan on your phone</div>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
+                      alt="QR"
+                      className="mx-auto mb-2"
+                    />
+                    <div className="text-xs break-all text-gray-600 mb-3">{qrUrl}</div>
+                    <button
+                      onClick={()=>setQrOpen(false)}
+                      className="w-full bg-gray-200 text-gray-800 py-2 rounded-md font-semibold"
+                    >Close</button>
+                  </div>
+                </div>
+              )}
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 <CreditCard className="h-5 w-5 mr-2" />
                 {t('bookPage.driverLicenseInformation')}
