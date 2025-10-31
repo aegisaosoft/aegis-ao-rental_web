@@ -141,13 +141,13 @@ const Home = () => {
       filtered = allModels.filter(categoryGroup => {
         const categoryName = (categoryGroup.categoryName || categoryGroup.category_name || '').toLowerCase();
         return categoryName.includes(categoryLower) || 
-               categoryLower === 'economy' && categoryName.includes('economy') ||
-               categoryLower === 'compact' && categoryName.includes('compact') ||
-               categoryLower === 'mid-size' && categoryName.includes('mid') ||
-               categoryLower === 'full-size' && categoryName.includes('full') ||
-               categoryLower === 'suv' && categoryName.includes('suv') ||
-               categoryLower === 'luxury' && categoryName.includes('luxury') ||
-               categoryLower === 'sports' && categoryName.includes('sport');
+               (categoryLower === 'economy' && categoryName.includes('economy')) ||
+               (categoryLower === 'compact' && categoryName.includes('compact')) ||
+               (categoryLower === 'mid-size' && categoryName.includes('mid')) ||
+               (categoryLower === 'full-size' && categoryName.includes('full')) ||
+               (categoryLower === 'suv' && categoryName.includes('suv')) ||
+               (categoryLower === 'luxury' && categoryName.includes('luxury')) ||
+               (categoryLower === 'sports' && categoryName.includes('sport'));
       });
     }
     
