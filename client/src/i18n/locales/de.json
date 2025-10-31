@@ -32,7 +32,13 @@
     "support": "24/7 Support",
     "supportDesc": "Immer für Sie da",
     "featuredVehicles": "Ausgewählte Fahrzeuge",
-    "viewAllVehicles": "Alle Fahrzeuge Anzeigen"
+    "availableModelsTitle": "Verfügbare Modelle nach Kategorie",
+    "availableModelsSubtitle": "Durchsuchen Sie unsere große Auswahl an Fahrzeugmodellen, nach Kategorie organisiert",
+    "viewAllVehicles": "Alle Fahrzeuge Anzeigen",
+    "ctaTitle": "Bereit, Ihre Reise zu beginnen?",
+    "ctaSubtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die {{companyName}} für ihre Transportbedürfnisse vertrauen.",
+    "browseFleet": "Unsere Flotte Durchsuchen",
+    "viewAllModels": "Alle {{count}} {{category}} Modelle anzeigen"
   },
   "vehicles": {
     "title": "Fahrzeugflotte",
@@ -64,6 +70,7 @@
     "vehicles": "Fahrzeuge",
     "page": "Seite",
     "more": "mehr",
+    "years": "Jahre",
     "errorLoading": "Fehler beim Laden der Fahrzeuge",
     "tryAgainLater": "Bitte versuchen Sie es später erneut."
   },
@@ -235,9 +242,11 @@
     "mid-size": "Mittelklasse",
     "full-size": "Oberklasse",
     "suv": "SUV",
+    "suv.description": "Sport Utility Vehicles für Familien und Gruppen",
     "luxury": "Luxus",
     "sports": "Sport",
-    "van": "Van"
+    "van": "Van",
+    "van.description": "Personenbusse für große Gruppen"
   },
   "fuelTypes": {
     "gasoline": "Benzin",

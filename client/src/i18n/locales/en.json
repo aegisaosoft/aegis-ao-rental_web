@@ -32,7 +32,31 @@
     "support": "24/7 Support",
     "supportDesc": "Always here to help",
     "featuredVehicles": "Featured Vehicles",
-    "viewAllVehicles": "View All Vehicles"
+    "availableModelsTitle": "Available Models by Category",
+    "availableModelsSubtitle": "Browse our extensive selection of vehicle models, organized by category",
+    "viewAllVehicles": "View All Vehicles",
+    "ctaTitle": "Ready to Start Your Journey?",
+    "ctaSubtitle": "Join thousands of satisfied customers who trust {{companyName}} for their transportation needs.",
+    "browseFleet": "Browse Our Fleet",
+    "viewAllModels": "View All {{count}} {{category}} Models",
+    "features": {
+      "wideSelection": {
+        "title": "Wide Selection",
+        "description": "Choose from our extensive fleet of economy, luxury, and specialty vehicles."
+      },
+      "fullyInsured": {
+        "title": "Fully Insured",
+        "description": "All our vehicles come with comprehensive insurance coverage for your peace of mind."
+      },
+      "support": {
+        "title": "24/7 Support",
+        "description": "Our customer service team is available around the clock to assist you."
+      },
+      "premiumService": {
+        "title": "Premium Service",
+        "description": "Experience top-notch service with our professional and friendly staff."
+      }
+    }
   },
   "vehicles": {
     "title": "Vehicle Fleet",
@@ -64,6 +88,7 @@
     "vehicles": "vehicles",
     "page": "Page",
     "more": "more",
+    "years": "Years",
     "errorLoading": "Error Loading Vehicles",
     "tryAgainLater": "Please try again later."
   },
@@ -235,9 +260,11 @@
     "mid-size": "Mid-Size",
     "full-size": "Full-Size",
     "suv": "SUV",
+    "suv.description": "Sport Utility Vehicles for families and groups",
     "luxury": "Luxury",
     "sports": "Sports",
-    "van": "Van"
+    "van": "Van",
+    "van.description": "Passenger vans for large group"
   },
   "fuelTypes": {
     "gasoline": "Gasoline",

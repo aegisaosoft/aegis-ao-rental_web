@@ -32,7 +32,13 @@
     "support": "Suporte 24/7",
     "supportDesc": "Sempre aqui para ajudar",
     "featuredVehicles": "Veículos em Destaque",
-    "viewAllVehicles": "Ver Todos os Veículos"
+    "availableModelsTitle": "Modelos disponíveis por categoria",
+    "availableModelsSubtitle": "Confira nossa ampla seleção de modelos de veículos, organizados por categoria",
+    "viewAllVehicles": "Ver Todos os Veículos",
+    "ctaTitle": "Pronto para começar sua jornada?",
+    "ctaSubtitle": "Junte-se a milhares de clientes satisfeitos que confiam na {{companyName}} para suas necessidades de transporte.",
+    "browseFleet": "Explorar Nossa Frota",
+    "viewAllModels": "Ver todos os {{count}} modelos {{category}}"
   },
   "vehicles": {
     "title": "Frota de Veículos",
@@ -64,6 +70,7 @@
     "vehicles": "veículos",
     "page": "Página",
     "more": "mais",
+    "years": "Anos",
     "errorLoading": "Erro ao Carregar Veículos",
     "tryAgainLater": "Por favor, tente novamente mais tarde."
   },
@@ -235,9 +242,11 @@
     "mid-size": "Médio",
     "full-size": "Grande",
     "suv": "SUV",
+    "suv.description": "Veículos Utilitários Esportivos para famílias e grupos",
     "luxury": "Luxo",
     "sports": "Esportivo",
-    "van": "Van"
+    "van": "Van",
+    "van.description": "Vans de passageiros para grupos grandes"
   },
   "fuelTypes": {
     "gasoline": "Gasolina",

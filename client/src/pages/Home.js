@@ -278,10 +278,10 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Available Models by Category
+              {t('home.availableModelsTitle')}
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Browse our extensive selection of vehicle models, organized by category
+              {t('home.availableModelsSubtitle')}
             </p>
           </div>
 
@@ -324,11 +324,11 @@ const Home = () => {
                       {/* Category Header */}
                       <div className="text-center">
                         <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                          {categoryName}
+                          {t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}`) || categoryName}
                         </h3>
                         {categoryGroup.categoryDescription && (
                           <p className="text-gray-600 max-w-2xl mx-auto">
-                            {categoryGroup.categoryDescription}
+                            {t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}.description`) || categoryGroup.categoryDescription}
                           </p>
                         )}
                       </div>
@@ -443,7 +443,7 @@ const Home = () => {
                                     )}
                                     {selectedCompanyId && vehicleCount > 0 && (
                                       <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                        {vehicleCount} available
+                                        {vehicleCount} {t('status.available')}
                                       </div>
                                     )}
                                   </div>
@@ -454,7 +454,7 @@ const Home = () => {
                                     </h3>
                                     {yearsDisplay && (
                                       <p className="text-sm text-gray-600 mb-2">
-                                        Years: {yearsDisplay}
+                                        {t('vehicles.years') || 'Years'}: {yearsDisplay}
                                       </p>
                                     )}
                                     
@@ -469,14 +469,14 @@ const Home = () => {
                                       {group.fuelType && (
                                         <div className="flex items-center text-gray-600">
                                           <Fuel className="h-4 w-4 mr-2" />
-                                          <span>{group.fuelType}</span>
+                                          <span>{t(`fuelTypes.${(group.fuelType || '').toString().toLowerCase()}`) || group.fuelType}</span>
                                         </div>
                                       )}
                                       
                                       {group.transmission && (
                                         <div className="flex items-center text-gray-600">
                                           <Settings className="h-4 w-4 mr-2" />
-                                          <span>{group.transmission}</span>
+                                          <span>{t(`transmission.${(group.transmission || '').toString().toLowerCase()}`) || group.transmission}</span>
                                         </div>
                                       )}
                                     </div>
@@ -548,7 +548,10 @@ const Home = () => {
                               to={`/vehicles?category=${categoryId}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
                               className="text-yellow-500 hover:text-yellow-600 font-semibold inline-flex items-center text-lg"
                             >
-                              View All {uniqueModelsCount} {categoryName} Models
+                              {t('home.viewAllModels', { 
+                                count: uniqueModelsCount, 
+                                category: t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}`) || categoryName 
+                              })}
                               <ArrowRight className="ml-2 h-5 w-5" />
                             </Link>
                           </div>
@@ -580,10 +583,10 @@ const Home = () => {
                 <Car className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Wide Selection
+                {t('home.features.wideSelection.title')}
               </h3>
               <p className="text-gray-600">
-                Choose from our extensive fleet of economy, luxury, and specialty vehicles.
+                {t('home.features.wideSelection.description')}
               </p>
             </div>
 
@@ -592,10 +595,10 @@ const Home = () => {
                 <Shield className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Fully Insured
+                {t('home.features.fullyInsured.title')}
               </h3>
               <p className="text-gray-600">
-                All our vehicles come with comprehensive insurance coverage for your peace of mind.
+                {t('home.features.fullyInsured.description')}
               </p>
             </div>
 
@@ -604,10 +607,10 @@ const Home = () => {
                 <Clock className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                24/7 Support
+                {t('home.features.support.title')}
               </h3>
               <p className="text-gray-600">
-                Our customer service team is available around the clock to assist you.
+                {t('home.features.support.description')}
               </p>
             </div>
 
@@ -616,10 +619,10 @@ const Home = () => {
                 <Star className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Premium Service
+                {t('home.features.premiumService.title')}
               </h3>
               <p className="text-gray-600">
-                Experience top-notch service with our professional and friendly staff.
+                {t('home.features.premiumService.description')}
               </p>
             </div>
           </div>
@@ -630,16 +633,16 @@ const Home = () => {
       <section className="bg-gray-900 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Start Your Journey?
+            {t('home.ctaTitle')}
           </h2>
           <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied customers who trust {companyName} for their transportation needs.
+            {t('home.ctaSubtitle', { companyName })}
           </p>
           <Link
             to="/vehicles"
             className="bg-yellow-500 text-black font-bold py-3 px-8 rounded-lg hover:bg-yellow-400 transition-colors inline-flex items-center"
           >
-            Browse Our Fleet
+            {t('home.browseFleet')}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
         </div>
