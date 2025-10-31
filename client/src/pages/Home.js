@@ -13,7 +13,7 @@
  *
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
@@ -26,6 +26,12 @@ const Home = () => {
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
   const [companyName, setCompanyName] = useState('Rentals');
+  const [activeFilters, setActiveFilters] = useState({
+    category: null,
+    startDate: null,
+    endDate: null
+  });
+  const modelsSectionRef = useRef(null);
   
   // Fetch companies
   const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
@@ -47,14 +53,31 @@ const Home = () => {
 
   // Fetch available vehicles for the current company to count by model
   const { data: vehiclesResponse } = useQuery(
-    ['vehicles', selectedCompanyId, 'available'],
-    () => apiService.getVehicles({
-      companyId: selectedCompanyId,
-      status: 'Available',
-      pageSize: 10000 // Get all available vehicles
-    }),
+    ['vehicles', selectedCompanyId, 'available', activeFilters.startDate, activeFilters.endDate],
+    () => {
+      const params = {
+        status: 'Available',
+        pageSize: 10000 // Get all available vehicles
+      };
+      
+      // Add company filter if selected
+      if (selectedCompanyId) {
+        params.companyId = selectedCompanyId;
+      }
+      
+      // Add date filters if provided
+      if (activeFilters.startDate) {
+        params.availableFrom = activeFilters.startDate;
+      }
+      if (activeFilters.endDate) {
+        params.availableTo = activeFilters.endDate;
+      }
+      
+      return apiService.getVehicles(params);
+    },
     {
-      enabled: !!selectedCompanyId,
+      // Enable if company is selected OR if we have date filters active
+      enabled: !!selectedCompanyId || !!(activeFilters.startDate || activeFilters.endDate),
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -102,9 +125,69 @@ const Home = () => {
   
   // Remove noisy debug logs in production/dev
   
+  // Filter models by active filters
   const modelsGrouped = useMemo(() => {
-    return modelsGroupedResponse?.data || modelsGroupedResponse || [];
-  }, [modelsGroupedResponse]);
+    const allModels = modelsGroupedResponse?.data || modelsGroupedResponse || [];
+    
+    if (!activeFilters.category && !activeFilters.startDate && !activeFilters.endDate) {
+      return allModels;
+    }
+    
+    // Filter by category if selected
+    let filtered = allModels;
+    if (activeFilters.category) {
+      // Find category by name (case-insensitive)
+      const categoryLower = activeFilters.category.toLowerCase();
+      filtered = allModels.filter(categoryGroup => {
+        const categoryName = (categoryGroup.categoryName || categoryGroup.category_name || '').toLowerCase();
+        return categoryName.includes(categoryLower) || 
+               categoryLower === 'economy' && categoryName.includes('economy') ||
+               categoryLower === 'compact' && categoryName.includes('compact') ||
+               categoryLower === 'mid-size' && categoryName.includes('mid') ||
+               categoryLower === 'full-size' && categoryName.includes('full') ||
+               categoryLower === 'suv' && categoryName.includes('suv') ||
+               categoryLower === 'luxury' && categoryName.includes('luxury') ||
+               categoryLower === 'sports' && categoryName.includes('sport');
+      });
+    }
+    
+    // Filter by date availability - only show models that have available vehicles in the date range
+    if ((activeFilters.startDate || activeFilters.endDate) && vehiclesResponse?.data) {
+      const availableVehicles = Array.isArray(vehiclesResponse.data) ? vehiclesResponse.data : [];
+      
+      // Create a set of available model IDs (make_model combinations)
+      const availableModelKeys = new Set();
+      availableVehicles.forEach(vehicle => {
+        const make = (vehicle.make || '').toUpperCase();
+        const model = (vehicle.model || '').toUpperCase().replace(/\s+/g, '_');
+        if (make && model) {
+          availableModelKeys.add(`${make}_${model}`);
+        }
+      });
+      
+      // Filter categories to only include those with available models
+      filtered = filtered.map(categoryGroup => {
+        const models = categoryGroup.models || [];
+        const filteredModels = models.filter(model => {
+          const make = (model.make || '').toUpperCase();
+          const modelName = (model.modelName || model.model_name || '').toUpperCase().replace(/\s+/g, '_');
+          const key = `${make}_${modelName}`;
+          return availableModelKeys.has(key);
+        });
+        
+        if (filteredModels.length === 0) {
+          return null; // Don't show category if no models available
+        }
+        
+        return {
+          ...categoryGroup,
+          models: filteredModels
+        };
+      }).filter(Boolean); // Remove null entries
+    }
+    
+    return filtered;
+  }, [modelsGroupedResponse, activeFilters, vehiclesResponse]);
   
   //
   
@@ -120,31 +203,51 @@ const Home = () => {
     // Use URL param if available, otherwise use stored value
     const companyId = urlCompanyId || storedCompanyId;
     setSelectedCompanyId(companyId);
-    
+  }, []); // Only run once on mount
+  
+  // Update company name when selectedCompanyId or companiesData changes
+  useEffect(() => {
     const companies = Array.isArray(companiesData) ? companiesData : [];
     
-    if (companyId && companies.length > 0) {
+    if (selectedCompanyId && companies.length > 0) {
       const selectedCompany = companies.find(c => 
-        String(c.company_id || c.companyId) === String(companyId)
+        String(c.company_id || c.companyId) === String(selectedCompanyId)
       );
       if (selectedCompany) {
         setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'Rentals');
+      } else {
+        setCompanyName('Rentals');
       }
     } else {
       setCompanyName('Rentals');
     }
-  }, [companiesData]);
+  }, [selectedCompanyId, companiesData]);
   
   // Listen for company changes
   useEffect(() => {
     const handleCompanyChange = (event) => {
       const companyId = event.detail?.companyId || '';
       setSelectedCompanyId(companyId);
+      
+      // Update company name when company changes
+      const companies = Array.isArray(companiesData) ? companiesData : [];
+      if (companyId && companies.length > 0) {
+        const selectedCompany = companies.find(c => 
+          String(c.company_id || c.companyId) === String(companyId)
+        );
+        if (selectedCompany) {
+          setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'Rentals');
+        } else {
+          setCompanyName('Rentals');
+        }
+      } else {
+        setCompanyName('Rentals');
+      }
     };
     
     window.addEventListener('companyChanged', handleCompanyChange);
     return () => window.removeEventListener('companyChanged', handleCompanyChange);
-  }, []);
+  }, [companiesData]);
 
   const features = [
     {
@@ -238,13 +341,25 @@ const Home = () => {
               </div>
 
               {/* View Vehicles Button */}
-              <Link
-                to="/vehicles"
+              <button
+                onClick={() => {
+                  // Apply filters
+                  setActiveFilters({
+                    category: category || null,
+                    startDate: startDate || null,
+                    endDate: endDate || null
+                  });
+                  
+                  // Scroll to models section
+                  setTimeout(() => {
+                    modelsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
                 className="w-full bg-yellow-500 text-black font-bold py-4 px-6 rounded-lg hover:bg-yellow-400 transition-colors flex items-center justify-center"
               >
-                View Vehicles
+                {t('home.viewVehicles')}
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
+              </button>
             </div>
 
             {/* Promotional Content - Right Side */}
@@ -274,7 +389,7 @@ const Home = () => {
       </section>
 
       {/* Available Models by Category Section */}
-      <section className="py-20 bg-gray-50">
+      <section ref={modelsSectionRef} className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -288,16 +403,16 @@ const Home = () => {
           {modelsLoading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-              <p className="mt-4 text-gray-600">Loading models...</p>
+              <p className="mt-4 text-gray-600">{t('home.loadingModels')}</p>
             </div>
           ) : modelsError ? (
             <div className="text-center py-12">
-              <p className="text-red-600 mb-4">Error loading models: {modelsError.message}</p>
-              <p className="text-gray-600 text-sm">Check console for more details</p>
+              <p className="text-red-600 mb-4">{t('home.errorLoadingModels')}: {modelsError.message}</p>
+              <p className="text-gray-600 text-sm">{t('home.checkConsole')}</p>
             </div>
           ) : !Array.isArray(modelsGrouped) || modelsGrouped.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-600 mb-4">No models available at this time.</p>
+              <p className="text-gray-600 mb-4">{t('home.noModelsAvailable')}</p>
               <p className="text-gray-500 text-sm">Response: {JSON.stringify(modelsGroupedResponse?.slice?.(0, 200) || modelsGroupedResponse)}</p>
             </div>
           ) : (

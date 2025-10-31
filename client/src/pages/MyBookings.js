@@ -129,7 +129,7 @@ const MyBookings = () => {
                         <h3 className="text-lg font-semibold text-gray-900">
                           {booking.vehicle?.year} {booking.vehicle?.make} {booking.vehicle?.model}
                         </h3>
-                        <p className="text-gray-600">Reservation #{booking.reservation_number}</p>
+                        <p className="text-gray-600">{t('myBookings.reservationNumber', { number: booking.reservation_number })}</p>
                       </div>
                     </div>
 
@@ -167,7 +167,7 @@ const MyBookings = () => {
                     </button>
                     {booking.status === 'confirmed' && (
                       <button className="btn-secondary text-sm">
-                        {t('myBookings.cancelBooking', 'Cancel Booking')}
+                        {t('myBookings.cancelBooking')}
                       </button>
                     )}
                   </div>

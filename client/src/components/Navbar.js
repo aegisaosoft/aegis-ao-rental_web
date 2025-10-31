@@ -149,9 +149,6 @@ const Navbar = () => {
             <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
               {t('nav.home')}
             </Link>
-            <Link to="/vehicles" className="text-gray-700 hover:text-blue-600 transition-colors">
-              {t('nav.vehicles')}
-            </Link>
             {isAuthenticated && (
               <Link to="/my-bookings" className="text-gray-700 hover:text-blue-600 transition-colors">
                 {t('nav.myBookings')}
@@ -205,7 +202,7 @@ const Navbar = () => {
                       onClick={() => setUserMenuOpen(false)}
                     >
                       <Settings className="h-4 w-4 mr-2" />
-                      Profile
+                      {t('nav.profile')}
                     </Link>
                     <Link
                       to="/my-bookings"
@@ -213,14 +210,14 @@ const Navbar = () => {
                       onClick={() => setUserMenuOpen(false)}
                     >
                       <Calendar className="h-4 w-4 mr-2" />
-                      My Bookings
+                      {t('nav.myBookings')}
                     </Link>
                     <button
                       onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
-                      Logout
+                      {t('nav.logout')}
                     </button>
                   </div>
                 )}
@@ -264,14 +261,7 @@ const Navbar = () => {
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                 onClick={() => setIsOpen(false)}
               >
-                Home
-              </Link>
-              <Link
-                to="/vehicles"
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                Vehicles
+                {t('nav.home')}
               </Link>
               {isAuthenticated && (
                 <>
@@ -280,14 +270,14 @@ const Navbar = () => {
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
-                    My Bookings
+                    {t('nav.myBookings')}
                   </Link>
                   <Link
                     to="/profile"
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
-                    Profile
+                    {t('nav.profile')}
                   </Link>
                   <Link
                     to="/settings"
@@ -295,7 +285,7 @@ const Navbar = () => {
                     onClick={() => setIsOpen(false)}
                   >
                     <Settings className="h-4 w-4 mr-2" />
-                    Settings
+                    {t('nav.settings')}
                   </Link>
                   {user?.isAdmin && (
                     <Link
@@ -303,14 +293,14 @@ const Navbar = () => {
                       className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                       onClick={() => setIsOpen(false)}
                     >
-                      Admin
+                      {t('nav.adminDashboard')}
                     </Link>
                   )}
                   <button
                     onClick={handleLogout}
                     className="block w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                   >
-                    Logout
+                    {t('nav.logout')}
                   </button>
                 </>
               )}
@@ -321,14 +311,14 @@ const Navbar = () => {
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
-                    Login
+                    {t('nav.login')}
                   </Link>
                   <Link
                     to="/register"
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
-                    Sign Up
+                    {t('nav.signUp')}
                   </Link>
                 </>
               )}

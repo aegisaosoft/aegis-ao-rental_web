@@ -38,7 +38,12 @@
     "ctaTitle": "Bereit, Ihre Reise zu beginnen?",
     "ctaSubtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die {{companyName}} für ihre Transportbedürfnisse vertrauen.",
     "browseFleet": "Unsere Flotte Durchsuchen",
-    "viewAllModels": "Alle {{count}} {{category}} Modelle anzeigen"
+    "viewAllModels": "Alle {{count}} {{category}} Modelle anzeigen",
+    "viewVehicles": "Fahrzeuge Anzeigen",
+    "loadingModels": "Modelle werden geladen...",
+    "errorLoadingModels": "Fehler beim Laden der Modelle",
+    "checkConsole": "Überprüfen Sie die Konsole für weitere Details",
+    "noModelsAvailable": "Derzeit sind keine Modelle verfügbar."
   },
   "vehicles": {
     "title": "Fahrzeugflotte",
@@ -127,7 +132,16 @@
     "confirmBooking": "Buchung Bestätigen",
     "processing": "Verarbeitung...",
     "success": "Buchung Bestätigt!",
-    "error": "Buchung fehlgeschlagen. Bitte versuchen Sie es erneut."
+    "error": "Buchung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "summary": "Buchungsübersicht",
+    "vehicle": "Fahrzeug",
+    "duration": "Dauer",
+    "days": "Tage",
+    "bookingFor": "Buchung für",
+    "pleaseLoginToBook": "Bitte melden Sie sich an, um eine Buchung vorzunehmen",
+    "selectPickupAndReturn": "Bitte wählen Sie Abhol- und Rückgabedatum aus",
+    "enterPickupLocation": "Abholort eingeben",
+    "enterReturnLocation": "Rückgabeort eingeben"
   },
   "bookPage": {
     "noModelSelected": "Kein Modell Ausgewählt",
@@ -190,7 +204,18 @@
     "vehicleDataNotAvailable": "Fahrzeugdaten nicht verfügbar",
     "selectedVehicleNotFound": "Ausgewähltes Fahrzeug nicht gefunden",
     "bookingCreated": "Buchung erfolgreich erstellt!",
-    "bookingFailed": "Buchung fehlgeschlagen"
+    "bookingFailed": "Buchung fehlgeschlagen",
+    "scanDriverLicense": "Führerschein scannen",
+    "scanning": "Scannen...",
+    "scanLicense": "Führerschein Scannen",
+    "scanOnPhoneViaQr": "Auf Telefon über QR scannen",
+    "scanOnPhone": "Auf Telefon scannen",
+    "scanOnYourPhone": "Auf Ihrem Telefon scannen",
+    "publicBaseUrl": "Öffentliche Basis-URL (z.B. http://192.168.1.50:3000)",
+    "lanIpPlaceholder": "http://IHRE_LAN_IP:3000",
+    "blinkIdLicenseKeyMissing": "BlinkID-Lizenzschlüssel fehlt",
+    "scannerReady": "Scanner bereit",
+    "failedToInitializeScanner": "Fehler beim Initialisieren des Scanners"
   },
   "footer": {
     "description": "Ihr vertrauenswürdiger Partner für Premium-Autovermietungsservices. Erleben Sie die Freiheit der Straße mit unserer großen Auswahl an Fahrzeugen.",
@@ -234,7 +259,10 @@
     "apply": "Anwenden",
     "select": "Auswählen",
     "required": "Erforderlich",
-    "optional": "Optional"
+    "optional": "Optional",
+    "notAvailable": "N/V",
+    "saveChanges": "Änderungen Speichern",
+    "saved": "Gespeichert"
   },
   "categories": {
     "economy": "Economy",
@@ -321,7 +349,9 @@
     "totalDays": "Gesamte Tage",
     "totalCost": "Gesamtkosten",
     "status": "Status",
-    "bookingDetails": "Buchungsdetails"
+    "bookingDetails": "Buchungsdetails",
+    "reservationNumber": "Reservierung #{{number}}",
+    "cancelBooking": "Buchung Stornieren"
   },
   "settings": {
     "title": "Einstellungen",

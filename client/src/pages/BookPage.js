@@ -305,7 +305,7 @@ const BookPage = () => {
         ''
       );
       if (!licenseKey) {
-        toast.error('BlinkID license key missing');
+        toast.error(t('bookPage.blinkIdLicenseKeyMissing'));
         setIsScanning(false);
         return;
       }
@@ -315,10 +315,10 @@ const BookPage = () => {
         engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
       });
       // At this point engine is ready; full camera scanning flow can be added next
-      toast.success('Scanner ready');
+      toast.success(t('bookPage.scannerReady'));
     } catch (e) {
       console.error(e);
-      toast.error('Failed to initialize scanner');
+      toast.error(t('bookPage.failedToInitializeScanner'));
     } finally {
       setIsScanning(false);
     }
@@ -459,18 +459,18 @@ const BookPage = () => {
                       onClick={handleScanLicense}
                       className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md inline-flex items-center"
                       disabled={isScanning}
-                      title="Scan driver license"
+                      title={t('bookPage.scanDriverLicense')}
                     >
                       <Camera className="h-4 w-4 mr-1" />
-                      {isScanning ? 'Scanning...' : 'Scan License'}
+                      {isScanning ? t('bookPage.scanning') : t('bookPage.scanLicense')}
                     </button>
                     <button
                       type="button"
                       onClick={handleScanOnPhone}
                       className="absolute top-3 right-40 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md"
-                      title="Scan on phone via QR"
+                      title={t('bookPage.scanOnPhoneViaQr')}
                     >
-                      Scan on phone
+                      {t('bookPage.scanOnPhone')}
                     </button>
                   </div>
                 )}
@@ -490,7 +490,7 @@ const BookPage = () => {
               {qrOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-white rounded-lg p-4 w-80 text-center">
-                    <div className="text-lg font-semibold mb-2">Scan on your phone</div>
+                    <div className="text-lg font-semibold mb-2">{t('bookPage.scanOnYourPhone')}</div>
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
                       alt="QR"
@@ -498,19 +498,19 @@ const BookPage = () => {
                     />
                     <div className="text-xs break-all text-gray-600 mb-3">{qrUrl}</div>
                     <div className="text-left mb-3">
-                      <label className="block text-xs text-gray-600 mb-1">Public base URL (e.g. http://192.168.1.50:3000)</label>
+                      <label className="block text-xs text-gray-600 mb-1">{t('bookPage.publicBaseUrl')}</label>
                       <input
                         type="text"
                         value={qrBase}
                         onChange={(e)=>setQrBase(e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded"
-                        placeholder="http://YOUR_LAN_IP:3000"
+                        placeholder={t('bookPage.lanIpPlaceholder')}
                       />
                       <div className="flex gap-2 mt-2">
                         <button
-                          onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success('Saved'); }}
+                          onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success(t('common.saved')); }}
                           className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
-                        >Save</button>
+                        >{t('common.save')}</button>
                         <button
                           onClick={()=>{
                             const origin = (qrBase || window.location.origin).replace(/\/$/, '');

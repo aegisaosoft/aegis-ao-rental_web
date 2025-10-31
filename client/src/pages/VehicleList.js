@@ -444,7 +444,7 @@ const VehicleList = () => {
                     <div className="vehicle-details space-y-2">
                       <div className="flex items-center text-gray-600">
                         <MapPin className="h-4 w-4 mr-2" />
-                        <span>{location || 'N/A'}</span>
+                        <span>{location || t('common.notAvailable')}</span>
                       </div>
                       
                       <div className="flex items-center text-gray-600">
@@ -461,7 +461,7 @@ const VehicleList = () => {
                       
                       <div className="flex items-center text-gray-600">
                         <Settings className="h-4 w-4 mr-2" />
-                        <span>{transmission || 'N/A'}</span>
+                        <span>{transmission || t('common.notAvailable')}</span>
                       </div>
                     </div>
 

@@ -158,7 +158,7 @@ const VehicleDetail = () => {
                     className="btn-outline flex items-center gap-2"
                   >
                     <Edit2 className="h-4 w-4" />
-                    Edit
+                    {t('common.edit')}
                   </button>
                 )}
               </div>
@@ -278,7 +278,7 @@ const VehicleDetail = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-2xl font-bold text-gray-900">Edit Vehicle</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('vehicleDetail.editVehicle')}</h2>
                 <button
                   onClick={() => setIsEditing(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -290,7 +290,7 @@ const VehicleDetail = () => {
               <div className="p-6 space-y-4">
                 {/* Year */}
                 <div>
-                  <label className="form-label">Year</label>
+                  <label className="form-label">{t('vehicleDetail.year')}</label>
                   <input
                     type="number"
                     value={editForm.year}
@@ -303,7 +303,7 @@ const VehicleDetail = () => {
 
                 {/* Daily Rate */}
                 <div>
-                  <label className="form-label">Daily Rate ($)</label>
+                  <label className="form-label">{t('vehicleDetail.dailyRate')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -321,14 +321,14 @@ const VehicleDetail = () => {
                   className="btn-secondary"
                   disabled={updateMutation.isLoading}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleSave}
                   className="btn-primary"
                   disabled={updateMutation.isLoading}
                 >
-                  {updateMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                  {updateMutation.isLoading ? t('common.saving') : t('common.saveChanges')}
                 </button>
               </div>
             </div>
