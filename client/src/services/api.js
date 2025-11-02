@@ -73,11 +73,18 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Only redirect to login if not already on login/register pages
+      // Only redirect to login if not already on login/register pages or public pages
       const currentPath = window.location.pathname;
-      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+      const publicPaths = ['/login', '/register', '/', '/home'];
+      const isPublicPath = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
+      
+      if (!isPublicPath) {
         localStorage.removeItem('token');
         window.location.href = '/login';
+      }
+      // For public paths, just remove invalid token but don't redirect
+      else if (localStorage.getItem('token')) {
+        localStorage.removeItem('token');
       }
     }
     return Promise.reject(error);
