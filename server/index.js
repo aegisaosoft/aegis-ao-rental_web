@@ -179,8 +179,18 @@ app.use('/api/mock', mockRoutes);
 // Catch-all proxy for unmapped API routes (forward to C# API)
 app.use('/api/*', async (req, res) => {
   const axios = require('axios');
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+  
+  // Skip if this is already handled by a specific route
+  // Note: /api/RentalCompanies should go through catch-all, not /api/companies
+  const skipPaths = ['/api/auth', '/api/vehicles', '/api/reservations', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
+  // Only skip /api/companies (not /api/RentalCompanies)
+  if (req.originalUrl.startsWith('/api/companies') || skipPaths.some(path => req.originalUrl.startsWith(path))) {
+    return; // Let specific route handlers process it
+  }
+  
   const apiClient = axios.create({
-    baseURL: process.env.API_BASE_URL || 'https://localhost:7163',
+    baseURL: apiBaseUrl,
     timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
@@ -189,24 +199,172 @@ app.use('/api/*', async (req, res) => {
     },
     httpsAgent: new (require('https')).Agent({
       rejectUnauthorized: false
-    })
+    }),
+    // Suppress response parsing for 204/304 to avoid parse errors
+    responseType: 'text' // Get raw response first, parse manually
   });
   
   try {
     const proxyPath = req.originalUrl; // Keep full path including /api
+    console.log(`[Proxy] ${req.method} ${proxyPath} -> ${apiBaseUrl}${proxyPath}`);
+    if (req.method === 'PUT' || req.method === 'POST') {
+      console.log('[Proxy] Request body:', JSON.stringify(req.body, null, 2));
+    }
+    
+    // For PUT requests to RentalCompanies, use a more robust approach to handle 204
+    if (req.method === 'PUT' && proxyPath.includes('/api/RentalCompanies/')) {
+      try {
+        const response = await apiClient({
+          method: req.method,
+          url: proxyPath,
+          params: req.query,
+          data: req.body,
+          validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
+        });
+        
+        console.log(`[Proxy] Response status: ${response.status}`);
+        
+        // Handle 204 No Content - return immediately without trying to parse
+        if (response.status === 204) {
+          console.log('[Proxy] Returning 204 No Content for PUT');
+          return res.status(204).end();
+        }
+        
+        // Handle other responses
+        const responseData = response.data;
+        if (responseData === null || responseData === undefined || 
+            (typeof responseData === 'string' && responseData.trim() === '')) {
+          console.log('[Proxy] Returning empty response');
+          return res.status(response.status).end();
+        }
+        
+        // Parse JSON if needed
+        let jsonData = responseData;
+        if (typeof responseData === 'string') {
+          try {
+            jsonData = JSON.parse(responseData);
+          } catch (e) {
+            return res.status(response.status).send(responseData);
+          }
+        }
+        
+        if (response.status >= 400) {
+          return res.status(response.status).json(jsonData || {
+            message: 'Error from backend API',
+            status: response.status
+          });
+        }
+        
+        return res.status(response.status).json(jsonData);
+      } catch (axiosError) {
+        // Special handling for parse errors with 204
+        if (axiosError.response?.status === 204 || 
+            axiosError.message?.includes('Connection: close') ||
+            axiosError.message?.includes('Parse Error')) {
+          console.log('[Proxy] Caught parse error, but status was 204, returning 204');
+          return res.status(204).end();
+        }
+        throw axiosError;
+      }
+    }
+    
+    // For other requests, use standard handling
     const response = await apiClient({
       method: req.method,
       url: proxyPath,
       params: req.query,
-      data: req.body
+      data: req.body,
+      validateStatus: () => true // Don't throw on any status code
     });
-    res.json(response.data);
+    
+    console.log(`[Proxy] Response status: ${response.status}, content-type: ${response.headers['content-type']}`);
+    
+    // Handle 204 No Content responses - don't try to parse
+    if (response.status === 204 || response.status === 304) {
+      console.log('[Proxy] Returning 204 No Content');
+      return res.status(response.status).end();
+    }
+    
+    // Handle empty responses (no data or empty string)
+    const responseData = response.data;
+    if (responseData === null || responseData === undefined || 
+        (typeof responseData === 'string' && responseData.trim() === '')) {
+      console.log('[Proxy] Returning empty response');
+      return res.status(response.status).end();
+    }
+    
+    // Try to parse JSON if it's a string
+    let jsonData;
+    if (typeof responseData === 'string') {
+      try {
+        jsonData = JSON.parse(responseData);
+      } catch (e) {
+        // If it's not valid JSON, treat as plain text
+        console.log('[Proxy] Response is not JSON, returning as text');
+        return res.status(response.status).send(responseData);
+      }
+    } else {
+      jsonData = responseData;
+    }
+    
+    // Handle error status codes
+    if (response.status >= 400) {
+      console.log('[Proxy] Error response:', jsonData);
+      return res.status(response.status).json(jsonData || {
+        message: 'Error from backend API',
+        status: response.status,
+        statusText: response.statusText
+      });
+    }
+    
+    // Success response with data
+    console.log('[Proxy] Success response');
+    res.status(response.status).json(jsonData);
   } catch (error) {
-    console.error(`Proxying error for ${req.originalUrl}:`, error.message);
-    res.status(error.response?.status || 500).json({
-      message: error.response?.data?.message || error.message,
-      error: error.message
+    console.error(`[Proxy Error] ${req.method} ${req.originalUrl}:`, error.message);
+    console.error('Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      headers: error.response?.headers,
+      code: error.code,
+      message: error.message
     });
+    
+    // Handle connection/network errors
+    if (error.code === 'ECONNRESET' || error.code === 'EPIPE' || 
+        error.message?.includes('Connection: close') || 
+        error.message?.includes('Parse Error')) {
+      // Try to get the status if available
+      if (error.response?.status) {
+        // If it's a 204, send it properly
+        if (error.response.status === 204) {
+          return res.status(204).end();
+        }
+        // Otherwise, return the error response
+        return res.status(error.response.status).json(
+          error.response.data || { message: error.message }
+        );
+      }
+      // If no response, it's a network error
+      return res.status(500).json({
+        message: 'Network error connecting to backend API',
+        error: error.message
+      });
+    }
+    
+    // Handle 204 responses in error cases too
+    if (error.response?.status === 204 || error.response?.status === 304) {
+      return res.status(error.response.status).end();
+    }
+    
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.message || error.message || 'Server error';
+    const errorData = error.response?.data || { message: errorMessage, error: error.message };
+    
+    res.status(statusCode).json(errorData);
   }
 });
 

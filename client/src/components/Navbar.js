@@ -19,8 +19,10 @@ import { useAuth } from '../context/AuthContext';
 import { Menu, X, User, Car, Calendar, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n/config';
 import LanguageSwitcher from './LanguageSwitcher';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { getLanguageForCountry } from '../utils/countryLanguage';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +37,43 @@ const Navbar = () => {
   const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
   const companiesData = companiesResponse?.data || companiesResponse;
   const companies = Array.isArray(companiesData) ? companiesData : [];
+
+  // Fetch selected company data to get country and set language accordingly
+  const { data: selectedCompanyResponse } = useQuery(
+    ['company', selectedCompanyId],
+    () => apiService.getCompany(selectedCompanyId),
+    {
+      enabled: !!selectedCompanyId,
+    }
+  );
+
+  // Effect to update language when company changes
+  useEffect(() => {
+    if (selectedCompanyResponse && selectedCompanyId) {
+      const company = selectedCompanyResponse?.data || selectedCompanyResponse;
+      const country = company?.country || company?.Country;
+      
+      if (country) {
+        const language = getLanguageForCountry(country);
+        const hasManualLanguagePreference = localStorage.getItem('languageManuallySet') === 'true';
+        const currentLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
+        
+        // Special handling for Canada: don't switch if already French or English
+        if (country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
+          console.log(`[Language] Canada detected with ${currentLanguage}, keeping current language`);
+          return; // Don't change language
+        }
+        
+        // Only auto-change language if user hasn't manually set a preference
+        if (!hasManualLanguagePreference) {
+          if (currentLanguage !== language) {
+            console.log(`[Language] Switching to ${language} for country: ${country}`);
+            i18n.changeLanguage(language);
+          }
+        }
+      }
+    }
+  }, [selectedCompanyId, selectedCompanyResponse]);
 
   const handleLogout = () => {
     // Company selection persists through logout

@@ -48,4 +48,64 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Update company
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    
+    // Forward the request to the backend API
+    const axios = require('axios');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+    
+    console.log(`[Companies Route] PUT /api/companies/${id} -> ${apiBaseUrl}/api/RentalCompanies/${id}`);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    const response = await axios.put(
+      `${apiBaseUrl}/api/RentalCompanies/${id}`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : undefined
+        },
+        httpsAgent: new (require('https')).Agent({
+          rejectUnauthorized: false
+        }),
+        validateStatus: () => true // Don't throw on any status code
+      }
+    );
+    
+    console.log(`[Companies Route] Response status: ${response.status}`);
+    
+    // Return 204 No Content as expected by the backend
+    if (response.status === 204) {
+      return res.status(204).send();
+    }
+    
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('[Companies Route] Update error:', error.message);
+    console.error('Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack
+    });
+    
+    // Handle 204 responses in error cases too
+    if (error.response?.status === 204) {
+      return res.status(204).send();
+    }
+    
+    const statusCode = error.response?.status || 500;
+    const errorData = error.response?.data || {
+      message: error.message || 'Server error',
+      error: error.message
+    };
+    
+    res.status(statusCode).json(errorData);
+  }
+});
+
 module.exports = router;

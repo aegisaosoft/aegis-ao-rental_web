@@ -33,6 +33,8 @@ const LanguageSwitcher = () => {
   const changeLanguage = (langCode) => {
     i18n.changeLanguage(langCode);
     localStorage.setItem('i18nextLng', langCode);
+    // Mark that user manually set the language preference
+    localStorage.setItem('languageManuallySet', 'true');
   };
 
   return (

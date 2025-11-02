@@ -21,6 +21,7 @@ import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
+import { getStatesForCountry } from '../utils/statesByCountry';
 import {
   useReactTable,
   getCoreRowModel,
@@ -30,11 +31,12 @@ import {
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
-  const { user, isAuthenticated, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAdmin, isMainAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
+  const [isCreatingCompany, setIsCreatingCompany] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
   const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'customers', 'reports', etc.
   const [uploadProgress, setUploadProgress] = useState({
@@ -206,17 +208,18 @@ const AdminDashboard = () => {
   const handleEditVehicle = (vehicle) => {
     setEditingVehicle(vehicle);
     setVehicleEditForm({
+      make: vehicle.Make || vehicle.make || '',
+      model: vehicle.Model || vehicle.model || '',
+      year: vehicle.Year || vehicle.year || '',
+      licensePlate: vehicle.LicensePlate || vehicle.licensePlate || '',
+      state: vehicle.State || vehicle.state || '',
       color: vehicle.Color || vehicle.color || '',
       vin: vehicle.Vin || vehicle.vin || '',
       mileage: vehicle.Mileage || vehicle.mileage || 0,
       transmission: vehicle.Transmission || vehicle.transmission || '',
       seats: vehicle.Seats || vehicle.seats || '',
       status: vehicle.Status || vehicle.status || 'Available',
-      location: vehicle.Location || vehicle.location || '',
-      imageUrl: vehicle.ImageUrl || vehicle.imageUrl || '',
-      features: Array.isArray(vehicle.Features || vehicle.features) 
-        ? (vehicle.Features || vehicle.features).join(', ')
-        : (vehicle.Features || vehicle.features || '')
+      location: vehicle.Location || vehicle.location || ''
     });
   };
 
@@ -237,15 +240,22 @@ const AdminDashboard = () => {
       // Auto-populate form fields from VIN lookup response
       setVehicleEditForm(prev => ({
         ...prev,
-        ...(vehicleData.make && { color: vehicleData.color || prev.color }),
+        // Map make, model, year from API response (case-insensitive)
+        ...(vehicleData.make && { make: vehicleData.make }),
+        ...(vehicleData.Make && { make: vehicleData.Make }),
+        ...(vehicleData.model && { model: vehicleData.model }),
+        ...(vehicleData.Model && { model: vehicleData.Model }),
+        ...(vehicleData.modelName && { model: vehicleData.modelName }),
+        ...(vehicleData.ModelName && { model: vehicleData.ModelName }),
+        ...(vehicleData.year && { year: vehicleData.year }),
+        ...(vehicleData.Year && { year: vehicleData.Year }),
+        // Map other fields
+        ...(vehicleData.color && { color: vehicleData.color }),
+        ...(vehicleData.Color && { color: vehicleData.Color }),
         ...(vehicleData.transmission && { transmission: vehicleData.transmission }),
-        ...(vehicleData.seats && { seats: vehicleData.seats }),
-        ...(vehicleData.year && { year: vehicleData.year }), // Note: year might not be updatable
-        // Map common field names from API response
-        ...(vehicleData.Make && { color: vehicleData.Color || prev.color }),
         ...(vehicleData.Transmission && { transmission: vehicleData.Transmission }),
+        ...(vehicleData.seats && { seats: vehicleData.seats }),
         ...(vehicleData.Seats && { seats: vehicleData.Seats }),
-        ...(vehicleData.Model && { /* model is read-only */ }),
       }));
       
       toast.success(t('vehicles.vinLookupSuccess') || 'Vehicle information retrieved successfully');
@@ -270,6 +280,32 @@ const AdminDashboard = () => {
     const updateData = {};
     
     // Only include fields that have changed or are provided
+    if (vehicleEditForm.make !== undefined) updateData.make = vehicleEditForm.make || null;
+    if (vehicleEditForm.model !== undefined) updateData.model = vehicleEditForm.model || null;
+    if (vehicleEditForm.year !== undefined) updateData.year = parseInt(vehicleEditForm.year) || null;
+    if (vehicleEditForm.licensePlate !== undefined) updateData.licensePlate = vehicleEditForm.licensePlate || null;
+    if (vehicleEditForm.state !== undefined) {
+      // Ensure we save only the 2-letter code, not the full name
+      // If it's longer than 2 characters, try to find the code from states list
+      let stateCode = vehicleEditForm.state || null;
+      if (stateCode && stateCode.length > 2 && statesForCompanyCountry.length > 0) {
+        // Try to find matching state by name and get its code
+        const matchingState = statesForCompanyCountry.find(s => 
+          s.name.toLowerCase() === stateCode.toLowerCase() || 
+          s.code.toLowerCase() === stateCode.toLowerCase()
+        );
+        if (matchingState) {
+          stateCode = matchingState.code;
+        } else {
+          // If no match found and it's longer than 2 chars, use first 2 chars uppercase
+          stateCode = stateCode.substring(0, 2).toUpperCase();
+        }
+      } else if (stateCode && stateCode.length === 2) {
+        // Ensure it's uppercase
+        stateCode = stateCode.toUpperCase();
+      }
+      updateData.state = stateCode || null;
+    }
     if (vehicleEditForm.color !== undefined) updateData.color = vehicleEditForm.color || null;
     if (vehicleEditForm.vin !== undefined) updateData.vin = vehicleEditForm.vin || null;
     if (vehicleEditForm.mileage !== undefined) updateData.mileage = parseInt(vehicleEditForm.mileage) || null;
@@ -277,12 +313,6 @@ const AdminDashboard = () => {
     if (vehicleEditForm.seats !== undefined) updateData.seats = parseInt(vehicleEditForm.seats) || null;
     if (vehicleEditForm.status !== undefined) updateData.status = vehicleEditForm.status;
     if (vehicleEditForm.location !== undefined) updateData.location = vehicleEditForm.location || null;
-    if (vehicleEditForm.imageUrl !== undefined) updateData.imageUrl = vehicleEditForm.imageUrl || null;
-    if (vehicleEditForm.features !== undefined) {
-      updateData.features = vehicleEditForm.features 
-        ? vehicleEditForm.features.split(',').map(f => f.trim()).filter(f => f)
-        : null;
-    }
 
     updateVehicleMutation.mutate({ vehicleId, data: updateData });
   };
@@ -845,7 +875,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     
     // Only send fields that the API expects (exclude read-only and navigation properties)
-    const updateData = {
+    const companyData = {
       companyName: companyFormData.companyName,
       email: companyFormData.email || null,
       website: companyFormData.website || null,
@@ -866,34 +896,66 @@ const AdminDashboard = () => {
       secondaryColor: companyFormData.secondaryColor || null,
       logoUrl: companyFormData.logoUrl || null,
       faviconUrl: companyFormData.faviconUrl || null,
-      customCss: companyFormData.customCss || null
+      customCss: companyFormData.customCss || null,
+      country: companyFormData.country || null
     };
     
     // Auto-add https:// to URLs if missing
-    if (updateData.website && !updateData.website.match(/^https?:\/\//i)) {
-      updateData.website = 'https://' + updateData.website;
+    if (companyData.website && !companyData.website.match(/^https?:\/\//i)) {
+      companyData.website = 'https://' + companyData.website;
     }
     
-    if (updateData.logoLink && !updateData.logoLink.match(/^https?:\/\//i)) {
-      updateData.logoLink = 'https://' + updateData.logoLink;
+    if (companyData.logoLink && !companyData.logoLink.match(/^https?:\/\//i)) {
+      companyData.logoLink = 'https://' + companyData.logoLink;
     }
     
-    if (updateData.bannerLink && !updateData.bannerLink.match(/^https?:\/\//i)) {
-      updateData.bannerLink = 'https://' + updateData.bannerLink;
+    if (companyData.bannerLink && !companyData.bannerLink.match(/^https?:\/\//i)) {
+      companyData.bannerLink = 'https://' + companyData.bannerLink;
     }
     
-    if (updateData.videoLink && !updateData.videoLink.match(/^https?:\/\//i)) {
-      updateData.videoLink = 'https://' + updateData.videoLink;
+    if (companyData.videoLink && !companyData.videoLink.match(/^https?:\/\//i)) {
+      companyData.videoLink = 'https://' + companyData.videoLink;
     }
     
-    updateCompanyMutation.mutate(updateData);
+    // If no currentCompanyId, create new company; otherwise update
+    if (!currentCompanyId) {
+      // Create new company
+      setIsCreatingCompany(true);
+      try {
+        const response = await apiService.createCompany(companyData);
+        const newCompanyId = response?.data?.companyId || response?.data?.id;
+        toast.success(t('admin.companyCreated') || 'Company created successfully');
+        setIsEditingCompany(false);
+        setIsCreatingCompany(false);
+        // Refresh companies list and set the new company as current
+        queryClient.invalidateQueries('companies');
+        if (newCompanyId) {
+          setCurrentCompanyId(newCompanyId);
+          queryClient.invalidateQueries(['company', newCompanyId]);
+        }
+      } catch (error) {
+        console.error('Error creating company:', error);
+        setIsCreatingCompany(false);
+        toast.error(error.response?.data?.message || t('admin.companyCreateFailed') || 'Failed to create company');
+      }
+    } else {
+      // Update existing company
+      updateCompanyMutation.mutate(companyData);
+    }
   };
 
   const handleCancelEdit = () => {
-    // Handle both axios response format and direct data
-    const companyInfo = companyData?.data || companyData;
-    setCompanyFormData(companyInfo);
-    setIsEditingCompany(false);
+    // If creating new company (no currentCompanyId), reset form
+    if (!currentCompanyId) {
+      setCompanyFormData({});
+      setIsEditingCompany(false);
+      setIsCreatingCompany(false);
+    } else {
+      // If editing existing company, reset to original data
+      const companyInfo = companyData?.data || companyData;
+      setCompanyFormData(companyInfo);
+      setIsEditingCompany(false);
+    }
   };
 
   // Location handlers
@@ -1470,6 +1532,37 @@ const AdminDashboard = () => {
   // Extract actual company data from response
   const actualCompanyData = companyData?.data || companyData;
 
+  // Get states for company's country (for vehicle state dropdown)
+  const companyCountry = actualCompanyData?.country || actualCompanyData?.Country || '';
+  const statesForCompanyCountry = useMemo(() => {
+    return getStatesForCountry(companyCountry);
+  }, [companyCountry]);
+
+  // Countries grouped by continent, sorted alphabetically within each group
+  const countriesByContinent = useMemo(() => {
+    const northAmerica = [
+      'Anguilla', 'Antigua and Barbuda', 'Bahamas', 'Barbados', 'Belize', 'Bermuda',
+      'British Virgin Islands', 'Canada', 'Cayman Islands', 'Costa Rica',
+      'Cuba', 'Dominica', 'Dominican Republic', 'El Salvador', 'Greenland',
+      'Grenada', 'Guatemala', 'Haiti', 'Honduras', 'Jamaica', 'Mexico',
+      'Montserrat', 'Nicaragua', 'Panama', 'Puerto Rico', 'Saint Kitts and Nevis',
+      'Saint Lucia', 'Saint Pierre and Miquelon', 'Saint Vincent and the Grenadines',
+      'Trinidad and Tobago', 'Turks and Caicos Islands', 'United States',
+      'US Virgin Islands'
+    ];
+    
+    const southAmerica = [
+      'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador',
+      'French Guiana', 'Guyana', 'Paraguay', 'Peru', 'Suriname',
+      'Uruguay', 'Venezuela'
+    ];
+
+    return {
+      'North America': northAmerica.sort(),
+      'South America': southAmerica.sort()
+    };
+  }, []);
+
   // Vehicle table columns
   const vehicleColumns = useMemo(() => [
     {
@@ -1611,6 +1704,25 @@ const AdminDashboard = () => {
             : `${t('admin.welcome')}, ${user?.firstName}!`
         }
         icon={<LayoutDashboard className="h-8 w-8" />}
+        actions={
+          isMainAdmin && !isEditing && (
+            <button
+              onClick={() => {
+                // Reset form and set to create mode
+                setCompanyFormData({});
+                setIsEditingCompany(true);
+                setIsCreatingCompany(false);
+                setCurrentCompanyId(null);
+                setActiveSection('company');
+                setActiveTab('info');
+              }}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              {t('admin.addCompany') || 'Add Company'}
+            </button>
+          )
+        }
       />
 
       {/* Editing Overlay Notice */}
@@ -1735,11 +1847,16 @@ const AdminDashboard = () => {
               title={
               <div className="flex items-center">
                   <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                  <span>{t('admin.companyProfile')}</span>
+                  <span>
+                    {!currentCompanyId && isEditingCompany 
+                      ? t('admin.createCompany') || 'Create Company'
+                      : t('admin.companyProfile')
+                    }
+                  </span>
                 </div>
               }
               headerActions={
-                !isEditingCompany && (
+                !isEditingCompany && currentCompanyId && (
                   <button
                     onClick={() => setIsEditingCompany(true)}
                     className="btn-primary text-sm"
@@ -1750,18 +1867,18 @@ const AdminDashboard = () => {
               }
             >
           <div>
-          {isLoadingCompany ? (
+          {isLoadingCompany && currentCompanyId ? (
             <LoadingSpinner text={t('common.loading')} />
-          ) : companyError ? (
+          ) : companyError && currentCompanyId ? (
             <div className="text-center py-8">
               <p className="text-red-600 font-medium">{t('admin.companyLoadFailed')}</p>
               <p className="text-sm text-gray-600 mt-2">{companyError.message}</p>
                 </div>
-          ) : !companyData ? (
+          ) : (!companyData && currentCompanyId) ? (
             <div className="text-center py-8">
               <p className="text-gray-600">{t('admin.noCompanyData')}</p>
               </div>
-          ) : isEditingCompany ? (
+          ) : isEditingCompany || (!currentCompanyId && isMainAdmin) ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
                 {/* Tab Navigation */}
                 <div className="border-b border-gray-200 mb-6">
@@ -1857,7 +1974,7 @@ const AdminDashboard = () => {
                     </p>
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.taxId')}
                     </label>
@@ -1868,6 +1985,29 @@ const AdminDashboard = () => {
                       onChange={handleCompanyInputChange}
                       className="input-field"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.country') || 'Country'}
+                    </label>
+                    <select
+                      name="country"
+                      value={companyFormData.country || ''}
+                      onChange={handleCompanyInputChange}
+                      className="input-field"
+                    >
+                      <option value="">Select Country</option>
+                      {Object.entries(countriesByContinent).map(([continent, countries]) => (
+                        <optgroup key={continent} label={continent}>
+                          {countries.map((country) => (
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Media Links */}
@@ -2622,14 +2762,20 @@ const AdminDashboard = () => {
                     <X className="h-4 w-4 mr-2" />
                     {t('common.cancel')}
                   </button>
-                  <button
-                    type="submit"
-                    disabled={updateCompanyMutation.isLoading}
-                    className="btn-primary flex items-center"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {updateCompanyMutation.isLoading ? t('common.saving') : t('common.save')}
-                  </button>
+                  {/* Show save button if: creating new company (main admin only) OR updating existing company */}
+                  {((!currentCompanyId && isEditingCompany && isMainAdmin) || currentCompanyId) && (
+                    <button
+                      type="submit"
+                      disabled={updateCompanyMutation.isLoading || isCreatingCompany}
+                      className="btn-primary flex items-center"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {(updateCompanyMutation.isLoading || isCreatingCompany) 
+                        ? t('common.saving') || 'Saving...' 
+                        : (!currentCompanyId ? t('admin.createCompany') || 'Create Company' : t('common.save'))
+                      }
+                    </button>
+                  )}
                 </div>
                 )}
               </form>
@@ -3817,14 +3963,106 @@ const AdminDashboard = () => {
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Vehicle Info (Read-only) */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <p className="text-sm font-medium text-gray-700">
-                  {editingVehicle.Make || editingVehicle.make} {editingVehicle.Model || editingVehicle.model} {editingVehicle.Year || editingVehicle.year}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {t('vehicles.licensePlate')}: {editingVehicle.LicensePlate || editingVehicle.licensePlate}
-                </p>
+              {/* Vehicle Info - Editable Fields */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-4 space-y-4">
+                {/* Make, Model, Year in one row */}
+                <div className="grid grid-cols-12 gap-4">
+                  {/* Make */}
+                  <div className="col-span-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.make') || 'Make'}
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleEditForm.make || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, make: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={100}
+                      placeholder={t('vehicles.make') || 'Vehicle Make'}
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div className="col-span-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.model') || 'Model'}
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleEditForm.model || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, model: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={100}
+                      placeholder={t('vehicles.model') || 'Vehicle Model'}
+                    />
+                  </div>
+
+                  {/* Year */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('year') || 'Year'}
+                    </label>
+                    <input
+                      type="number"
+                      value={vehicleEditForm.year || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, year: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="1900"
+                      max="2100"
+                      placeholder={t('year') || 'Year'}
+                    />
+                  </div>
+                </div>
+
+                {/* License Plate and State in one row */}
+                <div className="grid grid-cols-12 gap-4">
+                  {/* License Plate */}
+                  <div className="col-span-9">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.licensePlate') || 'License Plate'}
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleEditForm.licensePlate || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, licensePlate: e.target.value.toUpperCase() }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={50}
+                      placeholder={t('vehicles.licensePlate') || 'License Plate'}
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                  </div>
+
+                  {/* State */}
+                  <div className="col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State
+                    </label>
+                    <select
+                      value={vehicleEditForm.state || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, state: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={!companyCountry || statesForCompanyCountry.length === 0}
+                    >
+                      <option value="">
+                        {!companyCountry 
+                          ? 'Select State (No country set)' 
+                          : statesForCompanyCountry.length === 0 
+                            ? `No states for ${companyCountry}`
+                            : 'Select State'
+                        }
+                      </option>
+                      {companyCountry && statesForCompanyCountry.length > 0 && (
+                        <optgroup label={companyCountry}>
+                          {statesForCompanyCountry.map((state) => (
+                            <option key={state.code} value={state.code}>
+                              {state.name} ({state.code})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* Color */}
@@ -3870,7 +4108,7 @@ const AdminDashboard = () => {
                     ) : (
                       <>
                         <Search className="h-4 w-4" />
-                        {t('vehicles.lookupVin') || 'Lookup'}
+                        {t('vehicles.lookupVin') || 'VIN Lookup'}
                       </>
                     )}
                   </button>
@@ -3957,37 +4195,6 @@ const AdminDashboard = () => {
                   maxLength={255}
                   placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
                 />
-              </div>
-
-              {/* Image URL */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.imageUrl') || 'Image URL'}
-                </label>
-                <input
-                  type="url"
-                  value={vehicleEditForm.imageUrl || ''}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, imageUrl: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-
-              {/* Features */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.features') || 'Features (comma-separated)'}
-                </label>
-                <input
-                  type="text"
-                  value={vehicleEditForm.features || ''}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, features: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t('vehicles.featuresPlaceholder') || 'GPS, Bluetooth, USB, etc.'}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {t('vehicles.featuresHint') || 'Separate multiple features with commas'}
-                </p>
               </div>
 
               {/* Action Buttons */}

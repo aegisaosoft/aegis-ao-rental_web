@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
 
-name: Build and deploy Node.js app to Azure Web App - argis-ao-rental-web
+name: Build and deploy Node.js app to Azure Web App - aegis-rental-web
 
 on:
   push:
@@ -64,26 +64,49 @@ jobs:
       
       - name: Install dependencies for deployment
         run: |
-          npm install
+          # Install root dependencies (if any)
+          if [ -f package.json ]; then
+            npm install --production
+          fi
+          # Install server dependencies
           cd server
-          npm install
+          npm install --production
+          cd ..
       
       - name: Create deployment structure
         run: |
-          # Create proper deployment structure for Linux App Service
+          # Create proper deployment structure for Linux App Service (standalone Node.js)
+          # Flatten structure: server files go to root
           mkdir -p deploy
-          cp -r server deploy/
-          cp package.json deploy/
-          cp package-lock.json deploy/
-          echo "Deployment structure created"
-          ls -la deploy/
-          ls -la deploy/server/
+          
+          # Copy all server files to deploy root
+          cp -r server/* deploy/
+          
+          # Copy package.json and package-lock.json from server (they have the right dependencies)
+          cp server/package.json deploy/package.json
+          cp server/package-lock.json deploy/package-lock.json 2>/dev/null || true
+          
+          # Ensure index.js is at root (it should be from server/index.js)
+          if [ ! -f deploy/index.js ]; then
+            echo "ERROR: index.js not found in server directory"
+            exit 1
+          fi
+          
+          # Create .deployment file to ensure Oryx build
+          echo "[config]" > deploy/.deployment
+          echo "SCM_DO_BUILD_DURING_DEPLOYMENT=true" >> deploy/.deployment
+          
+          echo "Deployment structure created:"
+          ls -la deploy/ | head -20
+          echo ""
+          echo "index.js exists:"
+          test -f deploy/index.js && echo "✓ index.js found" || echo "✗ index.js NOT found"
       
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'argis-ao-rental-web'
+          app-name: 'aegis-rental-web'
           package: './deploy'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           clean: true

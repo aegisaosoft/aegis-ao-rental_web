@@ -33,10 +33,14 @@ for (const envPath of envPaths) {
   }
 }
 
-const API_BASE_URL = process.env.API_BASE_URL;
-if (!API_BASE_URL) {
-  console.error('config/api.js: API_BASE_URL is not set after loading env files');
-  throw new Error('API_BASE_URL environment variable is not set');
+// Get API_BASE_URL from environment, with fallback default
+// In production (Azure), this should be set in App Service Configuration
+const API_BASE_URL = process.env.API_BASE_URL || 'https://localhost:7163';
+
+if (!process.env.API_BASE_URL) {
+  console.warn('config/api.js: API_BASE_URL environment variable is not set.');
+  console.warn('Using default:', API_BASE_URL);
+  console.warn('Please set API_BASE_URL in Azure App Service Configuration → Application settings');
 }
 
 // Create axios instance with default configuration
