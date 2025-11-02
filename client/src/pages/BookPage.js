@@ -13,12 +13,12 @@
  *
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Car, Shield, Clock, Star, ArrowLeft, CreditCard, Camera } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, Camera, X, Calendar } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 
@@ -35,11 +35,13 @@ const BookPage = () => {
   const model = searchParams.get('model');
   const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
 
-  const [selectedVehicleId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedServices, setSelectedServices] = useState([]); // Track selected services
   const [isScanning, setIsScanning] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
 
   // Auto-detect LAN base from server when running on localhost and no custom base set
   React.useEffect(() => {
@@ -49,13 +51,20 @@ const BookPage = () => {
     if (host === 'localhost' || host === '127.0.0.1') {
       (async () => {
         try {
-          const r = await fetch(`/api/lan-ip?port=${encodeURIComponent(window.location.port || '3000')}`);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
+          const r = await fetch(`/api/lan-ip?port=${encodeURIComponent(window.location.port || '3000')}`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           const j = await r.json();
           if (j?.base) {
             setQrBase(j.base);
             localStorage.setItem('qrPublicBaseUrl', j.base);
           }
-        } catch {}
+        } catch (e) {
+          // Silently fail if LAN IP detection is not available
+        }
       })();
     }
   }, []);
@@ -96,20 +105,20 @@ const BookPage = () => {
         const d = JSON.parse(raw);
         setLicenseData(prev => ({
           ...prev,
-          licenseNumber: d.licenseNumber || prev.licenseNumber,
+          licenseNumber: d.licenseNumber || prev.licenseNumber || '',
           stateIssued: (d.issuingState || d.state || prev.stateIssued || '').toString().slice(0, 2).toUpperCase(),
           countryIssued: (d.issuingCountry || prev.countryIssued || 'US').toString().slice(0, 2).toUpperCase(),
           sex: (d.sex || prev.sex || '').toString().slice(0, 1).toUpperCase(),
-          height: d.height || prev.height,
-          eyeColor: d.eyeColor || prev.eyeColor,
-          middleName: d.middleName || prev.middleName,
-          issueDate: d.issueDate || prev.issueDate,
-          expirationDate: d.expirationDate || prev.expirationDate,
-          licenseAddress: d.address || prev.licenseAddress,
-          licenseCity: d.city || prev.licenseCity,
-          licenseState: d.state || prev.licenseState,
-          licensePostalCode: d.postalCode || prev.licensePostalCode,
-          licenseCountry: d.country || prev.licenseCountry,
+          height: d.height || prev.height || '',
+          eyeColor: d.eyeColor || prev.eyeColor || '',
+          middleName: d.middleName || prev.middleName || '',
+          issueDate: d.issueDate || prev.issueDate || '',
+          expirationDate: d.expirationDate || prev.expirationDate || '',
+          licenseAddress: d.address || prev.licenseAddress || '',
+          licenseCity: d.city || prev.licenseCity || '',
+          licenseState: d.state || prev.licenseState || '',
+          licensePostalCode: d.postalCode || prev.licensePostalCode || '',
+          licenseCountry: d.country || prev.licenseCountry || '',
         }));
         localStorage.removeItem('scannedLicense');
         toast.success('License data imported');
@@ -122,7 +131,10 @@ const BookPage = () => {
     const abort = new AbortController();
     const makeUpper = (make || '').toUpperCase();
     const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-    const url = `/api/models/${makeUpper}_${modelUpper}.png`;
+    // In development, React serves public/ directly; in production, backend serves /api/models/
+    const url = process.env.NODE_ENV === 'development' 
+      ? `/models/${makeUpper}_${modelUpper}.png`
+      : `/api/models/${makeUpper}_${modelUpper}.png`;
     if (!makeUpper || !modelUpper) {
       setModelImageSrc('/economy.jpg');
       return () => abort.abort();
@@ -204,6 +216,56 @@ const BookPage = () => {
     }
   );
 
+  // Fetch company additional services
+  const { data: companyServicesResponse } = useQuery(
+    ['companyServices', companyId],
+    () => apiService.getCompanyServices(companyId, { isActive: true }),
+    {
+      enabled: !!companyId,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+  
+  const companyServicesData = companyServicesResponse?.data || companyServicesResponse;
+  const additionalOptions = useMemo(() => {
+    return Array.isArray(companyServicesData) ? companyServicesData : [];
+  }, [companyServicesData]);
+
+  // Fetch model data to get daily rate
+  const { data: modelsResponse } = useQuery(
+    ['models', { make, model }],
+    () => apiService.getModels({ make, modelName: model }),
+    {
+      enabled: !!(make && model),
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+  
+  const modelsData = modelsResponse?.data || modelsResponse;
+  const modelData = Array.isArray(modelsData) ? modelsData[0] : null;
+  const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
+  // Explicitly use Description field (not CategoryName)
+  const modelDescription = modelData?.description || modelData?.Description || '';
+  
+  // Auto-select mandatory services when services load
+  React.useEffect(() => {
+    if (additionalOptions.length > 0 && selectedServices.length === 0) {
+      const mandatoryServices = additionalOptions
+        .filter(service => service.serviceIsMandatory || service.ServiceIsMandatory)
+        .map(service => ({
+          id: service.additionalServiceId || service.AdditionalServiceId,
+          service: service,
+          quantity: 1
+        }));
+      
+      if (mandatoryServices.length > 0) {
+        setSelectedServices(mandatoryServices);
+      }
+    }
+  }, [additionalOptions, selectedServices.length]);
+
   // Fetch available vehicles matching the model filters
   const { data: vehiclesResponse } = useQuery(
     ['vehicles', { categoryId, make, model, companyId, status: 'Available' }],
@@ -262,7 +324,11 @@ const BookPage = () => {
       return;
     }
 
-    saveLicenseMutation.mutate(licenseData);
+    saveLicenseMutation.mutate(licenseData, {
+      onSuccess: () => {
+        setIsLicenseModalOpen(false);
+      }
+    });
   };
 
   // Microblink BlinkID: dynamic loader and prep
@@ -331,21 +397,152 @@ const BookPage = () => {
     const origin = configuredBase || window.location.origin;
     const returnTo = window.location.pathname + window.location.search;
     const url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
-    setQrUrl(url);
-    setQrOpen(true);
+    
+    // On mobile, navigate directly; on desktop, show QR code
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    
+    if (isMobile) {
+      navigate(`/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
+    } else {
+      setQrUrl(url);
+      setQrOpen(true);
+    }
   };
 
   // QR-based phone scan flow removed to satisfy current lint and scope
 
   const calculateTotal = () => {
-    if (!formData.pickupDate || !formData.returnDate || !selectedVehicle) return 0;
+    if (!modelDailyRate) return 0;
+    
+    // If dates are not set, return the daily rate (1 day)
+    if (!formData.pickupDate || !formData.returnDate) {
+      return modelDailyRate;
+    }
     
     const pickup = new Date(formData.pickupDate);
     const returnDate = new Date(formData.returnDate);
     const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)));
     
-    const dailyRate = selectedVehicle.daily_rate || selectedVehicle.dailyRate || 0;
-    return days * dailyRate;
+    return days * modelDailyRate;
+  };
+
+  // Handle service checkbox toggle
+  const handleServiceToggle = (service) => {
+    const serviceId = service.additionalServiceId || service.AdditionalServiceId;
+    setSelectedServices(prev => {
+      const isSelected = prev.some(s => s.id === serviceId);
+      if (isSelected) {
+        return prev.filter(s => s.id !== serviceId);
+      } else {
+        return [...prev, {
+          id: serviceId,
+          service: service,
+          quantity: 1
+        }];
+      }
+    });
+  };
+
+  // Calculate total for all selected services
+  const calculateServicesTotal = () => {
+    if (!formData.pickupDate || !formData.returnDate) return 0;
+    
+    const pickup = new Date(formData.pickupDate);
+    const returnDate = new Date(formData.returnDate);
+    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)));
+    
+    return selectedServices.reduce((total, selectedService) => {
+      const price = selectedService.service.servicePrice || selectedService.service.ServicePrice || 0;
+      return total + (price * days * selectedService.quantity);
+    }, 0);
+  };
+
+  // Calculate grand total (vehicle daily rate + selected services)
+  const calculateGrandTotal = () => {
+    const vehicleTotal = calculateTotal();
+    const servicesTotal = calculateServicesTotal();
+    return vehicleTotal + servicesTotal;
+  };
+
+  const handleRentCar = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
+      return;
+    }
+    
+    if (!formData.pickupDate || !formData.returnDate) {
+      toast.error(t('bookPage.selectPickupAndReturn'));
+      return;
+    }
+    
+    // Get first available vehicle via API if none selected
+    let vehicleToUse = selectedVehicle;
+    let vehicleId = null;
+    
+    if (!vehicleToUse) {
+      try {
+        // Call API to get first available vehicle for this model
+        const response = await apiService.getFirstAvailableVehicle({
+          make,
+          model,
+          companyId,
+          status: 'Available'
+        });
+        
+        // Handle different response structures
+        const vehiclesData = response?.data || response;
+        let vehiclesList = [];
+        
+        if (Array.isArray(vehiclesData)) {
+          vehiclesList = vehiclesData;
+        } else if (Array.isArray(vehiclesData?.items)) {
+          vehiclesList = vehiclesData.items;
+        } else if (Array.isArray(vehiclesData?.data)) {
+          vehiclesList = vehiclesData.data;
+        } else if (vehiclesData?.Vehicles && Array.isArray(vehiclesData.Vehicles)) {
+          vehiclesList = vehiclesData.Vehicles;
+        } else if (vehiclesData?.vehicles && Array.isArray(vehiclesData.vehicles)) {
+          vehiclesList = vehiclesData.vehicles;
+        }
+        
+        vehicleToUse = vehiclesList[0];
+        
+        if (vehicleToUse) {
+          vehicleId = vehicleToUse.vehicle_id || vehicleToUse.vehicleId || vehicleToUse.id;
+          setSelectedVehicleId(vehicleId);
+        }
+      } catch (error) {
+        console.error('Error fetching first available vehicle:', error);
+      }
+    } else {
+      vehicleId = vehicleToUse.vehicle_id || vehicleToUse.vehicleId || vehicleToUse.id;
+    }
+    
+    if (!vehicleToUse || !vehicleId) {
+      toast.error(t('bookPage.pleaseSelectVehicle'));
+      return;
+    }
+    
+    // Create booking data directly
+    try {
+      const bookingData = {
+        vehicleId: vehicleId,
+        companyId: vehicleToUse.company_id || vehicleToUse.companyId || companyId,
+        customerId: user.id || user.customer_id || user.customerId,
+        pickupDate: formData.pickupDate,
+        returnDate: formData.returnDate,
+        pickupLocation: formData.pickupLocation || vehicleToUse.location || '',
+        returnLocation: formData.returnLocation || vehicleToUse.location || '',
+        additionalNotes: formData.additionalNotes || ''
+      };
+
+      await apiService.createReservation(bookingData);
+      toast.success(t('bookPage.bookingCreated'));
+      navigate('/my-bookings');
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('bookPage.bookingFailed'));
+      console.error('Booking error:', error);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -454,24 +651,6 @@ const BookPage = () => {
                       alt={`${make} ${model}`}
                       className="w-full h-64 object-cover rounded-lg shadow-md"
                     />
-                    <button
-                      type="button"
-                      onClick={handleScanLicense}
-                      className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md inline-flex items-center"
-                      disabled={isScanning}
-                      title={t('bookPage.scanDriverLicense')}
-                    >
-                      <Camera className="h-4 w-4 mr-1" />
-                      {isScanning ? t('bookPage.scanning') : t('bookPage.scanLicense')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleScanOnPhone}
-                      className="absolute top-3 right-40 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1 rounded shadow-md"
-                      title={t('bookPage.scanOnPhoneViaQr')}
-                    >
-                      {t('bookPage.scanOnPhone')}
-                    </button>
                   </div>
                 )}
                 {/* Header Text */}
@@ -479,13 +658,39 @@ const BookPage = () => {
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
                     {t('bookPage.bookModel', { make, model })}
                   </h1>
-                  <p className="text-gray-600">{t('bookPage.selectVehicleAndComplete')}</p>
+                  {modelDailyRate > 0 && (
+                    <p className="text-xl font-semibold text-blue-600 mb-2">
+                      ${modelDailyRate.toFixed(2)} / {t('vehicles.day')}
+                    </p>
+                  )}
+                  {modelDescription && (
+                    <p className="text-gray-600 mb-4">{modelDescription}</p>
+                  )}
+                  {!modelDescription && (
+                    <p className="text-gray-600 mb-4">{t('bookPage.selectVehicleAndComplete')}</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Driver License Information */}
+            {/* Driver License Information - Button Only */}
             <div className="bg-white rounded-lg shadow-md p-6">
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
+                    return;
+                  }
+                  setIsLicenseModalOpen(true);
+                }}
+                className="w-full btn-outline flex items-center justify-center gap-2"
+              >
+                <CreditCard className="h-5 w-5" />
+                {isAuthenticated 
+                  ? (customerLicense ? t('bookPage.driverLicenseInformation') : t('bookPage.createLicenseInformation'))
+                  : t('bookPage.driverLicenseInformation')}
+              </button>
+
               {/* QR Modal */}
               {qrOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -528,29 +733,49 @@ const BookPage = () => {
                   </div>
                 </div>
               )}
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <CreditCard className="h-5 w-5 mr-2" />
-                {t('bookPage.driverLicenseInformation')}
-                {customerLicense && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">{t('bookPage.editExisting')}</span>
-                )}
-                {!customerLicense && isAuthenticated && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">{t('bookPage.createNew')}</span>
-                )}
-              </h2>
-              
-              {!isAuthenticated ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 mb-4">{t('bookPage.loginToEnterLicense')}</p>
-                  <Link to="/login" className="btn-primary inline-block">
-                    {t('bookPage.login')}
-                  </Link>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveLicense} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* License Number */}
-                    <div>
+
+              {/* Driver License Modal */}
+              {isLicenseModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
+                      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                        <CreditCard className="h-6 w-6 mr-2" />
+                        {t('bookPage.driverLicenseInformation')}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleScanLicense}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md inline-flex items-center"
+                          disabled={isScanning}
+                          title={t('bookPage.scanDriverLicense')}
+                        >
+                          <Camera className="h-4 w-4 mr-1" />
+                          {isScanning ? t('bookPage.scanning') : t('bookPage.scanLicense')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleScanOnPhone}
+                          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md"
+                          title={t('bookPage.scanOnPhoneViaQr')}
+                        >
+                          {t('bookPage.scanOnPhone')}
+                        </button>
+                        <button
+                          onClick={() => setIsLicenseModalOpen(false)}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <X className="h-6 w-6" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-6">
+                      <form onSubmit={handleSaveLicense} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* License Number */}
+                          <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('bookPage.licenseNumber')} *
                       </label>
@@ -684,11 +909,11 @@ const BookPage = () => {
                         onChange={handleLicenseChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                    </div>
-                  </div>
+                          </div>
+                        </div>
 
-                  {/* License Address */}
-                  <div>
+                        {/* License Address */}
+                        <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {t('bookPage.address')}
                     </label>
@@ -790,18 +1015,31 @@ const BookPage = () => {
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full btn-primary py-2"
-                    disabled={saveLicenseMutation.isLoading}
-                  >
-                    {saveLicenseMutation.isLoading 
-                      ? t('bookPage.saving') 
-                      : customerLicense 
-                        ? t('bookPage.updateLicenseInformation') 
-                        : t('bookPage.createLicenseInformation')}
-                  </button>
-                </form>
+                        <div className="flex gap-3 pt-4 border-t">
+                          <button
+                            type="button"
+                            onClick={() => setIsLicenseModalOpen(false)}
+                            className="flex-1 btn-secondary py-2"
+                            disabled={saveLicenseMutation.isLoading}
+                          >
+                            {t('common.cancel')}
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex-1 btn-primary py-2"
+                            disabled={saveLicenseMutation.isLoading}
+                          >
+                            {saveLicenseMutation.isLoading 
+                              ? t('bookPage.saving') 
+                              : customerLicense 
+                                ? t('bookPage.updateLicenseInformation') 
+                                : t('bookPage.createLicenseInformation')}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -810,15 +1048,15 @@ const BookPage = () => {
           {/* Right Part - Booking Form */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              {selectedVehicle ? (
-                <>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('bookPage.bookingDetails')}</h2>
-                  
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('booking.pickupDate')} *
-                      </label>
+              {/* Start Date and End Date at the top */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('home.startDate')}
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                       <input
                         type="date"
                         name="pickupDate"
@@ -826,14 +1064,18 @@ const BookPage = () => {
                         onChange={handleChange}
                         min={today}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="mm/dd/yyyy"
+                        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.returnDateLabel')} *
-                      </label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('home.endDate')}
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                       <input
                         type="date"
                         name="returnDate"
@@ -841,9 +1083,19 @@ const BookPage = () => {
                         onChange={handleChange}
                         min={formData.pickupDate || today}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="mm/dd/yyyy"
+                        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                       />
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedVehicle ? (
+                <>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('bookPage.bookingDetails')}</h2>
+                  
+                  <form onSubmit={handleSubmit} className="space-y-4">
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -894,7 +1146,7 @@ const BookPage = () => {
                             {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} {t('bookPage.days')}
                           </span>
                           <span className="text-xl font-bold text-blue-600">
-                            ${calculateTotal().toFixed(2)}
+                            ${calculateGrandTotal().toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -918,30 +1170,73 @@ const BookPage = () => {
                   </form>
                 </>
               ) : (
-                <div className="text-center py-8">
-                  <Car className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">{t('bookPage.selectVehicleToContinue')}</p>
+                <div>
+                  {modelDailyRate > 0 && (
+                    <p className="text-xl font-semibold text-blue-600 mb-2">
+                      ${modelDailyRate.toFixed(2)} / {t('vehicles.day')}
+                    </p>
+                  )}
+                  <h2 className="text-lg font-bold text-gray-900 mb-4">{t('bookPage.additionalOptions')}</h2>
+                  {additionalOptions.length > 0 ? (
+                    <>
+                      <div className="space-y-1">
+                        {additionalOptions.map((service) => {
+                          const serviceId = service.additionalServiceId || service.AdditionalServiceId;
+                          const isSelected = selectedServices.some(s => s.id === serviceId);
+                          const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory;
+                          
+                          return (
+                            <div 
+                              key={serviceId}
+                              className="flex items-center gap-2 text-gray-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected || isMandatory}
+                                onChange={() => !isMandatory && handleServiceToggle(service)}
+                                disabled={isMandatory}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span>
+                                {service.serviceName || service.ServiceName}: ${(service.servicePrice || service.ServicePrice || 0).toFixed(0)} / day.
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Total */}
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-900">Total:</span>
+                          <span className="text-xl font-bold text-blue-600">${calculateGrandTotal().toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {/* Rent the Car Button */}
+                      <button
+                        onClick={handleRentCar}
+                        className="w-full btn-primary py-3 text-lg mt-4"
+                      >
+                        {t('bookPage.rentTheCar')}
+                      </button>
+
+                      {!isAuthenticated && (
+                        <p className="text-sm text-center text-gray-600 mt-2">
+                          <Link to="/login" className="text-blue-600 hover:underline">
+                            {t('bookPage.login')}
+                          </Link> {t('bookPage.signInToComplete')}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">{t('bookPage.noAdditionalOptions')}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Benefits */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('bookPage.whatsIncluded')}</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Shield className="h-4 w-4 mr-2 text-blue-600" />
-                    {t('bookPage.comprehensiveInsurance')}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="h-4 w-4 mr-2 text-blue-600" />
-                    {t('bookPage.roadsideAssistance')}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Star className="h-4 w-4 mr-2 text-blue-600" />
-                    {t('bookPage.premiumService')}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

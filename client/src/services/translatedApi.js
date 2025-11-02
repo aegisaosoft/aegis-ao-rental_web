@@ -113,8 +113,33 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
-  getVehicleCategories: async () => {
-    const response = await apiService.getVehicleCategories();
+  createVehicle: async (data) => {
+    const response = await apiService.createVehicle(data);
+    return translateResponse(response);
+  },
+  
+  updateVehicle: async (id, data) => {
+    const response = await apiService.updateVehicle(id, data);
+    return translateResponse(response);
+  },
+  
+  deleteVehicle: async (id) => {
+    const response = await apiService.deleteVehicle(id);
+    return translateResponse(response);
+  },
+  
+  getVehicleCount: async (companyId) => {
+    const response = await apiService.getVehicleCount(companyId);
+    return translateResponse(response);
+  },
+  
+  getFirstAvailableVehicle: async (params = {}) => {
+    const response = await apiService.getFirstAvailableVehicle(params);
+    return translateResponse(response);
+  },
+  
+  getVehicleCategories: async (companyId) => {
+    const response = await apiService.getVehicleCategories(companyId);
     return translateResponse(response);
   },
   
@@ -128,14 +153,14 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
-  updateVehicle: async (id, data) => {
-    const response = await apiService.updateVehicle(id, data);
+  bulkUpdateVehicleDailyRate: async (data) => {
+    const response = await apiService.bulkUpdateVehicleDailyRate(data);
     return translateResponse(response);
   },
 
   // Models
-  getModelsGroupedByCategory: async () => {
-    const response = await apiService.getModelsGroupedByCategory();
+  getModelsGroupedByCategory: async (companyId) => {
+    const response = await apiService.getModelsGroupedByCategory(companyId);
     return translateResponse(response);
   },
   
@@ -144,6 +169,11 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  bulkUpdateModelDailyRate: async (data) => {
+    const response = await apiService.bulkUpdateModelDailyRate(data);
+    return translateResponse(response);
+  },
+
   // Reservations
   getReservations: async (params = {}) => {
     const response = await apiService.getReservations(params);
@@ -277,6 +307,64 @@ export const translatedApiService = {
 
   getLocationCities: async (params = {}) => {
     const response = await apiService.getLocationCities(params);
+    return translateResponse(response);
+  },
+  
+  // Company Locations
+  getCompanyLocations: async (params = {}) => {
+    const response = await apiService.getCompanyLocations(params);
+    return translateResponse(response);
+  },
+  
+  getCompanyLocation: async (id) => {
+    const response = await apiService.getCompanyLocation(id);
+    return translateResponse(response);
+  },
+  
+  // Company Services
+  getCompanyServices: async (companyId, params = {}) => {
+    const response = await apiService.getCompanyServices(companyId, params);
+    return translateResponse(response);
+  },
+  
+  addServiceToCompany: async (data) => {
+    const response = await apiService.addServiceToCompany(data);
+    return translateResponse(response);
+  },
+  
+  removeServiceFromCompany: async (companyId, serviceId) => {
+    const response = await apiService.removeServiceFromCompany(companyId, serviceId);
+    return translateResponse(response);
+  },
+  
+  updateCompanyService: async (companyId, serviceId, data) => {
+    const response = await apiService.updateCompanyService(companyId, serviceId, data);
+    return translateResponse(response);
+  },
+  
+  // Additional Services
+  getAdditionalServices: async (params = {}) => {
+    const response = await apiService.getAdditionalServices(params);
+    return translateResponse(response);
+  },
+  
+  getAdditionalService: async (id) => {
+    const response = await apiService.getAdditionalService(id);
+    return translateResponse(response);
+  },
+  
+  createAdditionalService: async (data) => {
+    const response = await apiService.createAdditionalService(data);
+    return translateResponse(response);
+  },
+  
+  updateAdditionalService: async (id, data) => {
+    const response = await apiService.updateAdditionalService(id, data);
+    return translateResponse(response);
+  },
+  
+  deleteAdditionalService: async (id) => {
+    const response = await apiService.deleteAdditionalService(id);
     return translateResponse(response);
   },
 

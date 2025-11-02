@@ -20,10 +20,19 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const axios = require('axios');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
+const os = require('os');
+const dotenv = require('dotenv');
+
+// Load environment variables FIRST before any imports
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+const fullEnvPath = path.join(__dirname, envFile);
+if (fs.existsSync(fullEnvPath)) {
+  dotenv.config({ path: fullEnvPath, override: true });
+} else {
+  dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+}
 
 const authRoutes = require('./routes/auth');
 const vehicleRoutes = require('./routes/vehicles');
@@ -34,7 +43,6 @@ const adminRoutes = require('./routes/admin');
 const companiesRoutes = require('./routes/companies');
 const scanRoutes = require('./routes/scan');
 const licenseRoutes = require('./routes/license');
-const os = require('os');
 const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
 
@@ -154,6 +162,40 @@ app.use('/api/license', licenseRoutes);
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);
 
+// Catch-all proxy for unmapped API routes (forward to C# API)
+app.use('/api/*', async (req, res) => {
+  const axios = require('axios');
+  const apiClient = axios.create({
+    baseURL: process.env.API_BASE_URL || 'https://localhost:7163',
+    timeout: 30000,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(req.headers.authorization && { Authorization: req.headers.authorization })
+    },
+    httpsAgent: new (require('https')).Agent({
+      rejectUnauthorized: false
+    })
+  });
+  
+  try {
+    const proxyPath = req.originalUrl; // Keep full path including /api
+    const response = await apiClient({
+      method: req.method,
+      url: proxyPath,
+      params: req.query,
+      data: req.body
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`Proxying error for ${req.originalUrl}:`, error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || error.message,
+      error: error.message
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -181,26 +223,37 @@ const clientPublicPath = path.join(__dirname, '../client/public');
 const serverPublicPath = path.join(__dirname, 'public');
 
 const sendModelImage = (req, res) => {
-  const filename = req.params.filename;
-  
-  // Try client/public/models first (for development)
-  const clientModelPath = path.join(clientPublicPath, 'models', filename);
-  if (fs.existsSync(clientModelPath)) {
-    return res.sendFile(clientModelPath);
+  try {
+    const filename = req.params.filename;
+    
+    // Try client/public/models first (for development)
+    const clientModelPath = path.join(clientPublicPath, 'models', filename);
+    if (fs.existsSync(clientModelPath)) {
+      console.log(`Serving model image from client: ${clientModelPath}`);
+      return res.sendFile(clientModelPath);
+    }
+    
+    // Try server/public/models (for production)
+    const serverModelPath = path.join(serverPublicPath, 'models', filename);
+    if (fs.existsSync(serverModelPath)) {
+      console.log(`Serving model image from server: ${serverModelPath}`);
+      return res.sendFile(serverModelPath);
+    }
+    
+    console.log(`Model image not found: ${filename}`);
+    console.log(`Checked paths: ${clientModelPath}, ${serverModelPath}`);
+    
+    // If not found, return 404 instead of 500
+    const fallback = path.join(serverPublicPath, 'economy.jpg');
+    if (fs.existsSync(fallback)) {
+      console.log(`Using fallback image: ${fallback}`);
+      return res.sendFile(fallback);
+    }
+    res.status(404).send('Image not found');
+  } catch (error) {
+    console.error('Error serving model image:', error);
+    res.status(500).json({ message: 'Error serving image' });
   }
-  
-  // Try server/public/models (for production)
-  const serverModelPath = path.join(serverPublicPath, 'models', filename);
-  if (fs.existsSync(serverModelPath)) {
-    return res.sendFile(serverModelPath);
-  }
-  
-  // If not found, return 404 instead of 500
-  const fallback = path.join(serverPublicPath, 'economy.jpg');
-  if (fs.existsSync(fallback)) {
-    return res.sendFile(fallback);
-  }
-  res.status(404).send('Image not found');
 };
 
 // Support both /models/* and /api/models/* for dev proxy
@@ -251,28 +304,12 @@ app.get('*', (req, res) => {
 // Server start
 const startServer = async () => {
   try {
-    const useHTTPS = process.env.USE_HTTPS === 'true' || process.env.NODE_ENV === 'development';
-    
-    if (useHTTPS && fs.existsSync(path.join(__dirname, '../certs/server.crt'))) {
-      // HTTPS server
-      const httpsOptions = {
-        cert: fs.readFileSync(path.join(__dirname, '../certs/server.crt')),
-        key: fs.readFileSync(path.join(__dirname, '../certs/server.key'))
-      };
-      
-      https.createServer(httpsOptions, app).listen(PORT, () => {
-        console.log(`HTTPS Server running on https://localhost:${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV}`);
-        console.log(`API Base URL: ${process.env.API_BASE_URL}`);
-      });
-    } else {
-      // HTTP server
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV}`);
-        console.log(`API Base URL: ${process.env.API_BASE_URL}`);
-      });
-    }
+    // HTTP server (production uses Azure HTTPS)
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+      console.log(`API Base URL: ${process.env.API_BASE_URL}`);
+    });
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

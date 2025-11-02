@@ -52,11 +52,18 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      const { token: newToken, user: userData } = response.data;
+      const token = response.data.result?.token || response.data.token;
       
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      setUser(userData);
+      localStorage.setItem('token', token);
+      setToken(token);
+      
+      // Set user data from login response (new format includes user in result)
+      if (response.data.result?.user) {
+        setUser(response.data.result.user);
+      } else if (response.data.user) {
+        // Fallback for old format
+        setUser(response.data.user);
+      }
       
       // Company selection persists through login
       
@@ -69,11 +76,18 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await apiService.register(userData);
-      const { token: newToken, user: newUser } = response.data;
+      const token = response.data.result?.token || response.data.token;
       
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      setUser(newUser);
+      localStorage.setItem('token', token);
+      setToken(token);
+      
+      // Set user data from register response (new format includes user in result)
+      if (response.data.result?.user) {
+        setUser(response.data.result.user);
+      } else if (response.data.user) {
+        // Fallback for old format
+        setUser(response.data.user);
+      }
       
       // Company selection persists through register
       

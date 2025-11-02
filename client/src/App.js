@@ -26,7 +26,6 @@ import { translatedApiService as apiService } from './services/translatedApi';
 
 // Pages
 import Home from './pages/Home';
-import VehicleList from './pages/VehicleList';
 import VehicleDetail from './pages/VehicleDetail';
 import BookPage from './pages/BookPage';
 import Booking from './pages/Booking';
@@ -105,7 +104,6 @@ function App() {
             <main className="min-h-screen">
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/vehicles" element={<VehicleList />} />
                 <Route path="/vehicles/:id" element={<VehicleDetail />} />
                 <Route path="/book" element={<BookPage />} />
                 <Route path="/booking/:vehicleId" element={<Booking />} />

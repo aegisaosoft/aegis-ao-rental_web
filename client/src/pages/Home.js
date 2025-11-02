@@ -16,21 +16,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 
 const Home = () => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
   const [companyName, setCompanyName] = useState('Rentals');
-  const [activeFilters, setActiveFilters] = useState({
-    category: null,
-    startDate: null,
-    endDate: null
-  });
   const modelsSectionRef = useRef(null);
   
   // Fetch companies
@@ -39,155 +35,68 @@ const Home = () => {
   
   // Get selected company ID
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   
-  // Fetch models grouped by category
-  const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', selectedCompanyId],
-    () => apiService.getModelsGroupedByCategory(selectedCompanyId),
+  // Fetch company locations
+  const { data: companyLocationsResponse } = useQuery(
+    ['companyLocations', selectedCompanyId],
+    () => apiService.getCompanyLocations({ companyId: selectedCompanyId, isActive: true }),
     {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      enabled: true // Always fetch, even if companyId is empty
-    }
-  );
-
-  // Fetch available vehicles for the current company to count by model
-  const { data: vehiclesResponse } = useQuery(
-    ['vehicles', selectedCompanyId, 'available', activeFilters.startDate, activeFilters.endDate],
-    () => {
-      const params = {
-        status: 'Available',
-        pageSize: 10000 // Get all available vehicles
-      };
-      
-      // Add company filter if selected
-      if (selectedCompanyId) {
-        params.companyId = selectedCompanyId;
-      }
-      
-      // Add date filters if provided
-      if (activeFilters.startDate) {
-        params.availableFrom = activeFilters.startDate;
-      }
-      if (activeFilters.endDate) {
-        params.availableTo = activeFilters.endDate;
-      }
-      
-      return apiService.getVehicles(params);
-    },
-    {
-      // Enable if company is selected OR if we have date filters active
-      enabled: !!selectedCompanyId || !!(activeFilters.startDate || activeFilters.endDate),
+      enabled: !!selectedCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
   );
   
-  // Create a map of vehicle counts by make and model
-  const vehicleCountByModel = useMemo(() => {
-    const countMap = {};
-    const vehiclesData = vehiclesResponse?.data || vehiclesResponse;
-    
-    // Extract vehicles array (handle different response structures)
-    let vehicles = [];
-    if (vehiclesData && typeof vehiclesData === 'object') {
-      if (vehiclesData.Vehicles) {
-        vehicles = vehiclesData.Vehicles;
-      } else if (vehiclesData.vehicles) {
-        vehicles = vehiclesData.vehicles;
-      } else if (vehiclesData.data && vehiclesData.data.Vehicles) {
-        vehicles = vehiclesData.data.Vehicles;
-      } else if (vehiclesData.data && vehiclesData.data.vehicles) {
-        vehicles = vehiclesData.data.vehicles;
-      } else if (Array.isArray(vehiclesData)) {
-        vehicles = vehiclesData;
-      } else if (vehiclesData.data && Array.isArray(vehiclesData.data)) {
-        vehicles = vehiclesData.data;
-      } else if (vehiclesData.items && Array.isArray(vehiclesData.items)) {
-        vehicles = vehiclesData.items;
-      }
-    } else if (Array.isArray(vehiclesData)) {
-      vehicles = vehiclesData;
+  const companyLocationsData = companyLocationsResponse?.data || companyLocationsResponse;
+  const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
+  const showLocationDropdown = companyLocations.length > 1;
+  
+  // Fetch models grouped by category
+  // Pass null/undefined when companyId is empty string to show all models
+  const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
+    ['modelsGroupedByCategory', selectedCompanyId],
+    () => apiService.getModelsGroupedByCategory(selectedCompanyId || null),
+    {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      enabled: true // Always fetch, even if companyId is empty - shows all models when no company selected
     }
-    
-    // Count vehicles by make and model (case-insensitive, spaces normalized to underscores)
-    vehicles.forEach(vehicle => {
-      const make = (vehicle.make || vehicle.Make || '').toUpperCase();
-      const model = (vehicle.model || vehicle.Model || '').toUpperCase().replace(/\s+/g, '_');
-      if (make && model) {
-        const key = `${make}_${model}`;
-        countMap[key] = (countMap[key] || 0) + 1;
-      }
-    });
-    
-    return countMap;
-  }, [vehiclesResponse]);
-  
-  // Remove noisy debug logs in production/dev
-  
+  );
+
   // Filter models by active filters
   const modelsGrouped = useMemo(() => {
     const allModels = modelsGroupedResponse?.data || modelsGroupedResponse || [];
     
-    if (!activeFilters.category && !activeFilters.startDate && !activeFilters.endDate) {
-      return allModels;
-    }
+    // No filtering - show all models
+    // Date availability checking removed - all vehicles are available
+    return allModels;
+  }, [modelsGroupedResponse]);
+  
+  // Calculate total vehicle count and available count from models
+  const { fleetCount, availableCount } = useMemo(() => {
+    let totalVehicles = 0;
+    let totalAvailable = 0;
     
-    // Filter by category if selected
-    let filtered = allModels;
-    if (activeFilters.category) {
-      // Find category by name (case-insensitive)
-      const categoryLower = activeFilters.category.toLowerCase();
-      filtered = allModels.filter(categoryGroup => {
-        const categoryName = (categoryGroup.categoryName || categoryGroup.category_name || '').toLowerCase();
-        return categoryName.includes(categoryLower) || 
-               (categoryLower === 'economy' && categoryName.includes('economy')) ||
-               (categoryLower === 'compact' && categoryName.includes('compact')) ||
-               (categoryLower === 'mid-size' && categoryName.includes('mid')) ||
-               (categoryLower === 'full-size' && categoryName.includes('full')) ||
-               (categoryLower === 'suv' && categoryName.includes('suv')) ||
-               (categoryLower === 'luxury' && categoryName.includes('luxury')) ||
-               (categoryLower === 'sports' && categoryName.includes('sport'));
-      });
-    }
-    
-    // Filter by date availability - only show models that have available vehicles in the date range
-    if ((activeFilters.startDate || activeFilters.endDate) && vehiclesResponse?.data) {
-      const availableVehicles = Array.isArray(vehiclesResponse.data) ? vehiclesResponse.data : [];
-      
-      // Create a set of available model IDs (make_model combinations)
-      const availableModelKeys = new Set();
-      availableVehicles.forEach(vehicle => {
-        const make = (vehicle.make || '').toUpperCase();
-        const model = (vehicle.model || '').toUpperCase().replace(/\s+/g, '_');
-        if (make && model) {
-          availableModelKeys.add(`${make}_${model}`);
+    if (modelsGrouped && Array.isArray(modelsGrouped)) {
+      console.log('DEBUG Home: modelsGrouped structure:', modelsGrouped.length, 'categories');
+      modelsGrouped.forEach(categoryGroup => {
+        if (categoryGroup.models && Array.isArray(categoryGroup.models)) {
+          console.log('DEBUG Home: category', categoryGroup.categoryName, 'has', categoryGroup.models.length, 'models');
+          categoryGroup.models.forEach(model => {
+            const vCount = (model.vehicleCount || model.VehicleCount || 0);
+            const aCount = (model.availableCount || model.AvailableCount || 0);
+            console.log('DEBUG Home: Model', model.make, model.modelName, model.year, '- vehicles:', vCount, 'available:', aCount);
+            totalVehicles += vCount;
+            totalAvailable += aCount;
+          });
         }
       });
-      
-      // Filter categories to only include those with available models
-      filtered = filtered.map(categoryGroup => {
-        const models = categoryGroup.models || [];
-        const filteredModels = models.filter(model => {
-          const make = (model.make || '').toUpperCase();
-          const modelName = (model.modelName || model.model_name || '').toUpperCase().replace(/\s+/g, '_');
-          const key = `${make}_${modelName}`;
-          return availableModelKeys.has(key);
-        });
-        
-        if (filteredModels.length === 0) {
-          return null; // Don't show category if no models available
-        }
-        
-        return {
-          ...categoryGroup,
-          models: filteredModels
-        };
-      }).filter(Boolean); // Remove null entries
     }
     
-    return filtered;
-  }, [modelsGroupedResponse, activeFilters, vehiclesResponse]);
+    console.log('DEBUG Home: Total calculated - vehicles:', totalVehicles, 'available:', totalAvailable);
+    return { fleetCount: totalVehicles, availableCount: totalAvailable };
+  }, [modelsGrouped]);
   
   //
   
@@ -243,11 +152,15 @@ const Home = () => {
       } else {
         setCompanyName('Rentals');
       }
+      
+      // Invalidate queries to trigger refetch
+      queryClient.invalidateQueries(['modelsGroupedByCategory', companyId]);
+      queryClient.invalidateQueries(['companyLocations', companyId]);
     };
     
     window.addEventListener('companyChanged', handleCompanyChange);
     return () => window.removeEventListener('companyChanged', handleCompanyChange);
-  }, [companiesData]);
+  }, [companiesData, queryClient]);
 
   const features = [
     {
@@ -340,16 +253,30 @@ const Home = () => {
                 </select>
               </div>
 
+              {/* Location Dropdown - Only show if company has more than 1 location */}
+              {showLocationDropdown && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('home.location')}
+                  </label>
+                  <select
+                    value={selectedLocationId}
+                    onChange={(e) => setSelectedLocationId(e.target.value)}
+                    className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  >
+                    <option value="">{t('home.selectLocation')}</option>
+                    {companyLocations.map((location) => (
+                      <option key={location.id || location.Id} value={location.id || location.Id}>
+                        {location.locationName || location.location_name || location.LocationName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* View Vehicles Button */}
               <button
                 onClick={() => {
-                  // Apply filters
-                  setActiveFilters({
-                    category: category || null,
-                    startDate: startDate || null,
-                    endDate: endDate || null
-                  });
-                  
                   // Scroll to models section
                   setTimeout(() => {
                     modelsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -392,9 +319,16 @@ const Home = () => {
       <section ref={modelsSectionRef} className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t('home.availableModelsTitle')}
-            </h2>
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                {t('home.availableModelsTitle')}
+              </h2>
+              {selectedCompanyId && fleetCount > 0 && (
+                <span className="text-lg font-normal text-gray-600 bg-gray-100 px-4 py-1 rounded-full">
+                  {fleetCount} / {availableCount}
+                </span>
+              )}
+            </div>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               {t('home.availableModelsSubtitle')}
             </p>
@@ -466,6 +400,8 @@ const Home = () => {
                               transmission: model.transmission || '',
                               dailyRate: model.dailyRate || model.daily_rate || null,
                               features: model.features || [],
+                              vehicleCount: 0,
+                              availableCount: 0,
                               ids: []
                             };
                           }
@@ -486,6 +422,10 @@ const Home = () => {
                             acc[key].features = [...new Set([...acc[key].features, ...model.features])];
                           }
                           
+                          // Sum up vehicle counts and available counts
+                          acc[key].vehicleCount += model.vehicleCount || 0;
+                          acc[key].availableCount += model.availableCount || 0;
+                          
                           acc[key].ids.push(model.id || model.model_id);
                           
                           return acc;
@@ -495,23 +435,7 @@ const Home = () => {
                           .map(group => ({
                             ...group,
                             years: group.years.sort((a, b) => b - a) // Sort years descending
-                          }))
-                          .filter(group => {
-                            // If company is selected, only show models with available vehicles
-                            if (selectedCompanyId) {
-                              const makeUpper = (group.make || '').toUpperCase();
-                              const modelKey = `${makeUpper}_${group.modelName.toUpperCase().replace(/\s+/g, '_')}`;
-                              const vehicleCount = vehicleCountByModel[modelKey] || 0;
-                              return vehicleCount > 0;
-                            }
-                            // If no company selected, show all models
-                            return true;
-                          });
-                        
-                        // Don't show category if no models are available
-                        if (groupedModels.length === 0 && selectedCompanyId) {
-                          return null;
-                        }
+                          }));
                         
                         return (
                           <div className="overflow-x-auto pb-4 -mx-4 px-4 model-cards-scroll">
@@ -523,14 +447,13 @@ const Home = () => {
                                   : `${Math.min(...group.years)}-${Math.max(...group.years)}`
                                 : '';
                               
-                              // Construct model image path: /models/MAKE_MODEL.png
+                              // Construct model image path: use direct /models/ path (served by Create React App from public/)
                               const makeUpper = (group.make || '').toUpperCase();
                               const modelUpper = (group.modelName || '').toUpperCase().replace(/\s+/g, '_');
-                              const modelImagePath = `/api/models/${makeUpper}_${modelUpper}.png`;
-                              
-                              // Get vehicle count for this model (normalize spaces to underscores)
-                              const modelKey = `${makeUpper}_${group.modelName.toUpperCase().replace(/\s+/g, '_')}`;
-                              const vehicleCount = vehicleCountByModel[modelKey] || 0;
+                              // In development, React serves public/ directly; in production, backend serves /api/models/
+                              const modelImagePath = process.env.NODE_ENV === 'development' 
+                                ? `/models/${makeUpper}_${modelUpper}.png`
+                                : `/api/models/${makeUpper}_${modelUpper}.png`;
                               
                               return (
                                 <div key={`${group.make}_${group.modelName}_${index}`} className="vehicle-card flex-shrink-0" style={{ width: '320px', minWidth: '320px' }}>
@@ -556,9 +479,9 @@ const Home = () => {
                                         ${parseFloat(group.dailyRate).toFixed(2)}/day
                                       </div>
                                     )}
-                                    {selectedCompanyId && vehicleCount > 0 && (
+                                    {selectedCompanyId && group.vehicleCount > 0 && (
                                       <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                        {vehicleCount} {t('status.available')}
+                                        {group.availableCount}/{group.vehicleCount} {t('status.available')}
                                       </div>
                                     )}
                                   </div>
@@ -646,21 +569,14 @@ const Home = () => {
                           return acc;
                         }, {});
                         
-                        // Filter to only count models with available vehicles if company is selected
-                        let uniqueModels = Object.values(grouped);
-                        if (selectedCompanyId) {
-                          uniqueModels = uniqueModels.filter(({ make, modelName }) => {
-                            const modelKey = `${make}_${modelName.toUpperCase().replace(/\s+/g, '_')}`;
-                            const vehicleCount = vehicleCountByModel[modelKey] || 0;
-                            return vehicleCount > 0;
-                          });
-                        }
+                        // Count unique models
+                        const uniqueModels = Object.values(grouped);
                         const uniqueModelsCount = uniqueModels.length;
                         
                         return uniqueModelsCount > 6 && (
                           <div className="text-center pt-4">
                             <Link
-                              to={`/vehicles?category=${categoryId}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
+                              to={`/?category=${categoryId}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
                               className="text-yellow-500 hover:text-yellow-600 font-semibold inline-flex items-center text-lg"
                             >
                               {t('home.viewAllModels', { 
@@ -754,7 +670,7 @@ const Home = () => {
             {t('home.ctaSubtitle', { companyName })}
           </p>
           <Link
-            to="/vehicles"
+            to="/"
             className="bg-yellow-500 text-black font-bold py-3 px-8 rounded-lg hover:bg-yellow-400 transition-colors inline-flex items-center"
           >
             {t('home.browseFleet')}

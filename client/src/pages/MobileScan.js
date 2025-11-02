@@ -2,12 +2,13 @@
  * Mobile-friendly page to scan Driver License on this device (no QR).
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const MobileScan = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('ready');
   const [capturedDataUrl, setCapturedDataUrl] = useState('');
   const [videoReady, setVideoReady] = useState(false);
@@ -218,10 +219,16 @@ const MobileScan = () => {
     }
   };
 
+  // Helper to get returnTo from URL params or location state
+  const getReturnTo = () => {
+    const urlParam = searchParams.get('returnTo');
+    const stateValue = location.state && location.state.returnTo;
+    return urlParam || stateValue || '/book';
+  };
+
   const continueWithoutCapture = () => {
     stopCamera();
-    const from = (location.state && location.state.returnTo) || '/book';
-    navigate(from, { replace: true });
+    navigate(getReturnTo(), { replace: true });
   };
 
   return (
@@ -312,7 +319,7 @@ const MobileScan = () => {
             ) : null}
             <div className="flex gap-2">
               <button onClick={() => { setStatus('ready'); setCapturedDataUrl(''); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Retake</button>
-              <button onClick={() => { const from = (location.state && location.state.returnTo) || '/book'; navigate(from, { replace: true }); }} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Use Photo</button>
+              <button onClick={() => { navigate(getReturnTo(), { replace: true }); }} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Use Photo</button>
             </div>
           </div>
         )}

@@ -15,8 +15,29 @@
 
 const axios = require('axios');
 const https = require('https');
+const dotenv = require('dotenv');
+const path = require('path');
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+// Load environment variables (will be merged if already loaded by VS Code)
+const envPaths = [
+  path.join(__dirname, '..', '.env'),
+  process.env.NODE_ENV === 'production' 
+    ? path.join(__dirname, '..', '.env.production') 
+    : path.join(__dirname, '..', '.env.development')
+];
+
+for (const envPath of envPaths) {
+  const result = dotenv.config({ path: envPath });
+  if (result.error && result.error.code !== 'ENOENT') {
+    console.error(`config/api.js: Error loading ${envPath}:`, result.error);
+  }
+}
+
+const API_BASE_URL = process.env.API_BASE_URL;
+if (!API_BASE_URL) {
+  console.error('config/api.js: API_BASE_URL is not set after loading env files');
+  throw new Error('API_BASE_URL environment variable is not set');
+}
 
 // Create axios instance with default configuration
 const apiClient = axios.create({

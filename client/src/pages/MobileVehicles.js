@@ -11,9 +11,21 @@ const MobileVehicles = () => {
   const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId') || '';
 
   const { data, isLoading } = useQuery(
-    ['m-vehicles', companyId],
-    () => apiService.getVehicles({ companyId, status: 'Available', pageSize: 1000 }),
-    { enabled: true }
+    ['m-vehicles', companyId, pickupDate, returnDate],
+    () => {
+      const params = { 
+        companyId, 
+        status: 'Available', 
+        pageSize: 50 // Reduced from 1000 - only load first page
+      };
+      
+      // Add date filters if provided
+      if (pickupDate) params.availableFrom = pickupDate;
+      if (returnDate) params.availableTo = returnDate;
+      
+      return apiService.getVehicles(params);
+    },
+    { enabled: !!companyId }
   );
 
   const items = Array.isArray(data?.data?.items) ? data.data.items : (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));

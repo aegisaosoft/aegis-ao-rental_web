@@ -67,7 +67,7 @@ const VehicleList = () => {
 
   // Fetch filter options
   // Fetch categories and makes
-  const { data: categoriesResponse } = useQuery('categories', apiService.getVehicleCategories);
+  const { data: categoriesResponse } = useQuery(['categories', urlCompanyId], () => apiService.getVehicleCategories(urlCompanyId || null));
   const { data: makesResponse } = useQuery('makes', apiService.getVehicleMakes);
   
   // Extract arrays from response data (handle both wrapped and direct responses)
@@ -390,7 +390,10 @@ const VehicleList = () => {
               // Construct model image path: /models/MAKE_MODEL.png
               const makeUpper = (make || '').toUpperCase();
               const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-              const modelImagePath = `/api/models/${makeUpper}_${modelUpper}.png`;
+              // In development, React serves public/ directly; in production, backend serves /api/models/
+              const modelImagePath = process.env.NODE_ENV === 'development' 
+                ? `/models/${makeUpper}_${modelUpper}.png`
+                : `/api/models/${makeUpper}_${modelUpper}.png`;
               
               // Determine default image based on category (fallback)
               const getDefaultImage = (category) => {

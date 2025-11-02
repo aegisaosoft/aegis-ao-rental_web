@@ -106,7 +106,7 @@ const VehicleDetail = () => {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('vehicleDetail.vehicleNotFound')}</h2>
           <p className="text-gray-600 mb-4">{t('vehicleDetail.vehicleNotFoundDesc')}</p>
-          <Link to="/vehicles" className="btn-primary">
+          <Link to="/" className="btn-primary">
             {t('vehicleDetail.browseVehicles')}
           </Link>
         </div>
@@ -120,9 +120,7 @@ const VehicleDetail = () => {
         {/* Breadcrumb */}
         <nav className="mb-8">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link to="/" className="hover:text-blue-600">Home</Link></li>
-            <li>/</li>
-            <li><Link to="/vehicles" className="hover:text-blue-600">Vehicles</Link></li>
+            <li><Link to="/" className="hover:text-blue-600">{t('nav.home')}</Link></li>
             <li>/</li>
             <li className="text-gray-900">{vehicle.make} {vehicle.model}</li>
           </ol>
@@ -132,7 +130,9 @@ const VehicleDetail = () => {
           {/* Vehicle Image */}
           <div>
             <img
-              src={`/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+              src={process.env.NODE_ENV === 'development' 
+                ? `/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`
+                : `/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
               alt={`${vehicle.make} ${vehicle.model}`}
               className="w-full h-96 object-cover rounded-lg shadow-lg"
               onError={(e) => {

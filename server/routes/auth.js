@@ -37,10 +37,11 @@ router.post('/register', [
 
     const response = await apiService.register(req.body);
     
-    // Store token in session
-    if (response.data.token) {
-      req.session.token = response.data.token;
-      req.session.user = response.data.user;
+    // Store token in session (support both old and new response format)
+    const token = response.data.result?.token || response.data.token;
+    if (token) {
+      req.session.token = token;
+      // User data will be fetched via /profile endpoint
     }
     
     return res.status(201).json(response.data);
@@ -65,10 +66,11 @@ router.post('/login', [
 
     const response = await apiService.login(req.body);
     
-    // Store token in session
-    if (response.data.token) {
-      req.session.token = response.data.token;
-      req.session.user = response.data.user;
+    // Store token in session (support both old and new response format)
+    const token = response.data.result?.token || response.data.token;
+    if (token) {
+      req.session.token = token;
+      // User data will be fetched via /profile endpoint
     }
     
     return res.json(response.data);

@@ -13,14 +13,20 @@
  *
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from '@tanstack/react-table';
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -30,6 +36,7 @@ const AdminDashboard = () => {
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
+  const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'customers', 'reports', etc.
   const [uploadProgress, setUploadProgress] = useState({
     video: 0,
     banner: 0,
@@ -42,6 +49,19 @@ const AdminDashboard = () => {
   });
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState(null);
+  const [isEditingService, setIsEditingService] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState(null);
+  const [editingCompanyServiceId, setEditingCompanyServiceId] = useState(null);
+  const [editingServiceBaseInfo, setEditingServiceBaseInfo] = useState(null);
+  const [serviceFormData, setServiceFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    serviceType: 'Other',
+    isMandatory: false,
+    maxQuantity: 1,
+    isActive: true
+  });
   const [locationFormData, setLocationFormData] = useState({
     locationName: '',
     address: '',
@@ -58,6 +78,18 @@ const AdminDashboard = () => {
     openingHours: '',
     isActive: true
   });
+
+  // State for vehicle fleet tree
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedMakes, setExpandedMakes] = useState({});
+  
+  // State for vehicle management pagination
+  const [vehiclePage, setVehiclePage] = useState(0);
+  const [vehiclePageSize, setVehiclePageSize] = useState(10);
+  
+  // State for daily rate inputs
+  const [dailyRateInputs, setDailyRateInputs] = useState({});
+  const [isUpdatingRate, setIsUpdatingRate] = useState(false);
 
   // Get company ID from user or localStorage
   const getCompanyId = useCallback(() => {
@@ -79,20 +111,21 @@ const AdminDashboard = () => {
     const handleStorageChange = (e) => {
       if (e.key === 'selectedCompanyId' || e.key === null) {
         const newCompanyId = getCompanyId();
-        console.log('Company changed in storage:', newCompanyId);
         setCurrentCompanyId(newCompanyId);
         // Invalidate and refetch company data
         queryClient.invalidateQueries(['company']);
+        queryClient.invalidateQueries(['modelsGroupedByCategory']);
       }
     };
 
     // Listen for custom event (more reliable for same-tab changes)
     const handleCompanyChange = (e) => {
       const newCompanyId = getCompanyId();
-      console.log('Company changed via event:', newCompanyId);
       setCurrentCompanyId(newCompanyId);
       // Invalidate and refetch company data
       queryClient.invalidateQueries(['company']);
+      queryClient.invalidateQueries(['vehiclesCount']);
+      queryClient.invalidateQueries(['modelsGroupedByCategory']);
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -111,14 +144,8 @@ const AdminDashboard = () => {
     {
       enabled: isAuthenticated && isAdmin && !!currentCompanyId,
       onSuccess: (data) => {
-        console.log('Company data loaded:', data);
-        console.log('Company data type:', typeof data);
-        console.log('Company data keys:', data ? Object.keys(data) : 'no data');
-        
         // Handle both axios response format and direct data
         const companyInfo = data?.data || data;
-        console.log('Processed company info:', companyInfo);
-        
         setCompanyFormData(companyInfo);
       },
       onError: (error) => {
@@ -148,6 +175,57 @@ const AdminDashboard = () => {
   );
 
   const locations = locationsData?.data || locationsData || [];
+
+  // Fetch models grouped by category for vehicle fleet
+  const { data: modelsGroupedData, isLoading: isLoadingModels } = useQuery(
+    ['modelsGroupedByCategory', currentCompanyId],
+    () => apiService.getModelsGroupedByCategory(currentCompanyId),
+    {
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'vehicles',
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  const modelsGrouped = modelsGroupedData?.data || modelsGroupedData || [];
+
+  // Fetch vehicles list for vehicle management
+  const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(
+    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize],
+    () => apiService.getVehicles({
+      companyId: currentCompanyId,
+      page: vehiclePage + 1, // API expects 1-based page
+      pageSize: vehiclePageSize
+    }),
+    {
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'vehicleManagement',
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  const vehiclesList = vehiclesListData?.Vehicles || vehiclesListData?.data?.Vehicles || vehiclesListData?.data || [];
+
+  // Calculate total vehicle count and available count from models
+  const { vehicleCount, availableCount } = useMemo(() => {
+    let totalVehicles = 0;
+    let totalAvailable = 0;
+    
+    if (modelsGrouped && Array.isArray(modelsGrouped)) {
+      modelsGrouped.forEach(categoryGroup => {
+        if (categoryGroup.models && Array.isArray(categoryGroup.models)) {
+          categoryGroup.models.forEach(model => {
+            const vCount = (model.vehicleCount || model.VehicleCount || 0);
+            const aCount = (model.availableCount || model.AvailableCount || 0);
+            totalVehicles += vCount;
+            totalAvailable += aCount;
+          });
+        }
+      });
+    }
+    
+    return { vehicleCount: totalVehicles, availableCount: totalAvailable };
+  }, [modelsGrouped]);
 
   // Check if currently editing - this will disable other actions
   const isEditing = isEditingCompany;
@@ -279,6 +357,160 @@ const AdminDashboard = () => {
     }
   );
 
+  // Fetch all additional services (not filtered by company - to show full list)
+  const { data: allAdditionalServicesResponse, isLoading: isLoadingAllServices } = useQuery(
+    ['allAdditionalServices'],
+    () => apiService.getAdditionalServices({}),
+    {
+      enabled: isAuthenticated && isAdmin && activeSection === 'bookingSettings',
+      onError: (error) => {
+        console.error('Error loading all additional services:', error);
+      }
+    }
+  );
+
+  // Fetch company services for current company (to know which services are assigned)
+  const { data: companyServicesResponse, isLoading: isLoadingCompanyServices } = useQuery(
+    ['companyServices', currentCompanyId],
+    () => apiService.getCompanyServices(currentCompanyId),
+    {
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'bookingSettings',
+      onError: (error) => {
+        console.error('Error loading company services:', error);
+      }
+    }
+  );
+
+  const allAdditionalServices = allAdditionalServicesResponse?.data || allAdditionalServicesResponse || [];
+  const companyServices = companyServicesResponse?.data || companyServicesResponse || [];
+  
+  // Create a Set of service IDs that are assigned to the company for quick lookup
+  const assignedServiceIds = new Set(
+    companyServices.map(cs => cs.additionalServiceId || cs.AdditionalServiceId || cs.additional_service_id)
+  );
+
+  // Additional Service mutations (for creating new services)
+  const createServiceMutation = useMutation(
+    (data) => apiService.createAdditionalService({ ...data, companyId: currentCompanyId }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['allAdditionalServices']);
+        toast.success(t('admin.serviceCreated'), {
+          position: 'top-center',
+          autoClose: 2000,
+        });
+        setIsEditingService(false);
+        setEditingServiceId(null);
+        setServiceFormData({
+          name: '',
+          description: '',
+          price: '',
+          serviceType: 'Other',
+          isMandatory: false,
+          maxQuantity: 1,
+          isActive: true
+        });
+      },
+      onError: (error) => {
+        console.error('Error creating service:', error);
+        toast.error(error.response?.data?.message || t('admin.serviceCreateFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      }
+    }
+  );
+
+  // Update Additional Service mutation (for editing base services)
+  const updateAdditionalServiceMutation = useMutation(
+    ({ serviceId, data }) => apiService.updateAdditionalService(serviceId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['allAdditionalServices']);
+        queryClient.invalidateQueries(['additionalServices', currentCompanyId]);
+        setIsEditingService(false);
+        setEditingServiceId(null);
+        setEditingCompanyServiceId(null);
+        setEditingServiceBaseInfo(null);
+        setServiceFormData({
+          name: '',
+          description: '',
+          price: '',
+          serviceType: 'Other',
+          isMandatory: false,
+          maxQuantity: 1,
+          isActive: true
+        });
+        toast.success(t('admin.serviceUpdated'), {
+          position: 'top-center',
+          autoClose: 2000,
+        });
+      },
+      onError: (error) => {
+        console.error('Error updating additional service:', error);
+        toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      }
+    }
+  );
+
+  // Company Service mutation (for editing company-specific settings)
+  const updateCompanyServiceMutation = useMutation(
+    ({ companyId, serviceId, data }) => apiService.updateCompanyService(companyId, serviceId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['companyServices', currentCompanyId]);
+        queryClient.invalidateQueries(['allAdditionalServices']);
+        setIsEditingService(false);
+        setEditingServiceId(null);
+        setEditingCompanyServiceId(null);
+        setEditingServiceBaseInfo(null);
+        setServiceFormData({
+          name: '',
+          description: '',
+          price: '',
+          serviceType: 'Other',
+          isMandatory: false,
+          maxQuantity: 1,
+          isActive: true
+        });
+        toast.success(t('admin.serviceUpdated'), {
+          position: 'top-center',
+          autoClose: 2000,
+        });
+      },
+      onError: (error) => {
+        console.error('Error updating company service:', error);
+        toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      }
+    }
+  );
+
+  const deleteServiceMutation = useMutation(
+    (serviceId) => apiService.deleteAdditionalService(serviceId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['additionalServices', currentCompanyId]);
+        toast.success(t('admin.serviceDeleted'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      },
+      onError: (error) => {
+        console.error('Error deleting service:', error);
+        toast.error(t('admin.serviceDeleteFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      }
+    }
+  );
+
   // const { data: dashboardData, isLoading } = useQuery(
   //   'adminDashboard',
   //   () => apiService.getAdminDashboard(),
@@ -289,11 +521,6 @@ const AdminDashboard = () => {
 
   // Temporary defaults while API endpoint is not implemented
   const isLoading = false;
-  const dashboardData = {
-    recentVehicles: [],
-    recentReservations: [],
-    recentCustomers: []
-  };
 
   const handleCompanyInputChange = (e) => {
     const { name, value } = e.target;
@@ -348,9 +575,6 @@ const AdminDashboard = () => {
       updateData.videoLink = 'https://' + updateData.videoLink;
     }
     
-    console.log('Sending update data:', updateData);
-    console.log('Update data stringified:', JSON.stringify(updateData, null, 2));
-    console.log('Current company ID:', currentCompanyId);
     updateCompanyMutation.mutate(updateData);
   };
 
@@ -463,6 +687,285 @@ const AdminDashboard = () => {
   const handleDeleteLocation = (locationId) => {
     if (window.confirm(t('admin.confirmDeleteLocation'))) {
       deleteLocationMutation.mutate(locationId);
+    }
+  };
+
+  // Additional Service handlers
+  const handleServiceInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setServiceFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : (type === 'number' ? (value === '' ? '' : parseFloat(value)) : value)
+    }));
+  };
+
+  const handleAddService = () => {
+    setIsEditingService(true);
+    setEditingServiceId(null);
+    setServiceFormData({
+      name: '',
+      description: '',
+      price: '',
+      serviceType: 'Other',
+      isMandatory: false,
+      maxQuantity: 1,
+      isActive: true
+    });
+  };
+
+  const handleEditService = (service) => {
+    const serviceId = service.id || service.Id;
+    const isAssigned = assignedServiceIds.has(serviceId);
+    
+    if (isAssigned) {
+      // Editing company service - only company-specific fields
+    const companyService = companyServices.find(
+      cs => (cs.additionalServiceId || cs.AdditionalServiceId || cs.additional_service_id) === serviceId
+    );
+    
+    if (!companyService) {
+      toast.error(t('admin.companyServiceNotFound'), {
+        position: 'top-center',
+        autoClose: 3000,
+      });
+      return;
+    }
+    
+    // Set editing state for company service
+    setEditingServiceId(serviceId);
+    setEditingCompanyServiceId(serviceId);
+    setEditingServiceBaseInfo(service); // Store base service info for display
+    setIsEditingService(true);
+    
+    // Set form data with company-specific values
+    setServiceFormData({
+      name: service.name || service.Name || '', // Read-only display
+      description: service.description || service.Description || '', // Read-only display
+      price: companyService.price !== undefined && companyService.price !== null 
+        ? companyService.price 
+        : (companyService.Price !== undefined && companyService.Price !== null 
+          ? companyService.Price 
+          : (service.price || service.Price || '')),
+      serviceType: service.serviceType || service.ServiceType || 'Other', // Read-only display
+      isMandatory: companyService.isMandatory !== undefined && companyService.isMandatory !== null
+        ? companyService.isMandatory
+        : (companyService.IsMandatory !== undefined && companyService.IsMandatory !== null
+          ? companyService.IsMandatory
+          : (service.isMandatory || service.IsMandatory || false)),
+      maxQuantity: service.maxQuantity || service.MaxQuantity || 1, // Read-only display
+      isActive: companyService.isActive !== undefined 
+        ? companyService.isActive 
+        : (companyService.IsActive !== undefined 
+          ? companyService.IsActive 
+          : true)
+    });
+    } else {
+      // Editing base additional service - all fields editable
+      setEditingServiceId(serviceId);
+      setEditingCompanyServiceId(null);
+      setEditingServiceBaseInfo(null);
+      setIsEditingService(true);
+      
+      // Set form data with all service values
+      setServiceFormData({
+        name: service.name || service.Name || '',
+        description: service.description || service.Description || '',
+        price: service.price !== undefined && service.price !== null 
+          ? service.price 
+          : (service.Price !== undefined && service.Price !== null 
+            ? service.Price 
+            : ''),
+        serviceType: service.serviceType || service.ServiceType || 'Other',
+        isMandatory: service.isMandatory || service.IsMandatory || false,
+        maxQuantity: service.maxQuantity || service.MaxQuantity || 1,
+        isActive: service.isActive !== undefined 
+          ? service.isActive 
+          : (service.IsActive !== undefined 
+            ? service.IsActive 
+            : true)
+      });
+    }
+  };
+
+  const handleSaveService = (e) => {
+    e.preventDefault();
+    
+    if (editingCompanyServiceId) {
+      // Editing company service - only update company-specific fields
+      const companyServiceData = {
+        price: serviceFormData.price !== '' ? parseFloat(serviceFormData.price) : null,
+        isMandatory: serviceFormData.isMandatory,
+        isActive: serviceFormData.isActive
+      };
+      
+      updateCompanyServiceMutation.mutate({
+        companyId: currentCompanyId,
+        serviceId: editingCompanyServiceId,
+        data: companyServiceData
+      });
+    } else if (editingServiceId) {
+      // Editing base additional service - only if not assigned to company
+      const serviceData = {
+        name: serviceFormData.name,
+        description: serviceFormData.description || null,
+        price: parseFloat(serviceFormData.price) || 0,
+        serviceType: serviceFormData.serviceType,
+        isMandatory: serviceFormData.isMandatory,
+        maxQuantity: parseInt(serviceFormData.maxQuantity) || 1,
+        isActive: serviceFormData.isActive
+      };
+      updateAdditionalServiceMutation.mutate({
+        serviceId: editingServiceId,
+        data: serviceData
+      });
+    } else {
+      // Creating new additional service
+      const serviceData = {
+        name: serviceFormData.name,
+        description: serviceFormData.description || null,
+        price: parseFloat(serviceFormData.price) || 0,
+        serviceType: serviceFormData.serviceType,
+        isMandatory: serviceFormData.isMandatory,
+        maxQuantity: parseInt(serviceFormData.maxQuantity) || 1,
+        isActive: serviceFormData.isActive
+      };
+      createServiceMutation.mutate(serviceData);
+    }
+  };
+
+  const handleCancelServiceEdit = () => {
+    setIsEditingService(false);
+    setEditingServiceId(null);
+    setEditingCompanyServiceId(null);
+    setEditingServiceBaseInfo(null);
+    setServiceFormData({
+      name: '',
+      description: '',
+      price: '',
+      serviceType: 'Other',
+      isMandatory: false,
+      maxQuantity: 1,
+      isActive: true
+    });
+  };
+
+  const handleDeleteService = (serviceId) => {
+    if (window.confirm(t('admin.confirmDeleteService'))) {
+      deleteServiceMutation.mutate(serviceId);
+    }
+  };
+
+  // Handle quick toggle of service isActive or isMandatory
+  const handleToggleServiceField = async (service, field) => {
+    const serviceId = service.id || service.Id;
+    const currentValue = service[field] !== undefined ? service[field] : (service[field.charAt(0).toUpperCase() + field.slice(1)] !== undefined ? service[field.charAt(0).toUpperCase() + field.slice(1)] : false);
+    const newValue = !currentValue;
+
+    try {
+      // Check if service is assigned to this company
+      const isAssigned = assignedServiceIds.has(serviceId);
+      
+      if (isAssigned) {
+        // Update company service (only allowed fields: isMandatory, isActive)
+        if (field === 'isMandatory' || field === 'isActive') {
+          await apiService.updateCompanyService(currentCompanyId, serviceId, {
+            [field]: newValue
+          });
+        } else {
+          toast.error(t('admin.cannotUpdateBaseService'), {
+            position: 'top-center',
+            autoClose: 3000,
+          });
+          return;
+        }
+        queryClient.invalidateQueries(['companyServices', currentCompanyId]);
+      } else {
+        // Update base additional service
+      await apiService.updateAdditionalService(serviceId, {
+        [field]: newValue
+      });
+      }
+      
+      queryClient.invalidateQueries(['additionalServices', currentCompanyId]);
+      queryClient.invalidateQueries(['allAdditionalServices']);
+      toast.success(t('admin.serviceUpdated'), {
+        position: 'top-center',
+        autoClose: 2000,
+      });
+    } catch (error) {
+      console.error(`Error updating service ${field}:`, error);
+      toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed'), {
+        position: 'top-center',
+        autoClose: 3000,
+      });
+    }
+  };
+
+  // Handle toggle service assignment to company
+  const handleToggleServiceAssignment = async (service) => {
+    const serviceId = service.id || service.Id;
+    const isAssigned = assignedServiceIds.has(serviceId);
+
+    try {
+      if (isAssigned) {
+        // Remove service from company
+        await apiService.removeServiceFromCompany(currentCompanyId, serviceId);
+        toast.success(t('admin.serviceRemovedFromCompany'), {
+          position: 'top-center',
+          autoClose: 2000,
+        });
+      } else {
+        // Add service to company - require price and mandatory input
+        const basePrice = service.price || service.Price || 0;
+        const baseMandatory = service.isMandatory || service.IsMandatory || false;
+        
+        // Prompt for price
+        const priceInput = window.prompt(
+          t('admin.enterServicePrice', { basePrice: basePrice.toFixed(2) }),
+          basePrice.toFixed(2)
+        );
+        
+        if (priceInput === null) {
+          // User cancelled
+          return;
+        }
+        
+        const price = parseFloat(priceInput);
+        if (isNaN(price) || price < 0) {
+          toast.error(t('admin.invalidPrice'), {
+            position: 'top-center',
+            autoClose: 3000,
+          });
+          return;
+        }
+        
+        // Prompt for mandatory status
+        const isMandatory = window.confirm(
+          baseMandatory 
+            ? t('admin.confirmMandatoryService')
+            : t('admin.confirmOptionalService')
+        );
+        
+        // Add service to company with price and mandatory
+        await apiService.addServiceToCompany({
+          companyId: currentCompanyId,
+          additionalServiceId: serviceId,
+          price: price,
+          isMandatory: isMandatory,
+          isActive: true
+        });
+        toast.success(t('admin.serviceAddedToCompany'), {
+          position: 'top-center',
+          autoClose: 2000,
+        });
+      }
+      queryClient.invalidateQueries(['companyServices', currentCompanyId]);
+    } catch (error) {
+      console.error('Error toggling service assignment:', error);
+      toast.error(error.response?.data?.message || t('admin.serviceAssignmentFailed'), {
+        position: 'top-center',
+        autoClose: 3000,
+      });
     }
   };
 
@@ -656,6 +1159,82 @@ const AdminDashboard = () => {
   // Extract actual company data from response
   const actualCompanyData = companyData?.data || companyData;
 
+  // Vehicle table columns
+  const vehicleColumns = useMemo(() => [
+    {
+      header: t('vehicles.licensePlate'),
+      accessorFn: row => row.LicensePlate || row.licensePlate || '',
+    },
+    {
+      header: t('vehicles.make'),
+      accessorFn: row => row.Make || row.make || '',
+    },
+    {
+      header: t('vehicles.model'),
+      accessorFn: row => row.Model || row.model || '',
+    },
+    {
+      header: t('vehicles.year'),
+      accessorFn: row => row.Year || row.year || '',
+    },
+    {
+      header: t('vehicles.color'),
+      accessorFn: row => row.Color || row.color || 'N/A',
+    },
+    {
+      header: t('vehicles.status'),
+      accessorFn: row => row.Status || row.status || '',
+    },
+    {
+      header: t('vehicles.dailyRate'),
+      accessorFn: row => row.DailyRate || row.dailyRate || 0,
+      cell: ({ getValue }) => `$${getValue()?.toFixed(2) || '0.00'}`
+    },
+    {
+      header: t('common.actions'),
+      id: 'actions',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {/* TODO: Edit vehicle */}}
+            className="text-blue-600 hover:text-blue-900"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {/* TODO: Delete vehicle */}}
+            className="text-red-600 hover:text-red-900"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ], [t]);
+
+  // Vehicle table configuration
+  const vehicleTable = useReactTable({
+    data: vehiclesList,
+    columns: vehicleColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true, // Server-side pagination
+    pageCount: Math.ceil((vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0) / vehiclePageSize),
+    state: {
+      pagination: {
+        pageIndex: vehiclePage,
+        pageSize: vehiclePageSize,
+      },
+    },
+    onPaginationChange: (updater) => {
+      const newState = typeof updater === 'function' 
+        ? updater({ pageIndex: vehiclePage, pageSize: vehiclePageSize })
+        : updater;
+      setVehiclePage(newState.pageIndex);
+      setVehiclePageSize(newState.pageSize);
+    },
+  });
+
   if (!isAuthenticated) {
     return (
       <PageContainer>
@@ -726,26 +1305,121 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Company Profile Section */}
-      <Card
-        title={
+      {/* Main Content - Two Column Layout (1/5 left, 4/5 right) */}
+      <div className="grid grid-cols-5 gap-8">
+        {/* Left Sidebar - Navigation (1/5 width) */}
+        <div className="col-span-1">
+          <Card title={t('admin.navigation')} className="sticky top-4">
+            <div className="space-y-2">
+              <button
+                onClick={() => setActiveSection('company')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'company'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Building2 className="h-5 w-5 mr-2" />
+                {t('admin.companyProfile')}
+              </button>
+              <button
+                onClick={() => setActiveSection('vehicles')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'vehicles'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <Car className="h-5 w-5 mr-2" />
+                {t('vehicles.title')}
+              </button>
+              <button
+                onClick={() => setActiveSection('vehicleManagement')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'vehicleManagement'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <Car className="h-5 w-5 mr-2" />
+                {t('admin.vehicles')}
+              </button>
+              <button
+                onClick={() => setActiveSection('reservations')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'reservations'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <Calendar className="h-5 w-5 mr-2" />
+                {t('admin.reservations')}
+              </button>
+              <button
+                onClick={() => setActiveSection('customers')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'customers'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <Users className="h-5 w-5 mr-2" />
+                {t('admin.customers')}
+              </button>
+              <button
+                onClick={() => setActiveSection('bookingSettings')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'bookingSettings'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <Calendar className="h-5 w-5 mr-2" />
+                {t('admin.bookingSettings')}
+              </button>
+              <button
+                onClick={() => setActiveSection('reports')}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                  activeSection === 'reports'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+              >
+                <TrendingUp className="h-5 w-5 mr-2" />
+                {t('admin.viewReports')}
+              </button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Side - Content (4/5 width) */}
+        <div className="col-span-4">
+          {/* Company Profile Section */}
+          {activeSection === 'company' && (
+            <Card
+              title={
               <div className="flex items-center">
-            <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-            <span>{t('admin.companyProfile')}</span>
+                  <Building2 className="h-6 w-6 text-blue-600 mr-2" />
+                  <span>{t('admin.companyProfile')}</span>
                 </div>
-        }
-        headerActions={
-          !isEditingCompany && (
-            <button
-              onClick={() => setIsEditingCompany(true)}
-              className="btn-primary text-sm"
+              }
+              headerActions={
+                !isEditingCompany && (
+                  <button
+                    onClick={() => setIsEditingCompany(true)}
+                    className="btn-primary text-sm"
+                  >
+                    {t('common.edit')}
+                  </button>
+                )
+              }
             >
-              {t('common.edit')}
-            </button>
-          )
-        }
-        className="mb-8"
-      >
           <div>
           {isLoadingCompany ? (
             <LoadingSpinner text={t('common.loading')} />
@@ -1734,103 +2408,882 @@ const AdminDashboard = () => {
               </div>
           )}
         </div>
-      </Card>
+            </Card>
+          )}
 
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
-          {/* Recent Vehicles */}
-        <Card title={t('vehicles.title')}>
-              {dashboardData?.recentVehicles?.length > 0 ? (
-                <div className="space-y-4">
-                  {dashboardData.recentVehicles.slice(0, 5).map((vehicle) => (
-                    <div key={vehicle.vehicle_id} className="flex items-center space-x-4">
-                      <img
-                        src={`/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
-                        alt={`${vehicle.make} ${vehicle.model}`}
-                        className="w-15 h-11 object-cover rounded"
-                        onError={(e) => {
-                          // Fallback to vehicle image_url or economy.jpg
-                          const fallback = vehicle.image_url || '/economy.jpg';
-                          if (!e.target.src.includes(fallback.replace('/', ''))) {
-                            e.target.src = fallback;
-                          }
-                        }}
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">
-                          {vehicle.year} {vehicle.make} {vehicle.model}
-                        </h4>
-                        <p className="text-sm text-gray-600">${vehicle.daily_rate}/{t('vehicles.day')}</p>
+          {/* Vehicles Section */}
+          {activeSection === 'vehicles' && (
+            <div className="space-y-8">
+              <Card title={t('vehicles.title')} headerActions={
+                <span className="text-sm font-normal text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  {vehicleCount} / {availableCount}
+                </span>
+              }>
+                {isLoadingModels ? (
+                  <div className="text-center py-12">
+                    <LoadingSpinner />
+                    <p className="mt-4 text-gray-600">{t('home.loadingModels')}</p>
+                  </div>
+                ) : !modelsGrouped || modelsGrouped.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {modelsGrouped.map((categoryGroup) => {
+                      const categoryId = categoryGroup.categoryId || categoryGroup.category_id;
+                      const categoryName = categoryGroup.categoryName || categoryGroup.category_name || 'Uncategorized';
+                      const isCategoryExpanded = expandedCategories[categoryId];
+                      
+                      // Group models by make and modelName with full data
+                      const makeModelGroups = {};
+                      (categoryGroup.models || []).forEach(model => {
+                        const make = (model.make || '').toUpperCase();
+                        const modelName = (model.modelName || model.model_name || '').toUpperCase();
+                        const makeModelKey = `${make}_${modelName}`;
+                        
+                        if (!makeModelGroups[makeModelKey]) {
+                          makeModelGroups[makeModelKey] = {
+                            make,
+                            modelName,
+                            models: [] // Store full model objects
+                          };
+                        }
+                        
+                        makeModelGroups[makeModelKey].models.push(model);
+                      });
+                      
+                      // Sort years descending in each group
+                      Object.values(makeModelGroups).forEach(group => {
+                        group.models.sort((a, b) => (b.year || 0) - (a.year || 0));
+                      });
+                      
+                      // Calculate rates for category display
+                      const allModelsInCategory = (categoryGroup.models || []);
+                      const categoryRates = allModelsInCategory
+                        .map(m => m.dailyRate)
+                        .filter(r => r != null && r !== undefined && r !== '');
+                      const isCategoryUniform = categoryRates.length > 0 && 
+                        categoryRates.every(r => r === categoryRates[0]);
+                      const categoryDisplayRate = isCategoryUniform ? categoryRates[0] : 'different';
+                      
+                      return (
+                        <div key={categoryId} className="border border-gray-200 rounded-lg">
+                          {/* Category Header */}
+                          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <button
+                              onClick={() => setExpandedCategories(prev => ({
+                                ...prev,
+                                [categoryId]: !prev[categoryId]
+                              }))}
+                              className="flex items-center flex-1"
+                            >
+                              <div className="flex items-center">
+                                {isCategoryExpanded ? (
+                                  <ChevronDown className="h-5 w-5 text-gray-600 mr-2" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-gray-600 mr-2" />
+                                )}
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {t(`categories.${categoryName.toLowerCase().replace(/\s+/g, '-')}`) || categoryName}
+                                </h3>
                       </div>
-                      <span className={`px-2 py-1 py-1 rounded-full text-xs font-medium ${
-                        vehicle.status === 'available' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {vehicle.status}
+                              <span className="text-sm text-gray-600 ml-2">
+                                {Object.keys(makeModelGroups).length} {Object.keys(makeModelGroups).length === 1 ? 'make' : 'makes'}
                       </span>
+                            </button>
+                            <div className="flex items-center gap-2 ml-4">
+                              <span className="text-sm font-medium text-gray-700 min-w-[80px] text-right">
+                                {categoryDisplayRate !== 'different' ? `$${categoryDisplayRate?.toFixed(2)}` : categoryDisplayRate}
+                              </span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Daily Rate"
+                                value={dailyRateInputs[`category_${categoryId}`] || ''}
+                                onChange={(e) => setDailyRateInputs(prev => ({
+                                  ...prev,
+                                  [`category_${categoryId}`]: e.target.value
+                                }))}
+                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                                disabled={isUpdatingRate}
+                              />
+                              <button
+                                onClick={async () => {
+                                  const rate = dailyRateInputs[`category_${categoryId}`];
+                                  if (!rate) {
+                                    toast.error('Please enter a daily rate');
+                                    return;
+                                  }
+                                  if (!categoryId) {
+                                    toast.error('Invalid category');
+                                    console.error('categoryId is null/undefined');
+                                    return;
+                                  }
+                                  setIsUpdatingRate(true);
+                                  try {
+                                    const response = await apiService.bulkUpdateModelDailyRate({
+                                      dailyRate: parseFloat(rate),
+                                      categoryId: categoryId,
+                                      companyId: currentCompanyId
+                                    });
+                                    
+                                    toast.success(`Updated ${response.data?.Count || 0} models in category`);
+                                    queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+                                    setDailyRateInputs(prev => ({ ...prev, [`category_${categoryId}`]: '' }));
+                                  } catch (error) {
+                                    console.error('Error updating models:', error);
+                                    toast.error(error.response?.data?.message || 'Failed to update models');
+                                  } finally {
+                                    setIsUpdatingRate(false);
+                                  }
+                                }}
+                                disabled={isUpdatingRate || !categoryId}
+                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
+                              >
+                                Update
+                              </button>
                     </div>
-                  ))}
                 </div>
-              ) : (
-              <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
-              )}
-        </Card>
-
-          {/* Recent Reservations */}
-        <Card title={t('admin.recentActivity')}>
-              {dashboardData?.recentReservations?.length > 0 ? (
-                <div className="space-y-4">
-                  {dashboardData.recentReservations.slice(0, 5).map((reservation) => (
-                    <div key={reservation.reservation_id} className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          #{reservation.reservation_number}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {reservation.customer_name} - {reservation.vehicle_name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(reservation.pickup_date).toLocaleDateString()} - {new Date(reservation.return_date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">${reservation.total_amount}</p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          reservation.status === 'confirmed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : reservation.status === 'active'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {reservation.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-              <p className="text-gray-500 text-center py-4">{t('myBookings.noBookings')}</p>
-              )}
-        </Card>
-        </div>
-
-        {/* Quick Actions */}
-      <Card title={t('admin.quickActions')} className={`mt-8 ${isEditing ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="btn-primary flex items-center justify-center" disabled={isEditing}>
-              <Car className="h-4 w-4 mr-2" />
-              {t('admin.addVehicle')}
-            </button>
-            <button className="btn-outline flex items-center justify-center" disabled={isEditing}>
-              <Users className="h-4 w-4 mr-2" />
-              {t('admin.manageUsers')}
-            </button>
-          <button className="btn-secondary flex items-center justify-center" disabled={isEditing}>
-              <TrendingUp className="h-4 w-4 mr-2" />
-            {t('admin.viewReports')}
-            </button>
+                          
+                          {/* Category Content */}
+                          {isCategoryExpanded && (
+                            <div className="p-4 space-y-2">
+                              {Object.entries(makeModelGroups).map(([makeModelKey, group]) => {
+                                const makeExpandedKey = `${categoryId}_${makeModelKey}`;
+                                const isMakeExpanded = expandedMakes[makeExpandedKey];
+                                
+                                // Calculate rates for this make
+                                const makeRates = group.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
+                                const isMakeUniform = makeRates.length > 0 && makeRates.every(r => r === makeRates[0]);
+                                const makeDisplayRate = isMakeUniform ? makeRates[0] : 'different';
+                                
+                                // Calculate rates for this model
+                                const modelRates = group.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
+                                const isModelUniform = modelRates.length > 0 && modelRates.every(r => r === modelRates[0]);
+                                const modelDisplayRate = isModelUniform ? modelRates[0] : 'different';
+                                
+                                return (
+                                  <div key={makeModelKey} className="border border-gray-200 rounded-lg">
+                                    {/* Make Header */}
+                                    <div className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                      <button
+                                        onClick={() => setExpandedMakes(prev => ({
+                                          ...prev,
+                                          [makeExpandedKey]: !prev[makeExpandedKey]
+                                        }))}
+                                        className="flex items-center flex-1"
+                                      >
+                                        <div className="flex items-center">
+                                          {isMakeExpanded ? (
+                                            <ChevronDown className="h-4 w-4 text-gray-600 mr-2" />
+                                          ) : (
+                                            <ChevronRight className="h-4 w-4 text-gray-600 mr-2" />
+                                          )}
+                                          <span className="font-medium text-gray-800">
+                                            {group.make}
+                                          </span>
+                                        </div>
+                                        <span className="text-sm text-gray-600 ml-2">
+                                          {group.models.length} {group.models.length === 1 ? 'year' : 'years'}
+                                        </span>
+                                      </button>
+                                      <div className="flex items-center gap-2 ml-4">
+                                        <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
+                                          {makeDisplayRate !== 'different' ? `$${makeDisplayRate?.toFixed(2)}` : makeDisplayRate}
+                                        </span>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          placeholder="Daily Rate"
+                                          value={dailyRateInputs[`make_${makeExpandedKey}`] || ''}
+                                          onChange={(e) => setDailyRateInputs(prev => ({
+                                            ...prev,
+                                            [`make_${makeExpandedKey}`]: e.target.value
+                                          }))}
+                                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                          disabled={isUpdatingRate}
+                                        />
+                                        <button
+                                          onClick={async () => {
+                                            const rate = dailyRateInputs[`make_${makeExpandedKey}`];
+                                            if (!rate) {
+                                              toast.error('Please enter a daily rate');
+                                              return;
+                                            }
+                                            setIsUpdatingRate(true);
+                                            try {
+                                              const response = await apiService.bulkUpdateModelDailyRate({
+                                                dailyRate: parseFloat(rate),
+                                                make: group.make,
+                                                companyId: currentCompanyId
+                                              });
+                                              
+                                              toast.success(`Updated ${response.data?.Count || 0} models for ${group.make}`);
+                                              queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+                                              setDailyRateInputs(prev => ({ ...prev, [`make_${makeExpandedKey}`]: '' }));
+                                            } catch (error) {
+                                              console.error('Error updating models:', error);
+                                              toast.error('Failed to update models');
+                                            } finally {
+                                              setIsUpdatingRate(false);
+                                            }
+                                          }}
+                                          disabled={isUpdatingRate}
+                                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                        >
+                                          Update
+                  </button>
+            </div>
+                                    </div>
+                                    
+                                    {/* Make Content */}
+                                    {isMakeExpanded && (
+                                      <div className="p-4 space-y-2">
+                                        <div className="border border-gray-200 rounded-lg">
+                                          {/* Model Header */}
+                                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
+                                            <span className="font-medium text-gray-800">{group.modelName}</span>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
+                                                {modelDisplayRate !== 'different' ? `$${modelDisplayRate?.toFixed(2)}` : modelDisplayRate}
+                                              </span>
+                                              <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="Daily Rate"
+                                                value={dailyRateInputs[`model_${makeExpandedKey}`] || ''}
+                                                onChange={(e) => setDailyRateInputs(prev => ({
+                                                  ...prev,
+                                                  [`model_${makeExpandedKey}`]: e.target.value
+                                                }))}
+                                                className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                disabled={isUpdatingRate}
+                                              />
+                                              <button
+                                                onClick={async () => {
+                                                  const rate = dailyRateInputs[`model_${makeExpandedKey}`];
+                                                  if (!rate) {
+                                                    toast.error('Please enter a daily rate');
+                                                    return;
+                                                  }
+                                                  setIsUpdatingRate(true);
+                                                  try {
+                                                    const response = await apiService.bulkUpdateModelDailyRate({
+                                                      dailyRate: parseFloat(rate),
+                                                      make: group.make,
+                                                      modelName: group.modelName,
+                                                      companyId: currentCompanyId
+                                                    });
+                                                    
+                                                    toast.success(`Updated ${response.data?.Count || 0} models for ${group.make} ${group.modelName}`);
+                                                    queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+                                                    setDailyRateInputs(prev => ({ ...prev, [`model_${makeExpandedKey}`]: '' }));
+                                                  } catch (error) {
+                                                    console.error('Error updating models:', error);
+                                                    toast.error('Failed to update models');
+                                                  } finally {
+                                                    setIsUpdatingRate(false);
+                                                  }
+                                                }}
+                                                disabled={isUpdatingRate}
+                                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                              >
+                                                Update
+                                              </button>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Years */}
+                                          <div className="p-4">
+                                            <div className="flex flex-wrap gap-2">
+                                              {group.models.map(model => {
+                                                const year = model.year || 0;
+                                                const yearRate = model.dailyRate;
+                                                const vehicleCount = model.vehicleCount || 0;
+                                                return (
+                                                <div key={model.id || year} className="flex items-center gap-1">
+                                                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                                                    {year} ({vehicleCount})
+                                                  </span>
+                                                  <span className="text-xs font-medium text-gray-600 min-w-[45px]">
+                                                    {yearRate != null && yearRate !== '' ? `$${yearRate}` : '—'}
+                                                  </span>
+                                                  <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="Rate"
+                                                    value={dailyRateInputs[`year_${year}_${makeExpandedKey}`] || ''}
+                                                    onChange={(e) => setDailyRateInputs(prev => ({
+                                                      ...prev,
+                                                      [`year_${year}_${makeExpandedKey}`]: e.target.value
+                                                    }))}
+                                                    className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                                                    disabled={isUpdatingRate}
+                                                  />
+                                                  <button
+                                                    onClick={async () => {
+                                                      const rate = dailyRateInputs[`year_${year}_${makeExpandedKey}`];
+                                                      if (!rate) {
+                                                        toast.error('Please enter a daily rate');
+                                                        return;
+                                                      }
+                                                      setIsUpdatingRate(true);
+                                                      try {
+                                                        const response = await apiService.bulkUpdateModelDailyRate({
+                                                          dailyRate: parseFloat(rate),
+                                                          make: group.make,
+                                                          modelName: group.modelName,
+                                                          year: year,
+                                                          companyId: currentCompanyId
+                                                        });
+                                                        
+                                                        toast.success(`Updated ${response.data?.Count || 0} models for ${group.make} ${group.modelName} ${year}`);
+                                                        queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+                                                        setDailyRateInputs(prev => ({ ...prev, [`year_${year}_${makeExpandedKey}`]: '' }));
+                                                      } catch (error) {
+                                                        console.error('Error updating models:', error);
+                                                        toast.error('Failed to update models');
+                                                      } finally {
+                                                        setIsUpdatingRate(false);
+                                                      }
+                                                    }}
+                                                    disabled={isUpdatingRate}
+                                                    className="px-1 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                                  >
+                                                    ✓
+                                                  </button>
+                                                </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
           </div>
-      </Card>
+          )}
+
+          {/* Reservations Section */}
+          {activeSection === 'reservations' && (
+            <Card title={t('admin.reservations')}>
+              <p className="text-gray-500 text-center py-4">{t('admin.reservationsComingSoon')}</p>
+            </Card>
+          )}
+
+          {/* Customers Section */}
+          {activeSection === 'customers' && (
+            <Card title={t('admin.customers')}>
+              <p className="text-gray-500 text-center py-4">{t('admin.customersComingSoon')}</p>
+            </Card>
+          )}
+
+          {/* Booking Settings Section */}
+          {activeSection === 'bookingSettings' && (
+            <Card 
+              title={t('admin.bookingSettings')}
+              headerActions={
+                !isEditingService && (
+                  <button
+                    onClick={handleAddService}
+                    className="btn-primary text-sm"
+                  >
+                    + {t('admin.addService')}
+                  </button>
+                )
+              }
+            >
+              <div className="space-y-6">
+                {isEditingService ? (
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      {editingServiceId ? t('admin.editService') : t('admin.addService')}
+                    </h3>
+                    <form onSubmit={handleSaveService} className="space-y-4">
+                      {editingCompanyServiceId ? (
+                        // Editing company service - show base info as read-only, only edit company-specific fields
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceName')}
+                            </label>
+                            <input
+                              type="text"
+                              value={serviceFormData.name}
+                              className="input-field bg-gray-100"
+                              readOnly
+                              disabled
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceDescription')}
+                            </label>
+                            <textarea
+                              value={serviceFormData.description}
+                              className="input-field bg-gray-100"
+                              rows="3"
+                              readOnly
+                              disabled
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceType')}
+                            </label>
+                            <input
+                              type="text"
+                              value={serviceFormData.serviceType}
+                              className="input-field bg-gray-100"
+                              readOnly
+                              disabled
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.maxQuantity')}
+                            </label>
+                            <input
+                              type="number"
+                              value={serviceFormData.maxQuantity}
+                              className="input-field bg-gray-100"
+                              readOnly
+                              disabled
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.servicePrice')} ({t('admin.companyPrice')})
+                            </label>
+                            <input
+                              type="number"
+                              name="price"
+                              value={serviceFormData.price}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              step="0.01"
+                              min="0"
+                              placeholder={editingServiceBaseInfo ? `Base: $${(editingServiceBaseInfo.price || editingServiceBaseInfo.Price || 0).toFixed(2)}` : ''}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">{t('admin.companyPriceHint')}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        // Creating new additional service - show all fields
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceName')} *
+                            </label>
+                            <input
+                              type="text"
+                              name="name"
+                              value={serviceFormData.name}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              required
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceDescription')}
+                            </label>
+                            <textarea
+                              name="description"
+                              value={serviceFormData.description}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              rows="3"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.servicePrice')} *
+                            </label>
+                            <input
+                              type="number"
+                              name="price"
+                              value={serviceFormData.price}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              step="0.01"
+                              min="0"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.serviceType')} *
+                            </label>
+                            <select
+                              name="serviceType"
+                              value={serviceFormData.serviceType}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              required
+                            >
+                              <option value="Insurance">{t('admin.serviceTypeInsurance')}</option>
+                              <option value="GPS">{t('admin.serviceTypeGPS')}</option>
+                              <option value="ChildSeat">{t('admin.serviceTypeChildSeat')}</option>
+                              <option value="AdditionalDriver">{t('admin.serviceTypeAdditionalDriver')}</option>
+                              <option value="FuelPrepay">{t('admin.serviceTypeFuelPrepay')}</option>
+                              <option value="Cleaning">{t('admin.serviceTypeCleaning')}</option>
+                              <option value="Delivery">{t('admin.serviceTypeDelivery')}</option>
+                              <option value="Other">{t('admin.serviceTypeOther')}</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('admin.maxQuantity')} *
+                            </label>
+                            <input
+                              type="number"
+                              name="maxQuantity"
+                              value={serviceFormData.maxQuantity}
+                              onChange={handleServiceInputChange}
+                              className="input-field"
+                              min="1"
+                              required
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="md:col-span-2 flex items-center space-x-6">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="isMandatory"
+                            checked={serviceFormData.isMandatory}
+                            onChange={handleServiceInputChange}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.isMandatory')} {editingCompanyServiceId ? `(${t('admin.forCompany')})` : ''}
+                          </span>
+                        </label>
+
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="isActive"
+                            checked={serviceFormData.isActive}
+                            onChange={handleServiceInputChange}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {t('admin.isActive')} {editingCompanyServiceId ? `(${t('admin.forCompany')})` : ''}
+                          </span>
+                        </label>
+                      </div>
+
+                      <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={handleCancelServiceEdit}
+                          className="btn-outline"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary"
+                          disabled={createServiceMutation.isLoading || updateCompanyServiceMutation.isLoading || updateAdditionalServiceMutation.isLoading}
+                        >
+                          {(createServiceMutation.isLoading || updateCompanyServiceMutation.isLoading || updateAdditionalServiceMutation.isLoading)
+                            ? t('common.saving') 
+                            : t('common.save')}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('admin.additionalServices')}</h3>
+                    {(isLoadingAllServices || isLoadingCompanyServices) ? (
+                      <div className="text-center py-8">
+                        <LoadingSpinner />
+                      </div>
+                    ) : allAdditionalServices.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-gray-600">{t('admin.noServices')}</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                {t('admin.inCompany')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.serviceName')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.serviceType')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.servicePrice')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.maxQuantity')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.isMandatory')}
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.isActive')}
+                              </th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('common.actions')}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {allAdditionalServices.map((service) => {
+                              const serviceId = service.id || service.Id;
+                              const isAssigned = assignedServiceIds.has(serviceId);
+                              return (
+                              <tr key={serviceId} className={`hover:bg-gray-50 ${isAssigned ? 'bg-green-50' : ''}`}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <label className="flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={isAssigned}
+                                      onChange={() => handleToggleServiceAssignment(service)}
+                                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                      title={isAssigned ? t('admin.removeFromCompany') : t('admin.addToCompany')}
+                                    />
+                                  </label>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {service.name || service.Name}
+                                    </div>
+                                    {service.description || service.Description ? (
+                                      <div className="text-sm text-gray-500 truncate max-w-xs">
+                                        {service.description || service.Description}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="text-sm text-gray-900">
+                                    {service.serviceType || service.ServiceType}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    ${(service.price || service.Price || 0).toFixed(2)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="text-sm text-gray-900">
+                                    {service.maxQuantity || service.MaxQuantity || 1}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <label className="flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={service.isMandatory || service.IsMandatory || false}
+                                      onChange={() => handleToggleServiceField(service, 'isMandatory')}
+                                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                      title={t('admin.isMandatory')}
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">
+                                      {service.isMandatory || service.IsMandatory ? t('common.yes') : t('common.no')}
+                                    </span>
+                                  </label>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <label className="flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={service.isActive !== undefined ? service.isActive : (service.IsActive !== undefined ? service.IsActive : true)}
+                                      onChange={() => handleToggleServiceField(service, 'isActive')}
+                                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                                      title={t('admin.isActive')}
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">
+                                      {service.isActive !== undefined ? service.isActive : (service.IsActive !== undefined ? service.IsActive : true)
+                                        ? t('status.active') 
+                                        : t('status.inactive')}
+                                    </span>
+                                  </label>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <button
+                                    onClick={() => handleEditService(service)}
+                                    className="text-blue-600 hover:text-blue-900 mr-4"
+                                  >
+                                    {t('common.edit')}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteService(service.id || service.Id)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    {t('common.delete')}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Vehicle Management Section */}
+          {activeSection === 'vehicleManagement' && (
+            <Card title={t('admin.vehicles')} headerActions={
+              <button
+                onClick={() => {/* TODO: Add vehicle creation modal */}}
+                className="btn-primary text-sm"
+              >
+                <Plus className="h-4 w-4 mr-2 inline" />
+                {t('admin.addVehicle')}
+              </button>
+            }>
+              {isLoadingVehiclesList ? (
+                <div className="text-center py-12">
+                  <LoadingSpinner />
+                  <p className="mt-4 text-gray-600">{t('common.loading')}</p>
+                </div>
+              ) : vehiclesList.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Table */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        {vehicleTable.getHeaderGroups().map(headerGroup => (
+                          <tr key={headerGroup.id}>
+                            {headerGroup.headers.map(header => (
+                              <th
+                                key={header.id}
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                {header.isPlaceholder
+                                  ? null
+                                  : flexRender(
+                                      header.column.columnDef.header,
+                                      header.getContext()
+                                    )}
+                              </th>
+                            ))}
+                          </tr>
+                        ))}
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {vehicleTable.getRowModel().rows.map(row => (
+                          <tr key={row.id} className="hover:bg-gray-50">
+                            {row.getVisibleCells().map(cell => (
+                              <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <button
+                        onClick={() => vehicleTable.previousPage()}
+                        disabled={!vehicleTable.getCanPreviousPage()}
+                        className="btn-secondary"
+                      >
+                        {t('common.previous')}
+                      </button>
+                      <button
+                        onClick={() => vehicleTable.nextPage()}
+                        disabled={!vehicleTable.getCanNextPage()}
+                        className="btn-secondary ml-3"
+                      >
+                        {t('common.next')}
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0)}</span> {t('admin.of')} <span className="font-medium">{vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0}</span> {t('common.results')}
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                          <button
+                            onClick={() => vehicleTable.setPageIndex(0)}
+                            disabled={!vehicleTable.getCanPreviousPage()}
+                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                          >
+                            <ChevronsLeft className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => vehicleTable.previousPage()}
+                            disabled={!vehicleTable.getCanPreviousPage()}
+                            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => vehicleTable.nextPage()}
+                            disabled={!vehicleTable.getCanNextPage()}
+                            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => vehicleTable.setPageIndex(vehicleTable.getPageCount() - 1)}
+                            disabled={!vehicleTable.getCanNextPage()}
+                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                          >
+                            <ChevronsRight className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Reports Section */}
+          {activeSection === 'reports' && (
+            <Card title={t('admin.viewReports')}>
+              <p className="text-gray-500 text-center py-4">{t('admin.reportsComingSoon')}</p>
+            </Card>
+          )}
+        </div>
+      </div>
     </PageContainer>
   );
 };
