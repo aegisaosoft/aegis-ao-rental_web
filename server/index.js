@@ -121,13 +121,27 @@ app.use(session({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
+// Health check endpoint - must be robust for Azure health checks
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
-  });
+  try {
+    res.status(200).json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      port: process.env.PORT || 5000,
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'ERROR', 
+      error: error.message 
+    });
+  }
+});
+
+// Favicon endpoint - prevent 503 errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No content
 });
 
 // Update selected company in session
@@ -304,14 +318,44 @@ app.get('*', (req, res) => {
 // Server start
 const startServer = async () => {
   try {
+    // Check required environment variables
+    if (!process.env.API_BASE_URL) {
+      console.error('ERROR: API_BASE_URL environment variable is not set!');
+      console.error('Please set API_BASE_URL in Azure App Service Configuration');
+      // Don't exit in production - let it try to use default
+      if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+      }
+    }
+    
     // HTTP server (production uses Azure HTTPS)
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on http://0.0.0.0:${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-      console.log(`API Base URL: ${process.env.API_BASE_URL}`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`API Base URL: ${process.env.API_BASE_URL || 'NOT SET'}`);
+      console.log(`Health check: http://0.0.0.0:${PORT}/api/health`);
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+      }
+      process.exit(1);
+    });
+    
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
+    console.error('Stack:', error.stack);
     process.exit(1);
   }
 };

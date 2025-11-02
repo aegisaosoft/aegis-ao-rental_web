@@ -210,22 +210,41 @@ const AdminDashboard = () => {
     return allModels;
   }, [modelsGroupedData]);
 
-  // Fetch vehicles list for vehicle management
+  // Fetch vehicles list for vehicle management - load on dashboard open
+  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20
   const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(
     ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize],
     () => apiService.getVehicles({
-      companyId: currentCompanyId,
-      page: vehiclePage + 1, // API expects 1-based page
-      pageSize: vehiclePageSize
+      companyId: currentCompanyId,  // Query parameter: ?companyId=xxx
+      page: vehiclePage + 1,       // Query parameter: &page=1
+      pageSize: vehiclePageSize    // Query parameter: &pageSize=20
     }),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'vehicleManagement',
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
   );
 
-  const vehiclesList = vehiclesListData?.Vehicles || vehiclesListData?.data?.Vehicles || vehiclesListData?.data || [];
+  // Extract vehicles list - handle both standardized response and direct response
+  const vehiclesList = useMemo(() => {
+    let data = vehiclesListData;
+    
+    // If response has a data property (axios response)
+    if (data?.data) {
+      data = data.data;
+    }
+    
+    // If still wrapped in result property (standardized API response)
+    if (data?.result) {
+      data = data.result;
+    }
+    
+    // Extract vehicles array from the response structure
+    const vehicles = data?.Vehicles || data?.vehicles || (Array.isArray(data) ? data : []);
+    
+    return Array.isArray(vehicles) ? vehicles : [];
+  }, [vehiclesListData]);
 
   // Calculate total vehicle count and available count from models
   const { vehicleCount, availableCount } = useMemo(() => {
@@ -1207,11 +1226,6 @@ const AdminDashboard = () => {
       accessorFn: row => row.Status || row.status || '',
     },
     {
-      header: t('vehicles.dailyRate'),
-      accessorFn: row => row.DailyRate || row.dailyRate || 0,
-      cell: ({ getValue }) => `$${getValue()?.toFixed(2) || '0.00'}`
-    },
-    {
       header: t('common.actions'),
       id: 'actions',
       cell: ({ row }) => (
@@ -1233,6 +1247,24 @@ const AdminDashboard = () => {
     },
   ], [t]);
 
+  // Extract total count for pagination
+  const vehiclesTotalCount = useMemo(() => {
+    let data = vehiclesListData;
+    
+    // If response has a data property (axios response)
+    if (data?.data) {
+      data = data.data;
+    }
+    
+    // If still wrapped in result property (standardized API response)
+    if (data?.result) {
+      data = data.result;
+    }
+    
+    // Extract total count from the response structure
+    return data?.TotalCount || data?.totalCount || 0;
+  }, [vehiclesListData]);
+
   // Vehicle table configuration
   const vehicleTable = useReactTable({
     data: vehiclesList,
@@ -1240,7 +1272,7 @@ const AdminDashboard = () => {
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true, // Server-side pagination
-    pageCount: Math.ceil((vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0) / vehiclePageSize),
+    pageCount: Math.ceil(vehiclesTotalCount / vehiclePageSize),
     state: {
       pagination: {
         pageIndex: vehiclePage,
@@ -3255,7 +3287,7 @@ const AdminDashboard = () => {
                     <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm text-gray-700">
-                          {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0)}</span> {t('admin.of')} <span className="font-medium">{vehiclesListData?.TotalCount || vehiclesListData?.totalCount || 0}</span> {t('common.results')}
+                          {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('common.results')}
                         </p>
                       </div>
                       <div>
