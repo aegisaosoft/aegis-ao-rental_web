@@ -181,11 +181,12 @@ const AdminDashboard = () => {
   const locations = locationsData?.data || locationsData || [];
 
   // Fetch models grouped by category for vehicle fleet
+  // Load on dashboard open (not just when vehicles section is active) so filters have data
   const { data: modelsGroupedData, isLoading: isLoadingModels } = useQuery(
     ['modelsGroupedByCategory', currentCompanyId],
     () => apiService.getModelsGroupedByCategory(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'vehicles',
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -269,34 +270,36 @@ const AdminDashboard = () => {
     return Array.isArray(vehicles) ? vehicles : [];
   }, [vehiclesListData]);
 
-  // Extract unique makes, models, and years from vehicles list for dropdown options
-  const { uniqueMakes, uniqueModels, uniqueYears } = useMemo(() => {
+  // Extract unique makes and models from ALL models (not just current vehicles)
+  // Use modelsGrouped to get all available makes and models from the models table
+  const { uniqueMakes, uniqueModels } = useMemo(() => {
     const makes = new Set();
     const models = new Set();
-    const years = new Set();
     
-    vehiclesList.forEach(vehicle => {
-      const make = vehicle.Make || vehicle.make;
-      const model = vehicle.Model || vehicle.model;
-      const year = vehicle.Year || vehicle.year;
-      
-      if (make) {
-        makes.add(make);
-      }
-      if (model) {
-        models.add(model);
-      }
-      if (year) {
-        years.add(String(year));
-      }
-    });
+    // Extract from modelsGrouped (all models in database)
+    if (modelsGrouped && Array.isArray(modelsGrouped)) {
+      modelsGrouped.forEach(categoryGroup => {
+        if (categoryGroup.models && Array.isArray(categoryGroup.models)) {
+          categoryGroup.models.forEach(model => {
+            const make = model.make || model.Make;
+            const modelName = model.modelName || model.ModelName || model.model || model.Model;
+            
+            if (make) {
+              makes.add(make);
+            }
+            if (modelName) {
+              models.add(modelName);
+            }
+          });
+        }
+      });
+    }
     
     return {
       uniqueMakes: Array.from(makes).sort(),
-      uniqueModels: Array.from(models).sort(),
-      uniqueYears: Array.from(years).sort((a, b) => Number(b) - Number(a)) // Sort years descending (newest first)
+      uniqueModels: Array.from(models).sort()
     };
-  }, [vehiclesList]);
+  }, [modelsGrouped]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -3393,26 +3396,32 @@ const AdminDashboard = () => {
                       </select>
                     </div>
 
-                    {/* Year Filter */}
+                    {/* Year Filter - Editable Input Field */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('vehicles.year') || 'Year'}
                       </label>
-                      <select
+                      <input
+                        type="text"
+                        placeholder={t('vehicles.year') || 'Year (e.g. 2025)'}
                         value={vehicleYearFilter}
                         onChange={(e) => {
-                          setVehicleYearFilter(e.target.value);
+                          // Allow only numbers
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          setVehicleYearFilter(value);
                           setVehiclePage(0);
                         }}
+                        onBlur={(e) => {
+                          // Validate year range (reasonable years)
+                          const year = parseInt(e.target.value);
+                          if (e.target.value && (year < 1900 || year > 2100)) {
+                            // Reset if invalid
+                            setVehicleYearFilter('');
+                            toast.error(t('vehicles.invalidYear') || 'Please enter a valid year (1900-2100)');
+                          }
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">{t('common.all') || 'All Years'}</option>
-                        {uniqueYears.map((year) => (
-                          <option key={year} value={year}>
-                            {year}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
 
                     {/* Clear Filters Button */}
