@@ -187,7 +187,28 @@ const AdminDashboard = () => {
     }
   );
 
-  const modelsGrouped = modelsGroupedData?.data || modelsGroupedData || [];
+  // Wrap modelsGrouped in useMemo to fix ESLint exhaustive-deps warning
+  const modelsGrouped = useMemo(() => {
+    // Handle different response structures
+    let allModels = modelsGroupedData;
+    
+    // If response has a data property
+    if (allModels?.data) {
+      allModels = allModels.data;
+    }
+    
+    // If still wrapped in result property (standardized API response)
+    if (allModels?.result) {
+      allModels = allModels.result;
+    }
+    
+    // Ensure it's an array
+    if (!Array.isArray(allModels)) {
+      return [];
+    }
+    
+    return allModels;
+  }, [modelsGroupedData]);
 
   // Fetch vehicles list for vehicle management
   const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(

@@ -4,7 +4,7 @@
   "description": "Car rental application with React frontend and Node.js backend",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server/index.js",
     "build": "cd client && npm run build",
     "install-client": "cd client && npm install",
     "build-client": "cd client && npm run build",
