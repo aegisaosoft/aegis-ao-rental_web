@@ -66,6 +66,11 @@ const Home = () => {
 
   // Filter models by active filters
   const modelsGrouped = useMemo(() => {
+    // Handle loading state - don't warn if data is still loading
+    if (!modelsGroupedResponse) {
+      return [];
+    }
+    
     // Handle different response structures
     let allModels = modelsGroupedResponse;
     
@@ -81,7 +86,10 @@ const Home = () => {
     
     // Ensure it's an array
     if (!Array.isArray(allModels)) {
-      console.warn('modelsGrouped is not an array:', allModels);
+      // Only warn in development and if we actually have data (not just loading)
+      if (process.env.NODE_ENV === 'development' && allModels !== undefined && allModels !== null) {
+        console.warn('modelsGrouped is not an array:', allModels);
+      }
       return [];
     }
     

@@ -78,13 +78,36 @@ jobs:
           echo "Deployment structure created"
           ls -la deploy/
       
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Configure Azure Web App for Node.js (NOT Docker)
+        run: |
+          echo "Configuring Azure Web App as standalone Node.js server..."
+          az webapp config set \
+            --name aegis-ao-rental-web \
+            --resource-group aegis-ao-rental \
+            --startup-file "node server/index.js" \
+            --linux-fx-version "NODE|20-lts" \
+            --output none
+          az webapp config appsettings set \
+            --name aegis-ao-rental-web \
+            --resource-group aegis-ao-rental \
+            --settings \
+              NODE_ENV=production \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+              ENABLE_ORYX_BUILD=true \
+              WEBSITE_NODE_DEFAULT_VERSION=~20 \
+            --output none
+
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'argis-ao-rental-web'
-          slot-name: 'Production'
+          app-name: 'aegis-ao-rental-web'
           package: './deploy'
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          clean: true  # Clear old files before deploying
+          startup-command: 'node server/index.js'
+          clean: true
           

@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -86,6 +86,10 @@ const AdminDashboard = () => {
   // State for vehicle management pagination
   const [vehiclePage, setVehiclePage] = useState(0);
   const [vehiclePageSize, setVehiclePageSize] = useState(10);
+  const [vehicleSearchTerm, setVehicleSearchTerm] = useState('');
+  const [vehicleMakeFilter, setVehicleMakeFilter] = useState('');
+  const [vehicleModelFilter, setVehicleModelFilter] = useState('');
+  const [vehicleYearFilter, setVehicleYearFilter] = useState('');
   
   // State for daily rate inputs
   const [dailyRateInputs, setDailyRateInputs] = useState({});
@@ -211,14 +215,33 @@ const AdminDashboard = () => {
   }, [modelsGroupedData]);
 
   // Fetch vehicles list for vehicle management - load on dashboard open
-  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20
+  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20&make=xxx&model=xxx&year=xxx
   const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(
-    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize],
-    () => apiService.getVehicles({
-      companyId: currentCompanyId,  // Query parameter: ?companyId=xxx
-      page: vehiclePage + 1,       // Query parameter: &page=1
-      pageSize: vehiclePageSize    // Query parameter: &pageSize=20
-    }),
+    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize, vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter],
+    () => {
+      const params = {
+        companyId: currentCompanyId,  // Query parameter: ?companyId=xxx
+        page: vehiclePage + 1,       // Query parameter: &page=1
+        pageSize: vehiclePageSize    // Query parameter: &pageSize=20
+      };
+      
+      // Add make filter if selected
+      if (vehicleMakeFilter) {
+        params.make = vehicleMakeFilter;
+      }
+      
+      // Add model filter if selected
+      if (vehicleModelFilter) {
+        params.model = vehicleModelFilter;
+      }
+      
+      // Add year filter if selected
+      if (vehicleYearFilter) {
+        params.year = vehicleYearFilter;
+      }
+      
+      return apiService.getVehicles(params);
+    },
     {
       enabled: isAuthenticated && isAdmin && !!currentCompanyId,
       retry: 1,
@@ -245,6 +268,84 @@ const AdminDashboard = () => {
     
     return Array.isArray(vehicles) ? vehicles : [];
   }, [vehiclesListData]);
+
+  // Extract unique makes, models, and years from vehicles list for dropdown options
+  const { uniqueMakes, uniqueModels, uniqueYears } = useMemo(() => {
+    const makes = new Set();
+    const models = new Set();
+    const years = new Set();
+    
+    vehiclesList.forEach(vehicle => {
+      const make = vehicle.Make || vehicle.make;
+      const model = vehicle.Model || vehicle.model;
+      const year = vehicle.Year || vehicle.year;
+      
+      if (make) {
+        makes.add(make);
+      }
+      if (model) {
+        models.add(model);
+      }
+      if (year) {
+        years.add(String(year));
+      }
+    });
+    
+    return {
+      uniqueMakes: Array.from(makes).sort(),
+      uniqueModels: Array.from(models).sort(),
+      uniqueYears: Array.from(years).sort((a, b) => Number(b) - Number(a)) // Sort years descending (newest first)
+    };
+  }, [vehiclesList]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setVehiclePage(0);
+  }, [vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter]);
+
+  // Reset model filter when make filter changes
+  useEffect(() => {
+    if (vehicleMakeFilter) {
+      setVehicleModelFilter('');
+    }
+  }, [vehicleMakeFilter]);
+
+  // Filter vehicles based on search term (case-insensitive)
+  const filteredVehiclesList = useMemo(() => {
+    if (!vehicleSearchTerm.trim()) {
+      return vehiclesList;
+    }
+    
+    // Convert search term to lowercase for case-insensitive matching
+    const searchLower = vehicleSearchTerm.toLowerCase().trim();
+    
+    return vehiclesList.filter(vehicle => {
+      // Convert all fields to lowercase for case-insensitive comparison
+      const licensePlate = (vehicle.LicensePlate || vehicle.licensePlate || '').toLowerCase();
+      const make = (vehicle.Make || vehicle.make || '').toLowerCase();
+      const model = (vehicle.Model || vehicle.model || '').toLowerCase();
+      const color = (vehicle.Color || vehicle.color || '').toLowerCase();
+      const status = (vehicle.Status || vehicle.status || '').toLowerCase();
+      const year = String(vehicle.Year || vehicle.year || '').toLowerCase();
+      
+      // Search in individual fields (case-insensitive)
+      const matchesIndividual = licensePlate.includes(searchLower) ||
+                               make.includes(searchLower) ||
+                               model.includes(searchLower) ||
+                               color.includes(searchLower) ||
+                               status.includes(searchLower) ||
+                               year.includes(searchLower);
+      
+      // Also search for "make model" combinations (e.g., "Honda Civic", "Toyota Corolla")
+      // Both combinations checked for flexibility
+      const makeModel = `${make} ${model}`.toLowerCase();
+      const modelMake = `${model} ${make}`.toLowerCase();
+      const matchesCombined = makeModel.includes(searchLower) || 
+                             modelMake.includes(searchLower);
+      
+      return matchesIndividual || matchesCombined;
+    });
+  }, [vehiclesList, vehicleSearchTerm]);
 
   // Calculate total vehicle count and available count from models
   const { vehicleCount, availableCount } = useMemo(() => {
@@ -1266,13 +1367,16 @@ const AdminDashboard = () => {
   }, [vehiclesListData]);
 
   // Vehicle table configuration
+  // Use client-side pagination when filtering, server-side when not filtering
   const vehicleTable = useReactTable({
-    data: vehiclesList,
+    data: filteredVehiclesList,
     columns: vehicleColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: true, // Server-side pagination
-    pageCount: Math.ceil(vehiclesTotalCount / vehiclePageSize),
+    manualPagination: !vehicleSearchTerm, // Server-side pagination only when not searching
+    pageCount: vehicleSearchTerm 
+      ? Math.ceil(filteredVehiclesList.length / vehiclePageSize) 
+      : Math.ceil(vehiclesTotalCount / vehiclePageSize),
     state: {
       pagination: {
         pageIndex: vehiclePage,
@@ -3228,8 +3332,140 @@ const AdminDashboard = () => {
                 </div>
               ) : vehiclesList.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
+              ) : filteredVehiclesList.length === 0 && vehicleSearchTerm ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">{t('common.noResults') || 'No vehicles found matching your search'}</p>
+                  <button
+                    onClick={() => {
+                      setVehicleSearchTerm('');
+                      setVehiclePage(0);
+                    }}
+                    className="btn-secondary"
+                  >
+                    {t('common.clearSearch') || 'Clear Search'}
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Filters: Make, Model, and Year */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Make Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('vehicles.make') || 'Make'}
+                      </label>
+                      <select
+                        value={vehicleMakeFilter}
+                        onChange={(e) => {
+                          setVehicleMakeFilter(e.target.value);
+                          setVehiclePage(0);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">{t('common.all') || 'All Makes'}</option>
+                        {uniqueMakes.map((make) => (
+                          <option key={make} value={make}>
+                            {make}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Model Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('vehicles.model') || 'Model'}
+                      </label>
+                      <select
+                        value={vehicleModelFilter}
+                        onChange={(e) => {
+                          setVehicleModelFilter(e.target.value);
+                          setVehiclePage(0);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">{t('common.all') || 'All Models'}</option>
+                        {uniqueModels.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Year Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('vehicles.year') || 'Year'}
+                      </label>
+                      <select
+                        value={vehicleYearFilter}
+                        onChange={(e) => {
+                          setVehicleYearFilter(e.target.value);
+                          setVehiclePage(0);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">{t('common.all') || 'All Years'}</option>
+                        {uniqueYears.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Clear Filters Button */}
+                    {(vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter) && (
+                      <div className="flex items-end">
+                        <button
+                          onClick={() => {
+                            setVehicleMakeFilter('');
+                            setVehicleModelFilter('');
+                            setVehicleYearFilter('');
+                            setVehiclePage(0);
+                          }}
+                          className="w-full px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          {t('common.clearFilters') || 'Clear Filters'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Field */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder={t('common.search') || 'Search vehicles...'}
+                      value={vehicleSearchTerm}
+                      onChange={(e) => {
+                        setVehicleSearchTerm(e.target.value);
+                        setVehiclePage(0); // Reset to first page when searching
+                      }}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {vehicleSearchTerm && (
+                      <button
+                        onClick={() => {
+                          setVehicleSearchTerm('');
+                          setVehiclePage(0);
+                        }}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Show filtered count */}
+                  {vehicleSearchTerm && (
+                    <p className="text-sm text-gray-600">
+                      {t('admin.showing')} {filteredVehiclesList.length} {t('admin.of')} {vehiclesList.length} {t('common.vehicles')}
+                    </p>
+                  )}
+                  
                   {/* Table */}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -3287,7 +3523,15 @@ const AdminDashboard = () => {
                     <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm text-gray-700">
-                          {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('common.results')}
+                          {vehicleSearchTerm ? (
+                            <>
+                              {t('admin.showing')} <span className="font-medium">{Math.min(vehiclePage * vehiclePageSize + 1, filteredVehiclesList.length)}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, filteredVehiclesList.length)}</span> {t('admin.of')} <span className="font-medium">{filteredVehiclesList.length}</span> {t('common.results')}
+                            </>
+                          ) : (
+                            <>
+                              {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('common.results')}
+                            </>
+                          )}
                         </p>
                       </div>
                       <div>
