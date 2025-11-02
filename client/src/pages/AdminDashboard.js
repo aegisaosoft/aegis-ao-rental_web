@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -90,6 +90,8 @@ const AdminDashboard = () => {
   const [vehicleMakeFilter, setVehicleMakeFilter] = useState('');
   const [vehicleModelFilter, setVehicleModelFilter] = useState('');
   const [vehicleYearFilter, setVehicleYearFilter] = useState('');
+  const [vehicleLicensePlateFilter, setVehicleLicensePlateFilter] = useState('');
+  const [isImportingVehicles, setIsImportingVehicles] = useState(false);
   
   // State for daily rate inputs
   const [dailyRateInputs, setDailyRateInputs] = useState({});
@@ -216,9 +218,9 @@ const AdminDashboard = () => {
   }, [modelsGroupedData]);
 
   // Fetch vehicles list for vehicle management - load on dashboard open
-  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20&make=xxx&model=xxx&year=xxx
+  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20&make=xxx&model=xxx&year=xxx&licensePlate=xxx
   const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(
-    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize, vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter],
+    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize, vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter],
     () => {
       const params = {
         companyId: currentCompanyId,  // Query parameter: ?companyId=xxx
@@ -239,6 +241,11 @@ const AdminDashboard = () => {
       // Add year filter if selected
       if (vehicleYearFilter) {
         params.year = vehicleYearFilter;
+      }
+      
+      // Add license plate filter if entered
+      if (vehicleLicensePlateFilter) {
+        params.licensePlate = vehicleLicensePlateFilter;
       }
       
       return apiService.getVehicles(params);
@@ -304,7 +311,7 @@ const AdminDashboard = () => {
   // Reset page when filters change
   useEffect(() => {
     setVehiclePage(0);
-  }, [vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter]);
+  }, [vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter]);
 
   // Reset model filter when make filter changes
   useEffect(() => {
@@ -312,6 +319,61 @@ const AdminDashboard = () => {
       setVehicleModelFilter('');
     }
   }, [vehicleMakeFilter]);
+
+  // Handle vehicle import from file
+  const handleVehicleImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type (CSV or Excel)
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel.sheet.macroEnabled.12'
+    ];
+    const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!allowedTypes.includes(file.type) && !hasValidExtension) {
+      toast.error(t('vehicles.invalidImportFile') || 'Invalid file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
+      event.target.value = '';
+      return;
+    }
+
+    // Validate file size (10 MB)
+    if (file.size > 10_485_760) {
+      toast.error(t('vehicles.fileTooLarge') || 'File size exceeds 10 MB limit');
+      event.target.value = '';
+      return;
+    }
+
+    setIsImportingVehicles(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', currentCompanyId || '');
+
+      // TODO: Replace with actual import API endpoint when available
+      // For now, show a message that import feature is coming
+      toast.info(t('vehicles.importFeatureComing') || 'Vehicle import feature is coming soon. API endpoint will be implemented.');
+      
+      // When API is ready, uncomment this:
+      // const response = await apiService.importVehicles(formData);
+      // toast.success(t('vehicles.importSuccess') || `Successfully imported ${response.data?.count || 0} vehicles`);
+      // queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+      
+      event.target.value = ''; // Reset file input
+    } catch (error) {
+      console.error('Error importing vehicles:', error);
+      toast.error(error.response?.data?.message || t('vehicles.importError') || 'Failed to import vehicles');
+    } finally {
+      setIsImportingVehicles(false);
+      event.target.value = ''; // Reset file input
+    }
+  };
 
   // Filter vehicles based on search term (case-insensitive)
   const filteredVehiclesList = useMemo(() => {
@@ -1318,7 +1380,7 @@ const AdminDashboard = () => {
       accessorFn: row => row.Model || row.model || '',
     },
     {
-      header: t('vehicles.year'),
+      header: t('year'),
       accessorFn: row => row.Year || row.year || '',
     },
     {
@@ -3320,38 +3382,30 @@ const AdminDashboard = () => {
           {/* Vehicle Management Section */}
           {activeSection === 'vehicleManagement' && (
             <Card title={t('admin.vehicles')} headerActions={
-              <button
-                onClick={() => {/* TODO: Add vehicle creation modal */}}
-                className="btn-primary text-sm"
-              >
-                <Plus className="h-4 w-4 mr-2 inline" />
-                {t('admin.addVehicle')}
-              </button>
+              <div className="flex gap-2">
+                <label className="btn-secondary text-sm cursor-pointer" style={{ margin: 0 }}>
+                  <Upload className="h-4 w-4 mr-2 inline" />
+                  {isImportingVehicles ? (t('vehicles.importing') || 'Importing...') : (t('admin.importVehicles') || 'Import Vehicles')}
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={handleVehicleImport}
+                    disabled={isImportingVehicles}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={() => {/* TODO: Add vehicle creation modal */}}
+                  className="btn-primary text-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2 inline" />
+                  {t('admin.addVehicle')}
+                </button>
+              </div>
             }>
-              {isLoadingVehiclesList ? (
-                <div className="text-center py-12">
-                  <LoadingSpinner />
-                  <p className="mt-4 text-gray-600">{t('common.loading')}</p>
-                </div>
-              ) : vehiclesList.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
-              ) : filteredVehiclesList.length === 0 && vehicleSearchTerm ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 mb-4">{t('common.noResults') || 'No vehicles found matching your search'}</p>
-                  <button
-                    onClick={() => {
-                      setVehicleSearchTerm('');
-                      setVehiclePage(0);
-                    }}
-                    className="btn-secondary"
-                  >
-                    {t('common.clearSearch') || 'Clear Search'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Filters: Make, Model, and Year */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Filters: Make, Model, Year, and License Plate - Always visible */}
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     {/* Make Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3365,7 +3419,7 @@ const AdminDashboard = () => {
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">{t('common.all') || 'All Makes'}</option>
+                        <option value="">{t('all') || 'All Makes'}</option>
                         {uniqueMakes.map((make) => (
                           <option key={make} value={make}>
                             {make}
@@ -3387,7 +3441,7 @@ const AdminDashboard = () => {
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">{t('common.all') || 'All Models'}</option>
+                        <option value="">{t('all') || 'All Models'}</option>
                         {uniqueModels.map((model) => (
                           <option key={model} value={model}>
                             {model}
@@ -3399,11 +3453,11 @@ const AdminDashboard = () => {
                     {/* Year Filter - Editable Input Field */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('vehicles.year') || 'Year'}
+                        {t('year') || 'Year'}
                       </label>
                       <input
                         type="text"
-                        placeholder={t('vehicles.year') || 'Year (e.g. 2025)'}
+                        placeholder={t('year') || 'Year (e.g. 2025)'}
                         value={vehicleYearFilter}
                         onChange={(e) => {
                           // Allow only numbers
@@ -3424,22 +3478,40 @@ const AdminDashboard = () => {
                       />
                     </div>
 
-                    {/* Clear Filters Button */}
-                    {(vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter) && (
-                      <div className="flex items-end">
-                        <button
-                          onClick={() => {
-                            setVehicleMakeFilter('');
-                            setVehicleModelFilter('');
-                            setVehicleYearFilter('');
-                            setVehiclePage(0);
-                          }}
-                          className="w-full px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          {t('common.clearFilters') || 'Clear Filters'}
-                        </button>
-                      </div>
-                    )}
+                    {/* License Plate Filter - Text Input Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {t('vehicles.licensePlate') || 'License Plate'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={t('vehicles.licensePlate') || 'License Plate'}
+                        value={vehicleLicensePlateFilter}
+                        onChange={(e) => {
+                          setVehicleLicensePlateFilter(e.target.value);
+                          setVehiclePage(0);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Clear Filters Button */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        setVehicleMakeFilter('');
+                        setVehicleModelFilter('');
+                        setVehicleYearFilter('');
+                        setVehicleLicensePlateFilter('');
+                        setVehicleSearchTerm('');
+                        setVehiclePage(0);
+                      }}
+                      disabled={!vehicleMakeFilter && !vehicleModelFilter && !vehicleYearFilter && !vehicleLicensePlateFilter && !vehicleSearchTerm}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      {t('clearFilters') || 'Clear Filters'}
+                    </button>
                   </div>
 
                   {/* Search Field */}
@@ -3447,7 +3519,7 @@ const AdminDashboard = () => {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
                       type="text"
-                      placeholder={t('common.search') || 'Search vehicles...'}
+                      placeholder={t('search') || 'Search vehicles...'}
                       value={vehicleSearchTerm}
                       onChange={(e) => {
                         setVehicleSearchTerm(e.target.value);
@@ -3467,11 +3539,38 @@ const AdminDashboard = () => {
                       </button>
                     )}
                   </div>
-                  
+              </div>
+
+              {isLoadingVehiclesList ? (
+                <div className="text-center py-12">
+                  <LoadingSpinner />
+                  <p className="mt-4 text-gray-600">{t('loading')}</p>
+                </div>
+              ) : vehiclesList.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
+              ) : filteredVehiclesList.length === 0 && (vehicleSearchTerm || vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter || vehicleLicensePlateFilter) ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">{t('noResults') || 'No vehicles found matching your filters'}</p>
+                  <button
+                    onClick={() => {
+                      setVehicleMakeFilter('');
+                      setVehicleModelFilter('');
+                      setVehicleYearFilter('');
+                      setVehicleLicensePlateFilter('');
+                      setVehicleSearchTerm('');
+                      setVehiclePage(0);
+                    }}
+                    className="btn-secondary"
+                  >
+                    {t('clearSearch') || 'Clear Filters'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
                   {/* Show filtered count */}
-                  {vehicleSearchTerm && (
+                  {(vehicleSearchTerm || vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter || vehicleLicensePlateFilter) && (
                     <p className="text-sm text-gray-600">
-                      {t('admin.showing')} {filteredVehiclesList.length} {t('admin.of')} {vehiclesList.length} {t('common.vehicles')}
+                      {t('admin.showing')} {filteredVehiclesList.length} {t('admin.of')} {vehiclesList.length} {t('vehicles')}
                     </p>
                   )}
                   
@@ -3519,14 +3618,14 @@ const AdminDashboard = () => {
                         disabled={!vehicleTable.getCanPreviousPage()}
                         className="btn-secondary"
                       >
-                        {t('common.previous')}
+                        {t('previous')}
                       </button>
                       <button
                         onClick={() => vehicleTable.nextPage()}
                         disabled={!vehicleTable.getCanNextPage()}
                         className="btn-secondary ml-3"
                       >
-                        {t('common.next')}
+                        {t('next')}
                       </button>
                     </div>
                     <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
@@ -3534,11 +3633,11 @@ const AdminDashboard = () => {
                         <p className="text-sm text-gray-700">
                           {vehicleSearchTerm ? (
                             <>
-                              {t('admin.showing')} <span className="font-medium">{Math.min(vehiclePage * vehiclePageSize + 1, filteredVehiclesList.length)}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, filteredVehiclesList.length)}</span> {t('admin.of')} <span className="font-medium">{filteredVehiclesList.length}</span> {t('common.results')}
+                              {t('admin.showing')} <span className="font-medium">{Math.min(vehiclePage * vehiclePageSize + 1, filteredVehiclesList.length)}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, filteredVehiclesList.length)}</span> {t('admin.of')} <span className="font-medium">{filteredVehiclesList.length}</span> {t('results')}
                             </>
                           ) : (
                             <>
-                              {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('common.results')}
+                              {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('results')}
                             </>
                           )}
                         </p>
