@@ -66,7 +66,24 @@ const Home = () => {
 
   // Filter models by active filters
   const modelsGrouped = useMemo(() => {
-    const allModels = modelsGroupedResponse?.data || modelsGroupedResponse || [];
+    // Handle different response structures
+    let allModels = modelsGroupedResponse;
+    
+    // If response has a data property
+    if (allModels?.data) {
+      allModels = allModels.data;
+    }
+    
+    // If still wrapped in result property (standardized API response)
+    if (allModels?.result) {
+      allModels = allModels.result;
+    }
+    
+    // Ensure it's an array
+    if (!Array.isArray(allModels)) {
+      console.warn('modelsGrouped is not an array:', allModels);
+      return [];
+    }
     
     // No filtering - show all models
     // Date availability checking removed - all vehicles are available

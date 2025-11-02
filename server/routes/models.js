@@ -23,7 +23,14 @@ router.get('/grouped-by-category', async (req, res) => {
   try {
     const companyId = req.query.companyId || null;
     const response = await apiService.getModelsGroupedByCategory(companyId);
-    res.json(response.data);
+    
+    // Unwrap standardized response format if present
+    let data = response.data;
+    if (data?.result) {
+      data = data.result;
+    }
+    
+    res.json(data);
   } catch (error) {
     console.error('Models grouped by category fetch error:', error);
     res.status(error.response?.status || 500).json({ 
