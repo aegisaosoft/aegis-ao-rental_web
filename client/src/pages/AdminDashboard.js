@@ -92,6 +92,9 @@ const AdminDashboard = () => {
   const [vehicleYearFilter, setVehicleYearFilter] = useState('');
   const [vehicleLicensePlateFilter, setVehicleLicensePlateFilter] = useState('');
   const [isImportingVehicles, setIsImportingVehicles] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+  const [vehicleEditForm, setVehicleEditForm] = useState({});
+  const [isLookingUpVin, setIsLookingUpVin] = useState(false);
   
   // State for daily rate inputs
   const [dailyRateInputs, setDailyRateInputs] = useState({});
@@ -181,6 +184,108 @@ const AdminDashboard = () => {
   );
 
   const locations = locationsData?.data || locationsData || [];
+
+  // Vehicle update mutation
+  const updateVehicleMutation = useMutation(
+    ({ vehicleId, data }) => apiService.updateVehicle(vehicleId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        setEditingVehicle(null);
+        setVehicleEditForm({});
+        toast.success(t('vehicles.updateSuccess') || 'Vehicle updated successfully');
+      },
+      onError: (error) => {
+        console.error('Error updating vehicle:', error);
+        toast.error(error.response?.data?.message || t('vehicles.updateError') || 'Failed to update vehicle');
+      }
+    }
+  );
+
+  // Handle edit vehicle
+  const handleEditVehicle = (vehicle) => {
+    setEditingVehicle(vehicle);
+    setVehicleEditForm({
+      color: vehicle.Color || vehicle.color || '',
+      vin: vehicle.Vin || vehicle.vin || '',
+      mileage: vehicle.Mileage || vehicle.mileage || 0,
+      transmission: vehicle.Transmission || vehicle.transmission || '',
+      seats: vehicle.Seats || vehicle.seats || '',
+      status: vehicle.Status || vehicle.status || 'Available',
+      location: vehicle.Location || vehicle.location || '',
+      imageUrl: vehicle.ImageUrl || vehicle.imageUrl || '',
+      features: Array.isArray(vehicle.Features || vehicle.features) 
+        ? (vehicle.Features || vehicle.features).join(', ')
+        : (vehicle.Features || vehicle.features || '')
+    });
+  };
+
+  // Handle VIN lookup
+  const handleVinLookup = async () => {
+    const vin = vehicleEditForm.vin?.trim().toUpperCase();
+    
+    if (!vin || vin.length !== 17) {
+      toast.error(t('vehicles.invalidVin') || 'Please enter a valid 17-character VIN');
+      return;
+    }
+
+    setIsLookingUpVin(true);
+    try {
+      const response = await apiService.lookupVehicleByVin(vin);
+      const vehicleData = response.data;
+      
+      // Auto-populate form fields from VIN lookup response
+      setVehicleEditForm(prev => ({
+        ...prev,
+        ...(vehicleData.make && { color: vehicleData.color || prev.color }),
+        ...(vehicleData.transmission && { transmission: vehicleData.transmission }),
+        ...(vehicleData.seats && { seats: vehicleData.seats }),
+        ...(vehicleData.year && { year: vehicleData.year }), // Note: year might not be updatable
+        // Map common field names from API response
+        ...(vehicleData.Make && { color: vehicleData.Color || prev.color }),
+        ...(vehicleData.Transmission && { transmission: vehicleData.Transmission }),
+        ...(vehicleData.Seats && { seats: vehicleData.Seats }),
+        ...(vehicleData.Model && { /* model is read-only */ }),
+      }));
+      
+      toast.success(t('vehicles.vinLookupSuccess') || 'Vehicle information retrieved successfully');
+    } catch (error) {
+      console.error('VIN lookup error:', error);
+      toast.error(error.response?.data?.message || t('vehicles.vinLookupError') || 'Failed to lookup VIN information');
+    } finally {
+      setIsLookingUpVin(false);
+    }
+  };
+
+  // Handle save vehicle changes
+  const handleSaveVehicle = () => {
+    if (!editingVehicle) return;
+
+    const vehicleId = editingVehicle.VehicleId || editingVehicle.vehicleId || editingVehicle.id || editingVehicle.Id;
+    if (!vehicleId) {
+      toast.error(t('vehicles.invalidVehicle') || 'Invalid vehicle ID');
+      return;
+    }
+
+    const updateData = {};
+    
+    // Only include fields that have changed or are provided
+    if (vehicleEditForm.color !== undefined) updateData.color = vehicleEditForm.color || null;
+    if (vehicleEditForm.vin !== undefined) updateData.vin = vehicleEditForm.vin || null;
+    if (vehicleEditForm.mileage !== undefined) updateData.mileage = parseInt(vehicleEditForm.mileage) || null;
+    if (vehicleEditForm.transmission !== undefined) updateData.transmission = vehicleEditForm.transmission || null;
+    if (vehicleEditForm.seats !== undefined) updateData.seats = parseInt(vehicleEditForm.seats) || null;
+    if (vehicleEditForm.status !== undefined) updateData.status = vehicleEditForm.status;
+    if (vehicleEditForm.location !== undefined) updateData.location = vehicleEditForm.location || null;
+    if (vehicleEditForm.imageUrl !== undefined) updateData.imageUrl = vehicleEditForm.imageUrl || null;
+    if (vehicleEditForm.features !== undefined) {
+      updateData.features = vehicleEditForm.features 
+        ? vehicleEditForm.features.split(',').map(f => f.trim()).filter(f => f)
+        : null;
+    }
+
+    updateVehicleMutation.mutate({ vehicleId, data: updateData });
+  };
 
   // Fetch models grouped by category for vehicle fleet
   // Load on dashboard open (not just when vehicles section is active) so filters have data
@@ -1392,19 +1497,21 @@ const AdminDashboard = () => {
       accessorFn: row => row.Status || row.status || '',
     },
     {
-      header: t('common.actions'),
+      header: t('actions'),
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {/* TODO: Edit vehicle */}}
+            onClick={() => handleEditVehicle(row.original)}
             className="text-blue-600 hover:text-blue-900"
+            title={t('edit') || 'Edit'}
           >
             <Edit className="h-4 w-4" />
           </button>
           <button
             onClick={() => {/* TODO: Delete vehicle */}}
             className="text-red-600 hover:text-red-900"
+            title={t('delete') || 'Delete'}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -3689,6 +3796,226 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Vehicle Modal */}
+      {editingVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {t('vehicles.editVehicle') || 'Edit Vehicle'}
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingVehicle(null);
+                  setVehicleEditForm({});
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Vehicle Info (Read-only) */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <p className="text-sm font-medium text-gray-700">
+                  {editingVehicle.Make || editingVehicle.make} {editingVehicle.Model || editingVehicle.model} {editingVehicle.Year || editingVehicle.year}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('vehicles.licensePlate')}: {editingVehicle.LicensePlate || editingVehicle.licensePlate}
+                </p>
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.color') || 'Color'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleEditForm.color || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={50}
+                />
+              </div>
+
+              {/* VIN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.vin') || 'VIN'}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={vehicleEditForm.vin || ''}
+                    onChange={(e) => setVehicleEditForm(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxLength={17}
+                    placeholder="17-character VIN"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVinLookup}
+                    disabled={isLookingUpVin || !vehicleEditForm.vin || vehicleEditForm.vin.length !== 17}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {isLookingUpVin ? (
+                      <>
+                        <LoadingSpinner />
+                        {t('vehicles.lookingUp') || 'Looking up...'}
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4" />
+                        {t('vehicles.lookupVin') || 'Lookup'}
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('vehicles.vinLookupHint') || 'Enter 17-character VIN and click Lookup to auto-fill vehicle information'}
+                </p>
+              </div>
+
+              {/* Mileage */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.mileage') || 'Mileage'}
+                </label>
+                <input
+                  type="number"
+                  value={vehicleEditForm.mileage || 0}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, mileage: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                />
+              </div>
+
+              {/* Transmission */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.transmission') || 'Transmission'}
+                </label>
+                <select
+                  value={vehicleEditForm.transmission || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, transmission: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">{t('select') || 'Select'}</option>
+                  <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
+                  <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
+                  <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
+                </select>
+              </div>
+
+              {/* Seats */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.seats') || 'Seats'}
+                </label>
+                <input
+                  type="number"
+                  value={vehicleEditForm.seats || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, seats: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                  max="20"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.status') || 'Status'}
+                </label>
+                <select
+                  value={vehicleEditForm.status || 'Available'}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
+                  <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
+                  <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
+                  <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
+                  <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
+                </select>
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.location') || 'Location'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleEditForm.location || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={255}
+                  placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
+                />
+              </div>
+
+              {/* Image URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.imageUrl') || 'Image URL'}
+                </label>
+                <input
+                  type="url"
+                  value={vehicleEditForm.imageUrl || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              {/* Features */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.features') || 'Features (comma-separated)'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleEditForm.features || ''}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, features: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={t('vehicles.featuresPlaceholder') || 'GPS, Bluetooth, USB, etc.'}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('vehicles.featuresHint') || 'Separate multiple features with commas'}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setEditingVehicle(null);
+                    setVehicleEditForm({});
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  disabled={updateVehicleMutation.isLoading}
+                >
+                  {t('cancel') || 'Cancel'}
+                </button>
+                <button
+                  onClick={handleSaveVehicle}
+                  disabled={updateVehicleMutation.isLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  {updateVehicleMutation.isLoading 
+                    ? (t('saving') || 'Saving...') 
+                    : (t('save') || 'Save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 };

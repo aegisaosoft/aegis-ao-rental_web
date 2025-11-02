@@ -50,6 +50,61 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Lookup vehicle info by VIN using external validation API (must be before /:id route)
+router.get('/vin-lookup/:vin', authenticateToken, async (req, res) => {
+  try {
+    const { vin } = req.params;
+    
+    if (!vin || vin.length !== 17) {
+      return res.status(400).json({ 
+        message: 'Invalid VIN. VIN must be exactly 17 characters.' 
+      });
+    }
+
+    // Call external VIN validation API
+    const axios = require('axios');
+    const vinApiUrl = `https://vehicle-validation.aegis-rental.com/index.html`;
+    
+    // Try as API endpoint first (GET with VIN parameter)
+    try {
+      const response = await axios.get(vinApiUrl, {
+        params: { vin: vin.toUpperCase() },
+        timeout: 10000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      return res.json(response.data);
+    } catch (apiError) {
+      // If GET fails, try POST
+      try {
+        const response = await axios.post(vinApiUrl, {
+          vin: vin.toUpperCase()
+        }, {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+        return res.json(response.data);
+      } catch (postError) {
+        console.error('VIN lookup API error:', postError.response?.data || postError.message);
+        return res.status(postError.response?.status || 500).json({ 
+          message: postError.response?.data?.message || 'Failed to lookup VIN information',
+          error: postError.message
+        });
+      }
+    }
+  } catch (error) {
+    console.error('VIN lookup error:', error);
+    res.status(500).json({ 
+      message: 'Server error while looking up VIN',
+      error: error.message
+    });
+  }
+});
+
 // Get vehicle by ID
 router.get('/:id', async (req, res) => {
   try {

@@ -258,6 +258,9 @@ export const apiService = {
     });
   },
   deleteCompanyLogo: (companyId) => api.delete(`/Media/companies/${companyId}/logo`),
+
+  // VIN Lookup
+  lookupVehicleByVin: (vin) => api.get(`/vehicles/vin-lookup/${vin}`),
 };
 
 export default api;
