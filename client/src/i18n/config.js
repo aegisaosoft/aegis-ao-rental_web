@@ -22,9 +22,6 @@ import esTranslations from './locales/es.json';
 import ptTranslations from './locales/pt.json';
 import frTranslations from './locales/fr.json';
 import deTranslations from './locales/de.json';
-import quTranslations from './locales/qu.json';
-import gnTranslations from './locales/gn.json';
-import kiTranslations from './locales/ki.json';
 
 i18n
   .use(LanguageDetector) // Detects user language
@@ -45,15 +42,6 @@ i18n
       },
       de: {
         translation: deTranslations
-      },
-      qu: {
-        translation: quTranslations
-      },
-      gn: {
-        translation: gnTranslations
-      },
-      ki: {
-        translation: kiTranslations
       }
     },
     fallbackLng: 'en',
