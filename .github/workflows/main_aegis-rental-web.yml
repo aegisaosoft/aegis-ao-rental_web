@@ -50,13 +50,18 @@ jobs:
         
     - name: 'Create deployment package'
       run: |
-        # Create directory structure
-        mkdir -p deploy/server
+        # Create directory structure - flat structure with index.js at root
+        mkdir -p deploy
         
-        # Copy server files (includes client build in server/public)
-        cp -r server/* deploy/server/
-        cp package.json deploy/
-        cp package-lock.json deploy/
+        # Copy server files directly to deploy root (index.js will be at root)
+        cp -r server/* deploy/
+        
+        # Copy package.json from server (has correct dependencies)
+        cp server/package.json deploy/package.json
+        cp server/package-lock.json deploy/package-lock.json 2>/dev/null || true
+        
+        # Remove web.config (not needed for Linux, causes .NET detection)
+        rm -f deploy/web.config
         
         # Create a .deployment file to tell Azure not to build
         echo "[config]" > deploy/.deployment
@@ -64,8 +69,8 @@ jobs:
         
         echo "✅ Deployment package created"
         ls -la deploy/
-        echo "Server structure:"
-        ls -la deploy/server/
+        echo "Checking index.js exists:"
+        test -f deploy/index.js && echo "✅ index.js found at root" || echo "❌ index.js NOT found"
         
     - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
