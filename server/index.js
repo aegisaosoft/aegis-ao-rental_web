@@ -487,6 +487,16 @@ if (fs.existsSync(clientPublicPath)) {
 }
 app.use(express.static(serverPublicPath, { fallthrough: true }));
 
+// Serve model images as static files from /models/ directory
+// This ensures /models/MAKE_MODEL.png works directly
+const modelsStaticPath = path.join(serverPublicPath, 'models');
+if (fs.existsSync(modelsStaticPath)) {
+  app.use('/models', express.static(modelsStaticPath));
+  console.log(`✅ Model images served as static files from: ${modelsStaticPath}`);
+} else {
+  console.log(`⚠️ Models directory not found at: ${modelsStaticPath}`);
+}
+
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
