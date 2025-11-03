@@ -43,16 +43,39 @@ jobs:
         cp -r client/build/* server/public/
         echo "✅ Client build copied to server/public"
         
-        # Copy model images from client/public/models to server/public/models
+        # Ensure models directory exists in server/public
         mkdir -p server/public/models
-        cp -r client/public/models/* server/public/models/ 2>/dev/null || echo "⚠️ No model images found or already copied"
-        echo "✅ Model images copied to server/public/models"
         
-        # Verify models folder was created
-        if [ -d server/public/models ]; then
-          echo "✅ Models folder exists with $(ls server/public/models | wc -l) images"
+        # Copy model images from source (client/public/models) to server/public/models
+        # This ensures they're available even if React build doesn't copy them
+        if [ -d client/public/models ]; then
+          echo "📁 Found client/public/models directory"
+          cp -r client/public/models/* server/public/models/
+          echo "✅ Model images copied from client/public/models to server/public/models"
         else
-          echo "⚠️ Models folder not created"
+          echo "⚠️ client/public/models directory not found"
+        fi
+        
+        # Also check if React build included models folder
+        if [ -d client/build/models ]; then
+          echo "📁 Found models in React build, copying..."
+          cp -r client/build/models/* server/public/models/ 2>/dev/null || true
+        fi
+        
+        # Verify models folder was created and has files
+        if [ -d server/public/models ]; then
+          MODEL_COUNT=$(ls -1 server/public/models/*.png 2>/dev/null | wc -l)
+          echo "✅ Models folder exists with $MODEL_COUNT PNG images"
+          if [ "$MODEL_COUNT" -eq 0 ]; then
+            echo "❌ WARNING: No PNG images found in server/public/models"
+            echo "📋 Listing server/public/models:"
+            ls -la server/public/models/ || echo "Directory is empty or doesn't exist"
+          else
+            echo "📋 Sample files in server/public/models:"
+            ls -1 server/public/models/*.png | head -5
+          fi
+        else
+          echo "❌ ERROR: Models folder not created!"
         fi
         
     - name: 'Install server dependencies'
@@ -80,10 +103,28 @@ jobs:
         echo "[config]" > deploy/.deployment
         echo "SCM_DO_BUILD_DURING_DEPLOYMENT = false" >> deploy/.deployment
         
-        echo "✅ Deployment package created"
+        # Verify models folder is included in deployment
+        echo "📋 Checking deployment package contents:"
         ls -la deploy/
+        echo ""
         echo "Checking index.js exists:"
         test -f deploy/index.js && echo "✅ index.js found at root" || echo "❌ index.js NOT found"
+        echo ""
+        echo "Checking public/models folder:"
+        if [ -d deploy/public/models ]; then
+          MODEL_COUNT=$(ls -1 deploy/public/models/*.png 2>/dev/null | wc -l)
+          echo "✅ public/models folder exists with $MODEL_COUNT PNG images"
+          if [ "$MODEL_COUNT" -gt 0 ]; then
+            echo "📋 Sample model images:"
+            ls -1 deploy/public/models/*.png | head -3
+          fi
+        else
+          echo "❌ WARNING: public/models folder NOT found in deployment package!"
+          echo "📋 Contents of deploy/public:"
+          ls -la deploy/public/ 2>/dev/null || echo "public folder doesn't exist"
+        fi
+        
+        echo "✅ Deployment package created"
         
     - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
