@@ -128,9 +128,7 @@ const Booking = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('booking.vehicleDetails')}</h3>
                   <div className="flex items-center space-x-4">
                     <img
-                      src={process.env.NODE_ENV === 'development' 
-                        ? `/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`
-                        : `/api/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
+                      src={`/models/${(vehicle.make || '').toUpperCase()}_${(vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`}
                       alt={`${vehicle.make} ${vehicle.model}`}
                       className="w-20 h-15 object-cover rounded"
                       onError={(e) => {

@@ -1,7 +1,8 @@
 /*
  * Image path utilities for model images
- * Uses direct /models/ path for Create React App's public folder in development
- * Falls back to /api/models/ for backend-served images
+ * Uses /models/ path which is served by:
+ * - React dev server (from client/public/models/) in development
+ * - Express static file serving (from server/public/models/) in production
  */
 
 /**
@@ -14,17 +15,9 @@ export const getModelImagePath = (make, model) => {
   const makeUpper = (make || '').toUpperCase();
   const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
   
-  // In development, Create React App serves files from public/ directly
-  // In production, use /api/models/ which is served by the backend
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  if (isDevelopment) {
-    // Try direct path first (served by React dev server from public/models)
-    return `/models/${makeUpper}_${modelUpper}.png`;
-  } else {
-    // Production: use backend API route
-    return `/api/models/${makeUpper}_${modelUpper}.png`;
-  }
+  // Use /models/ path - served by React dev server in development (from client/public/models/)
+  // and by Express static file serving in production (from server/public/models/)
+  return `/models/${makeUpper}_${modelUpper}.png`;
 };
 
 /**

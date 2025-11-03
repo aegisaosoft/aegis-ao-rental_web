@@ -131,10 +131,8 @@ const BookPage = () => {
     const abort = new AbortController();
     const makeUpper = (make || '').toUpperCase();
     const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-    // In development, React serves public/ directly; in production, backend serves /api/models/
-    const url = process.env.NODE_ENV === 'development' 
-      ? `/models/${makeUpper}_${modelUpper}.png`
-      : `/api/models/${makeUpper}_${modelUpper}.png`;
+    // Use /models/ path - served statically by Express in both dev and production
+    const url = `/models/${makeUpper}_${modelUpper}.png`;
     if (!makeUpper || !modelUpper) {
       setModelImageSrc('/economy.jpg');
       return () => abort.abort();

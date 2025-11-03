@@ -113,9 +113,7 @@ const MyBookings = () => {
                     <div className="flex items-center space-x-4 mb-4">
                       <img
                         src={booking.vehicle?.make && booking.vehicle?.model 
-                          ? (process.env.NODE_ENV === 'development' 
                               ? `/models/${(booking.vehicle.make || '').toUpperCase()}_${(booking.vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`
-                              : `/api/models/${(booking.vehicle.make || '').toUpperCase()}_${(booking.vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`)
                           : booking.vehicle?.image_url || '/economy.jpg'}
                         alt={booking.vehicle?.make}
                         className="w-20 h-15 object-cover rounded"

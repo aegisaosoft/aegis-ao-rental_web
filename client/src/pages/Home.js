@@ -475,10 +475,8 @@ const Home = () => {
                               // Construct model image path: use direct /models/ path (served by Create React App from public/)
                               const makeUpper = (group.make || '').toUpperCase();
                               const modelUpper = (group.modelName || '').toUpperCase().replace(/\s+/g, '_');
-                              // In development, React serves public/ directly; in production, backend serves /api/models/
-                              const modelImagePath = process.env.NODE_ENV === 'development' 
-                                ? `/models/${makeUpper}_${modelUpper}.png`
-                                : `/api/models/${makeUpper}_${modelUpper}.png`;
+                              // Use /models/ path - served statically by Express in both dev and production
+                              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
                               
                               return (
                                 <div key={`${group.make}_${group.modelName}_${index}`} className="vehicle-card flex-shrink-0" style={{ width: '320px', minWidth: '320px' }}>

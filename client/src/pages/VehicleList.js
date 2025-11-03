@@ -390,10 +390,8 @@ const VehicleList = () => {
               // Construct model image path: /models/MAKE_MODEL.png
               const makeUpper = (make || '').toUpperCase();
               const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-              // In development, React serves public/ directly; in production, backend serves /api/models/
-              const modelImagePath = process.env.NODE_ENV === 'development' 
-                ? `/models/${makeUpper}_${modelUpper}.png`
-                : `/api/models/${makeUpper}_${modelUpper}.png`;
+              // Use /models/ path - served statically by Express in both dev and production
+              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
               
               // Determine default image based on category (fallback)
               const getDefaultImage = (category) => {
