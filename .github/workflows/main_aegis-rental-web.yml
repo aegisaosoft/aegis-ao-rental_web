@@ -39,8 +39,21 @@ jobs:
         
     - name: 'Copy client build to server public'
       run: |
+        # Copy React build output
         cp -r client/build/* server/public/
         echo "✅ Client build copied to server/public"
+        
+        # Copy model images from client/public/models to server/public/models
+        mkdir -p server/public/models
+        cp -r client/public/models/* server/public/models/ 2>/dev/null || echo "⚠️ No model images found or already copied"
+        echo "✅ Model images copied to server/public/models"
+        
+        # Verify models folder was created
+        if [ -d server/public/models ]; then
+          echo "✅ Models folder exists with $(ls server/public/models | wc -l) images"
+        else
+          echo "⚠️ Models folder not created"
+        fi
         
     - name: 'Install server dependencies'
       run: |
