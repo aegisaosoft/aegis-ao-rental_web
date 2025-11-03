@@ -179,8 +179,6 @@ const Navbar = () => {
               ))}
             </select>
             
-            {/* Rentals text */}
-            <span className="text-xl font-bold text-gray-900">Rentals</span>
           </div>
 
           {/* Desktop Navigation */}
