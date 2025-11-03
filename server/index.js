@@ -410,32 +410,45 @@ const sendModelImage = (req, res) => {
   try {
     const filename = req.params.filename;
     
-    // Try client/public/models first (for development)
-    const clientModelPath = path.join(clientPublicPath, 'models', filename);
-    if (fs.existsSync(clientModelPath)) {
-      console.log(`Serving model image from client: ${clientModelPath}`);
-      return res.sendFile(clientModelPath);
-    }
-    
-    // Try server/public/models (for production)
+    // In production, __dirname is where index.js is located (root of deployed package)
+    // Try server/public/models first (for production) since that's where we copy them
     const serverModelPath = path.join(serverPublicPath, 'models', filename);
     if (fs.existsSync(serverModelPath)) {
-      console.log(`Serving model image from server: ${serverModelPath}`);
+      console.log(`[Model Image] Serving from server: ${serverModelPath}`);
       return res.sendFile(serverModelPath);
     }
     
-    console.log(`Model image not found: ${filename}`);
-    console.log(`Checked paths: ${clientModelPath}, ${serverModelPath}`);
+    // Try client/public/models (for development)
+    const clientModelPath = path.join(clientPublicPath, 'models', filename);
+    if (fs.existsSync(clientModelPath)) {
+      console.log(`[Model Image] Serving from client: ${clientModelPath}`);
+      return res.sendFile(clientModelPath);
+    }
+    
+    // Debug logging
+    console.log(`[Model Image] Not found: ${filename}`);
+    console.log(`[Model Image] Checked server path: ${serverModelPath}`);
+    console.log(`[Model Image] Checked client path: ${clientModelPath}`);
+    
+    // Check if models directory exists
+    const modelsDir = path.join(serverPublicPath, 'models');
+    if (fs.existsSync(modelsDir)) {
+      const files = fs.readdirSync(modelsDir);
+      console.log(`[Model Image] Models directory exists with ${files.length} files`);
+      console.log(`[Model Image] Sample files: ${files.slice(0, 5).join(', ')}`);
+    } else {
+      console.log(`[Model Image] Models directory does not exist: ${modelsDir}`);
+    }
     
     // If not found, return 404 instead of 500
     const fallback = path.join(serverPublicPath, 'economy.jpg');
     if (fs.existsSync(fallback)) {
-      console.log(`Using fallback image: ${fallback}`);
+      console.log(`[Model Image] Using fallback image: ${fallback}`);
       return res.sendFile(fallback);
     }
     res.status(404).send('Image not found');
   } catch (error) {
-    console.error('Error serving model image:', error);
+    console.error('[Model Image] Error serving model image:', error);
     res.status(500).json({ message: 'Error serving image' });
   }
 };
