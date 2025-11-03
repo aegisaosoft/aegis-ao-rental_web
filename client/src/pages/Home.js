@@ -400,11 +400,6 @@ const Home = () => {
                         <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                           {t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}`) || categoryName}
                         </h3>
-                        {categoryGroup.categoryDescription && (
-                          <p className="text-gray-600 max-w-2xl mx-auto">
-                            {t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}.description`) || categoryGroup.categoryDescription}
-                          </p>
-                        )}
                       </div>
 
                       {/* Group models by make and modelName */}

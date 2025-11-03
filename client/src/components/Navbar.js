@@ -51,15 +51,23 @@ const Navbar = () => {
   useEffect(() => {
     if (selectedCompanyResponse && selectedCompanyId) {
       const company = selectedCompanyResponse?.data || selectedCompanyResponse;
-      const country = company?.country || company?.Country;
+      // First try to use the language field from the company
+      let language = company?.language || company?.Language;
       
-      if (country) {
-        const language = getLanguageForCountry(country);
+      // Fallback to country-based language if no language field is set
+      if (!language) {
+        const country = company?.country || company?.Country;
+        if (country) {
+          language = getLanguageForCountry(country);
+        }
+      }
+      
+      if (language) {
         const hasManualLanguagePreference = localStorage.getItem('languageManuallySet') === 'true';
         const currentLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
         
         // Special handling for Canada: don't switch if already French or English
-        if (country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
+        if (company?.country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
           console.log(`[Language] Canada detected with ${currentLanguage}, keeping current language`);
           return; // Don't change language
         }
@@ -67,7 +75,7 @@ const Navbar = () => {
         // Only auto-change language if user hasn't manually set a preference
         if (!hasManualLanguagePreference) {
           if (currentLanguage !== language) {
-            console.log(`[Language] Switching to ${language} for country: ${country}`);
+            console.log(`[Language] Switching to ${language} for company`);
             i18n.changeLanguage(language);
           }
         }

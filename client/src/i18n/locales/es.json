@@ -45,7 +45,25 @@
     "loadingModels": "Cargando modelos...",
     "errorLoadingModels": "Error al cargar modelos",
     "checkConsole": "Revisa la consola para más detalles",
-    "noModelsAvailable": "No hay modelos disponibles en este momento."
+    "noModelsAvailable": "No hay modelos disponibles en este momento.",
+    "features": {
+      "wideSelection": {
+        "title": "Amplia Selección",
+        "description": "Elige entre nuestra amplia flota de vehículos económicos, de lujo y especiales."
+      },
+      "fullyInsured": {
+        "title": "Totalmente Asegurado",
+        "description": "Todos nuestros vehículos vienen con cobertura de seguro completa para tu tranquilidad."
+      },
+      "support": {
+        "title": "Soporte 24/7",
+        "description": "Nuestro equipo de atención al cliente está disponible las 24 horas para ayudarte."
+      },
+      "premiumService": {
+        "title": "Servicio Premium",
+        "description": "Experimenta un servicio de primera calidad con nuestro personal profesional y amigable."
+      }
+    }
   },
   "vehicles": {
     "title": "Tarifas Diarias",
@@ -79,7 +97,9 @@
     "more": "más",
     "years": "Años",
     "errorLoading": "Error al Cargar Vehículos",
-    "tryAgainLater": "Por favor intenta de nuevo más tarde."
+    "tryAgainLater": "Por favor intenta de nuevo más tarde.",
+    "licensePlate": "Placa",
+    "status": "Estado"
   },
   "vehicleDetail": {
     "bookThisVehicle": "Reservar Este Vehículo",
@@ -268,19 +288,19 @@
       "notAvailable": "N/D",
       "saveChanges": "Guardar Cambios",
       "actions": "Acciones",
-      "saved": "Guardado"
-    },
+      "saved": "Guardado",
+      "previous": "Anterior",
+      "results": "resultados"
+  },
   "categories": {
     "economy": "Económico",
     "compact": "Compacto",
     "mid-size": "Mediano",
     "full-size": "Grande",
     "suv": "SUV",
-    "suv.description": "Vehículos Utilitarios Deportivos para familias y grupos",
     "luxury": "Lujo",
     "sports": "Deportivo",
-    "van": "Furgoneta",
-    "van.description": "Furgonetas de pasajeros para grupos grandes"
+    "van": "Furgoneta"
   },
   "fuelTypes": {
     "gasoline": "Gasolina",
@@ -457,6 +477,11 @@
       "serviceAddedToCompany": "Servicio agregado a la empresa exitosamente",
       "serviceRemovedFromCompany": "Servicio eliminado de la empresa exitosamente",
       "serviceAssignmentFailed": "Error al asignar el servicio a la empresa",
+      "serviceNotInCompany": "Este servicio no está asignado a su empresa. Por favor, asígnelo primero.",
+      "companyServiceNotFound": "Registro del servicio de la empresa no encontrado",
+      "companyPrice": "Precio de la Empresa",
+      "companyPriceHint": "Deje vacío para usar el precio base del servicio, o establezca un precio personalizado para esta empresa",
+      "forCompany": "Para la Empresa",
       "enterServicePrice": "Ingrese el precio del servicio para esta empresa (Precio base: ${basePrice}):",
       "invalidPrice": "Por favor ingrese un precio válido (número >= 0)",
       "confirmMandatoryService": "¿Este servicio es obligatorio para su empresa? (El servicio base es obligatorio)\n\nHaga clic en OK para obligatorio, Cancelar para opcional.",
@@ -473,6 +498,7 @@
       "serviceTypeDelivery": "Entrega",
       "serviceTypeOther": "Otro",
       "isMandatory": "Obligatorio",
+      "default": "Por Defecto",
       "maxQuantity": "Cantidad Máxima",
       "noServices": "No se encontraron servicios adicionales. Agregue su primer servicio para comenzar.",
       "serviceCreated": "¡Servicio creado exitosamente!",
@@ -480,6 +506,7 @@
       "serviceDeleted": "¡Servicio eliminado exitosamente!",
       "serviceCreateFailed": "Error al crear el servicio. Por favor, inténtelo de nuevo.",
       "serviceUpdateFailed": "Error al actualizar el servicio. Por favor, inténtelo de nuevo.",
+      "cannotUpdateBaseService": "No se pueden actualizar los campos del servicio base para servicios asignados a la empresa. Use el botón de editar para actualizar la configuración específica de la empresa.",
       "serviceDeleteFailed": "Error al eliminar el servicio. Por favor, inténtelo de nuevo.",
       "servicesLoadFailed": "Error al cargar los servicios",
       "confirmDeleteService": "¿Está seguro de que desea eliminar este servicio?",
@@ -552,7 +579,10 @@
       "locationUpdateFailed": "Error al actualizar la ubicación. Por favor intenta de nuevo.",
       "locationDeleteFailed": "Error al eliminar la ubicación. Por favor intenta de nuevo.",
       "confirmDeleteLocation": "¿Estás seguro de que quieres eliminar esta ubicación?",
-      "locationsLoadFailed": "Error al cargar ubicaciones"
+      "locationsLoadFailed": "Error al cargar ubicaciones",
+      "showing": "Mostrando",
+      "to": "a",
+      "of": "de"
     }
 }
 

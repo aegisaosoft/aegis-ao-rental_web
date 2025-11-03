@@ -48,7 +48,25 @@
     "loadingModels": "Chargement des modèles...",
     "errorLoadingModels": "Erreur lors du chargement des modèles",
     "checkConsole": "Vérifiez la console pour plus de détails",
-    "noModelsAvailable": "Aucun modèle disponible pour le moment."
+    "noModelsAvailable": "Aucun modèle disponible pour le moment.",
+    "features": {
+      "wideSelection": {
+        "title": "Sélection Large",
+        "description": "Choisissez parmi notre vaste flotte de véhicules économiques, de luxe et spécialisés."
+      },
+      "fullyInsured": {
+        "title": "Entièrement Assuré",
+        "description": "Tous nos véhicules sont livrés avec une couverture d'assurance complète pour votre tranquillité d'esprit."
+      },
+      "support": {
+        "title": "Support 24/7",
+        "description": "Notre équipe de service client est disponible 24 heures sur 24 pour vous aider."
+      },
+      "premiumService": {
+        "title": "Service Premium",
+        "description": "Découvrez un service de qualité supérieure avec notre personnel professionnel et amical."
+      }
+    }
   },
   "vehicles": {
     "title": "Tarifs Quotidiens",
@@ -82,7 +100,9 @@
     "more": "plus",
     "years": "Années",
     "errorLoading": "Erreur de Chargement des Véhicules",
-    "tryAgainLater": "Veuillez réessayer plus tard."
+    "tryAgainLater": "Veuillez réessayer plus tard.",
+    "licensePlate": "Plaque",
+    "status": "Statut"
   },
   "vehicleDetail": {
     "bookThisVehicle": "Réserver Ce Véhicule",
@@ -271,19 +291,19 @@
       "notAvailable": "N/D",
       "saveChanges": "Enregistrer les Modifications",
       "saved": "Enregistré",
-      "actions": "Actions"
-    },
+      "actions": "Actions",
+      "previous": "Précédent",
+      "results": "résultats"
+  },
   "categories": {
     "economy": "Économique",
     "compact": "Compact",
     "mid-size": "Taille Moyenne",
     "full-size": "Grande Taille",
     "suv": "SUV",
-    "suv.description": "Véhicules Utilitaires Sport pour les familles et les groupes",
     "luxury": "Luxe",
     "sports": "Sport",
-    "van": "Camionnette",
-    "van.description": "Vans pour grands groupes"
+    "van": "Camionnette"
   },
   "fuelTypes": {
     "gasoline": "Essence",
@@ -461,6 +481,11 @@
     "serviceAddedToCompany": "Service ajouté à l'entreprise avec succès",
     "serviceRemovedFromCompany": "Service retiré de l'entreprise avec succès",
     "serviceAssignmentFailed": "Échec de l'attribution du service à l'entreprise",
+    "serviceNotInCompany": "Ce service n'est pas attribué à votre entreprise. Veuillez l'attribuer d'abord.",
+    "companyServiceNotFound": "Enregistrement du service de l'entreprise introuvable",
+    "companyPrice": "Prix de l'Entreprise",
+    "companyPriceHint": "Laissez vide pour utiliser le prix de base du service, ou définissez un prix personnalisé pour cette entreprise",
+    "forCompany": "Pour l'Entreprise",
     "enterServicePrice": "Entrez le prix du service pour cette entreprise (Prix de base : ${basePrice}) :",
     "invalidPrice": "Veuillez entrer un prix valide (nombre >= 0)",
     "confirmMandatoryService": "Ce service est-il obligatoire pour votre entreprise ? (Le service de base est obligatoire)\n\nCliquez sur OK pour obligatoire, Annuler pour optionnel.",
@@ -485,6 +510,7 @@
     "serviceDeleted": "Service supprimé avec succès!",
     "serviceCreateFailed": "Échec de la création du service. Veuillez réessayer.",
     "serviceUpdateFailed": "Échec de la mise à jour du service. Veuillez réessayer.",
+    "cannotUpdateBaseService": "Impossible de mettre à jour les champs du service de base pour les services attribués à l'entreprise. Utilisez le bouton modifier pour mettre à jour les paramètres spécifiques à l'entreprise.",
     "serviceDeleteFailed": "Échec de la suppression du service. Veuillez réessayer.",
     "servicesLoadFailed": "Échec du chargement des services",
     "confirmDeleteService": "Êtes-vous sûr de vouloir supprimer ce service?",
@@ -557,7 +583,10 @@
     "locationUpdateFailed": "Échec de la mise à jour de l'emplacement. Veuillez réessayer.",
     "locationDeleteFailed": "Échec de la suppression de l'emplacement. Veuillez réessayer.",
     "confirmDeleteLocation": "Êtes-vous sûr de vouloir supprimer cet emplacement ?",
-    "locationsLoadFailed": "Échec du chargement des emplacements"
+    "locationsLoadFailed": "Échec du chargement des emplacements",
+    "showing": "Affichage",
+    "to": "à",
+    "of": "sur"
   }
 }
 

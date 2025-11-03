@@ -45,7 +45,25 @@
     "loadingModels": "Modelle werden geladen...",
     "errorLoadingModels": "Fehler beim Laden der Modelle",
     "checkConsole": "Überprüfen Sie die Konsole für weitere Details",
-    "noModelsAvailable": "Derzeit sind keine Modelle verfügbar."
+    "noModelsAvailable": "Derzeit sind keine Modelle verfügbar.",
+    "features": {
+      "wideSelection": {
+        "title": "Große Auswahl",
+        "description": "Wählen Sie aus unserer umfangreichen Flotte von günstigen, luxuriösen und speziellen Fahrzeugen."
+      },
+      "fullyInsured": {
+        "title": "Vollversichert",
+        "description": "Alle unsere Fahrzeuge sind mit umfassender Versicherungsdeckung für Ihr Seelenfrieden ausgestattet."
+      },
+      "support": {
+        "title": "24/7 Support",
+        "description": "Unser Kundenserviceteam steht rund um die Uhr zur Verfügung, um Ihnen zu helfen."
+      },
+      "premiumService": {
+        "title": "Premium-Service",
+        "description": "Erleben Sie erstklassigen Service mit unserem professionellen und freundlichen Personal."
+      }
+    }
   },
   "vehicles": {
     "title": "Tagespreise",
@@ -79,7 +97,9 @@
     "more": "mehr",
     "years": "Jahre",
     "errorLoading": "Fehler beim Laden der Fahrzeuge",
-    "tryAgainLater": "Bitte versuchen Sie es später erneut."
+    "tryAgainLater": "Bitte versuchen Sie es später erneut.",
+    "licensePlate": "Kennzeichen",
+    "status": "Status"
   },
   "vehicleDetail": {
     "bookThisVehicle": "Dieses Fahrzeug Buchen",
@@ -268,7 +288,9 @@
     "notAvailable": "N/V",
     "saveChanges": "Änderungen Speichern",
     "saved": "Gespeichert",
-    "actions": "Aktionen"
+    "actions": "Aktionen",
+    "previous": "Vorherige",
+    "results": "Ergebnisse"
   },
   "categories": {
     "economy": "Economy",
@@ -276,11 +298,9 @@
     "mid-size": "Mittelklasse",
     "full-size": "Oberklasse",
     "suv": "SUV",
-    "suv.description": "Sport Utility Vehicles für Familien und Gruppen",
     "luxury": "Luxus",
     "sports": "Sport",
-    "van": "Van",
-    "van.description": "Personenbusse für große Gruppen"
+    "van": "Van"
   },
   "fuelTypes": {
     "gasoline": "Benzin",
@@ -457,6 +477,11 @@
     "serviceAddedToCompany": "Service erfolgreich zum Unternehmen hinzugefügt",
     "serviceRemovedFromCompany": "Service erfolgreich vom Unternehmen entfernt",
     "serviceAssignmentFailed": "Fehler beim Zuweisen des Service zum Unternehmen",
+    "serviceNotInCompany": "Dieser Service ist Ihrem Unternehmen nicht zugewiesen. Bitte weisen Sie ihn zuerst zu.",
+    "companyServiceNotFound": "Unternehmensservice-Datensatz nicht gefunden",
+    "companyPrice": "Unternehmenspreis",
+    "companyPriceHint": "Leer lassen, um den Grundpreis des Services zu verwenden, oder einen benutzerdefinierten Preis für dieses Unternehmen festlegen",
+    "forCompany": "Für das Unternehmen",
     "enterServicePrice": "Geben Sie den Servicepreis für dieses Unternehmen ein (Grundpreis: ${basePrice}):",
     "invalidPrice": "Bitte geben Sie einen gültigen Preis ein (Zahl >= 0)",
     "confirmMandatoryService": "Ist dieser Service für Ihr Unternehmen obligatorisch? (Basisservice ist obligatorisch)\n\nOK für obligatorisch, Abbrechen für optional.",
@@ -481,6 +506,7 @@
     "serviceDeleted": "Service erfolgreich gelöscht!",
     "serviceCreateFailed": "Fehler beim Erstellen des Services. Bitte versuchen Sie es erneut.",
     "serviceUpdateFailed": "Fehler beim Aktualisieren des Services. Bitte versuchen Sie es erneut.",
+    "cannotUpdateBaseService": "Die Basisservice-Felder können für unternehmenszugeordnete Services nicht aktualisiert werden. Verwenden Sie die Schaltfläche Bearbeiten, um unternehmensspezifische Einstellungen zu aktualisieren.",
     "serviceDeleteFailed": "Fehler beim Löschen des Services. Bitte versuchen Sie es erneut.",
     "servicesLoadFailed": "Fehler beim Laden der Services",
     "confirmDeleteService": "Sind Sie sicher, dass Sie diesen Service löschen möchten?",
@@ -553,7 +579,10 @@
     "locationUpdateFailed": "Fehler beim Aktualisieren des Standorts. Bitte versuchen Sie es erneut.",
     "locationDeleteFailed": "Fehler beim Löschen des Standorts. Bitte versuchen Sie es erneut.",
     "confirmDeleteLocation": "Sind Sie sicher, dass Sie diesen Standort löschen möchten?",
-    "locationsLoadFailed": "Fehler beim Laden der Standorte"
+    "locationsLoadFailed": "Fehler beim Laden der Standorte",
+    "showing": "Anzeigen",
+    "to": "bis",
+    "of": "von"
   }
 }
 
