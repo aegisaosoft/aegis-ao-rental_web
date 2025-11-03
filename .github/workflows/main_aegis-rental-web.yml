@@ -37,6 +37,11 @@ jobs:
         npm run build
         echo "✅ React client built successfully"
         
+    - name: 'Copy client build to server public'
+      run: |
+        cp -r client/build/* server/public/
+        echo "✅ Client build copied to server/public"
+        
     - name: 'Install server dependencies'
       run: |
         cd server
@@ -47,11 +52,9 @@ jobs:
       run: |
         # Create directory structure
         mkdir -p deploy/server
-        mkdir -p deploy/client/build
         
-        # Copy files
+        # Copy server files (includes client build in server/public)
         cp -r server/* deploy/server/
-        cp -r client/build/* deploy/client/build/
         cp package.json deploy/
         cp package-lock.json deploy/
         
@@ -61,6 +64,8 @@ jobs:
         
         echo "✅ Deployment package created"
         ls -la deploy/
+        echo "Server structure:"
+        ls -la deploy/server/
         
     - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
