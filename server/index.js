@@ -95,7 +95,19 @@ app.use((req, res, next) => {
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // limit each IP to 1000 requests per windowMs (increased for development)
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  keyGenerator: (req) => {
+    // Extract IP from Azure proxy headers, handling format like "73.193.149.182:57851"
+    const forwarded = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || req.connection?.remoteAddress;
+    if (forwarded) {
+      // Get first IP if comma-separated, remove port if present
+      const ip = forwarded.split(',')[0].trim().split(':')[0];
+      return ip || 'unknown';
+    }
+    return req.ip || 'unknown';
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
