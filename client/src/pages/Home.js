@@ -148,7 +148,7 @@ const Home = () => {
     // Use URL param if available, otherwise use stored value
     const companyId = urlCompanyId || storedCompanyId;
     setSelectedCompanyId(companyId);
-  }, []); // Only run once on mount
+  }, [companyConfig?.id]); // Include companyConfig.id in dependencies
   
   // Update company name - prioritize domain-based company config
   useEffect(() => {
@@ -210,7 +210,7 @@ const Home = () => {
     
     window.addEventListener('companyChanged', handleCompanyChange);
     return () => window.removeEventListener('companyChanged', handleCompanyChange);
-  }, [companyConfig, companiesData, queryClient]);
+  }, [companyConfig?.id, effectiveCompanyId, companiesData, queryClient]); // Include effectiveCompanyId in dependencies
 
   const features = [
     {
