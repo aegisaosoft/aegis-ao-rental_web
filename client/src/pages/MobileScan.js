@@ -223,11 +223,32 @@ const MobileScan = () => {
     try {
       const file = e.target.files?.[0];
       if (!file) return;
-      setStatus('processing');
-      addDebugLog('Processing uploaded file...');
       
+      // Show image preview first
       const previewUrl = URL.createObjectURL(file);
       setCapturedDataUrl(previewUrl);
+      setStatus('preview');
+      addDebugLog('Image selected, showing preview...');
+    } catch (e) {
+      console.error(e);
+      addDebugLog(`Error loading file: ${e.message}`);
+      toast.error('Failed to load image');
+      setStatus('ready');
+    }
+  };
+
+  // Process OCR on the previewed image
+  const processPreviewImage = async () => {
+    try {
+      if (!capturedDataUrl) return;
+      
+      setStatus('processing');
+      addDebugLog('Processing image with OCR...');
+      
+      // Convert data URL to blob
+      const response = await fetch(capturedDataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'license.jpg', { type: blob.type });
 
       // Always try BlinkID OCR first (if SDK is available)
       let licenseData = null;
@@ -257,7 +278,7 @@ const MobileScan = () => {
       // Save results
       if (licenseData) {
         localStorage.setItem('scannedLicense', JSON.stringify(licenseData));
-        localStorage.setItem('scannedLicenseImage', previewUrl);
+        localStorage.setItem('scannedLicenseImage', capturedDataUrl);
         const extractedData = licenseData.licenseNumber || licenseData.firstName || licenseData.lastName || 'Data extracted';
         toast.success(`License recognized: ${extractedData}`);
         addDebugLog(`License data saved: ${JSON.stringify(licenseData).substring(0, 100)}...`);
@@ -265,13 +286,13 @@ const MobileScan = () => {
       } else {
         toast.warn('Could not extract license data. Please try again or enter manually.');
         addDebugLog('No license data extracted from image');
-        setStatus('ready');
+        setStatus('preview');
       }
     } catch (e) {
       console.error(e);
-      addDebugLog(`Error processing file: ${e.message}`);
+      addDebugLog(`Error processing image: ${e.message}`);
       toast.error('Failed to process license image');
-      setStatus('ready');
+      setStatus('preview');
     }
   };
 
@@ -525,6 +546,17 @@ const MobileScan = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {status === 'preview' && (
+          <div>
+            {capturedDataUrl ? (
+              <img src={capturedDataUrl} alt="Selected license" className="w-full rounded mb-3" />
+            ) : null}
+            <div className="flex gap-2">
+              <button onClick={() => { setStatus('ready'); setCapturedDataUrl(''); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Retake</button>
+              <button onClick={processPreviewImage} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Process OCR</button>
+            </div>
           </div>
         )}
         {status === 'captured' && (
