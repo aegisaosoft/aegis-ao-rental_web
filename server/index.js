@@ -70,7 +70,7 @@ app.use(helmet({
       // Allow camera streams and video playback from self/blob
       mediaSrc: ["'self'", "blob:"],
       imgSrc: ["'self'", "data:", "https:"],
-      workerSrc: ["'self'", "blob:"],
+      workerSrc: ["'self'", "blob:", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       childSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"]
     }

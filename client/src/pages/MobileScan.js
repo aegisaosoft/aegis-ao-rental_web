@@ -174,8 +174,46 @@ const MobileScan = () => {
 
       // Use WasmSDKLoadSettings exactly as in the example
       const loadSettings = new BlinkIDSDK.WasmSDKLoadSettings(licenseKey);
-      loadSettings.engineLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/";
-      loadSettings.workerLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js";
+      
+      // Try multiple worker locations
+      const engineLocations = [
+        { 
+          engine: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/",
+          worker: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js"
+        },
+        {
+          engine: "https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/resources/",
+          worker: "https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js"
+        },
+        {
+          engine: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources/",
+          worker: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources/BlinkIDWasmSDK.worker.min.js"
+        }
+      ];
+
+      let workerLoaded = false;
+      let lastWorkerError = null;
+
+      for (const location of engineLocations) {
+        try {
+          addDebugLog(`Trying worker location: ${location.worker}`);
+          loadSettings.engineLocation = location.engine;
+          loadSettings.workerLocation = location.worker;
+          
+          const loadedWasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
+          setWasmSDK(loadedWasmSDK);
+          addDebugLog(`WASM SDK loaded successfully from ${location.engine}`);
+          workerLoaded = true;
+          break;
+        } catch (err) {
+          lastWorkerError = err;
+          addDebugLog(`Failed to load worker from ${location.worker}: ${err.message}`);
+        }
+      }
+
+      if (!workerLoaded) {
+        throw lastWorkerError || new Error('Failed to load WASM worker from all locations');
+      }
       
       // Initialize SDK
       const loadedWasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
