@@ -17,6 +17,7 @@ import React, { useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
+import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
 import { User, Mail } from 'lucide-react';
 import { apiService } from '../services/api';
@@ -28,6 +29,8 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { companyConfig } = useCompany();
+  const companyId = companyConfig?.id || null;
   
   const [formData, setFormData] = useState({
     pickupDate: searchParams.get('pickup') || '',
@@ -76,9 +79,17 @@ const Booking = () => {
       return;
     }
 
+    // Prohibit booking if no company
+    if (!companyId) {
+      toast.error('Booking is not available. Please access via a company subdomain.');
+      navigate('/');
+      return;
+    }
+
     try {
       const bookingData = {
         vehicleId,
+        companyId,
         pickupDate: formData.pickupDate,
         returnDate: formData.returnDate,
         pickupLocation: formData.pickupLocation,

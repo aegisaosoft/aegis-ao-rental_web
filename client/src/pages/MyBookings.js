@@ -16,6 +16,7 @@
 import React from 'react';
 import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
+import { useCompany } from '../context/CompanyContext';
 import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
@@ -24,12 +25,14 @@ import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../
 const MyBookings = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
+  const { companyConfig } = useCompany();
+  const companyId = companyConfig?.id || null;
 
   const { data: bookings, isLoading, error } = useQuery(
-    'myBookings',
-    () => apiService.getReservations(),
+    ['myBookings', companyId],
+    () => apiService.getReservations({ companyId }),
     {
-      enabled: isAuthenticated
+      enabled: isAuthenticated && !!companyId
     }
   );
 

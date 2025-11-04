@@ -67,8 +67,8 @@ const VehicleList = () => {
   const vehiclesData = vehiclesResponse?.data || vehiclesResponse;
 
   // Fetch filter options
-  // Fetch categories and makes
-  const { data: categoriesResponse } = useQuery(['categories', urlCompanyId], () => apiService.getVehicleCategories(urlCompanyId || null));
+  // Fetch categories and makes - filtered by company from domain
+  const { data: categoriesResponse } = useQuery(['categories', effectiveCompanyId], () => apiService.getVehicleCategories(effectiveCompanyId || null));
   const { data: makesResponse } = useQuery('makes', apiService.getVehicleMakes);
   
   // Extract arrays from response data (handle both wrapped and direct responses)

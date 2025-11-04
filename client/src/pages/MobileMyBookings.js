@@ -1,10 +1,19 @@
 import React from 'react';
 import { useQuery, useMutation } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 
 const MobileMyBookings = () => {
-  const { data, refetch } = useQuery('m-my-bookings', () => apiService.getReservations({ pageSize: 100 }), { enabled: true });
+  const { companyConfig } = useCompany();
+  const { isAuthenticated } = useAuth();
+  const companyId = companyConfig?.id || null;
+  const { data, refetch } = useQuery(
+    ['m-my-bookings', companyId], 
+    () => apiService.getReservations({ companyId, pageSize: 100 }), 
+    { enabled: isAuthenticated && !!companyId }
+  );
   const cancelMutation = useMutation((id) => apiService.cancelReservation(id));
 
   const items = Array.isArray(data?.data?.items) ? data.data.items : (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));

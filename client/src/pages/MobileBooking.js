@@ -3,16 +3,19 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
+import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
 
 const MobileBooking = () => {
+  const { companyConfig } = useCompany();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const vehicleId = searchParams.get('vehicleId');
   const pickupDate = searchParams.get('pickupDate');
   const returnDate = searchParams.get('returnDate');
-  const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId') || '';
+  // Use company from domain context only
+  const companyId = companyConfig?.id || null;
 
   const { data } = useQuery(['m-vehicle', vehicleId], () => apiService.getVehicle(vehicleId), { enabled: !!vehicleId });
   const vehicle = useMemo(()=> (data?.data || data || null), [data]);
@@ -20,6 +23,13 @@ const MobileBooking = () => {
   const createMutation = useMutation((payload) => apiService.createReservation(payload));
 
   const confirm = async () => {
+    // Prohibit booking if no company
+    if (!companyId) {
+      toast.error('Booking is not available. Please access via a company subdomain.');
+      navigate('/');
+      return;
+    }
+    
     if (!isAuthenticated) {
       navigate('/login', { state: { returnTo: `/m/booking?${searchParams.toString()}` } });
       return;
