@@ -17,6 +17,41 @@ const express = require('express');
 const router = express.Router();
 const apiService = require('../config/api');
 
+// Get current company config (domain-based) - must be before /:id route
+router.get('/config', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+    const proxyPath = '/api/companies/config';
+    
+    // Forward X-Company-Id header if present (set by company detection middleware)
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(req.headers.authorization && { Authorization: req.headers.authorization }),
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+    };
+    
+    console.log(`[Companies Route] GET ${proxyPath} with X-Company-Id: ${headers['X-Company-Id'] || 'none'}`);
+    
+    const response = await axios.get(`${apiBaseUrl}${proxyPath}`, {
+      headers: headers,
+      httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
+      validateStatus: () => true // Don't throw on any status code
+    });
+    
+    console.log(`[Companies Route] GET /config response status: ${response.status}`);
+    
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('[Companies Route] Config fetch error:', error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Server error',
+      error: error.message
+    });
+  }
+});
+
 // Get all rental companies
 router.get('/', async (req, res) => {
   try {
