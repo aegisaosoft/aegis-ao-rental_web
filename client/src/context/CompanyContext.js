@@ -46,7 +46,38 @@ export const CompanyProvider = ({ children }) => {
         console.log('[CompanyContext] Current hostname:', window.location.hostname);
         
         // Call the API endpoint which will automatically detect company from domain
-        const response = await apiService.getCurrentCompanyConfig();
+        let response;
+        try {
+          response = await apiService.getCurrentCompanyConfig();
+        } catch (err) {
+          // In development, if config fails and we're on localhost, try to get miamilifecars directly
+          if (process.env.NODE_ENV === 'development' && 
+              (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            console.log('[CompanyContext] Development mode: Trying to load miamilifecars company as fallback');
+            try {
+              // Try to get all companies and find miamilifecars
+              const companiesResponse = await apiService.getCompanies();
+              const companies = companiesResponse.data?.result || companiesResponse.data || [];
+              const miamiCompany = Array.isArray(companies) 
+                ? companies.find(c => c.subdomain === 'miamilifecars' || 
+                                     (c.companyName && c.companyName.toLowerCase().includes('miami')))
+                : null;
+              
+              if (miamiCompany) {
+                console.log('[CompanyContext] Found miamilifecars company, using as default');
+                response = { data: miamiCompany };
+              } else {
+                throw new Error('Miamilifecars company not found');
+              }
+            } catch (fallbackErr) {
+              console.error('[CompanyContext] Fallback also failed:', fallbackErr);
+              throw err; // Re-throw original error
+            }
+          } else {
+            throw err; // Re-throw if not development or not localhost
+          }
+        }
+        
         const config = response.data?.result || response.data;
         
         if (config && config.id) {
