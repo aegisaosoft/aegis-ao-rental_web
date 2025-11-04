@@ -21,6 +21,7 @@ const MobileScan = () => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Debug logging function
   const addDebugLog = (message) => {
@@ -475,20 +476,34 @@ const MobileScan = () => {
     navigate(getReturnTo(), { replace: true });
   };
 
-  // Auto-start camera when page loads (mobile-friendly)
+  // Auto-open file picker or camera immediately when page loads
   useEffect(() => {
-    // Auto-start camera on mobile devices after a short delay to ensure page is ready
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-    if (isMobile) {
-      const timer = setTimeout(() => {
-        if (status === 'ready' && !isCameraActive) {
+    // Wait a moment for page to be ready, then immediately open file picker or camera
+    const timer = setTimeout(() => {
+      if (status === 'ready' && !isCameraActive) {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        
+        if (isMobile) {
+          // On mobile, try to open camera directly
           addDebugLog('Auto-starting camera on mobile device...');
-          startCamera();
+          startCamera().catch(() => {
+            // If camera fails, try file input
+            addDebugLog('Camera failed, trying file input...');
+            if (fileInputRef.current) {
+              fileInputRef.current.click();
+            }
+          });
+        } else {
+          // On desktop, open file picker immediately
+          addDebugLog('Auto-opening file picker on desktop...');
+          if (fileInputRef.current) {
+            fileInputRef.current.click();
+          }
         }
-      }, 500); // Small delay to ensure page is ready
-      
-      return () => clearTimeout(timer);
-    }
+      }
+    }, 300); // Small delay to ensure page is ready
+    
+    return () => clearTimeout(timer);
   }, [status, isCameraActive]); // Run when status or camera state changes
 
   return (
@@ -496,38 +511,20 @@ const MobileScan = () => {
       <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
         <h1 className="text-xl font-semibold mb-2">Scan Driver License</h1>
         {status === 'ready' && (
-          <div>
-            <p className="mb-4">Use your phone camera to capture the license.</p>
-            {blinkIdSdk && (
-              <p className="text-sm text-green-600 mb-2">✓ OCR recognition enabled</p>
-            )}
-            {!blinkIdSdk && (
-              <p className="text-sm text-yellow-600 mb-2">⚠ OCR loading... camera ready</p>
-            )}
-            <div className="text-xs text-gray-500 mb-3 space-y-1">
-              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'}</p>
-              <p>Protocol: {location.protocol}</p>
-              <p>MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
-            </div>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-3 text-sm">
-                {error}
-              </div>
-            )}
+          <div className="hidden">
+            {/* Hidden file input that auto-opens */}
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFile}
-              className="block w-full text-sm mb-3"
+              className="hidden"
             />
-            <div className="flex gap-2 mt-3">
-              <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
-                Open Camera
-              </button>
-              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
-                Continue
-              </button>
+            {/* Minimal UI while waiting for camera/file picker */}
+            <div className="text-center">
+              <p className="mb-4">Opening camera...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             </div>
           </div>
         )}
