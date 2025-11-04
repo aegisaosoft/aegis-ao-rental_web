@@ -19,6 +19,7 @@ const MobileScan = () => {
   const [blinkIdSdk, setBlinkIdSdk] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Debug logging function
   const addDebugLog = (message) => {
@@ -476,13 +477,20 @@ const MobileScan = () => {
               </div>
             )}
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFile}
-              className="block w-full text-sm mb-3"
+              className="hidden"
             />
             <div className="flex gap-2 mt-3">
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold"
+              >
+                Choose File
+              </button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
                 Continue
               </button>
