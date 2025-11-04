@@ -13,16 +13,15 @@
  *
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider, useQuery } from 'react-query';
+import { QueryClient, QueryClientProvider } from 'react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import { translatedApiService as apiService } from './services/translatedApi';
 
 // Pages
 import Home from './pages/Home';

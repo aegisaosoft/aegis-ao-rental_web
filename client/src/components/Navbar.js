@@ -27,7 +27,7 @@ import { useCompany } from '../context/CompanyContext';
 
 const Navbar = () => {
   // Get company context for domain-based company detection
-  const { companyConfig, loading: companyLoading } = useCompany();
+  const { companyConfig } = useCompany();
   
   // Check if accessed via subdomain (excluding www)
   const getSubdomainFromHost = () => {

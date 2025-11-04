@@ -199,7 +199,7 @@ const Home = () => {
     
     window.addEventListener('companyChanged', handleCompanyChange);
     return () => window.removeEventListener('companyChanged', handleCompanyChange);
-  }, [companiesData, queryClient]);
+  }, [companyConfig, companiesData, queryClient]);
 
   const features = [
     {
