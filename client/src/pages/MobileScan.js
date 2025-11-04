@@ -9,7 +9,7 @@ const MobileScan = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('init'); // init, loading, ready, camera, processing, captured, error
+  const [status, setStatus] = useState('ready'); // ready, camera, processing, captured, error
   const [capturedDataUrl, setCapturedDataUrl] = useState('');
   const [videoReady, setVideoReady] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -30,12 +30,11 @@ const MobileScan = () => {
     setDebugLogs(prev => [...prev.slice(-9), logEntry]); // Keep last 10 logs
   };
 
-  // Load BlinkID SDK
+  // Load BlinkID SDK in background (don't block camera access)
   useEffect(() => {
     const loadBlinkID = async () => {
       try {
-        setStatus('loading');
-        addDebugLog('Loading BlinkID SDK...');
+        addDebugLog('Loading BlinkID SDK in background...');
 
         // Check if SDK already loaded
         if (window.BlinkIDSDK) {
@@ -67,12 +66,12 @@ const MobileScan = () => {
         await initializeBlinkID(window.BlinkIDSDK);
       } catch (err) {
         addDebugLog(`BlinkID load error: ${err.message}`);
-        setError(`Failed to load BlinkID SDK: ${err.message}`);
-        setStatus('error');
-        toast.error('Failed to load license scanner. You can still use manual entry.');
+        // Don't set error status - just log it, camera can still work
+        console.warn('BlinkID SDK not available, will use backend API for OCR:', err.message);
       }
     };
 
+    // Load in background, don't block UI
     loadBlinkID();
   }, []);
 
@@ -476,23 +475,19 @@ const MobileScan = () => {
     navigate(getReturnTo(), { replace: true });
   };
 
+  // Auto-start camera when page loads (mobile-friendly)
+  useEffect(() => {
+    // Auto-start camera on mobile devices
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    if (isMobile && status === 'ready') {
+      startCamera();
+    }
+  }, []); // Only run once on mount
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
         <h1 className="text-xl font-semibold mb-2">Scan Driver License</h1>
-        {(status === 'init' || status === 'loading') && (
-          <div>
-            <p>Loading license scanner...</p>
-            {debugLogs.length > 0 && (
-              <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto mt-3">
-                <div className="font-semibold mb-1">Debug Logs:</div>
-                {debugLogs.map((log, i) => (
-                  <div key={i} className="font-mono text-xs">{log}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
         {status === 'ready' && (
           <div>
             <p className="mb-4">Use your phone camera to capture the license.</p>
@@ -500,7 +495,7 @@ const MobileScan = () => {
               <p className="text-sm text-green-600 mb-2">✓ OCR recognition enabled</p>
             )}
             {!blinkIdSdk && (
-              <p className="text-sm text-yellow-600 mb-2">⚠ OCR not available - using basic processing</p>
+              <p className="text-sm text-yellow-600 mb-2">⚠ OCR loading... camera ready</p>
             )}
             <div className="text-xs text-gray-500 mb-3 space-y-1">
               <p>Secure: {window.isSecureContext ? 'Yes' : 'No'}</p>
@@ -571,8 +566,9 @@ const MobileScan = () => {
         )}
         {status === 'error' && (
           <div>
-            <p className="text-red-600 mb-4">Scanner initialization failed. You can still use manual entry.</p>
-            <button onClick={() => setStatus('ready')} className="bg-blue-600 text-white px-4 py-2 rounded-md">Continue</button>
+            <p className="text-red-600 mb-4">Camera initialization failed. You can still upload an image.</p>
+            <button onClick={startCamera} className="bg-blue-600 text-white px-4 py-2 rounded-md mb-2">Try Camera Again</button>
+            <button onClick={() => setStatus('ready')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md">Upload Image Instead</button>
           </div>
         )}
         {debugLogs.length > 0 && status !== 'processing' && status !== 'init' && status !== 'loading' && (
