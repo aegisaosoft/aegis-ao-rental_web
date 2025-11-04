@@ -161,9 +161,9 @@ const Home = () => {
     // Otherwise, get from selected company
     const companies = Array.isArray(companiesData) ? companiesData : [];
     
-    if (selectedCompanyId && companies.length > 0) {
+    if (effectiveCompanyId && companies.length > 0) {
       const selectedCompany = companies.find(c => 
-        String(c.company_id || c.companyId) === String(selectedCompanyId)
+        String(c.company_id || c.companyId) === String(effectiveCompanyId)
       );
       if (selectedCompany) {
         setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'Rentals');
