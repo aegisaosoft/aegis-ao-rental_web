@@ -65,7 +65,7 @@ const MobileScan = () => {
         }
 
         // Load BlinkID SDK from UI version (as per example)
-        const cdnSource = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0/ui/dist/blinkid-in-browser.min.js';
+        const cdnSource = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js';
 
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
@@ -125,8 +125,8 @@ const MobileScan = () => {
 
       // Use WasmSDKLoadSettings exactly as in the example
       const loadSettings = new BlinkIDSDK.WasmSDKLoadSettings(licenseKey);
-      loadSettings.engineLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0/resources/";
-      loadSettings.workerLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0/resources/BlinkIDWasmSDK.worker.min.js";
+      loadSettings.engineLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/";
+      loadSettings.workerLocation = "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js";
       
       // Initialize SDK
       const loadedWasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
