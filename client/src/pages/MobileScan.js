@@ -63,11 +63,17 @@ const MobileScan = () => {
           return;
         }
 
-        // Try multiple CDN sources
+        // Try multiple CDN sources with different paths
         const cdnSources = [
+          // Primary: Correct path according to documentation
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
+          // Alternative paths
           'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
           'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
-          'https://cdn.skypack.dev/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js'
+          // Specific version (5.10.0)
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5.10.0/dist/blinkid-sdk.min.js',
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5/dist/blinkid-sdk.min.js'
         ];
 
         let lastError = null;
