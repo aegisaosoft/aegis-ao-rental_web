@@ -269,7 +269,7 @@ app.use('/api/*', async (req, res, next) => {
 // Catch-all proxy for unmapped API routes (forward to C# API)
 app.use('/api/*', async (req, res) => {
   const axios = require('axios');
-  const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
   
   // Skip if this is already handled by a specific route
   // Note: /api/RentalCompanies should go through catch-all, not /api/companies
@@ -285,7 +285,8 @@ app.use('/api/*', async (req, res) => {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...(req.headers.authorization && { Authorization: req.headers.authorization })
+      ...(req.headers.authorization && { Authorization: req.headers.authorization }),
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }) // Forward X-Company-Id header
     },
     httpsAgent: new (require('https')).Agent({
       rejectUnauthorized: false

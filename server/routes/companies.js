@@ -21,7 +21,7 @@ const apiService = require('../config/api');
 router.get('/config', async (req, res) => {
   try {
     const axios = require('axios');
-    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const proxyPath = '/api/companies/config';
     
     // Forward X-Company-Id header if present (set by company detection middleware)
@@ -36,7 +36,12 @@ router.get('/config', async (req, res) => {
     const queryParams = { ...req.query };
     
     console.log(`[Companies Route] GET ${proxyPath}`);
-    console.log(`[Companies Route] X-Company-Id header: ${headers['X-Company-Id'] || 'none'}`);
+    console.log(`[Companies Route] Request headers from client:`, {
+      'x-company-id': req.headers['x-company-id'],
+      'host': req.headers['host'],
+      'x-forwarded-host': req.headers['x-forwarded-host']
+    });
+    console.log(`[Companies Route] X-Company-Id header to backend: ${headers['X-Company-Id'] || 'none'}`);
     console.log(`[Companies Route] Query params:`, queryParams);
     
     const response = await axios.get(`${apiBaseUrl}${proxyPath}`, {
@@ -103,9 +108,9 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
     
-    // Forward the request to the backend API
-    const axios = require('axios');
-    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+          // Forward the request to the backend API
+          const axios = require('axios');
+          const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     
     console.log(`[Companies Route] PUT /api/companies/${id} -> ${apiBaseUrl}/api/RentalCompanies/${id}`);
     console.log('Request body:', JSON.stringify(req.body, null, 2));
