@@ -63,8 +63,33 @@ export const CompanyProvider = ({ children }) => {
               : null;
             
             if (miamiCompany) {
-              console.log('[CompanyContext] Found miamilifecars company, using as default:', miamiCompany.companyName);
-              const config = miamiCompany;
+              console.log('[CompanyContext] Found miamilifecars company, using as default:', miamiCompany.companyName || miamiCompany.CompanyName);
+              // Map company data to config format (handle both snake_case and camelCase)
+              const config = {
+                id: miamiCompany.id || miamiCompany.CompanyId || miamiCompany.companyId,
+                companyName: miamiCompany.companyName || miamiCompany.CompanyName || 'Miami Life Cars',
+                subdomain: miamiCompany.subdomain || miamiCompany.Subdomain,
+                fullDomain: miamiCompany.fullDomain || (miamiCompany.subdomain ? `${miamiCompany.subdomain}.aegis-rental.com` : null) || (miamiCompany.Subdomain ? `${miamiCompany.Subdomain}.aegis-rental.com` : null),
+                email: miamiCompany.email || miamiCompany.Email || '',
+                logoUrl: miamiCompany.logoUrl || miamiCompany.LogoUrl,
+                faviconUrl: miamiCompany.faviconUrl || miamiCompany.FaviconUrl,
+                primaryColor: miamiCompany.primaryColor || miamiCompany.PrimaryColor || '#007bff',
+                secondaryColor: miamiCompany.secondaryColor || miamiCompany.SecondaryColor || '#6c757d',
+                motto: miamiCompany.motto || miamiCompany.Motto,
+                mottoDescription: miamiCompany.mottoDescription || miamiCompany.MottoDescription,
+                about: miamiCompany.about || miamiCompany.About,
+                videoLink: miamiCompany.videoLink || miamiCompany.VideoLink,
+                bannerLink: miamiCompany.bannerLink || miamiCompany.BannerLink,
+                backgroundLink: miamiCompany.backgroundLink || miamiCompany.BackgroundLink,
+                website: miamiCompany.website || miamiCompany.Website,
+                customCss: miamiCompany.customCss || miamiCompany.CustomCss,
+                country: miamiCompany.country || miamiCompany.Country,
+                bookingIntegrated: miamiCompany.bookingIntegrated || miamiCompany.BookingIntegrated || false,
+                invitation: miamiCompany.invitation || miamiCompany.Invitation,
+                texts: miamiCompany.texts || miamiCompany.Texts,
+                language: miamiCompany.language || miamiCompany.Language || 'en',
+              };
+              
               setCompanyConfig(config);
               applyCompanyStyles(config);
               if (config.companyName) {
