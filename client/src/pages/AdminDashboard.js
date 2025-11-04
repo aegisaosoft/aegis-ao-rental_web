@@ -104,55 +104,24 @@ const AdminDashboard = () => {
   const [dailyRateInputs, setDailyRateInputs] = useState({});
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
 
-  // Get company ID - prioritize domain context, then user, then localStorage
+  // Get company ID - use only from domain context
   const getCompanyId = useCallback(() => {
-    // Priority 1: Use company from domain context (when accessed via subdomain)
-    if (companyConfig?.id) {
-      return companyConfig.id;
-    }
-    // Priority 2: Use user's companyId
-    if (user?.companyId) {
-      return user.companyId;
-    }
-    // Priority 3: Fallback to selected company from localStorage
-    const selectedCompanyId = localStorage.getItem('selectedCompanyId');
-    return selectedCompanyId || null;
-  }, [user, companyConfig]);
+    // Only use company from domain context
+    return companyConfig?.id || null;
+  }, [companyConfig]);
 
-  // Initialize and watch for company changes
+  // Initialize and sync with company from domain context
   useEffect(() => {
     const companyId = getCompanyId();
     setCurrentCompanyId(companyId);
-
-    // Listen for storage changes (when company is changed in navbar)
-    const handleStorageChange = (e) => {
-      if (e.key === 'selectedCompanyId' || e.key === null) {
-        const newCompanyId = getCompanyId();
-        setCurrentCompanyId(newCompanyId);
-        // Invalidate and refetch company data
-        queryClient.invalidateQueries(['company']);
-        queryClient.invalidateQueries(['modelsGroupedByCategory']);
-      }
-    };
-
-    // Listen for custom event (more reliable for same-tab changes)
-    const handleCompanyChange = (e) => {
-      const newCompanyId = getCompanyId();
-      setCurrentCompanyId(newCompanyId);
-      // Invalidate and refetch company data
+    
+    // Invalidate queries when company changes
+    if (companyId) {
       queryClient.invalidateQueries(['company']);
       queryClient.invalidateQueries(['vehiclesCount']);
       queryClient.invalidateQueries(['modelsGroupedByCategory']);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('companyChanged', handleCompanyChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('companyChanged', handleCompanyChange);
-    };
-  }, [user, queryClient, getCompanyId]);
+    }
+  }, [companyConfig?.id, queryClient, getCompanyId]);
 
   // Fetch current user's company data
   const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
