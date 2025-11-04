@@ -23,6 +23,7 @@ import i18n from '../i18n/config';
 import LanguageSwitcher from './LanguageSwitcher';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { getLanguageForCountry } from '../utils/countryLanguage';
+import { useCompany } from '../context/CompanyContext';
 
 const Navbar = () => {
   // Get company context for domain-based company detection
