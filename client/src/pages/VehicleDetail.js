@@ -19,7 +19,6 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { MapPin, Users, Fuel, Settings, Star, Shield, Clock, Edit2, X } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
-import { useCompany } from '../context/CompanyContext';
 import { useTranslation } from 'react-i18next';
 
 const VehicleDetail = () => {

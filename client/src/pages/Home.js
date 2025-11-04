@@ -16,7 +16,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
