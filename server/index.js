@@ -306,13 +306,17 @@ app.use('/api/*', upload.any(), async (req, res) => {
   const axios = require('axios');
   const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
   
-  // Skip if this is already handled by a specific route
-  // Note: /api/RentalCompanies should go through catch-all, not /api/companies
-  const skipPaths = ['/api/auth', '/api/vehicles', '/api/reservations', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
-  // Only skip /api/companies (not /api/RentalCompanies)
-  if (req.originalUrl.startsWith('/api/companies') || skipPaths.some(path => req.originalUrl.startsWith(path))) {
-    return; // Let specific route handlers process it
-  }
+      // Skip if this is already handled by a specific route
+    // Note: /api/RentalCompanies should go through catch-all, not /api/companies
+    const skipPaths = ['/api/auth', '/api/vehicles', '/api/reservations', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
+    // Only skip /api/companies (not /api/RentalCompanies)
+    // Note: /api/DriverLicense should go through catch-all to backend
+    if (req.originalUrl.startsWith('/api/companies') || skipPaths.some(path => req.originalUrl.startsWith(path))) {
+      return; // Let specific route handlers process it (they should call next() or res.send())
+    }
+    
+    // Log that we're processing this route through catch-all
+    console.log(`[Proxy Catch-All] Processing: ${req.method} ${req.originalUrl}`);
   
   const apiClient = axios.create({
     baseURL: apiBaseUrl,
@@ -330,9 +334,14 @@ app.use('/api/*', upload.any(), async (req, res) => {
     responseType: 'text' // Get raw response first, parse manually
   });
   
-  try {
-    const proxyPath = req.originalUrl; // Keep full path including /api
-    console.log(`[Proxy] ${req.method} ${proxyPath} -> ${apiBaseUrl}${proxyPath}`);
+      try {
+      const proxyPath = req.originalUrl; // Keep full path including /api
+      console.log(`[Proxy] ${req.method} ${proxyPath} -> ${apiBaseUrl}${proxyPath}`);
+      console.log(`[Proxy] Request headers:`, {
+        'content-type': req.headers['content-type'],
+        'authorization': req.headers['authorization'] ? 'present' : 'missing',
+        'x-company-id': req.headers['x-company-id'] || 'missing'
+      });
     if (req.method === 'PUT' || req.method === 'POST') {
       console.log('[Proxy] Request body:', JSON.stringify(req.body, null, 2));
     }
