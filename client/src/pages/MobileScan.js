@@ -240,15 +240,24 @@ const MobileScan = () => {
       const file = e.target.files?.[0];
       if (!file) return;
       setStatus('processing');
+      addDebugLog('Processing uploaded file...');
       
       // Show preview
       const previewUrl = URL.createObjectURL(file);
       setCapturedDataUrl(previewUrl);
 
-      // Try BlinkID OCR first
+      // Always try BlinkID OCR first (if SDK is available)
       let licenseData = null;
       if (blinkIdSdk) {
+        addDebugLog('Attempting BlinkID OCR recognition...');
         licenseData = await processImageWithBlinkID(file);
+        if (licenseData) {
+          addDebugLog('BlinkID OCR successful - data extracted');
+        } else {
+          addDebugLog('BlinkID OCR did not extract data, trying backend API...');
+        }
+      } else {
+        addDebugLog('BlinkID SDK not available, using backend API...');
       }
 
       // If BlinkID failed or not available, send to backend API
@@ -266,14 +275,18 @@ const MobileScan = () => {
       if (licenseData) {
         localStorage.setItem('scannedLicense', JSON.stringify(licenseData));
         localStorage.setItem('scannedLicenseImage', previewUrl);
-        toast.success(`License recognized: ${licenseData.licenseNumber || licenseData.firstName || 'Data extracted'}`);
+        const extractedData = licenseData.licenseNumber || licenseData.firstName || licenseData.lastName || 'Data extracted';
+        toast.success(`License recognized: ${extractedData}`);
+        addDebugLog(`License data saved: ${JSON.stringify(licenseData).substring(0, 100)}...`);
         setStatus('captured');
       } else {
         toast.warn('Could not extract license data. Please try again or enter manually.');
+        addDebugLog('No license data extracted from image');
         setStatus('ready');
       }
     } catch (e) {
       console.error(e);
+      addDebugLog(`Error processing file: ${e.message}`);
       toast.error('Failed to process license image');
       setStatus('ready');
     }
@@ -379,13 +392,21 @@ const MobileScan = () => {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setCapturedDataUrl(dataUrl);
 
-      // Try BlinkID OCR
+      // Always try BlinkID OCR first (if SDK is available)
       let licenseData = null;
       if (blinkIdSdk) {
+        addDebugLog('Attempting BlinkID OCR recognition on captured image...');
         licenseData = await processImageWithBlinkID(blob);
+        if (licenseData) {
+          addDebugLog('BlinkID OCR successful - data extracted from captured image');
+        } else {
+          addDebugLog('BlinkID OCR did not extract data, trying backend API...');
+        }
+      } else {
+        addDebugLog('BlinkID SDK not available, using backend API...');
       }
 
-      // Fallback to backend API
+      // Fallback to backend API if BlinkID failed or not available
       if (!licenseData) {
         addDebugLog('Using backend API for license validation...');
         const formData = new FormData();

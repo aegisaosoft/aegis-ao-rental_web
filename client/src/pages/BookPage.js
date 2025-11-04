@@ -338,7 +338,7 @@ const BookPage = () => {
     navigate(`/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
-  // Create QR for phone scan: directly navigate to mobile scan page (no API session)
+  // Create QR for phone scan: show QR code with link to scanning page
   const handleScanOnPhone = () => {
     // Prefer configured public base URL for LAN/External access; fallback to current origin
     const configuredBase = qrBase || '';
@@ -346,14 +346,15 @@ const BookPage = () => {
     const returnTo = window.location.pathname + window.location.search;
     const url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
     
-    // On mobile, navigate directly; on desktop, show QR code
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    // Always show QR code modal (user can scan it with their phone)
+    setQrUrl(url);
+    setQrOpen(true);
     
+    // On mobile devices, also offer direct navigation
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
     if (isMobile) {
-      navigate(`/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
-    } else {
-      setQrUrl(url);
-      setQrOpen(true);
+      // Still show QR, but also allow direct navigation
+      console.log('Mobile device detected - QR code shown, direct navigation available');
     }
   };
 
