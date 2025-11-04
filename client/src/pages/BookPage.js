@@ -17,6 +17,7 @@ import React, { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
+import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
 import { Car, ArrowLeft, CreditCard, Camera, X, Calendar } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
