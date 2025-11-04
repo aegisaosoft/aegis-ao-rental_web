@@ -1,18 +1,30 @@
 /*
  * Mobile-friendly page to upload Driver License image.
  */
-import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useRef, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { apiService } from '../services/api';
 
 const MobileScan = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('ready'); // ready, preview, uploading, success
   const [imagePreview, setImagePreview] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+  
+  // Extract auth token from URL and store it in localStorage
+  useEffect(() => {
+    const tokenFromUrl = searchParams.get('token');
+    if (tokenFromUrl) {
+      // Store the token from the QR code URL
+      localStorage.setItem('token', tokenFromUrl);
+      console.log('Auth token imported from QR code URL');
+      toast.success('Authentication imported from QR code');
+    }
+  }, [searchParams]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -86,7 +98,10 @@ const MobileScan = () => {
         if (status === 400) {
           errorDetails = 'Bad request - Please check your file and try again';
         } else if (status === 401) {
-          errorDetails = 'Unauthorized - Please log in and try again';
+          const hasAuthHeader = data?.hasAuthHeader;
+          errorDetails = hasAuthHeader 
+            ? 'Your session has expired. Please log in again.'
+            : 'You are not logged in. Please log in and try again.';
         } else if (status === 403) {
           errorDetails = 'Forbidden - You do not have permission to upload';
         } else if (status === 413) {

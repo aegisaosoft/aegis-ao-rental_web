@@ -379,7 +379,15 @@ const BookPage = () => {
     const configuredBase = qrBase || '';
     const origin = configuredBase || window.location.origin;
     const returnTo = window.location.pathname + window.location.search;
-    const url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+    
+    // Get auth token from localStorage to pass to phone
+    const token = localStorage.getItem('token');
+    
+    // Build URL with auth token if available
+    let url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+    if (token && isAuthenticated) {
+      url += `&token=${encodeURIComponent(token)}`;
+    }
     
     // Always show QR code modal (user can scan it with their phone)
     setQrUrl(url);
@@ -707,14 +715,19 @@ const BookPage = () => {
                           onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success(t('common.saved')); }}
                           className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
                         >{t('common.save')}</button>
-                        <button
-                          onClick={()=>{
-                            const origin = (qrBase || window.location.origin).replace(/\/$/, '');
-                            const returnTo = window.location.pathname + window.location.search;
-                            setQrUrl(`${origin}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
-                          }}
-                          className="flex-1 bg-gray-200 text-gray-800 py-1 rounded text-sm"
-                        >Update QR</button>
+                                                  <button
+                            onClick={()=>{
+                              const origin = (qrBase || window.location.origin).replace(/\/$/, '');
+                              const returnTo = window.location.pathname + window.location.search;
+                              const token = localStorage.getItem('token');
+                              let url = `${origin}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+                              if (token && isAuthenticated) {
+                                url += `&token=${encodeURIComponent(token)}`;
+                              }
+                              setQrUrl(url);
+                            }}
+                            className="flex-1 bg-gray-200 text-gray-800 py-1 rounded text-sm"
+                          >Update QR</button>
                       </div>
                     </div>
                     <button
