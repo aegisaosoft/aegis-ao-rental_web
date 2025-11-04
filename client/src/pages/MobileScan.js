@@ -184,6 +184,9 @@ const MobileScan = () => {
         try {
           addDebugLog(`Trying engine location: ${engineLocation}`);
           
+          // Worker location is typically the same as engine location
+          const workerLocation = engineLocation;
+          
           // Try different WASM module names (basic, advanced, advanced-threads)
           // Start with advanced for best performance, fallback to basic for compatibility
           const wasmModuleNames = ['advanced', 'basic', 'advanced-threads'];
@@ -195,6 +198,7 @@ const MobileScan = () => {
               await BlinkIDSDK.loadWasmModule({
                 licenseKey,
                 engineLocation,
+                workerLocation,
                 wasmModuleName
               });
               moduleLoaded = true;
