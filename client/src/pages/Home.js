@@ -23,17 +23,12 @@ import { useCompany } from '../context/CompanyContext';
 
 const Home = () => {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const { companyConfig } = useCompany();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
   const [companyName, setCompanyName] = useState('Rentals');
   const modelsSectionRef = useRef(null);
-  
-  // Fetch companies
-  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  const companiesData = companiesResponse?.data || companiesResponse;
   
   // Get selected company ID - prioritize domain context
   const [selectedCompanyId, setSelectedCompanyId] = useState('');

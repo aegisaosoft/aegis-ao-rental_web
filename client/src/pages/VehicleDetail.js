@@ -27,8 +27,6 @@ const VehicleDetail = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isAuthenticated, isAdmin } = useAuth();
-  const { companyConfig } = useCompany();
-  const companyId = companyConfig?.id || null;
   const [selectedDates, setSelectedDates] = useState({
     pickupDate: '',
     returnDate: ''

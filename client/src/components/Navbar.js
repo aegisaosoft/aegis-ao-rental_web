@@ -13,16 +13,12 @@
  *
  */
 
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Menu, X, User, Car, Calendar, Settings, LogOut, LayoutDashboard } from 'lucide-react';
-import { useQuery } from 'react-query';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n/config';
 import LanguageSwitcher from './LanguageSwitcher';
-import { translatedApiService as apiService } from '../services/translatedApi';
-import { getLanguageForCountry } from '../utils/countryLanguage';
 import { useCompany } from '../context/CompanyContext';
 
 const Navbar = () => {
