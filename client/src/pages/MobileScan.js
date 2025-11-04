@@ -489,7 +489,7 @@ const MobileScan = () => {
                 onClick={() => fileInputRef.current?.click()} 
                 className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold"
               >
-                Choose File
+                Open Camera
               </button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
                 Continue
