@@ -214,11 +214,6 @@ const MobileScan = () => {
       if (!workerLoaded) {
         throw lastWorkerError || new Error('Failed to load WASM worker from all locations');
       }
-      
-      // Initialize SDK
-      const loadedWasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
-      setWasmSDK(loadedWasmSDK);
-      addDebugLog('WASM SDK loaded successfully');
 
       addDebugLog('BlinkID engine initialized successfully');
     } catch (err) {
