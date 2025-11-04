@@ -99,8 +99,8 @@ const BookPage = () => {
     endorsements: ''
   });
 
-  // Prefill from localStorage if mobile scan placed data
-  React.useEffect(() => {
+  // Load license data from localStorage
+  const loadScannedLicense = React.useCallback(() => {
     try {
       const raw = localStorage.getItem('scannedLicense');
       if (raw) {
@@ -123,10 +123,45 @@ const BookPage = () => {
           licenseCountry: d.country || prev.licenseCountry || '',
         }));
         localStorage.removeItem('scannedLicense');
-        toast.success('License data imported');
+        toast.success('License data imported from scan');
+        return true;
       }
-    } catch {}
+    } catch (err) {
+      console.error('Error loading scanned license:', err);
+    }
+    return false;
   }, []);
+
+  // Prefill from localStorage if mobile scan placed data (on mount)
+  React.useEffect(() => {
+    loadScannedLicense();
+  }, [loadScannedLicense]);
+
+  // Listen for storage events (when license is scanned on phone in another tab/window)
+  React.useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'scannedLicense' && e.newValue) {
+        // License was scanned on another device/tab
+        loadScannedLicense();
+      }
+    };
+
+    // Listen for storage events (works across tabs/windows)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also poll periodically as fallback (storage event doesn't work in same tab)
+    const pollInterval = setInterval(() => {
+      const hasLicense = localStorage.getItem('scannedLicense');
+      if (hasLicense) {
+        loadScannedLicense();
+      }
+    }, 2000); // Check every 2 seconds
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
+    };
+  }, [loadScannedLicense]);
 
   // Pre-check model image to avoid console errors; use default if missing
   React.useEffect(() => {
