@@ -364,7 +364,8 @@ const MobileScan = () => {
       addDebugLog(`Camera start failed: ${err.message}`);
       setStatus('ready');
       setError(`Camera failed: ${err.message}`);
-      toast.error(`Camera unavailable: ${err.message}. Try file capture instead.`);
+      // Don't show error toast - file input will work as fallback
+      // The file input with capture="environment" will open camera on mobile
     }
   };
 
