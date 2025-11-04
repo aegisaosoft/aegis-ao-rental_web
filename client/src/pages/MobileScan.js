@@ -46,7 +46,9 @@ const MobileScan = () => {
     // Read file directly from input (already in browser memory)
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      toast.error('Please select an image first');
+      const errorMsg = 'Please select an image first';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -67,8 +69,50 @@ const MobileScan = () => {
         navigate(-1); // Go back to previous page
       }, 1500);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to upload driver license';
-      setError(errorMessage);
+      console.error('Upload error:', err);
+      
+      // Extract detailed error information
+      let errorMessage = 'Failed to upload driver license';
+      let errorDetails = '';
+      
+      if (err.response) {
+        // Server responded with error
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        errorMessage = data?.message || data?.error || `Server error (${status})`;
+        
+        // Add status code details
+        if (status === 400) {
+          errorDetails = 'Bad request - Please check your file and try again';
+        } else if (status === 401) {
+          errorDetails = 'Unauthorized - Please log in and try again';
+        } else if (status === 403) {
+          errorDetails = 'Forbidden - You do not have permission to upload';
+        } else if (status === 413) {
+          errorDetails = 'File too large - Maximum size is 10MB';
+        } else if (status === 500) {
+          errorDetails = 'Server error - Please try again later';
+        } else {
+          errorDetails = `HTTP ${status}: ${data?.message || 'Unknown error'}`;
+        }
+        
+        // Include additional error details if available
+        if (data?.reason) {
+          errorDetails += ` (Reason: ${data.reason})`;
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error - Unable to connect to server';
+        errorDetails = 'Please check your internet connection and try again';
+      } else {
+        // Error setting up the request
+        errorMessage = err.message || 'Failed to upload driver license';
+        errorDetails = 'Please check the file and try again';
+      }
+      
+      const fullError = errorDetails ? `${errorMessage}. ${errorDetails}` : errorMessage;
+      setError(fullError);
       toast.error(errorMessage);
       setStatus('preview');
     }
@@ -107,6 +151,11 @@ const MobileScan = () => {
             >
               Open Camera
             </button>
+            {error && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
           </div>
         )}
 
@@ -156,6 +205,11 @@ const MobileScan = () => {
                 <p className="mt-2 text-sm text-gray-300">Uploading... {uploadProgress}%</p>
               </div>
             </div>
+            {error && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
           </div>
         )}
 
