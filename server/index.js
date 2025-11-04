@@ -508,29 +508,54 @@ app.use('/api/*', upload.any(), async (req, res) => {
       jsonData = responseData;
     }
     
-    // Handle error status codes
-    if (response.status >= 400) {
-      console.log('[Proxy] Error response:', jsonData);
-      return res.status(response.status).json(jsonData || {
-        message: 'Error from backend API',
-        status: response.status,
-        statusText: response.statusText
-      });
-    }
+          // Handle error status codes
+      if (response.status >= 400) {
+        console.log('[Proxy] Error response:', jsonData);
+        console.log('[Proxy] Error URL was:', `${apiBaseUrl}${proxyPath}`);
+        
+        // For 404 errors, provide more helpful message
+        if (response.status === 404) {
+          console.error(`[Proxy] 404 Not Found: ${req.method} ${proxyPath}`);
+          console.error(`[Proxy] Backend URL: ${apiBaseUrl}${proxyPath}`);
+          return res.status(404).json({
+            message: `Endpoint not found: ${req.method} ${proxyPath}`,
+            backendUrl: `${apiBaseUrl}${proxyPath}`,
+            status: 404,
+            statusText: response.statusText,
+            details: jsonData || 'The requested endpoint does not exist on the backend API'
+          });
+        }
+        
+        return res.status(response.status).json(jsonData || {
+          message: 'Error from backend API',
+          status: response.status,
+          statusText: response.statusText
+        });
+      }
     
     // Success response with data
     console.log('[Proxy] Success response');
     res.status(response.status).json(jsonData);
-  } catch (error) {
-    console.error(`[Proxy Error] ${req.method} ${req.originalUrl}:`, error.message);
-    console.error('Error details:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      headers: error.response?.headers,
-      code: error.code,
-      message: error.message
-    });
+      } catch (error) {
+      console.error(`[Proxy Error] ${req.method} ${req.originalUrl}:`, error.message);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        code: error.code,
+        message: error.message,
+        backendUrl: `${apiBaseUrl}${req.originalUrl}`
+      });
+      
+      // If it's a 404 from the backend, provide more context
+      if (error.response?.status === 404) {
+        return res.status(404).json({
+          message: `Backend endpoint not found: ${req.method} ${req.originalUrl}`,
+          backendUrl: `${apiBaseUrl}${req.originalUrl}`,
+          error: 'The endpoint does not exist on the backend API. Please verify the route exists in the backend controller.'
+        });
+      }
     
     // Handle connection/network errors
     if (error.code === 'ECONNRESET' || error.code === 'EPIPE' || 
