@@ -241,6 +241,16 @@ app.use('/api/*', async (req, res, next) => {
           console.warn(`[Company Detection] ✗ No mapping found for ${fullDomain}`);
           console.warn(`[Company Detection] Available domains:`, Object.keys(domainMapping || {}));
           console.warn(`[Company Detection] Looking for: ${fullDomain}`);
+          
+          // Fallback: Try to get company directly by subdomain from backend
+          try {
+            console.log(`[Company Detection] Fallback: Trying to get company by subdomain: ${subdomain}`);
+            // We'll add the subdomain as a query parameter so backend can resolve it
+            // The backend middleware should handle hostname resolution, but this is a fallback
+            req.query.companySubdomain = subdomain;
+          } catch (fallbackErr) {
+            console.error(`[Company Detection] Fallback also failed:`, fallbackErr.message);
+          }
           // Don't set header - let backend try to resolve from hostname
         }
       } catch (err) {

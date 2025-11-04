@@ -25,11 +25,14 @@ router.get('/config', async (req, res) => {
     const proxyPath = '/api/companies/config';
     
     // Forward X-Company-Id header if present (set by company detection middleware)
+    // Also forward X-Forwarded-Host so backend can resolve company from hostname
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
+      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] }),
+      ...(req.headers['host'] && !req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['host'] })
     };
     
     // Forward query parameters (including companyId as fallback)
