@@ -183,13 +183,36 @@ const MobileScan = () => {
       for (const engineLocation of engineLocations) {
         try {
           addDebugLog(`Trying engine location: ${engineLocation}`);
-          await BlinkIDSDK.loadWasmModule({
-            licenseKey,
-            engineLocation
-          });
-          engineLoaded = true;
-          addDebugLog(`Engine loaded from: ${engineLocation}`);
-          break;
+          
+          // Try different WASM module names (basic, advanced, advanced-threads)
+          // Start with advanced for best performance, fallback to basic for compatibility
+          const wasmModuleNames = ['advanced', 'basic', 'advanced-threads'];
+          let moduleLoaded = false;
+          
+          for (const wasmModuleName of wasmModuleNames) {
+            try {
+              addDebugLog(`Trying WASM module name: ${wasmModuleName}`);
+              await BlinkIDSDK.loadWasmModule({
+                licenseKey,
+                engineLocation,
+                wasmModuleName
+              });
+              moduleLoaded = true;
+              addDebugLog(`WASM module ${wasmModuleName} loaded successfully`);
+              break;
+            } catch (moduleErr) {
+              addDebugLog(`Failed to load module ${wasmModuleName}: ${moduleErr.message}`);
+              // Try next module name
+            }
+          }
+          
+          if (moduleLoaded) {
+            engineLoaded = true;
+            addDebugLog(`Engine loaded from: ${engineLocation}`);
+            break;
+          } else {
+            throw new Error('All WASM module names failed');
+          }
         } catch (err) {
           lastEngineError = err;
           addDebugLog(`Failed to load engine from ${engineLocation}: ${err.message}`);
