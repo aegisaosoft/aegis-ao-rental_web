@@ -131,12 +131,31 @@ app.use(session({
   }
 }));
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing middleware - skip for multipart/form-data (handled by multer)
+const jsonParser = express.json({ limit: '10mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '10mb' });
+
+app.use((req, res, next) => {
+  // Skip body parsers for multipart/form-data requests (handled by multer)
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    return next();
+  }
+  jsonParser(req, res, next);
+});
+
+app.use((req, res, next) => {
+  // Skip body parsers for multipart/form-data requests (handled by multer)
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    return next();
+  }
+  urlencodedParser(req, res, next);
+});
 
 // Multer for file uploads (memory storage for proxying)
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Health check endpoint - must be robust for Azure health checks
 app.get('/api/health', (req, res) => {
@@ -389,6 +408,8 @@ app.use('/api/*', upload.any(), async (req, res) => {
     // Check if this is a file upload (multipart/form-data)
     const isFileUpload = req.headers['content-type']?.includes('multipart/form-data') || req.files?.length > 0;
     
+    console.log(`[Proxy] Request: ${req.method} ${proxyPath}, isFileUpload: ${isFileUpload}, files: ${req.files?.length || 0}`);
+    
     // Build headers - don't set Content-Type for file uploads (let axios set it with boundary)
     const headers = {
       'Accept': 'application/json',
@@ -407,6 +428,11 @@ app.use('/api/*', upload.any(), async (req, res) => {
     
     // For file uploads, create FormData from multer-processed files
     if (isFileUpload && req.files && req.files.length > 0) {
+      console.log(`[Proxy] Processing file upload with ${req.files.length} file(s)`);
+      req.files.forEach((file, index) => {
+        console.log(`[Proxy] File ${index + 1}: fieldname=${file.fieldname}, originalname=${file.originalname}, mimetype=${file.mimetype}, size=${file.size}`);
+      });
+      
       const formData = new FormData();
       
       // Add files from multer
@@ -427,6 +453,9 @@ app.use('/api/*', upload.any(), async (req, res) => {
       requestData = formData;
       // Use formData's headers (includes boundary)
       Object.assign(headers, formData.getHeaders());
+      console.log(`[Proxy] FormData headers:`, formData.getHeaders());
+    } else if (isFileUpload) {
+      console.error(`[Proxy] File upload detected but no files found in req.files`);
     }
     
     const response = await apiClient({
