@@ -30,10 +30,12 @@ const BookPage = () => {
   const queryClient = useQueryClient();
 
   // Get filters from URL
+  const { companyConfig } = useCompany();
   const categoryId = searchParams.get('category');
   const make = searchParams.get('make');
   const model = searchParams.get('model');
-  const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
+  // Priority: domain context > URL param > localStorage
+  const companyId = companyConfig?.id || searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedServices, setSelectedServices] = useState([]); // Track selected services

@@ -104,16 +104,20 @@ const AdminDashboard = () => {
   const [dailyRateInputs, setDailyRateInputs] = useState({});
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
 
-  // Get company ID from user or localStorage
+  // Get company ID - prioritize domain context, then user, then localStorage
   const getCompanyId = useCallback(() => {
-    // First try user's companyId
+    // Priority 1: Use company from domain context (when accessed via subdomain)
+    if (companyConfig?.id) {
+      return companyConfig.id;
+    }
+    // Priority 2: Use user's companyId
     if (user?.companyId) {
       return user.companyId;
     }
-    // Fallback to selected company from localStorage
+    // Priority 3: Fallback to selected company from localStorage
     const selectedCompanyId = localStorage.getItem('selectedCompanyId');
     return selectedCompanyId || null;
-  }, [user]);
+  }, [user, companyConfig]);
 
   // Initialize and watch for company changes
   useEffect(() => {

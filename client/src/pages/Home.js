@@ -35,16 +35,19 @@ const Home = () => {
   const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
   const companiesData = companiesResponse?.data || companiesResponse;
   
-  // Get selected company ID
+  // Get selected company ID - prioritize domain context
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
   
+  // Determine effective company ID (domain context > URL > localStorage)
+  const effectiveCompanyId = companyConfig?.id || selectedCompanyId;
+  
   // Fetch company locations
   const { data: companyLocationsResponse } = useQuery(
-    ['companyLocations', selectedCompanyId],
-    () => apiService.getCompanyLocations({ companyId: selectedCompanyId, isActive: true }),
+    ['companyLocations', effectiveCompanyId],
+    () => apiService.getCompanyLocations({ companyId: effectiveCompanyId, isActive: true }),
     {
-      enabled: !!selectedCompanyId,
+      enabled: !!effectiveCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -57,8 +60,8 @@ const Home = () => {
   // Fetch models grouped by category
   // Pass null/undefined when companyId is empty string to show all models
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', selectedCompanyId],
-    () => apiService.getModelsGroupedByCategory(selectedCompanyId || null),
+    ['modelsGroupedByCategory', effectiveCompanyId],
+    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null),
     {
       retry: 1,
       refetchOnWindowFocus: false,
@@ -129,11 +132,17 @@ const Home = () => {
   
   // Get company from localStorage and URL
   useEffect(() => {
-    // Get companyId from URL params first
+    // Priority 1: Use company from domain context (when accessed via subdomain)
+    if (companyConfig?.id) {
+      setSelectedCompanyId(companyConfig.id);
+      return; // Don't override with URL or localStorage when domain context is available
+    }
+    
+    // Priority 2: Get companyId from URL params
     const urlParams = new URLSearchParams(window.location.search);
     const urlCompanyId = urlParams.get('companyId') || '';
     
-    // Get companyId from localStorage as fallback
+    // Priority 3: Get companyId from localStorage as fallback
     const storedCompanyId = localStorage.getItem('selectedCompanyId') || '';
     
     // Use URL param if available, otherwise use stored value
@@ -169,7 +178,9 @@ const Home = () => {
   // Listen for company changes (only if not accessed via subdomain)
   useEffect(() => {
     // Don't allow company changes if accessed via subdomain
-    if (companyConfig && companyConfig.companyName) {
+    if (companyConfig?.id) {
+      // If company from domain context changes, update selectedCompanyId
+      setSelectedCompanyId(companyConfig.id);
       return;
     }
     
@@ -362,7 +373,7 @@ const Home = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
                 {t('home.availableModelsTitle')}
               </h2>
-              {selectedCompanyId && fleetCount > 0 && (
+              {effectiveCompanyId && fleetCount > 0 && (
                 <span className="text-lg font-normal text-gray-600 bg-gray-100 px-4 py-1 rounded-full">
                   {fleetCount} / {availableCount}
                 </span>
@@ -511,7 +522,7 @@ const Home = () => {
                                         ${parseFloat(group.dailyRate).toFixed(2)}/day
                                       </div>
                                     )}
-                                    {selectedCompanyId && group.vehicleCount > 0 && (
+                                    {effectiveCompanyId && group.vehicleCount > 0 && (
                                       <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                                         {group.availableCount}/{group.vehicleCount} {t('status.available')}
                                       </div>
@@ -574,7 +585,7 @@ const Home = () => {
                                         </div>
                                       )}
                                       <Link
-                                        to={`/book?category=${categoryId}&make=${encodeURIComponent(group.make)}&model=${encodeURIComponent(group.modelName)}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
+                                        to={`/book?category=${categoryId}&make=${encodeURIComponent(group.make)}&model=${encodeURIComponent(group.modelName)}${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ''}`}
                                         className="btn-primary text-sm"
                                       >
                                         {t('vehicles.book') || 'Book'}
@@ -608,7 +619,7 @@ const Home = () => {
                         return uniqueModelsCount > 6 && (
                           <div className="text-center pt-4">
                             <Link
-                              to={`/?category=${categoryId}${selectedCompanyId ? `&companyId=${selectedCompanyId}` : ''}`}
+                              to={`/?category=${categoryId}${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ''}`}
                               className="text-yellow-500 hover:text-yellow-600 font-semibold inline-flex items-center text-lg"
                             >
                               {t('home.viewAllModels', { 

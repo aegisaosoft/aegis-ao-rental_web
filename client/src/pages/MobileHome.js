@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCompany } from '../context/CompanyContext';
 
 const MobileHome = () => {
+  const { companyConfig } = useCompany();
   const navigate = useNavigate();
   const [pickupDate, setPickupDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
@@ -13,7 +15,8 @@ const MobileHome = () => {
     const params = new URLSearchParams();
     params.set('pickupDate', pickupDate);
     params.set('returnDate', returnDate);
-    const companyId = localStorage.getItem('selectedCompanyId');
+    // Priority: domain context > localStorage
+    const companyId = companyConfig?.id || localStorage.getItem('selectedCompanyId');
     if (companyId) params.set('companyId', companyId);
     navigate(`/m/vehicles?${params.toString()}`);
   };

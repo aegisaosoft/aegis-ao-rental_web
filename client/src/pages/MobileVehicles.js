@@ -2,13 +2,16 @@ import React from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { useCompany } from '../context/CompanyContext';
 
 const MobileVehicles = () => {
+  const { companyConfig } = useCompany();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const pickupDate = searchParams.get('pickupDate') || '';
   const returnDate = searchParams.get('returnDate') || '';
-  const companyId = searchParams.get('companyId') || localStorage.getItem('selectedCompanyId') || '';
+  // Priority: domain context > URL param > localStorage
+  const companyId = companyConfig?.id || searchParams.get('companyId') || localStorage.getItem('selectedCompanyId') || '';
 
   const { data, isLoading } = useQuery(
     ['m-vehicles', companyId, pickupDate, returnDate],

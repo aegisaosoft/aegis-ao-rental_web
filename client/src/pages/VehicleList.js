@@ -19,15 +19,19 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, Filter, Car, MapPin, Users, Fuel, Settings, Calendar } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { useCompany } from '../context/CompanyContext';
 
 const VehicleList = () => {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Get companyId from URL params
+  const { companyConfig } = useCompany();
+  // Get companyId - prioritize domain context, then URL params
   const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const urlCompanyId = urlParams.get('companyId') || '';
+  // Priority: domain context > URL param > empty
+  const effectiveCompanyId = companyConfig?.id || urlCompanyId;
 
   const [filters, setFilters] = useState({
     category: '',
@@ -37,7 +41,7 @@ const VehicleList = () => {
     model: '',
     pickupDate: '',
     returnDate: '',
-    companyId: urlCompanyId
+    companyId: effectiveCompanyId
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,13 +196,14 @@ const VehicleList = () => {
     setCurrentPage(1);
   }, [filters, searchTerm]);
 
-  // Sync companyId filter with URL params
+  // Sync companyId filter with domain context or URL params
   useEffect(() => {
-    const companyId = urlParams.get('companyId') || '';
+    // Priority: domain context > URL param
+    const companyId = companyConfig?.id || urlParams.get('companyId') || '';
     if (filters.companyId !== companyId) {
       setFilters(prev => ({ ...prev, companyId }));
     }
-  }, [location.search, filters.companyId, urlParams]);
+  }, [location.search, filters.companyId, urlParams, companyConfig]);
 
   if (isLoading) {
     return (
