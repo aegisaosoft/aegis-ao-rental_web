@@ -64,12 +64,14 @@ const MobileScan = () => {
           return;
         }
 
-        // Try multiple CDN sources for BlinkID SDK
+        // Try multiple CDN sources for BlinkID SDK (standard dist version)
         const cdnSources = [
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js',
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/ui/dist/blinkid-in-browser.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/ui/dist/blinkid-in-browser.min.js'
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/dist/blinkid-sdk.min.js',
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/dist/blinkid-sdk.min.js',
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
+          // UI version as fallback
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js'
         ];
 
         let loaded = false;
