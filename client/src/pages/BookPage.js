@@ -40,7 +40,6 @@ const BookPage = () => {
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedServices, setSelectedServices] = useState([]); // Track selected services
-  const [isScanning, setIsScanning] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
@@ -332,63 +331,11 @@ const BookPage = () => {
     });
   };
 
-  // Microblink BlinkID: dynamic loader and prep
-  const loadBlinkID = () => new Promise((resolve, reject) => {
-    if (window.BlinkIDSDK) return resolve(window.BlinkIDSDK);
-    const tryLoad = (srcs) => {
-      if (!srcs.length) return reject(new Error('Failed to load BlinkID SDK'));
-      const [src, ...rest] = srcs;
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = true;
-      script.onload = () => resolve(window.BlinkIDSDK);
-      script.onerror = () => {
-        script.remove();
-        tryLoad(rest);
-      };
-      document.body.appendChild(script);
-    };
-    tryLoad([
-      'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
-      'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js'
-    ]);
-  });
-
-  const handleScanLicense = async () => {
-    try {
-      setIsScanning(true);
-      const BlinkIDSDK = await loadBlinkID();
-      // Choose platform-specific license key if provided, otherwise use generic web key
-      const ua = navigator.userAgent || navigator.vendor || '';
-      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-      const isAndroid = /android/i.test(ua);
-      const lsWeb = localStorage.getItem('blinkid_license_key') || '';
-      const lsIOS = localStorage.getItem('blinkid_license_key_ios') || '';
-      const lsAndroid = localStorage.getItem('blinkid_license_key_android') || '';
-      const licenseKey = (
-        (isIOS && (lsIOS || process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS)) ||
-        (isAndroid && (lsAndroid || process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID)) ||
-        lsWeb || process.env.REACT_APP_BLINKID_LICENSE_KEY ||
-        ''
-      );
-      if (!licenseKey) {
-        toast.error(t('bookPage.blinkIdLicenseKeyMissing'));
-        setIsScanning(false);
-        return;
-      }
-      // Load engine (required before scanning). Resources hosted on unpkg
-      await BlinkIDSDK.loadWasmModule({
-        licenseKey,
-        engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
-      });
-      // At this point engine is ready; full camera scanning flow can be added next
-      toast.success(t('bookPage.scannerReady'));
-    } catch (e) {
-      console.error(e);
-      toast.error(t('bookPage.failedToInitializeScanner'));
-    } finally {
-      setIsScanning(false);
-    }
+  // Scan license using native camera (redirects to MobileScan page)
+  const handleScanLicense = () => {
+    const returnTo = window.location.pathname + window.location.search;
+    // Navigate to mobile scan page which uses native camera API
+    navigate(`/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   // Create QR for phone scan: directly navigate to mobile scan page (no API session)
@@ -756,11 +703,10 @@ const BookPage = () => {
                           type="button"
                           onClick={handleScanLicense}
                           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md inline-flex items-center"
-                          disabled={isScanning}
                           title={t('bookPage.scanDriverLicense')}
                         >
                           <Camera className="h-4 w-4 mr-1" />
-                          {isScanning ? t('bookPage.scanning') : t('bookPage.scanLicense')}
+                          {t('bookPage.scanLicense')}
                         </button>
                         <button
                           type="button"
