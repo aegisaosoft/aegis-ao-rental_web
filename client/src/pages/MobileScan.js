@@ -170,10 +170,35 @@ const MobileScan = () => {
         return;
       }
 
-      await BlinkIDSDK.loadWasmModule({
-        licenseKey,
-        engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
-      });
+      // Try multiple engine locations
+      const engineLocations = [
+        'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
+        'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/resources',
+        'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5.10.0/resources'
+      ];
+
+      let engineLoaded = false;
+      let lastEngineError = null;
+      
+      for (const engineLocation of engineLocations) {
+        try {
+          addDebugLog(`Trying engine location: ${engineLocation}`);
+          await BlinkIDSDK.loadWasmModule({
+            licenseKey,
+            engineLocation
+          });
+          engineLoaded = true;
+          addDebugLog(`Engine loaded from: ${engineLocation}`);
+          break;
+        } catch (err) {
+          lastEngineError = err;
+          addDebugLog(`Failed to load engine from ${engineLocation}: ${err.message}`);
+        }
+      }
+
+      if (!engineLoaded) {
+        throw lastEngineError || new Error('Failed to load WASM module from all locations');
+      }
 
       addDebugLog('BlinkID engine initialized successfully');
     } catch (err) {
