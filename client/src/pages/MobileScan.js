@@ -477,12 +477,19 @@ const MobileScan = () => {
 
   // Auto-start camera when page loads (mobile-friendly)
   useEffect(() => {
-    // Auto-start camera on mobile devices
+    // Auto-start camera on mobile devices after a short delay to ensure page is ready
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-    if (isMobile && status === 'ready') {
-      startCamera();
+    if (isMobile) {
+      const timer = setTimeout(() => {
+        if (status === 'ready' && !isCameraActive) {
+          addDebugLog('Auto-starting camera on mobile device...');
+          startCamera();
+        }
+      }, 500); // Small delay to ensure page is ready
+      
+      return () => clearTimeout(timer);
     }
-  }, []); // Only run once on mount
+  }, [status, isCameraActive]); // Run when status or camera state changes
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
