@@ -119,17 +119,6 @@ const Home = () => {
     return { fleetCount: totalVehicles, availableCount: totalAvailable };
   }, [modelsGrouped]);
   
-  //
-  
-  // Sync company ID from domain context only
-  useEffect(() => {
-    if (companyConfig?.id) {
-      setSelectedCompanyId(companyConfig.id);
-    } else {
-      setSelectedCompanyId('');
-    }
-  }, [companyConfig?.id]);
-  
   // Update company name - show "Unknown" if no company
   useEffect(() => {
     if (companyConfig?.companyName) {
@@ -138,15 +127,6 @@ const Home = () => {
       setCompanyName('Unknown');
     }
   }, [companyConfig]);
-  
-  // Sync company ID from domain context (no manual changes allowed)
-  useEffect(() => {
-    if (companyConfig?.id) {
-      setSelectedCompanyId(companyConfig.id);
-    } else {
-      setSelectedCompanyId('');
-    }
-  }, [companyConfig?.id]);
 
   const features = [
     {
