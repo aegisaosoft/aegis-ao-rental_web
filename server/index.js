@@ -192,9 +192,9 @@ app.use('/api/mock', mockRoutes);
 // This helps the backend middleware identify the company
 app.use('/api/*', async (req, res, next) => {
   try {
-    // Extract hostname from request
-    const hostname = req.get('host') || req.hostname || '';
-    const hostnameLower = hostname.toLowerCase();
+    // Extract hostname from request - check forwarded headers first (for Azure/proxies)
+    const hostname = req.get('x-forwarded-host') || req.get('host') || req.hostname || '';
+    const hostnameLower = hostname.toLowerCase().split(':')[0]; // Remove port if present
     
     // Skip for localhost
     if (hostnameLower.includes('localhost') || hostnameLower.includes('127.0.0.1')) {
@@ -206,29 +206,51 @@ app.use('/api/*', async (req, res, next) => {
     if (parts.length > 2) {
       const subdomain = parts[0];
       
+      // Skip 'www' subdomain
+      if (subdomain === 'www') {
+        return next();
+      }
+      
       // Try to get domain mapping from API (cached by backend)
       // This is a lightweight call that the backend caches
+      const fullDomain = `${subdomain}.aegis-rental.com`;
+      console.log(`[Company Detection] Hostname: ${hostnameLower}, Subdomain: ${subdomain}, FullDomain: ${fullDomain}`);
+      
       try {
         const domainMappingResponse = await axios.get(`${process.env.API_BASE_URL || 'https://localhost:7163'}/api/companies/domain-mapping`, {
           httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
-          timeout: 2000 // Quick timeout
+          timeout: 5000 // Increased timeout for production
         });
         
         const domainMapping = domainMappingResponse.data?.result || domainMappingResponse.data;
-        const fullDomain = `${subdomain}.aegis-rental.com`;
+        
+        console.log(`[Company Detection] Domain mapping keys:`, Object.keys(domainMapping || {}));
         
         if (domainMapping && domainMapping[fullDomain]) {
           const companyId = domainMapping[fullDomain];
           req.headers['x-company-id'] = companyId;
+          console.log(`[Company Detection] ✓ Set X-Company-Id header: ${companyId} for ${fullDomain}`);
+        } else {
+          console.warn(`[Company Detection] ✗ No mapping found for ${fullDomain}`);
+          console.warn(`[Company Detection] Available domains:`, Object.keys(domainMapping || {}));
+          // Don't set header - let backend try to resolve from hostname
         }
       } catch (err) {
-        // If domain mapping fails, continue without header - backend will try to resolve from hostname
-        console.warn(`Could not fetch domain mapping for ${hostname}:`, err.message);
+        // If domain mapping fails, log but continue - backend will try to resolve from hostname
+        console.error(`[Company Detection] ✗ Could not fetch domain mapping for ${hostnameLower}:`, err.message);
+        console.error(`[Company Detection] Error details:`, {
+          code: err.code,
+          response: err.response?.status,
+          message: err.message
+        });
+        // Backend middleware will try to resolve from hostname as fallback
       }
+    } else {
+      console.log(`[Company Detection] Hostname ${hostnameLower} does not appear to have a subdomain`);
     }
   } catch (err) {
     // Don't block request if company detection fails
-    console.warn('Company detection middleware error:', err.message);
+    console.warn('[Company Detection] Middleware error:', err.message);
   }
   
   next();

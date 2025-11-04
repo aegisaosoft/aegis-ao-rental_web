@@ -41,7 +41,8 @@ export const CompanyProvider = ({ children }) => {
         const response = await apiService.getCurrentCompanyConfig();
         const config = response.data?.result || response.data;
         
-        if (config) {
+        if (config && config.id) {
+          console.log('[CompanyContext] Loaded company config:', config.companyName, config.id);
           setCompanyConfig(config);
           
           // Apply company-specific styling
@@ -56,11 +57,21 @@ export const CompanyProvider = ({ children }) => {
           if (config.faviconUrl) {
             updateFavicon(config.faviconUrl);
           }
+        } else {
+          console.warn('[CompanyContext] No company config returned or invalid response:', config);
+          setError('Company configuration not available');
         }
       } catch (err) {
         // If company config is not found, that's okay - app will continue without company-specific branding
-        console.warn('Could not load company configuration:', err.response?.data?.error || err.message);
-        setError(err.response?.data?.error || 'Company configuration not available');
+        const errorMsg = err.response?.data?.error || err.message;
+        console.warn('[CompanyContext] Could not load company configuration:', errorMsg);
+        console.warn('[CompanyContext] Request URL:', window.location.href);
+        console.warn('[CompanyContext] Error details:', {
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data
+        });
+        setError(errorMsg || 'Company configuration not available');
       } finally {
         setLoading(false);
       }
