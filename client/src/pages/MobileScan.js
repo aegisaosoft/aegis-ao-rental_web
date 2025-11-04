@@ -157,28 +157,35 @@ const MobileScan = () => {
         if (results.state === BlinkIDSDK.RecognizerResultState.Valid) {
           addDebugLog('BlinkID recognition successful');
           
-          // Extract license data
+          // Extract license data from BlinkID results
+          // Note: BlinkID field names may vary by document type and SDK version
           const licenseData = {
-            licenseNumber: results.firstName || results.licenseNumber || '',
+            licenseNumber: results.licenseNumber || results.documentNumber || results.firstName || '',
             firstName: results.firstName || '',
             lastName: results.lastName || '',
             middleName: results.middleName || '',
-            issuingState: results.driverLicenseDetailedInfo?.jurisdiction || results.address || '',
-            issuingCountry: results.driverLicenseDetailedInfo?.jurisdiction || 'US',
-            expirationDate: results.expiresOn ? formatDate(results.expiresOn) : '',
+            issuingState: results.driverLicenseDetailedInfo?.jurisdiction || 
+                         results.address?.split(',')[1]?.trim() || 
+                         results.state || '',
+            issuingCountry: results.driverLicenseDetailedInfo?.jurisdiction || 
+                           results.country || 'US',
+            expirationDate: results.expiresOn ? formatDate(results.expiresOn) : 
+                           (results.dateOfExpiry ? formatDate(results.dateOfExpiry) : ''),
             issueDate: results.dateOfIssue ? formatDate(results.dateOfIssue) : '',
             dateOfBirth: results.dateOfBirth ? formatDate(results.dateOfBirth) : '',
-            address: results.address || '',
+            address: results.address || results.street || '',
             city: results.city || '',
             state: results.state || '',
-            postalCode: results.postalCode || '',
+            postalCode: results.postalCode || results.zipCode || '',
             country: results.country || 'US',
-            sex: results.sex || '',
+            sex: results.sex || results.gender || '',
             height: results.height || '',
             eyeColor: results.eyeColor || '',
             restrictions: results.restrictions || '',
             endorsements: results.endorsements || '',
           };
+          
+          addDebugLog(`Extracted license data: ${licenseData.firstName} ${licenseData.lastName}, License: ${licenseData.licenseNumber}`);
 
           // Clean up
           await runner.delete();
