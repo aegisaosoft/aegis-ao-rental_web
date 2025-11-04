@@ -483,9 +483,6 @@ const MobileScan = () => {
               className="block w-full text-sm mb-3"
             />
             <div className="flex gap-2 mt-3">
-              <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
-                Open Camera
-              </button>
               <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
                 Continue
               </button>
