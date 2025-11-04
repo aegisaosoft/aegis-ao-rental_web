@@ -45,29 +45,70 @@ export const CompanyProvider = ({ children }) => {
         console.log('[CompanyContext] Loading company config from:', `${apiBaseUrl}${endpoint}`);
         console.log('[CompanyContext] Current hostname:', window.location.hostname);
         
+        // In development on localhost, proactively load miamilifecars as default
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (isDevelopment && isLocalhost) {
+          console.log('[CompanyContext] Development mode on localhost: Loading miamilifecars company as default');
+          try {
+            // Try to get all companies and find miamilifecars
+            const companiesResponse = await apiService.getCompanies();
+            const companies = companiesResponse.data?.result || companiesResponse.data || [];
+            const miamiCompany = Array.isArray(companies) 
+              ? companies.find(c => 
+                  (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
+                  (c.companyName && c.companyName.toLowerCase().includes('miami'))
+                )
+              : null;
+            
+            if (miamiCompany) {
+              console.log('[CompanyContext] Found miamilifecars company, using as default:', miamiCompany.companyName);
+              const config = miamiCompany;
+              setCompanyConfig(config);
+              applyCompanyStyles(config);
+              if (config.companyName) {
+                document.title = `${config.companyName} - Premium Car Rental Services`;
+              }
+              if (config.faviconUrl) {
+                updateFavicon(config.faviconUrl);
+              }
+              setCompanyLanguage(config);
+              setLoading(false);
+              return;
+            } else {
+              console.warn('[CompanyContext] Miamilifecars company not found in companies list');
+            }
+          } catch (fallbackErr) {
+            console.error('[CompanyContext] Failed to load miamilifecars fallback:', fallbackErr);
+            // Continue to try normal flow
+          }
+        }
+        
         // Call the API endpoint which will automatically detect company from domain
         let response;
         try {
           response = await apiService.getCurrentCompanyConfig();
         } catch (err) {
-          // In development, if config fails and we're on localhost, try to get miamilifecars directly
-          if (process.env.NODE_ENV === 'development' && 
-              (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            console.log('[CompanyContext] Development mode: Trying to load miamilifecars company as fallback');
+          // If config fails and we're in development, the fallback above should have handled it
+          // But if it didn't, try one more time
+          if (isDevelopment && isLocalhost) {
+            console.log('[CompanyContext] Config endpoint failed, trying miamilifecars fallback again');
             try {
-              // Try to get all companies and find miamilifecars
               const companiesResponse = await apiService.getCompanies();
               const companies = companiesResponse.data?.result || companiesResponse.data || [];
               const miamiCompany = Array.isArray(companies) 
-                ? companies.find(c => c.subdomain === 'miamilifecars' || 
-                                     (c.companyName && c.companyName.toLowerCase().includes('miami')))
+                ? companies.find(c => 
+                    (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
+                    (c.companyName && c.companyName.toLowerCase().includes('miami'))
+                  )
                 : null;
               
               if (miamiCompany) {
-                console.log('[CompanyContext] Found miamilifecars company, using as default');
+                console.log('[CompanyContext] Found miamilifecars company on error fallback');
                 response = { data: miamiCompany };
               } else {
-                throw new Error('Miamilifecars company not found');
+                throw err; // Re-throw original error
               }
             } catch (fallbackErr) {
               console.error('[CompanyContext] Fallback also failed:', fallbackErr);
@@ -78,7 +119,29 @@ export const CompanyProvider = ({ children }) => {
           }
         }
         
-        const config = response.data?.result || response.data;
+        let config = response.data?.result || response.data;
+        
+        // If config is empty or has no ID, and we're in development, try miamilifecars
+        if ((!config || !config.id) && isDevelopment && isLocalhost) {
+          console.log('[CompanyContext] Config empty, trying miamilifecars fallback');
+          try {
+            const companiesResponse = await apiService.getCompanies();
+            const companies = companiesResponse.data?.result || companiesResponse.data || [];
+            const miamiCompany = Array.isArray(companies) 
+              ? companies.find(c => 
+                  (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
+                  (c.companyName && c.companyName.toLowerCase().includes('miami'))
+                )
+              : null;
+            
+            if (miamiCompany) {
+              console.log('[CompanyContext] Using miamilifecars as fallback for empty config');
+              config = miamiCompany;
+            }
+          } catch (fallbackErr) {
+            console.error('[CompanyContext] Fallback failed:', fallbackErr);
+          }
+        }
         
         if (config && config.id) {
           console.log('[CompanyContext] Loaded company config:', config.companyName, config.id);
