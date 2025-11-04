@@ -1704,25 +1704,6 @@ const AdminDashboard = () => {
             : `${t('admin.welcome')}, ${user?.firstName}!`
         }
         icon={<LayoutDashboard className="h-8 w-8" />}
-        actions={
-          isMainAdmin && !isEditing && (
-            <button
-              onClick={() => {
-                // Reset form and set to create mode
-                setCompanyFormData({});
-                setIsEditingCompany(true);
-                setIsCreatingCompany(false);
-                setCurrentCompanyId(null);
-                setActiveSection('company');
-                setActiveTab('info');
-              }}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              {t('admin.addCompany') || 'Add Company'}
-            </button>
-          )
-        }
       />
 
       {/* Editing Overlay Notice */}
@@ -1855,16 +1836,6 @@ const AdminDashboard = () => {
                   </span>
                 </div>
               }
-              headerActions={
-                !isEditingCompany && currentCompanyId && (
-                  <button
-                    onClick={() => setIsEditingCompany(true)}
-                    className="btn-primary text-sm"
-                  >
-                    {t('common.edit')}
-                  </button>
-                )
-              }
             >
           <div>
           {isLoadingCompany && currentCompanyId ? (
@@ -1972,19 +1943,6 @@ const AdminDashboard = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       Protocol (https://) will be added automatically if not provided
                     </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.taxId')}
-                    </label>
-                    <input
-                      type="text"
-                      name="taxId"
-                      value={companyFormData.taxId || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    />
                   </div>
 
                   <div>
@@ -2790,22 +2748,6 @@ const AdminDashboard = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">{t('admin.email')}</p>
                   <p className="text-base text-gray-900">{actualCompanyData?.email || '-'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.website')}</p>
-                  <p className="text-base text-gray-900">
-                    {actualCompanyData?.website ? (
-                      <a href={actualCompanyData.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {actualCompanyData.website}
-                      </a>
-                    ) : '-'}
-                  </p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.taxId')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.taxId || '-'}</p>
                 </div>
 
                 <div className="md:col-span-2 pt-4 border-t border-gray-200">

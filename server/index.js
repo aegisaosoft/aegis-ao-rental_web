@@ -188,6 +188,52 @@ app.use('/api/license', licenseRoutes);
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);
 
+// Middleware to detect company from domain and add X-Company-Id header
+// This helps the backend middleware identify the company
+app.use('/api/*', async (req, res, next) => {
+  try {
+    // Extract hostname from request
+    const hostname = req.get('host') || req.hostname || '';
+    const hostnameLower = hostname.toLowerCase();
+    
+    // Skip for localhost
+    if (hostnameLower.includes('localhost') || hostnameLower.includes('127.0.0.1')) {
+      return next();
+    }
+    
+    // Extract subdomain from hostname (e.g., company1.aegis-rental.com -> company1)
+    const parts = hostnameLower.split('.');
+    if (parts.length > 2) {
+      const subdomain = parts[0];
+      
+      // Try to get domain mapping from API (cached by backend)
+      // This is a lightweight call that the backend caches
+      try {
+        const domainMappingResponse = await axios.get(`${process.env.API_BASE_URL || 'https://localhost:7163'}/api/companies/domain-mapping`, {
+          httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
+          timeout: 2000 // Quick timeout
+        });
+        
+        const domainMapping = domainMappingResponse.data?.result || domainMappingResponse.data;
+        const fullDomain = `${subdomain}.aegis-rental.com`;
+        
+        if (domainMapping && domainMapping[fullDomain]) {
+          const companyId = domainMapping[fullDomain];
+          req.headers['x-company-id'] = companyId;
+        }
+      } catch (err) {
+        // If domain mapping fails, continue without header - backend will try to resolve from hostname
+        console.warn(`Could not fetch domain mapping for ${hostname}:`, err.message);
+      }
+    }
+  } catch (err) {
+    // Don't block request if company detection fails
+    console.warn('Company detection middleware error:', err.message);
+  }
+  
+  next();
+});
+
 // Catch-all proxy for unmapped API routes (forward to C# API)
 app.use('/api/*', async (req, res) => {
   const axios = require('axios');
@@ -226,11 +272,19 @@ app.use('/api/*', async (req, res) => {
     // For PUT requests to RentalCompanies, use a more robust approach to handle 204
     if (req.method === 'PUT' && proxyPath.includes('/api/RentalCompanies/')) {
       try {
+        const putHeaders = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(req.headers.authorization && { Authorization: req.headers.authorization }),
+          ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+        };
+        
         const response = await apiClient({
           method: req.method,
           url: proxyPath,
           params: req.query,
           data: req.body,
+          headers: putHeaders,
           validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
           maxContentLength: Infinity,
           maxBodyLength: Infinity
@@ -283,11 +337,20 @@ app.use('/api/*', async (req, res) => {
     }
     
     // For other requests, use standard handling
+    // Forward X-Company-Id header if present
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(req.headers.authorization && { Authorization: req.headers.authorization }),
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+    };
+    
     const response = await apiClient({
       method: req.method,
       url: proxyPath,
       params: req.query,
       data: req.body,
+      headers: headers,
       validateStatus: () => true // Don't throw on any status code
     });
     

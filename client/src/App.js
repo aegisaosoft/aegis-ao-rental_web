@@ -46,6 +46,7 @@ import DriverLicenseScanner from './pages/DriverLicenseScanner';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
+import { CompanyProvider } from './context/CompanyContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -58,32 +59,8 @@ const queryClient = new QueryClient({
 });
 
 // Component to update page title based on company
+// Note: CompanyContext already updates document.title when accessed via subdomain
 const TitleUpdater = () => {
-  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  const companiesData = companiesResponse?.data || companiesResponse;
-
-  useEffect(() => {
-    // Session functionality not implemented yet, skip for now
-    let companyName = 'Rentals';
-    
-    document.title = `${companyName} - Premium Car Rental Services`;
-    
-    // TODO: Implement session company functionality
-    // apiService.getSessionCompany().then(response => {
-    //   const companyId = response.data.companyId;
-    //   let companyName = 'All Rentals';
-    //   
-    //   if (companyId && companies.length > 0) {
-    //     const selectedCompany = companies.find(c => (c.company_id || c.companyId) === companyId);
-    //     if (selectedCompany) {
-    //       companyName = selectedCompany.company_name || selectedCompany.companyName;
-    //     }
-    //   }
-    //   
-    //   document.title = `${companyName} - Premium Car Rental Services`;
-    // });
-  }, [companiesData]);
-
   return null;
 };
 
@@ -91,17 +68,18 @@ function App() {
   // App component - Aegis AO Car Rental System - Production Deploy
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
-          <div className="min-h-screen bg-gray-50">
-            <TitleUpdater />
-            <Navbar />
-            <main className="min-h-screen">
+      <CompanyProvider>
+        <AuthProvider>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+            <div className="min-h-screen bg-gray-50">
+              <TitleUpdater />
+              <Navbar />
+              <main className="min-h-screen">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/vehicles/:id" element={<VehicleDetail />} />
@@ -153,6 +131,7 @@ function App() {
           </div>
         </Router>
       </AuthProvider>
+      </CompanyProvider>
     </QueryClientProvider>
   );
 }

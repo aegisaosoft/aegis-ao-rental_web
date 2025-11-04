@@ -19,17 +19,39 @@ import { Car, Phone, Mail, MapPin } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { useCompany } from '../context/CompanyContext';
 
 const Footer = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { companyConfig } = useCompany();
   const [companyName, setCompanyName] = useState('All Rentals');
+  
+  // Get language-specific privacy/terms links
+  const getPrivacyLink = () => {
+    const lang = i18n.language || 'en';
+    if (lang === 'en') return '/privacy.html';
+    return `/privacy-${lang}.html`;
+  };
+  
+  const getTermsLink = () => {
+    const lang = i18n.language || 'en';
+    if (lang === 'en') return '/terms.html';
+    return `/terms-${lang}.html`;
+  };
   
   // Fetch companies
   const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
   const companiesData = companiesResponse?.data || companiesResponse;
   
-  // Get company from localStorage
+  // Get company name - prioritize domain-based company config
   useEffect(() => {
+    // If accessed via subdomain, use company config from domain
+    if (companyConfig && companyConfig.companyName) {
+      setCompanyName(companyConfig.companyName);
+      return;
+    }
+    
+    // Otherwise, get from localStorage selection
     const selectedCompanyId = localStorage.getItem('selectedCompanyId');
     const companies = Array.isArray(companiesData) ? companiesData : [];
     
@@ -39,11 +61,13 @@ const Footer = () => {
       );
       if (selectedCompany) {
         setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'All Rentals');
+      } else {
+        setCompanyName('All Rentals');
       }
     } else {
       setCompanyName('All Rentals');
     }
-  }, [companiesData]);
+  }, [companyConfig, companiesData]);
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -84,11 +108,6 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/" className="text-gray-300 hover:text-white transition-colors">
-                  {t('nav.home')}
-                </Link>
-              </li>
-              <li>
                 <Link to="/about" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.about')}
                 </Link>
@@ -124,15 +143,15 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 {companyName}. {t('footer.allRightsReserved')}
+              © 2025 Aegis AP Soft. {t('footer.allRightsReserved')}
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
+              <a href={getPrivacyLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.privacy')}
-              </Link>
-              <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
+              </a>
+              <a href={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.terms')}
-              </Link>
+              </a>
             </div>
           </div>
         </div>

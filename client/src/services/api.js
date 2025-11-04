@@ -165,6 +165,8 @@ export const apiService = {
   createCompany: (data) => api.post('/RentalCompanies', data),
   updateCompany: (id, data) => api.put(`/RentalCompanies/${id}`, data),
   deleteCompany: (id) => api.delete(`/RentalCompanies/${id}`),
+  // Get current company config based on domain (public endpoint)
+  getCurrentCompanyConfig: () => api.get('/companies/config'),
 
   // Locations
   getLocations: (params = {}) => api.get('/Locations', { params }),

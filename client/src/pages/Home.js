@@ -19,10 +19,12 @@ import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings }
 import { useQuery, useQueryClient } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { useCompany } from '../context/CompanyContext';
 
 const Home = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { companyConfig } = useCompany();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
@@ -139,8 +141,15 @@ const Home = () => {
     setSelectedCompanyId(companyId);
   }, []); // Only run once on mount
   
-  // Update company name when selectedCompanyId or companiesData changes
+  // Update company name - prioritize domain-based company config
   useEffect(() => {
+    // If accessed via subdomain, use company config from domain
+    if (companyConfig && companyConfig.companyName) {
+      setCompanyName(companyConfig.companyName);
+      return;
+    }
+    
+    // Otherwise, get from selected company
     const companies = Array.isArray(companiesData) ? companiesData : [];
     
     if (selectedCompanyId && companies.length > 0) {
@@ -155,10 +164,15 @@ const Home = () => {
     } else {
       setCompanyName('Rentals');
     }
-  }, [selectedCompanyId, companiesData]);
+  }, [companyConfig, selectedCompanyId, companiesData]);
   
-  // Listen for company changes
+  // Listen for company changes (only if not accessed via subdomain)
   useEffect(() => {
+    // Don't allow company changes if accessed via subdomain
+    if (companyConfig && companyConfig.companyName) {
+      return;
+    }
+    
     const handleCompanyChange = (event) => {
       const companyId = event.detail?.companyId || '';
       setSelectedCompanyId(companyId);

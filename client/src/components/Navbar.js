@@ -25,6 +25,37 @@ import { translatedApiService as apiService } from '../services/translatedApi';
 import { getLanguageForCountry } from '../utils/countryLanguage';
 
 const Navbar = () => {
+  // Get company context for domain-based company detection
+  const { companyConfig, loading: companyLoading } = useCompany();
+  
+  // Check if accessed via subdomain (excluding www)
+  const getSubdomainFromHost = () => {
+    const hostname = window.location.hostname.toLowerCase();
+    // Skip localhost and IP addresses
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+      return null;
+    }
+    
+    const parts = hostname.split('.');
+    // If we have a subdomain (e.g., company1.aegis-rental.com)
+    if (parts.length > 2) {
+      const subdomain = parts[0];
+      // Exclude www
+      if (subdomain !== 'www') {
+        return subdomain;
+      }
+    }
+    return null;
+  };
+  
+  const subdomain = getSubdomainFromHost();
+  const isSubdomainAccess = subdomain !== null && companyConfig !== null;
+  
+  // Get company name from company config if available
+  const displayCompanyName = isSubdomainAccess 
+    ? (companyConfig.companyName || 'Rentals')
+    : null;
+  
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -173,19 +204,27 @@ const Navbar = () => {
               <Car className="h-8 w-8 text-blue-600" />
             </Link>
             
-            {/* Company Filter - replacing "Aegis-AO" */}
-            <select
-              value={selectedCompanyId}
-              onChange={handleCompanyChange}
-              className="text-xl font-bold text-gray-900 border-0 bg-transparent focus:ring-0 focus:outline-none cursor-pointer"
-            >
-              <option value="">All</option>
-              {companies?.map(company => (
-                <option key={company.company_id || company.companyId} value={company.company_id || company.companyId}>
-                  {company.company_name || company.companyName}
-                </option>
-              ))}
-            </select>
+            {/* Company Display - Static text if accessed via subdomain, dropdown otherwise */}
+            {isSubdomainAccess ? (
+              // Static text when accessed via subdomain
+              <span className="text-xl font-bold text-gray-900">
+                {displayCompanyName || 'Rentals'}
+              </span>
+            ) : (
+              // Dropdown when accessed via main domain or localhost
+              <select
+                value={selectedCompanyId}
+                onChange={handleCompanyChange}
+                className="text-xl font-bold text-gray-900 border-0 bg-transparent focus:ring-0 focus:outline-none cursor-pointer"
+              >
+                <option value="">All</option>
+                {companies?.map(company => (
+                  <option key={company.company_id || company.companyId} value={company.company_id || company.companyId}>
+                    {company.company_name || company.companyName}
+                  </option>
+                ))}
+              </select>
+            )}
             
           </div>
 
