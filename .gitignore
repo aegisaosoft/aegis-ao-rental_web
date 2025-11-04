@@ -157,3 +157,8 @@ bower_components/
 # -------------------------
 # .vscode/launch.json
 # .vscode/tasks.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local

@@ -71,7 +71,7 @@ Example:
 The workflow file (`.github/workflows/deploy-git.yml`) is already created and configured with:
 
 - ✅ Trigger on push to `main` or `master` branch
-- ✅ Set up Node.js 20
+- ✅ Set up Node.js 22
 - ✅ Install root dependencies
 - ✅ Build React client
 - ✅ Install server dependencies
@@ -123,7 +123,7 @@ az webapp config appsettings set \
   --settings \
     NODE_ENV=production \
     PORT=8080 \
-    WEBSITE_NODE_DEFAULT_VERSION=20-lts \
+         WEBSITE_NODE_DEFAULT_VERSION=22-lts \
     SCM_DO_BUILD_DURING_DEPLOYMENT=false
 
 # Set connection string for database (if needed)
@@ -140,7 +140,7 @@ az webapp config connection-string set \
 3. Add the following settings:
    - `NODE_ENV` = `production`
    - `PORT` = `8080`
-   - `WEBSITE_NODE_DEFAULT_VERSION` = `20-lts`
+   - `WEBSITE_NODE_DEFAULT_VERSION` = `22-lts`
    - `SCM_DO_BUILD_DURING_DEPLOYMENT` = `false`
    - Add your database connection strings if needed
 4. Click **"Save"**

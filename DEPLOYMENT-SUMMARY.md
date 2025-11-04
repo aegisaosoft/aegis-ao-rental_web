@@ -33,7 +33,7 @@ Added required dependencies:
 #### 3. GitHub Actions Workflow
 The workflow (`.github/workflows/deploy-git.yml`) will:
 - Trigger on push to `main` branch
-- Set up Node.js 20
+- Set up Node.js 22
 - Install dependencies for root, client, and server
 - Build the React client
 - Create deployment package with proper structure
@@ -107,7 +107,7 @@ az webapp config appsettings set \
 | **Server Entry** | `server/index.js` | ✅ Fixed |
 | **Deployment Target** | `huur-us-node` | `aegis-ao-rental-web` |
 | **Resource Group** | `huur_web` | `aegis-ao-rental` |
-| **Node Version** | 20-lts | 20-lts |
+| **Node Version** | 22-lts | 22-lts |
 
 ## 🔍 Key Configuration Points
 

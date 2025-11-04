@@ -20,6 +20,8 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const axios = require('axios');
+const multer = require('multer');
+const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -131,7 +133,10 @@ app.use(session({
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Multer for file uploads (memory storage for proxying)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Health check endpoint - must be robust for Azure health checks
 app.get('/api/health', (req, res) => {
@@ -277,7 +282,8 @@ app.use('/api/*', async (req, res, next) => {
 });
 
 // Catch-all proxy for unmapped API routes (forward to C# API)
-app.use('/api/*', async (req, res) => {
+// Handle file uploads with multer middleware
+app.use('/api/*', upload.any(), async (req, res) => {
   const axios = require('axios');
   const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
   
@@ -380,20 +386,57 @@ app.use('/api/*', async (req, res) => {
     }
     
     // For other requests, use standard handling
-    // Forward X-Company-Id header if present
+    // Check if this is a file upload (multipart/form-data)
+    const isFileUpload = req.headers['content-type']?.includes('multipart/form-data') || req.files?.length > 0;
+    
+    // Build headers - don't set Content-Type for file uploads (let axios set it with boundary)
     const headers = {
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
+      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] })
     };
+    
+    // Only set Content-Type for non-file uploads
+    if (!isFileUpload) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    // Prepare request data
+    let requestData = req.body;
+    
+    // For file uploads, create FormData from multer-processed files
+    if (isFileUpload && req.files && req.files.length > 0) {
+      const formData = new FormData();
+      
+      // Add files from multer
+      req.files.forEach(file => {
+        formData.append(file.fieldname || 'file', file.buffer, {
+          filename: file.originalname,
+          contentType: file.mimetype
+        });
+      });
+      
+      // Add other form fields
+      if (req.body && typeof req.body === 'object') {
+        Object.keys(req.body).forEach(key => {
+          formData.append(key, req.body[key]);
+        });
+      }
+      
+      requestData = formData;
+      // Use formData's headers (includes boundary)
+      Object.assign(headers, formData.getHeaders());
+    }
     
     const response = await apiClient({
       method: req.method,
       url: proxyPath,
       params: req.query,
-      data: req.body,
+      data: requestData,
       headers: headers,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       validateStatus: () => true // Don't throw on any status code
     });
     

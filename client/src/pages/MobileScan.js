@@ -32,7 +32,7 @@ const MobileScan = () => {
       return;
     }
 
-    // Create preview
+    // Create preview directly from File object (in memory)
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result);
@@ -43,6 +43,7 @@ const MobileScan = () => {
   };
 
   const handleUpload = async () => {
+    // Read file directly from input (already in browser memory)
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
       toast.error('Please select an image first');
@@ -53,6 +54,7 @@ const MobileScan = () => {
     setError('');
 
     try {
+      // Send file directly from memory (File object)
       await apiService.uploadDriverLicense(file, (progress) => {
         setUploadProgress(progress);
       });
@@ -87,6 +89,16 @@ const MobileScan = () => {
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Upload Driver License</h1>
 
+        {/* File input - always in DOM so file remains accessible */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
         {status === 'ready' && (
           <div className="space-y-4">
             <button
@@ -95,14 +107,6 @@ const MobileScan = () => {
             >
               Open Camera
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-            />
           </div>
         )}
 
