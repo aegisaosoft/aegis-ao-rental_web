@@ -16,8 +16,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Phone, Mail, MapPin } from 'lucide-react';
-import { useQuery } from 'react-query';
-import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 
@@ -39,35 +37,14 @@ const Footer = () => {
     return `/terms-${lang}.html`;
   };
   
-  // Fetch companies
-  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  const companiesData = companiesResponse?.data || companiesResponse;
-  
-  // Get company name - prioritize domain-based company config
+  // Get company name - show "Unknown" if no company
   useEffect(() => {
-    // If accessed via subdomain, use company config from domain
-    if (companyConfig && companyConfig.companyName) {
+    if (companyConfig?.companyName) {
       setCompanyName(companyConfig.companyName);
-      return;
-    }
-    
-    // Otherwise, get from localStorage selection
-    const selectedCompanyId = localStorage.getItem('selectedCompanyId');
-    const companies = Array.isArray(companiesData) ? companiesData : [];
-    
-    if (selectedCompanyId && companies.length > 0) {
-      const selectedCompany = companies.find(c => 
-        String(c.company_id || c.companyId) === String(selectedCompanyId)
-      );
-      if (selectedCompany) {
-        setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'All Rentals');
-      } else {
-        setCompanyName('All Rentals');
-      }
     } else {
-      setCompanyName('All Rentals');
+      setCompanyName('Unknown');
     }
-  }, [companyConfig, companiesData]);
+  }, [companyConfig]);
 
   return (
     <footer className="bg-gray-900 text-white">
