@@ -173,7 +173,7 @@ const Home = () => {
     } else {
       setCompanyName('Rentals');
     }
-  }, [companyConfig, selectedCompanyId, companiesData]);
+  }, [companyConfig, effectiveCompanyId, companiesData]);
   
   // Listen for company changes (only if not accessed via subdomain)
   useEffect(() => {
