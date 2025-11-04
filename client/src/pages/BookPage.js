@@ -649,7 +649,7 @@ const BookPage = () => {
 
               {/* QR Modal */}
               {qrOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
                   <div className="bg-white rounded-lg p-4 w-80 text-center">
                     <div className="text-lg font-semibold mb-2">{t('bookPage.scanOnYourPhone')}</div>
                     <img
