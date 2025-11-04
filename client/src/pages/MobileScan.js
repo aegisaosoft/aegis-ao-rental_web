@@ -484,15 +484,11 @@ const MobileScan = () => {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
         
         if (isMobile) {
-          // On mobile, try to open camera directly
-          addDebugLog('Auto-starting camera on mobile device...');
-          startCamera().catch(() => {
-            // If camera fails, try file input
-            addDebugLog('Camera failed, trying file input...');
-            if (fileInputRef.current) {
-              fileInputRef.current.click();
-            }
-          });
+          // On mobile, use file input with capture attribute - this will open camera
+          addDebugLog('Auto-opening camera via file input on mobile device...');
+          if (fileInputRef.current) {
+            fileInputRef.current.click();
+          }
         } else {
           // On desktop, open file picker immediately
           addDebugLog('Auto-opening file picker on desktop...');
@@ -511,8 +507,8 @@ const MobileScan = () => {
       <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
         <h1 className="text-xl font-semibold mb-2">Scan Driver License</h1>
         {status === 'ready' && (
-          <div className="hidden">
-            {/* Hidden file input that auto-opens */}
+          <div>
+            {/* Hidden file input that auto-opens - use capture="environment" to open camera on mobile */}
             <input
               ref={fileInputRef}
               type="file"
@@ -523,8 +519,9 @@ const MobileScan = () => {
             />
             {/* Minimal UI while waiting for camera/file picker */}
             <div className="text-center">
-              <p className="mb-4">Opening camera...</p>
+              <p className="mb-4">Opening camera or file picker...</p>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-4">If camera doesn't open, please allow camera permissions</p>
             </div>
           </div>
         )}
