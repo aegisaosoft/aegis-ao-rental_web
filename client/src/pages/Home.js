@@ -57,14 +57,14 @@ const Home = () => {
   const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
   const showLocationDropdown = companyLocations.length > 1;
   
-  // Fetch models grouped by category - always show all models (no company filtering)
+  // Fetch models grouped by category - filtered by company from domain
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', null], // Always pass null to show all models
-    () => apiService.getModelsGroupedByCategory(null),
+    ['modelsGroupedByCategory', effectiveCompanyId],
+    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null),
     {
       retry: 1,
       refetchOnWindowFocus: false,
-      enabled: true // Always fetch all models
+      enabled: true // Always fetch, but filter by company if available
     }
   );
 
