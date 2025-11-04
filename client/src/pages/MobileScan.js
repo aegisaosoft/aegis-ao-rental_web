@@ -63,17 +63,17 @@ const MobileScan = () => {
           return;
         }
 
-        // Try multiple CDN sources with different paths
+        // Try multiple CDN sources - use UI version which includes all necessary components
         const cdnSources = [
-          // Primary: Correct path according to documentation
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
-          // Alternative paths
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js',
-          // Specific version (5.10.0)
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5.10.0/dist/blinkid-sdk.min.js',
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5/dist/blinkid-sdk.min.js'
+          // Primary: UI version (includes everything needed)
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0/ui/dist/blinkid-in-browser.min.js',
+          // Fallback: Latest UI version
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/ui/dist/blinkid-in-browser.min.js',
+          // Alternative CDN
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.8.0/ui/dist/blinkid-in-browser.min.js',
+          // Standard dist versions as fallback
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0/dist/blinkid-sdk.min.js',
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js'
         ];
 
         let lastError = null;
@@ -170,56 +170,48 @@ const MobileScan = () => {
         return;
       }
 
-      // Try multiple engine locations
-      const engineLocations = [
-        'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
-        'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/resources',
-        'https://unpkg.com/@microblink/blinkid-in-browser-sdk@5.10.0/resources'
+      // Try multiple SDK versions and locations
+      const sdkVersions = [
+        { version: '6.8.0', base: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.8.0' },
+        { version: 'latest', base: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest' },
+        { version: '6.8.0', base: 'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.8.0' }
       ];
 
       let engineLoaded = false;
       let lastEngineError = null;
       
-      for (const engineLocation of engineLocations) {
+      for (const sdkConfig of sdkVersions) {
         try {
-          addDebugLog(`Trying engine location: ${engineLocation}`);
+          const engineLocation = `${sdkConfig.base}/resources/`;
+          const workerLocation = `${sdkConfig.base}/resources/BlinkIDWasmSDK.worker.min.js`;
           
-          // Worker location is typically the same as engine location
-          const workerLocation = engineLocation;
+          addDebugLog(`Trying SDK version ${sdkConfig.version} with engine: ${engineLocation}`);
           
-          // Try different WASM module names (basic, advanced, advanced-threads)
-          // Start with advanced for best performance, fallback to basic for compatibility
-          const wasmModuleNames = ['advanced', 'basic', 'advanced-threads'];
-          let moduleLoaded = false;
-          
-          for (const wasmModuleName of wasmModuleNames) {
-            try {
-              addDebugLog(`Trying WASM module name: ${wasmModuleName}`);
-              await BlinkIDSDK.loadWasmModule({
-                licenseKey,
-                engineLocation,
-                workerLocation,
-                wasmModuleName
-              });
-              moduleLoaded = true;
-              addDebugLog(`WASM module ${wasmModuleName} loaded successfully`);
-              break;
-            } catch (moduleErr) {
-              addDebugLog(`Failed to load module ${wasmModuleName}: ${moduleErr.message}`);
-              // Try next module name
-            }
-          }
-          
-          if (moduleLoaded) {
+          // Use WasmSDKLoadSettings constructor (new API)
+          if (BlinkIDSDK.WasmSDKLoadSettings) {
+            const loadSettings = new BlinkIDSDK.WasmSDKLoadSettings(licenseKey);
+            loadSettings.engineLocation = engineLocation;
+            loadSettings.workerLocation = workerLocation;
+            
+            const wasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
+            addDebugLog(`WASM SDK loaded successfully with version ${sdkConfig.version}`);
             engineLoaded = true;
-            addDebugLog(`Engine loaded from: ${engineLocation}`);
             break;
           } else {
-            throw new Error('All WASM module names failed');
+            // Fallback to old API
+            addDebugLog('WasmSDKLoadSettings not available, trying old API...');
+            await BlinkIDSDK.loadWasmModule({
+              licenseKey,
+              engineLocation,
+              workerLocation
+            });
+            addDebugLog(`WASM module loaded successfully with version ${sdkConfig.version}`);
+            engineLoaded = true;
+            break;
           }
         } catch (err) {
           lastEngineError = err;
-          addDebugLog(`Failed to load engine from ${engineLocation}: ${err.message}`);
+          addDebugLog(`Failed to load SDK version ${sdkConfig.version}: ${err.message}`);
         }
       }
 
