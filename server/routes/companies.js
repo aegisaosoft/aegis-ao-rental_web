@@ -32,19 +32,33 @@ router.get('/config', async (req, res) => {
       ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
     };
     
-    console.log(`[Companies Route] GET ${proxyPath} with X-Company-Id: ${headers['X-Company-Id'] || 'none'}`);
+    // Forward query parameters (including companyId as fallback)
+    const queryParams = { ...req.query };
+    
+    console.log(`[Companies Route] GET ${proxyPath}`);
+    console.log(`[Companies Route] X-Company-Id header: ${headers['X-Company-Id'] || 'none'}`);
+    console.log(`[Companies Route] Query params:`, queryParams);
     
     const response = await axios.get(`${apiBaseUrl}${proxyPath}`, {
       headers: headers,
+      params: queryParams, // Forward query parameters
       httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
       validateStatus: () => true // Don't throw on any status code
     });
     
     console.log(`[Companies Route] GET /config response status: ${response.status}`);
+    if (response.status !== 200) {
+      console.log(`[Companies Route] Error response:`, response.data);
+    }
     
     res.status(response.status).json(response.data);
   } catch (error) {
     console.error('[Companies Route] Config fetch error:', error.message);
+    console.error('[Companies Route] Error details:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     res.status(error.response?.status || 500).json({
       message: error.response?.data?.message || 'Server error',
       error: error.message
