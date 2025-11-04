@@ -49,13 +49,8 @@ const Navbar = () => {
     return null;
   };
   
-  const subdomain = getSubdomainFromHost();
-  const isSubdomainAccess = subdomain !== null && companyConfig !== null;
-  
-  // Get company name from company config if available
-  const displayCompanyName = isSubdomainAccess 
-    ? (companyConfig.companyName || 'Rentals')
-    : null;
+  // Get company name from company config, or show "Unknown"
+  const displayCompanyName = companyConfig?.companyName || 'Unknown';
   
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -205,27 +200,10 @@ const Navbar = () => {
               <Car className="h-8 w-8 text-blue-600" />
             </Link>
             
-            {/* Company Display - Static text if accessed via subdomain, dropdown otherwise */}
-            {isSubdomainAccess ? (
-              // Static text when accessed via subdomain
-              <span className="text-xl font-bold text-gray-900">
-                {displayCompanyName || 'Rentals'}
-              </span>
-            ) : (
-              // Dropdown when accessed via main domain or localhost
-              <select
-                value={selectedCompanyId}
-                onChange={handleCompanyChange}
-                className="text-xl font-bold text-gray-900 border-0 bg-transparent focus:ring-0 focus:outline-none cursor-pointer"
-              >
-                <option value="">All</option>
-                {companies?.map(company => (
-                  <option key={company.company_id || company.companyId} value={company.company_id || company.companyId}>
-                    {company.company_name || company.companyName}
-                  </option>
-                ))}
-              </select>
-            )}
+            {/* Company Display - Static text only */}
+            <span className="text-xl font-bold text-gray-900">
+              {displayCompanyName || 'Unknown'}
+            </span>
             
           </div>
 

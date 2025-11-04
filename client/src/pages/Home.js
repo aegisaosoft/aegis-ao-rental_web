@@ -39,10 +39,10 @@ const Home = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
   
-  // Determine effective company ID (domain context > URL > localStorage)
-  const effectiveCompanyId = companyConfig?.id || selectedCompanyId;
+  // Determine effective company ID (domain context only - no fallback)
+  const effectiveCompanyId = companyConfig?.id || null;
   
-  // Fetch company locations
+  // Fetch company locations (only if company exists)
   const { data: companyLocationsResponse } = useQuery(
     ['companyLocations', effectiveCompanyId],
     () => apiService.getCompanyLocations({ companyId: effectiveCompanyId, isActive: true }),
@@ -57,15 +57,14 @@ const Home = () => {
   const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
   const showLocationDropdown = companyLocations.length > 1;
   
-  // Fetch models grouped by category
-  // Pass null/undefined when companyId is empty string to show all models
+  // Fetch models grouped by category - always show all models (no company filtering)
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', effectiveCompanyId],
-    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null),
+    ['modelsGroupedByCategory', null], // Always pass null to show all models
+    () => apiService.getModelsGroupedByCategory(null),
     {
       retry: 1,
       refetchOnWindowFocus: false,
-      enabled: true // Always fetch, even if companyId is empty - shows all models when no company selected
+      enabled: true // Always fetch all models
     }
   );
 
@@ -150,67 +149,23 @@ const Home = () => {
     setSelectedCompanyId(companyId);
   }, [companyConfig?.id]); // Include companyConfig.id in dependencies
   
-  // Update company name - prioritize domain-based company config
+  // Update company name - show "Unknown" if no company
   useEffect(() => {
-    // If accessed via subdomain, use company config from domain
-    if (companyConfig && companyConfig.companyName) {
+    if (companyConfig?.companyName) {
       setCompanyName(companyConfig.companyName);
-      return;
-    }
-    
-    // Otherwise, get from selected company
-    const companies = Array.isArray(companiesData) ? companiesData : [];
-    
-    if (effectiveCompanyId && companies.length > 0) {
-      const selectedCompany = companies.find(c => 
-        String(c.company_id || c.companyId) === String(effectiveCompanyId)
-      );
-      if (selectedCompany) {
-        setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'Rentals');
-      } else {
-        setCompanyName('Rentals');
-      }
     } else {
-      setCompanyName('Rentals');
+      setCompanyName('Unknown');
     }
-  }, [companyConfig, effectiveCompanyId, companiesData]);
+  }, [companyConfig]);
   
-  // Listen for company changes (only if not accessed via subdomain)
+  // Sync company ID from domain context (no manual changes allowed)
   useEffect(() => {
-    // Don't allow company changes if accessed via subdomain
     if (companyConfig?.id) {
-      // If company from domain context changes, update selectedCompanyId
       setSelectedCompanyId(companyConfig.id);
-      return;
+    } else {
+      setSelectedCompanyId('');
     }
-    
-    const handleCompanyChange = (event) => {
-      const companyId = event.detail?.companyId || '';
-      setSelectedCompanyId(companyId);
-      
-      // Update company name when company changes
-      const companies = Array.isArray(companiesData) ? companiesData : [];
-      if (companyId && companies.length > 0) {
-        const selectedCompany = companies.find(c => 
-          String(c.company_id || c.companyId) === String(companyId)
-        );
-        if (selectedCompany) {
-          setCompanyName(selectedCompany.company_name || selectedCompany.companyName || 'Rentals');
-        } else {
-          setCompanyName('Rentals');
-        }
-      } else {
-        setCompanyName('Rentals');
-      }
-      
-      // Invalidate queries to trigger refetch
-      queryClient.invalidateQueries(['modelsGroupedByCategory', companyId]);
-      queryClient.invalidateQueries(['companyLocations', companyId]);
-    };
-    
-    window.addEventListener('companyChanged', handleCompanyChange);
-    return () => window.removeEventListener('companyChanged', handleCompanyChange);
-  }, [companyConfig?.id, effectiveCompanyId, companiesData, queryClient]); // Include effectiveCompanyId in dependencies
+  }, [companyConfig?.id]);
 
   const features = [
     {
@@ -585,8 +540,14 @@ const Home = () => {
                                         </div>
                                       )}
                                       <Link
-                                        to={`/book?category=${categoryId}&make=${encodeURIComponent(group.make)}&model=${encodeURIComponent(group.modelName)}${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ''}`}
-                                        className="btn-primary text-sm"
+                                        to={effectiveCompanyId ? `/book?category=${categoryId}&make=${encodeURIComponent(group.make)}&model=${encodeURIComponent(group.modelName)}&companyId=${effectiveCompanyId}` : '#'}
+                                        className={`btn-primary text-sm ${!effectiveCompanyId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+                                        onClick={(e) => {
+                                          if (!effectiveCompanyId) {
+                                            e.preventDefault();
+                                            alert('Booking is not available. Please access via a company subdomain.');
+                                          }
+                                        }}
                                       >
                                         {t('vehicles.book') || 'Book'}
                                       </Link>
@@ -619,7 +580,7 @@ const Home = () => {
                         return uniqueModelsCount > 6 && (
                           <div className="text-center pt-4">
                             <Link
-                              to={`/?category=${categoryId}${effectiveCompanyId ? `&companyId=${effectiveCompanyId}` : ''}`}
+                              to={`/?category=${categoryId}`}
                               className="text-yellow-500 hover:text-yellow-600 font-semibold inline-flex items-center text-lg"
                             >
                               {t('home.viewAllModels', { 

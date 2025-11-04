@@ -35,8 +35,8 @@ const BookPage = () => {
   const categoryId = searchParams.get('category');
   const make = searchParams.get('make');
   const model = searchParams.get('model');
-  // Priority: domain context > URL param > localStorage
-  const companyId = companyConfig?.id || searchParams.get('companyId') || localStorage.getItem('selectedCompanyId');
+  // Priority: domain context only (no fallback)
+  const companyId = companyConfig?.id || null;
 
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [selectedServices, setSelectedServices] = useState([]); // Track selected services
@@ -466,6 +466,13 @@ const BookPage = () => {
   };
 
   const handleRentCar = async () => {
+    // Prohibit booking if no company
+    if (!companyId) {
+      toast.error('Booking is not available. Please access via a company subdomain.');
+      navigate('/');
+      return;
+    }
+    
     if (!isAuthenticated) {
       navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
       return;
