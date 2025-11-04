@@ -30,10 +30,6 @@ const Home = () => {
   const [companyName, setCompanyName] = useState('Rentals');
   const modelsSectionRef = useRef(null);
   
-  // Get selected company ID - prioritize domain context
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
-  const [selectedLocationId, setSelectedLocationId] = useState('');
-  
   // Determine effective company ID (domain context only - no fallback)
   const effectiveCompanyId = companyConfig?.id || null;
   
@@ -51,6 +47,7 @@ const Home = () => {
   const companyLocationsData = companyLocationsResponse?.data || companyLocationsResponse;
   const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
   const showLocationDropdown = companyLocations.length > 1;
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   
   // Fetch models grouped by category - filtered by company from domain
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
