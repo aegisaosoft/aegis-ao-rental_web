@@ -64,28 +64,75 @@ const MobileScan = () => {
           return;
         }
 
-        // Load BlinkID SDK from UI version (as per example)
-        const cdnSource = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js';
+        // Try multiple CDN sources for BlinkID SDK
+        const cdnSources = [
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js',
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js',
+          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/ui/dist/blinkid-in-browser.min.js',
+          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/ui/dist/blinkid-in-browser.min.js'
+        ];
 
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = cdnSource;
-          script.async = true;
-          script.type = 'text/javascript';
-          
-          script.onload = () => {
-            addDebugLog('BlinkID SDK script loaded');
-            if (window.BlinkIDSDK) {
-              setBlinkIdSdk(window.BlinkIDSDK);
-              resolve();
-            } else {
-              reject(new Error('BlinkIDSDK not found on window object'));
+        let loaded = false;
+        let lastError = null;
+
+        for (const cdnSource of cdnSources) {
+          try {
+            addDebugLog(`Trying to load BlinkID SDK from: ${cdnSource}`);
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = cdnSource;
+              script.async = true;
+              script.type = 'text/javascript';
+              
+              const timeout = setTimeout(() => {
+                reject(new Error(`Timeout loading script from ${cdnSource}`));
+                script.remove();
+              }, 20000); // 20 second timeout
+              
+              script.onload = () => {
+                clearTimeout(timeout);
+                addDebugLog(`BlinkID SDK script loaded from: ${cdnSource}`);
+                
+                // Wait a bit for window.BlinkIDSDK to be available
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                  attempts++;
+                  if (window.BlinkIDSDK) {
+                    clearInterval(checkInterval);
+                    setBlinkIdSdk(window.BlinkIDSDK);
+                    resolve();
+                  } else if (attempts > 30) {
+                    clearInterval(checkInterval);
+                    reject(new Error('BlinkIDSDK not found on window object after load'));
+                  }
+                }, 200);
+              };
+              
+              script.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error(`Failed to load script from ${cdnSource}`));
+              };
+              
+              document.head.appendChild(script);
+            });
+            
+            loaded = true;
+            break; // Success, exit loop
+          } catch (err) {
+            lastError = err;
+            addDebugLog(`Failed to load from ${cdnSource}: ${err.message}`);
+            // Remove failed script
+            const failedScript = document.querySelector(`script[src="${cdnSource}"]`);
+            if (failedScript) {
+              failedScript.remove();
             }
-          };
-          
-          script.onerror = () => reject(new Error('Failed to load BlinkID SDK script'));
-          document.head.appendChild(script);
-        });
+            // Continue to next CDN source
+          }
+        }
+
+        if (!loaded) {
+          throw lastError || new Error('All CDN sources failed to load');
+        }
 
         await initializeBlinkID(window.BlinkIDSDK);
       } catch (err) {
