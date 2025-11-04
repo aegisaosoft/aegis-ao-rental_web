@@ -10,8 +10,8 @@ const MobileVehicles = () => {
   const navigate = useNavigate();
   const pickupDate = searchParams.get('pickupDate') || '';
   const returnDate = searchParams.get('returnDate') || '';
-  // Priority: domain context > URL param > localStorage
-  const companyId = companyConfig?.id || searchParams.get('companyId') || localStorage.getItem('selectedCompanyId') || '';
+  // Use company from domain context only
+  const companyId = companyConfig?.id || null;
 
   const { data, isLoading } = useQuery(
     ['m-vehicles', companyId, pickupDate, returnDate],

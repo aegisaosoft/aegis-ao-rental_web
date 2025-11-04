@@ -15,8 +15,8 @@ const MobileHome = () => {
     const params = new URLSearchParams();
     params.set('pickupDate', pickupDate);
     params.set('returnDate', returnDate);
-    // Priority: domain context > localStorage
-    const companyId = companyConfig?.id || localStorage.getItem('selectedCompanyId');
+    // Use company from domain context only
+    const companyId = companyConfig?.id || null;
     if (companyId) params.set('companyId', companyId);
     navigate(`/m/vehicles?${params.toString()}`);
   };

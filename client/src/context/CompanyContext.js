@@ -15,6 +15,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import i18n from '../i18n/config';
+import { getLanguageForCountry } from '../utils/countryLanguage';
 
 const CompanyContext = createContext();
 
@@ -63,6 +65,9 @@ export const CompanyProvider = ({ children }) => {
           if (config.faviconUrl) {
             updateFavicon(config.faviconUrl);
           }
+          
+          // Set language from company config
+          setCompanyLanguage(config);
         } else {
           console.warn('[CompanyContext] No company config returned or invalid response:', config);
           setError('Company configuration not available');
@@ -143,6 +148,53 @@ export const CompanyProvider = ({ children }) => {
     link.rel = 'shortcut icon';
     link.href = url;
     document.getElementsByTagName('head')[0].appendChild(link);
+  };
+
+  // Set language from company config
+  const setCompanyLanguage = (config) => {
+    // Check if user has manually set a language preference
+    const hasManualLanguagePreference = localStorage.getItem('languageManuallySet') === 'true';
+    
+    // If user manually set language, don't override
+    if (hasManualLanguagePreference) {
+      console.log('[CompanyContext] User has manual language preference, keeping current language');
+      return;
+    }
+    
+    let targetLanguage = null;
+    
+    // Priority 1: Use company's language field if set
+    if (config.language) {
+      targetLanguage = config.language;
+      console.log('[CompanyContext] Using company language:', targetLanguage);
+    } 
+    // Priority 2: Fallback to country-based language
+    else if (config.country) {
+      targetLanguage = getLanguageForCountry(config.country);
+      if (targetLanguage) {
+        console.log('[CompanyContext] Using country-based language:', targetLanguage, 'for country:', config.country);
+      }
+    }
+    
+    // Set the language if we found one and it's different from current
+    if (targetLanguage) {
+      const currentLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
+      
+      // Special handling for Canada - don't change if already French or English
+      if (config.country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
+        console.log('[CompanyContext] Canada detected, keeping current language:', currentLanguage);
+        return;
+      }
+      
+      if (currentLanguage !== targetLanguage) {
+        console.log('[CompanyContext] Changing language from', currentLanguage, 'to', targetLanguage);
+        i18n.changeLanguage(targetLanguage);
+      } else {
+        console.log('[CompanyContext] Language already set to:', targetLanguage);
+      }
+    } else {
+      console.log('[CompanyContext] No language determined from company config');
+    }
   };
 
   const value = {

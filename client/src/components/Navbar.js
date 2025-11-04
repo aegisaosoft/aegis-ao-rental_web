@@ -26,168 +26,29 @@ import { getLanguageForCountry } from '../utils/countryLanguage';
 import { useCompany } from '../context/CompanyContext';
 
 const Navbar = () => {
-  // Get company context for domain-based company detection
+  // Get company context from domain only
   const { companyConfig } = useCompany();
-  
-  // Check if accessed via subdomain (excluding www)
-  const getSubdomainFromHost = () => {
-    const hostname = window.location.hostname.toLowerCase();
-    // Skip localhost and IP addresses
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-      return null;
-    }
-    
-    const parts = hostname.split('.');
-    // If we have a subdomain (e.g., company1.aegis-rental.com)
-    if (parts.length > 2) {
-      const subdomain = parts[0];
-      // Exclude www
-      if (subdomain !== 'www') {
-        return subdomain;
-      }
-    }
-    return null;
-  };
   
   // Get company name from company config, or show "Unknown"
   const displayCompanyName = companyConfig?.companyName || 'Unknown';
   
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const { user, logout, isAuthenticated, isMainAdmin } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Fetch companies
-  const { data: companiesResponse } = useQuery('companies', () => apiService.getCompanies({ isActive: true, pageSize: 100 }));
-  const companiesData = companiesResponse?.data || companiesResponse;
-  const companies = Array.isArray(companiesData) ? companiesData : [];
-
-  // Fetch selected company data to get country and set language accordingly
-  const { data: selectedCompanyResponse } = useQuery(
-    ['company', selectedCompanyId],
-    () => apiService.getCompany(selectedCompanyId),
-    {
-      enabled: !!selectedCompanyId,
-    }
-  );
-
-  // Effect to update language when company changes
-  useEffect(() => {
-    if (selectedCompanyResponse && selectedCompanyId) {
-      const company = selectedCompanyResponse?.data || selectedCompanyResponse;
-      // First try to use the language field from the company
-      let language = company?.language || company?.Language;
-      
-      // Fallback to country-based language if no language field is set
-      if (!language) {
-        const country = company?.country || company?.Country;
-        if (country) {
-          language = getLanguageForCountry(country);
-        }
-      }
-      
-      if (language) {
-        const hasManualLanguagePreference = localStorage.getItem('languageManuallySet') === 'true';
-        const currentLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
-        
-        // Special handling for Canada: don't switch if already French or English
-        if (company?.country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
-          console.log(`[Language] Canada detected with ${currentLanguage}, keeping current language`);
-          return; // Don't change language
-        }
-        
-        // Only auto-change language if user hasn't manually set a preference
-        if (!hasManualLanguagePreference) {
-          if (currentLanguage !== language) {
-            console.log(`[Language] Switching to ${language} for company`);
-            i18n.changeLanguage(language);
-          }
-        }
-      }
-    }
-  }, [selectedCompanyId, selectedCompanyResponse]);
+  // Language is now set by CompanyContext when company config loads
+  // No need to set language here - it's handled centrally
 
   const handleLogout = () => {
-    // Company selection persists through logout
     logout();
     navigate('/');
     setUserMenuOpen(false);
   };
 
-
   const toggleMenu = () => setIsOpen(!isOpen);
   const toggleUserMenu = () => setUserMenuOpen(!userMenuOpen);
-
-  const handleCompanyChange = (e) => {
-    try {
-      const companyId = e.target.value;
-      
-      // Only allow company changes through the combobox
-      if (!e.target || e.target.tagName !== 'SELECT') {
-        console.warn('Company change attempted through invalid method');
-        return;
-      }
-      
-      setSelectedCompanyId(companyId);
-      
-      // Persist company selection to localStorage
-      if (companyId) {
-        localStorage.setItem('selectedCompanyId', companyId);
-      } else {
-        localStorage.removeItem('selectedCompanyId');
-      }
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent('companyChanged', { 
-        detail: { companyId } 
-      }));
-      
-      // Update URL with company filter for current page
-      const params = new URLSearchParams(location.search);
-      if (companyId) {
-        params.set('companyId', companyId);
-      } else {
-        params.delete('companyId');
-      }
-      
-      // Navigate with company filter - this is the core value for all filters
-      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-      
-    } catch (error) {
-      console.error('Error in company change handler:', error);
-      // Don't change company selection on error
-    }
-  };
-
-  // Sync with URL params and localStorage
-  useEffect(() => {
-    // Get companyId from URL params first
-    const urlParams = new URLSearchParams(location.search);
-    const urlCompanyId = urlParams.get('companyId') || '';
-    
-    // Get companyId from localStorage as fallback
-    const storedCompanyId = localStorage.getItem('selectedCompanyId') || '';
-    
-    // Use URL param if available, otherwise use stored value
-    const companyId = urlCompanyId || storedCompanyId;
-    
-    if (companyId && companyId !== selectedCompanyId) {
-      setSelectedCompanyId(companyId);
-      
-      // If URL doesn't have companyId but localStorage does, update URL
-      if (!urlCompanyId && storedCompanyId) {
-        const params = new URLSearchParams(location.search);
-        params.set('companyId', storedCompanyId);
-        navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-      }
-    } else if (!companyId && selectedCompanyId) {
-      // Clear selection if no companyId in URL or localStorage
-      setSelectedCompanyId('');
-    }
-  }, [location.pathname, location.search, navigate, selectedCompanyId]);
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">

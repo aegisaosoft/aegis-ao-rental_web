@@ -27,11 +27,8 @@ const VehicleList = () => {
   const navigate = useNavigate();
   
   const { companyConfig } = useCompany();
-  // Get companyId - prioritize domain context, then URL params
-  const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const urlCompanyId = urlParams.get('companyId') || '';
-  // Priority: domain context > URL param > empty
-  const effectiveCompanyId = companyConfig?.id || urlCompanyId;
+  // Get companyId from domain context only
+  const effectiveCompanyId = companyConfig?.id || null;
 
   const [filters, setFilters] = useState({
     category: '',
@@ -196,14 +193,13 @@ const VehicleList = () => {
     setCurrentPage(1);
   }, [filters, searchTerm]);
 
-  // Sync companyId filter with domain context or URL params
+  // Sync companyId filter with domain context only
   useEffect(() => {
-    // Priority: domain context > URL param
-    const companyId = companyConfig?.id || urlParams.get('companyId') || '';
+    const companyId = companyConfig?.id || null;
     if (filters.companyId !== companyId) {
       setFilters(prev => ({ ...prev, companyId }));
     }
-  }, [location.search, filters.companyId, urlParams, companyConfig]);
+  }, [filters.companyId, companyConfig?.id]);
 
   if (isLoading) {
     return (

@@ -129,25 +129,14 @@ const Home = () => {
   
   //
   
-  // Get company from localStorage and URL
+  // Sync company ID from domain context only
   useEffect(() => {
-    // Priority 1: Use company from domain context (when accessed via subdomain)
     if (companyConfig?.id) {
       setSelectedCompanyId(companyConfig.id);
-      return; // Don't override with URL or localStorage when domain context is available
+    } else {
+      setSelectedCompanyId('');
     }
-    
-    // Priority 2: Get companyId from URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlCompanyId = urlParams.get('companyId') || '';
-    
-    // Priority 3: Get companyId from localStorage as fallback
-    const storedCompanyId = localStorage.getItem('selectedCompanyId') || '';
-    
-    // Use URL param if available, otherwise use stored value
-    const companyId = urlCompanyId || storedCompanyId;
-    setSelectedCompanyId(companyId);
-  }, [companyConfig?.id]); // Include companyConfig.id in dependencies
+  }, [companyConfig?.id]);
   
   // Update company name - show "Unknown" if no company
   useEffect(() => {
