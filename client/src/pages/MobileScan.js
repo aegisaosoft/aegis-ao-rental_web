@@ -1,709 +1,166 @@
 /*
- * Mobile-friendly page to scan Driver License on this device with BlinkID OCR recognition.
+ * Mobile-friendly page to upload Driver License image.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { apiService } from '../services/api';
 
 const MobileScan = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('ready');
-  const [capturedDataUrl, setCapturedDataUrl] = useState('');
-  const [videoReady, setVideoReady] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [facingMode, setFacingMode] = useState('environment');
+  const [status, setStatus] = useState('ready'); // ready, preview, uploading, success
+  const [imagePreview, setImagePreview] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
-  const [debugLogs, setDebugLogs] = useState([]);
-  const [blinkIdSdk, setBlinkIdSdk] = useState(null);
-  const [wasmSDK, setWasmSDK] = useState(null);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Debug logging function
-  const addDebugLog = (message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `[${timestamp}] ${message}`;
-    console.log(logEntry);
-    setDebugLogs(prev => [...prev.slice(-9), logEntry]);
-  };
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  // Load BlinkID SDK in background (don't block camera access)
-  useEffect(() => {
-    const loadBlinkID = async () => {
-      try {
-        addDebugLog('Loading BlinkID SDK in background...');
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      toast.error('Please select an image file');
+      return;
+    }
 
-        // Check if already loaded
-        if (window.BlinkIDSDK) {
-          addDebugLog('BlinkID SDK already loaded');
-          setBlinkIdSdk(window.BlinkIDSDK);
-          await initializeBlinkID(window.BlinkIDSDK);
-          return;
-        }
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      toast.error('File size must be less than 10MB');
+      return;
+    }
 
-        // Check if script tag already exists
-        const existingScript = document.querySelector('script[src*="blinkid-in-browser-sdk"]');
-        if (existingScript) {
-          addDebugLog('BlinkID SDK script tag already exists, waiting for load...');
-          // Wait a bit for it to load
-          let attempts = 0;
-          const checkInterval = setInterval(() => {
-            attempts++;
-            if (window.BlinkIDSDK) {
-              clearInterval(checkInterval);
-              setBlinkIdSdk(window.BlinkIDSDK);
-              initializeBlinkID(window.BlinkIDSDK);
-            } else if (attempts > 20) {
-              clearInterval(checkInterval);
-              addDebugLog('Timeout waiting for existing script to load');
-            }
-          }, 200);
-          return;
-        }
-
-        // Try multiple CDN sources for BlinkID SDK (standard dist version)
-        const cdnSources = [
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/dist/blinkid-sdk.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/dist/blinkid-sdk.min.js',
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
-          'https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@latest/dist/blinkid-sdk.min.js',
-          // UI version as fallback
-          'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/ui/dist/blinkid-in-browser.min.js'
-        ];
-
-        let loaded = false;
-        let lastError = null;
-
-        for (const cdnSource of cdnSources) {
-          try {
-            addDebugLog(`Trying to load BlinkID SDK from: ${cdnSource}`);
-            await new Promise((resolve, reject) => {
-              const script = document.createElement('script');
-              script.src = cdnSource;
-              script.async = true;
-              script.type = 'text/javascript';
-              
-              const timeout = setTimeout(() => {
-                reject(new Error(`Timeout loading script from ${cdnSource}`));
-                script.remove();
-              }, 20000); // 20 second timeout
-              
-              script.onload = () => {
-                clearTimeout(timeout);
-                addDebugLog(`BlinkID SDK script loaded from: ${cdnSource}`);
-                
-                // Wait a bit for window.BlinkIDSDK to be available
-                let attempts = 0;
-                const checkInterval = setInterval(() => {
-                  attempts++;
-                  if (window.BlinkIDSDK) {
-                    clearInterval(checkInterval);
-                    setBlinkIdSdk(window.BlinkIDSDK);
-                    resolve();
-                  } else if (attempts > 30) {
-                    clearInterval(checkInterval);
-                    reject(new Error('BlinkIDSDK not found on window object after load'));
-                  }
-                }, 200);
-              };
-              
-              script.onerror = () => {
-                clearTimeout(timeout);
-                reject(new Error(`Failed to load script from ${cdnSource}`));
-              };
-              
-              document.head.appendChild(script);
-            });
-            
-            loaded = true;
-            break; // Success, exit loop
-          } catch (err) {
-            lastError = err;
-            addDebugLog(`Failed to load from ${cdnSource}: ${err.message}`);
-            // Remove failed script
-            const failedScript = document.querySelector(`script[src="${cdnSource}"]`);
-            if (failedScript) {
-              failedScript.remove();
-            }
-            // Continue to next CDN source
-          }
-        }
-
-        if (!loaded) {
-          throw lastError || new Error('All CDN sources failed to load');
-        }
-
-        await initializeBlinkID(window.BlinkIDSDK);
-      } catch (err) {
-        addDebugLog(`BlinkID load error: ${err.message}`);
-        console.warn('BlinkID SDK not available, will use backend API for OCR:', err.message);
-        // Don't set error state - app can still work with backend API
-      }
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+      setStatus('preview');
+      setError('');
     };
+    reader.readAsDataURL(file);
+  };
 
-    loadBlinkID();
-  }, []);
+  const handleUpload = async () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      toast.error('Please select an image first');
+      return;
+    }
 
-  // Initialize BlinkID with license key
-  const initializeBlinkID = async (BlinkIDSDK) => {
+    setStatus('uploading');
+    setError('');
+
     try {
-      addDebugLog('Initializing BlinkID engine...');
+      await apiService.uploadDriverLicense(file, (progress) => {
+        setUploadProgress(progress);
+      });
 
-      const ua = navigator.userAgent || navigator.vendor || '';
-      const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-      const isAndroid = /android/i.test(ua);
-
-      const lsWeb = localStorage.getItem('blinkid_license_key') || '';
-      const lsIOS = localStorage.getItem('blinkid_license_key_ios') || '';
-      const lsAndroid = localStorage.getItem('blinkid_license_key_android') || '';
-
-      const licenseKey = (
-        (isIOS && (lsIOS || process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS)) ||
-        (isAndroid && (lsAndroid || process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID)) ||
-        lsWeb || process.env.REACT_APP_BLINKID_LICENSE_KEY ||
-        ''
-      );
-
-      if (!licenseKey) {
-        addDebugLog('No BlinkID license key found - OCR will use fallback method');
-        return;
-      }
-
-      // Use WasmSDKLoadSettings exactly as in the example
-      const loadSettings = new BlinkIDSDK.WasmSDKLoadSettings(licenseKey);
+      toast.success('Driver license uploaded successfully!');
+      setStatus('success');
       
-      // Try multiple worker locations
-      const engineLocations = [
-        { 
-          engine: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/",
-          worker: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js"
-        },
-        {
-          engine: "https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/resources/",
-          worker: "https://cdn.jsdelivr.net/npm/@microblink/blinkid-in-browser-sdk@6.13.3/resources/BlinkIDWasmSDK.worker.min.js"
-        },
-        {
-          engine: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources/",
-          worker: "https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources/BlinkIDWasmSDK.worker.min.js"
-        }
-      ];
-
-      let workerLoaded = false;
-      let lastWorkerError = null;
-
-      for (const location of engineLocations) {
-        try {
-          addDebugLog(`Trying worker location: ${location.worker}`);
-          loadSettings.engineLocation = location.engine;
-          loadSettings.workerLocation = location.worker;
-          
-          const loadedWasmSDK = await BlinkIDSDK.loadWasmModule(loadSettings);
-          setWasmSDK(loadedWasmSDK);
-          addDebugLog(`WASM SDK loaded successfully from ${location.engine}`);
-          workerLoaded = true;
-          break;
-        } catch (err) {
-          lastWorkerError = err;
-          addDebugLog(`Failed to load worker from ${location.worker}: ${err.message}`);
-        }
-      }
-
-      if (!workerLoaded) {
-        throw lastWorkerError || new Error('Failed to load WASM worker from all locations');
-      }
-
-      addDebugLog('BlinkID engine initialized successfully');
+      // Navigate back after a short delay
+      setTimeout(() => {
+        navigate(-1); // Go back to previous page
+      }, 1500);
     } catch (err) {
-      addDebugLog(`BlinkID init error: ${err.message}`);
-      console.warn('Advanced OCR not available. You can still capture and process images.');
-    }
-  };
-
-  // Process image with BlinkID OCR
-  const processImageWithBlinkID = async (imageBlob) => {
-    if (!blinkIdSdk || !window.BlinkIDSDK) {
-      addDebugLog('BlinkID SDK not available, using fallback');
-      return null;
-    }
-
-    try {
-      addDebugLog('Starting BlinkID OCR recognition...');
-      const BlinkIDSDK = window.BlinkIDSDK;
-
-      // Use the exact way from the example
-      const currentWasmSDK = wasmSDK;
-      if (!currentWasmSDK) {
-        throw new Error('WASM SDK not loaded');
-      }
-
-      // Create recognizer exactly as in example
-      const recognizer = await BlinkIDSDK.createBlinkIdRecognizer(currentWasmSDK);
-
-      // Create recognizer runner exactly as in example
-      const runner = await BlinkIDSDK.createRecognizerRunner(
-        currentWasmSDK,
-        [recognizer],
-        false
-      );
-
-      const imageData = await blobToImageData(imageBlob);
-
-      const processResult = await runner.processImage(imageData);
-
-      if (processResult !== BlinkIDSDK.RecognizerRunnerResultCode.Empty) {
-        const results = await recognizer.getResult();
-        
-        if (results.state === BlinkIDSDK.RecognizerResultState.Valid) {
-          addDebugLog('BlinkID recognition successful');
-          
-          const licenseData = {
-            licenseNumber: results.licenseNumber || results.documentNumber || results.firstName || '',
-            firstName: results.firstName || '',
-            lastName: results.lastName || '',
-            middleName: results.middleName || '',
-            issuingState: results.driverLicenseDetailedInfo?.jurisdiction || 
-                         results.address?.split(',')[1]?.trim() || 
-                         results.state || '',
-            issuingCountry: results.driverLicenseDetailedInfo?.jurisdiction || 
-                           results.country || 'US',
-            expirationDate: results.expiresOn ? formatDate(results.expiresOn) : 
-                           (results.dateOfExpiry ? formatDate(results.dateOfExpiry) : ''),
-            issueDate: results.dateOfIssue ? formatDate(results.dateOfIssue) : '',
-            dateOfBirth: results.dateOfBirth ? formatDate(results.dateOfBirth) : '',
-            address: results.address || results.street || '',
-            city: results.city || '',
-            state: results.state || '',
-            postalCode: results.postalCode || results.zipCode || '',
-            country: results.country || 'US',
-            sex: results.sex || results.gender || '',
-            height: results.height || '',
-            eyeColor: results.eyeColor || '',
-            restrictions: results.restrictions || '',
-            endorsements: results.endorsements || '',
-          };
-          
-          addDebugLog(`Extracted license data: ${licenseData.firstName} ${licenseData.lastName}, License: ${licenseData.licenseNumber}`);
-
-          await runner.delete();
-          await recognizer.delete();
-
-          return licenseData;
-        } else {
-          addDebugLog(`BlinkID recognition state: ${results.state}`);
-          await runner.delete();
-          await recognizer.delete();
-          return null;
-        }
-      } else {
-        addDebugLog('BlinkID recognition returned empty result');
-        await runner.delete();
-        await recognizer.delete();
-        return null;
-      }
-    } catch (err) {
-      addDebugLog(`BlinkID OCR error: ${err.message}`);
-      console.error('BlinkID OCR error:', err);
-      return null;
-    }
-  };
-
-  // Helper: Convert blob to ImageData
-  const blobToImageData = async (blob) => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(blob);
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(imageData);
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  };
-
-  // Helper: Format date
-  const formatDate = (date) => {
-    if (!date) return '';
-    if (typeof date === 'string') return date;
-    if (date instanceof Date) {
-      return date.toISOString().split('T')[0];
-    }
-    return date.toString();
-  };
-
-  const handleFile = async (e) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      // Show image preview first
-      const previewUrl = URL.createObjectURL(file);
-      setCapturedDataUrl(previewUrl);
-      setStatus('preview');
-      addDebugLog('Image selected, showing preview...');
-    } catch (e) {
-      console.error(e);
-      addDebugLog(`Error loading file: ${e.message}`);
-      toast.error('Failed to load image');
-      setStatus('ready');
-    }
-  };
-
-  // Process OCR on the previewed image
-  const processPreviewImage = async () => {
-    try {
-      if (!capturedDataUrl) return;
-      
-      setStatus('processing');
-      addDebugLog('Processing image with OCR...');
-      
-      // Convert data URL to blob
-      const response = await fetch(capturedDataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'license.jpg', { type: blob.type });
-
-      // Always try BlinkID OCR first (if SDK is available)
-      let licenseData = null;
-      if (blinkIdSdk) {
-        addDebugLog('Attempting BlinkID OCR recognition...');
-        licenseData = await processImageWithBlinkID(file);
-        if (licenseData) {
-          addDebugLog('BlinkID OCR successful - data extracted');
-        } else {
-          addDebugLog('BlinkID OCR did not extract data, trying backend API...');
-        }
-      } else {
-        addDebugLog('BlinkID SDK not available, using backend API...');
-      }
-
-      // If BlinkID failed or not available, send to backend API
-      if (!licenseData) {
-        addDebugLog('Using backend API for license validation...');
-        const formData = new FormData();
-        formData.append('file', file, 'license.jpg');
-        const resp = await fetch('/api/license/validate', { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error('API validation failed');
-        const payload = await resp.json();
-        licenseData = payload.data;
-      }
-
-      // Save results
-      if (licenseData) {
-        localStorage.setItem('scannedLicense', JSON.stringify(licenseData));
-        localStorage.setItem('scannedLicenseImage', capturedDataUrl);
-        const extractedData = licenseData.licenseNumber || licenseData.firstName || licenseData.lastName || 'Data extracted';
-        toast.success(`License recognized: ${extractedData}`);
-        addDebugLog(`License data saved: ${JSON.stringify(licenseData).substring(0, 100)}...`);
-        setStatus('captured');
-      } else {
-        toast.warn('Could not extract license data. Please try again or enter manually.');
-        addDebugLog('No license data extracted from image');
-        setStatus('preview');
-      }
-    } catch (e) {
-      console.error(e);
-      addDebugLog(`Error processing image: ${e.message}`);
-      toast.error('Failed to process license image');
+      const errorMessage = err.response?.data?.message || 'Failed to upload driver license';
+      setError(errorMessage);
+      toast.error(errorMessage);
       setStatus('preview');
     }
   };
 
-  // Start native camera preview
-  const startCamera = async () => {
-    try {
-      setStatus('loading');
-      setError('');
-      
-      if (!navigator.mediaDevices) {
-        throw new Error('MediaDevices API not available');
-      }
-      if (!navigator.mediaDevices.getUserMedia) {
-        throw new Error('getUserMedia not available');
-      }
-      if (!window.isSecureContext && location.protocol !== 'https:') {
-        throw new Error('Camera requires HTTPS or localhost');
-      }
-
-      addDebugLog(`Starting camera with facingMode: ${facingMode}`);
-
-      const variants = [
-        { audio: false, video: { facingMode: { exact: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-        { audio: false, video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        { audio: false, video: { facingMode } },
-        { audio: false, video: true }
-      ];
-
-      let stream = null;
-      let lastErr = null;
-      for (let i = 0; i < variants.length; i++) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(variants[i]);
-          if (stream) break;
-        } catch (e) {
-          lastErr = e;
-        }
-      }
-      
-      if (!stream) {
-        throw lastErr || new Error('No camera stream available');
-      }
-      
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.muted = true;
-        
-        await new Promise((resolve) => {
-          const onReady = () => {
-            setVideoReady(true);
-            resolve();
-          };
-          videoRef.current.addEventListener('loadedmetadata', onReady, { once: true });
-          setTimeout(() => resolve(), 3000);
-          videoRef.current.play().catch(() => {});
-        });
-      }
-      
-      setIsCameraActive(true);
-      setError('');
-      setStatus('camera');
-      addDebugLog('Camera started successfully');
-    } catch (err) {
-      addDebugLog(`Camera start failed: ${err.message}`);
-      setStatus('ready');
-      setError(`Camera failed: ${err.message}`);
-      toast.error(`Camera unavailable: ${err.message}. Try file capture instead.`);
+  const handleRetake = () => {
+    setStatus('ready');
+    setImagePreview('');
+    setError('');
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-  };
-
-  // Capture a frame and process with BlinkID
-  const captureFrame = async () => {
-    try {
-      if (!videoRef.current) return;
-      setStatus('processing');
-      
-      const vw = videoRef.current.videoWidth;
-      const vh = videoRef.current.videoHeight;
-      if (!vw || !vh) {
-        setStatus('camera');
-        toast.error('Camera not ready. Please allow camera access and try again.');
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = vw;
-      canvas.height = vh;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-      if (!blob) {
-        setStatus('camera');
-        toast.error('Failed to capture image. Try again.');
-        return;
-      }
-
-      // Show preview
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setCapturedDataUrl(dataUrl);
-
-      // Always try BlinkID OCR first (if SDK is available)
-      let licenseData = null;
-      if (blinkIdSdk) {
-        addDebugLog('Attempting BlinkID OCR recognition on captured image...');
-        licenseData = await processImageWithBlinkID(blob);
-        if (licenseData) {
-          addDebugLog('BlinkID OCR successful - data extracted from captured image');
-        } else {
-          addDebugLog('BlinkID OCR did not extract data, trying backend API...');
-        }
-      } else {
-        addDebugLog('BlinkID SDK not available, using backend API...');
-      }
-
-      // Fallback to backend API if BlinkID failed or not available
-      if (!licenseData) {
-        addDebugLog('Using backend API for license validation...');
-        const formData = new FormData();
-        formData.append('file', blob, 'license.jpg');
-        const resp = await fetch('/api/license/validate', { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error('API validation failed');
-        const payload = await resp.json();
-        licenseData = payload.data;
-      }
-
-      stopCamera();
-
-      if (licenseData) {
-        localStorage.setItem('scannedLicense', JSON.stringify(licenseData));
-        localStorage.setItem('scannedLicenseImage', dataUrl);
-        const extractedData = licenseData.licenseNumber || licenseData.firstName || licenseData.lastName || 'Data extracted';
-        toast.success(`License recognized: ${extractedData}`);
-        setStatus('captured');
-      } else {
-        toast.warn('Could not extract license data. Please try again.');
-        setStatus('ready');
-      }
-    } catch (e) {
-      console.error(e);
-      setStatus('camera');
-      toast.error('Failed to process license');
-    }
-  };
-
-  const stopCamera = () => {
-    try {
-      const s = streamRef.current;
-      if (s) {
-        s.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
-      setVideoReady(false);
-      setIsCameraActive(false);
-    } catch {}
-  };
-
-  useEffect(() => () => stopCamera(), []);
-
-  const switchCamera = async () => {
-    const next = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(next);
-    if (isCameraActive) {
-      stopCamera();
-      await startCamera();
-    }
-  };
-
-  const getReturnTo = () => {
-    const urlParam = searchParams.get('returnTo');
-    const stateValue = location.state && location.state.returnTo;
-    return urlParam || stateValue || '/book';
-  };
-
-  const continueWithoutCapture = () => {
-    stopCamera();
-    navigate(getReturnTo(), { replace: true });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
-        <h1 className="text-xl font-semibold mb-2">Scan Driver License</h1>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-center">Upload Driver License</h1>
+
         {status === 'ready' && (
-          <div>
-            <p className="mb-4">Use your phone camera to capture the license.</p>
-            {blinkIdSdk && (
-              <p className="text-sm text-green-600 mb-2">✓ OCR recognition enabled</p>
-            )}
-            {!blinkIdSdk && (
-              <p className="text-sm text-yellow-600 mb-2">⚠ OCR loading... camera ready</p>
-            )}
-            <div className="text-xs text-gray-500 mb-3 space-y-1">
-              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'}</p>
-              <p>Protocol: {location.protocol}</p>
-              <p>MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
-            </div>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-3 text-sm">
-                {error}
-              </div>
-            )}
+          <div className="space-y-4">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg"
+            >
+              Open Camera
+            </button>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={handleFile}
+              onChange={handleFileChange}
               className="hidden"
             />
-            <div className="flex gap-2 mt-3">
-              <button 
-                onClick={() => fileInputRef.current?.click()} 
-                className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold"
-              >
-                Open Camera
-              </button>
-              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
-                Continue
-              </button>
-            </div>
           </div>
         )}
-        {status === 'camera' && (
-          <div className="relative">
+
+        {status === 'preview' && (
+          <div className="space-y-4">
+            {imagePreview && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                <img
+                  src={imagePreview}
+                  alt="License preview"
+                  className="w-full rounded-lg"
+                />
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleRetake}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg"
+              >
+                Retake
+              </button>
+              <button
+                onClick={handleUpload}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg"
+              >
+                Upload
+              </button>
+            </div>
             {error && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-red-600/80 text-white px-4 py-2 rounded z-10 text-sm">
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
-            <video ref={videoRef} playsInline autoPlay muted className="w-full rounded mb-3 object-cover" />
-            <div className="flex items-center justify-around gap-3 py-3 bg-black/50 rounded">
-              <button onClick={switchCamera} className="w-12 h-12 rounded-full border-2 border-white text-white text-xl">↺</button>
-              <button onClick={captureFrame} disabled={!videoReady} className={`w-16 h-16 rounded-full ${videoReady ? 'bg-white border-4 border-white/50' : 'bg-gray-300 border-4 border-gray-300/50'}`} />
-              <button onClick={stopCamera} className="w-12 h-12 rounded-full border-2 border-white text-white text-xl">✕</button>
-            </div>
           </div>
         )}
-        {status === 'processing' && (
-          <div>
-            <p className="text-lg font-semibold mb-2">Processing license image...</p>
-            <p className="text-sm text-gray-600 mb-4">Extracting information with OCR...</p>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mt-4"></div>
-            {debugLogs.length > 0 && (
-              <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto mt-3">
-                <div className="font-semibold mb-1">Debug Logs:</div>
-                {debugLogs.map((log, i) => (
-                  <div key={i} className="font-mono text-xs">{log}</div>
-                ))}
+
+        {status === 'uploading' && (
+          <div className="space-y-4 text-center">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="mb-4">
+                <div className="w-full bg-gray-700 rounded-full h-4">
+                  <div
+                    className="bg-blue-600 h-4 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-sm text-gray-300">Uploading... {uploadProgress}%</p>
               </div>
-            )}
-          </div>
-        )}
-        {status === 'preview' && (
-          <div>
-            {capturedDataUrl ? (
-              <img src={capturedDataUrl} alt="Selected license" className="w-full rounded mb-3" />
-            ) : null}
-            <div className="flex gap-2">
-              <button onClick={() => { setStatus('ready'); setCapturedDataUrl(''); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Retake</button>
-              <button onClick={processPreviewImage} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Process OCR</button>
             </div>
           </div>
         )}
-        {status === 'captured' && (
-          <div>
-            {capturedDataUrl ? (
-              <img src={capturedDataUrl} alt="Captured license" className="w-full rounded mb-3" />
-            ) : null}
-            <div className="flex gap-2">
-              <button onClick={() => { setStatus('ready'); setCapturedDataUrl(''); }} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">Retake</button>
-              <button onClick={() => { navigate(getReturnTo(), { replace: true }); }} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">Use Photo</button>
+
+        {status === 'success' && (
+          <div className="space-y-4 text-center">
+            <div className="bg-green-900 text-green-100 p-6 rounded-lg">
+              <p className="text-lg font-bold">✓ Upload Successful!</p>
+              <p className="text-sm mt-2">Redirecting back...</p>
             </div>
-          </div>
-        )}
-        {status === 'error' && (
-          <div>
-            <p className="text-red-600 mb-4">Camera initialization failed. You can still upload an image.</p>
-            <button onClick={startCamera} className="bg-blue-600 text-white px-4 py-2 rounded-md mb-2">Try Camera Again</button>
-            <button onClick={() => setStatus('ready')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md">Upload Image Instead</button>
-          </div>
-        )}
-        {debugLogs.length > 0 && status !== 'processing' && status !== 'ready' && (
-          <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto mt-3">
-            <div className="font-semibold mb-1">Debug Logs:</div>
-            {debugLogs.map((log, i) => (
-              <div key={i} className="font-mono text-xs">{log}</div>
-            ))}
           </div>
         )}
       </div>
