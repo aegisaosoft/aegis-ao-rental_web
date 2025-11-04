@@ -37,6 +37,12 @@ export const CompanyProvider = ({ children }) => {
         setLoading(true);
         setError(null);
         
+        // Log the API call details
+        const apiBaseUrl = '/api';
+        const endpoint = '/companies/config';
+        console.log('[CompanyContext] Loading company config from:', `${apiBaseUrl}${endpoint}`);
+        console.log('[CompanyContext] Current hostname:', window.location.hostname);
+        
         // Call the API endpoint which will automatically detect company from domain
         const response = await apiService.getCurrentCompanyConfig();
         const config = response.data?.result || response.data;
@@ -64,12 +70,16 @@ export const CompanyProvider = ({ children }) => {
       } catch (err) {
         // If company config is not found, that's okay - app will continue without company-specific branding
         const errorMsg = err.response?.data?.error || err.message;
-        console.warn('[CompanyContext] Could not load company configuration:', errorMsg);
-        console.warn('[CompanyContext] Request URL:', window.location.href);
-        console.warn('[CompanyContext] Error details:', {
+        console.error('[CompanyContext] Could not load company configuration:', errorMsg);
+        console.error('[CompanyContext] Page URL:', window.location.href);
+        console.error('[CompanyContext] API Request URL:', err.config?.url || err.request?.responseURL || 'unknown');
+        console.error('[CompanyContext] API Base URL:', err.config?.baseURL || 'unknown');
+        console.error('[CompanyContext] Full Request Config:', err.config);
+        console.error('[CompanyContext] Error details:', {
           status: err.response?.status,
           statusText: err.response?.statusText,
-          data: err.response?.data
+          data: err.response?.data,
+          message: err.message
         });
         setError(errorMsg || 'Company configuration not available');
       } finally {
