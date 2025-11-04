@@ -9,7 +9,7 @@ const MobileScan = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('ready'); // ready, camera, processing, captured, error
+  const [status, setStatus] = useState('ready');
   const [capturedDataUrl, setCapturedDataUrl] = useState('');
   const [videoReady, setVideoReady] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -17,18 +17,15 @@ const MobileScan = () => {
   const [error, setError] = useState('');
   const [debugLogs, setDebugLogs] = useState([]);
   const [blinkIdSdk, setBlinkIdSdk] = useState(null);
-  const [recognizerRunner, setRecognizerRunner] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   // Debug logging function
   const addDebugLog = (message) => {
     const timestamp = new Date().toLocaleTimeString();
     const logEntry = `[${timestamp}] ${message}`;
     console.log(logEntry);
-    setDebugLogs(prev => [...prev.slice(-9), logEntry]); // Keep last 10 logs
+    setDebugLogs(prev => [...prev.slice(-9), logEntry]);
   };
 
   // Load BlinkID SDK in background (don't block camera access)
@@ -37,7 +34,6 @@ const MobileScan = () => {
       try {
         addDebugLog('Loading BlinkID SDK in background...');
 
-        // Check if SDK already loaded
         if (window.BlinkIDSDK) {
           addDebugLog('BlinkID SDK already loaded');
           setBlinkIdSdk(window.BlinkIDSDK);
@@ -45,7 +41,6 @@ const MobileScan = () => {
           return;
         }
 
-        // Load SDK script
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
@@ -63,16 +58,13 @@ const MobileScan = () => {
           document.body.appendChild(script);
         });
 
-        // Initialize BlinkID
         await initializeBlinkID(window.BlinkIDSDK);
       } catch (err) {
         addDebugLog(`BlinkID load error: ${err.message}`);
-        // Don't set error status - just log it, camera can still work
         console.warn('BlinkID SDK not available, will use backend API for OCR:', err.message);
       }
     };
 
-    // Load in background, don't block UI
     loadBlinkID();
   }, []);
 
@@ -81,7 +73,6 @@ const MobileScan = () => {
     try {
       addDebugLog('Initializing BlinkID engine...');
 
-      // Get platform-specific license key
       const ua = navigator.userAgent || navigator.vendor || '';
       const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
       const isAndroid = /android/i.test(ua);
@@ -99,23 +90,18 @@ const MobileScan = () => {
 
       if (!licenseKey) {
         addDebugLog('No BlinkID license key found - OCR will use fallback method');
-        setStatus('ready');
         return;
       }
 
-      // Load WASM module
       await BlinkIDSDK.loadWasmModule({
         licenseKey,
         engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
       });
 
       addDebugLog('BlinkID engine initialized successfully');
-      setStatus('ready');
     } catch (err) {
       addDebugLog(`BlinkID init error: ${err.message}`);
-      // Don't fail - allow fallback to manual entry
-      setStatus('ready');
-      toast.warn('Advanced OCR not available. You can still capture and process images.');
+      console.warn('Advanced OCR not available. You can still capture and process images.');
     }
   };
 
@@ -130,25 +116,19 @@ const MobileScan = () => {
       addDebugLog('Starting BlinkID OCR recognition...');
       const BlinkIDSDK = window.BlinkIDSDK;
 
-      // Create recognizer for US driver license
       const { BlinkIdCombinedRecognizer } = BlinkIDSDK;
       const recognizer = await BlinkIdCombinedRecognizer.create();
       
-      // Configure recognizer
       recognizer.returnFullDocumentImage = true;
       recognizer.returnFaceImage = false;
 
-      // Create recognizer runner
       const runner = await BlinkIDSDK.createRecognizerRunner(
         [recognizer],
         true
       );
-      setRecognizerRunner(runner);
 
-      // Convert blob to ImageData
       const imageData = await blobToImageData(imageBlob);
 
-      // Process image
       const processResult = await runner.processImage(imageData);
 
       if (processResult !== BlinkIDSDK.RecognizerRunnerResultCode.Empty) {
@@ -157,8 +137,6 @@ const MobileScan = () => {
         if (results.state === BlinkIDSDK.RecognizerResultState.Valid) {
           addDebugLog('BlinkID recognition successful');
           
-          // Extract license data from BlinkID results
-          // Note: BlinkID field names may vary by document type and SDK version
           const licenseData = {
             licenseNumber: results.licenseNumber || results.documentNumber || results.firstName || '',
             firstName: results.firstName || '',
@@ -187,7 +165,6 @@ const MobileScan = () => {
           
           addDebugLog(`Extracted license data: ${licenseData.firstName} ${licenseData.lastName}, License: ${licenseData.licenseNumber}`);
 
-          // Clean up
           await runner.delete();
           await recognizer.delete();
 
@@ -238,7 +215,6 @@ const MobileScan = () => {
     if (date instanceof Date) {
       return date.toISOString().split('T')[0];
     }
-    // Handle Microblink date format (YYYY-MM-DD string)
     return date.toString();
   };
 
@@ -249,7 +225,6 @@ const MobileScan = () => {
       setStatus('processing');
       addDebugLog('Processing uploaded file...');
       
-      // Show preview
       const previewUrl = URL.createObjectURL(file);
       setCapturedDataUrl(previewUrl);
 
@@ -364,8 +339,7 @@ const MobileScan = () => {
       addDebugLog(`Camera start failed: ${err.message}`);
       setStatus('ready');
       setError(`Camera failed: ${err.message}`);
-      // Don't show error toast - file input will work as fallback
-      // The file input with capture="environment" will open camera on mobile
+      toast.error(`Camera unavailable: ${err.message}. Try file capture instead.`);
     }
   };
 
@@ -430,7 +404,8 @@ const MobileScan = () => {
       if (licenseData) {
         localStorage.setItem('scannedLicense', JSON.stringify(licenseData));
         localStorage.setItem('scannedLicenseImage', dataUrl);
-        toast.success(`License recognized: ${licenseData.licenseNumber || licenseData.firstName || 'Data extracted'}`);
+        const extractedData = licenseData.licenseNumber || licenseData.firstName || licenseData.lastName || 'Data extracted';
+        toast.success(`License recognized: ${extractedData}`);
         setStatus('captured');
       } else {
         toast.warn('Could not extract license data. Please try again.');
@@ -477,52 +452,43 @@ const MobileScan = () => {
     navigate(getReturnTo(), { replace: true });
   };
 
-  // Auto-open file picker or camera immediately when page loads
-  useEffect(() => {
-    // Wait a moment for page to be ready, then immediately open file picker or camera
-    const timer = setTimeout(() => {
-      if (status === 'ready' && !isCameraActive) {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-        
-        if (isMobile) {
-          // On mobile, use file input with capture attribute - this will open camera
-          addDebugLog('Auto-opening camera via file input on mobile device...');
-          if (fileInputRef.current) {
-            fileInputRef.current.click();
-          }
-        } else {
-          // On desktop, open file picker immediately
-          addDebugLog('Auto-opening file picker on desktop...');
-          if (fileInputRef.current) {
-            fileInputRef.current.click();
-          }
-        }
-      }
-    }, 300); // Small delay to ensure page is ready
-    
-    return () => clearTimeout(timer);
-  }, [status, isCameraActive]); // Run when status or camera state changes
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-6 rounded shadow w-full max-w-md text-center">
         <h1 className="text-xl font-semibold mb-2">Scan Driver License</h1>
         {status === 'ready' && (
           <div>
-            {/* Hidden file input that auto-opens - use capture="environment" to open camera on mobile */}
+            <p className="mb-4">Use your phone camera to capture the license.</p>
+            {blinkIdSdk && (
+              <p className="text-sm text-green-600 mb-2">✓ OCR recognition enabled</p>
+            )}
+            {!blinkIdSdk && (
+              <p className="text-sm text-yellow-600 mb-2">⚠ OCR loading... camera ready</p>
+            )}
+            <div className="text-xs text-gray-500 mb-3 space-y-1">
+              <p>Secure: {window.isSecureContext ? 'Yes' : 'No'}</p>
+              <p>Protocol: {location.protocol}</p>
+              <p>MediaDevices: {navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'Yes' : 'No'}</p>
+            </div>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-3 text-sm">
+                {error}
+              </div>
+            )}
             <input
-              ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFile}
-              className="hidden"
+              className="block w-full text-sm mb-3"
             />
-            {/* Minimal UI while waiting for camera/file picker */}
-            <div className="text-center">
-              <p className="mb-4">Opening camera or file picker...</p>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-sm text-gray-500 mt-4">If camera doesn't open, please allow camera permissions</p>
+            <div className="flex gap-2 mt-3">
+              <button onClick={startCamera} className="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold">
+                Open Camera
+              </button>
+              <button onClick={continueWithoutCapture} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md font-semibold">
+                Continue
+              </button>
             </div>
           </div>
         )}
@@ -543,7 +509,8 @@ const MobileScan = () => {
         )}
         {status === 'processing' && (
           <div>
-            <p>Processing license image...</p>
+            <p className="text-lg font-semibold mb-2">Processing license image...</p>
+            <p className="text-sm text-gray-600 mb-4">Extracting information with OCR...</p>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mt-4"></div>
             {debugLogs.length > 0 && (
               <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto mt-3">
@@ -573,7 +540,7 @@ const MobileScan = () => {
             <button onClick={() => setStatus('ready')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md">Upload Image Instead</button>
           </div>
         )}
-        {debugLogs.length > 0 && status !== 'processing' && status !== 'init' && status !== 'loading' && (
+        {debugLogs.length > 0 && status !== 'processing' && status !== 'ready' && (
           <div className="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-2 rounded mb-3 text-xs max-h-32 overflow-y-auto mt-3">
             <div className="font-semibold mb-1">Debug Logs:</div>
             {debugLogs.map((log, i) => (
@@ -582,7 +549,6 @@ const MobileScan = () => {
           </div>
         )}
       </div>
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 };
