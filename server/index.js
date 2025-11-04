@@ -214,16 +214,23 @@ app.use('/api/*', async (req, res, next) => {
       // Try to get domain mapping from API (cached by backend)
       // This is a lightweight call that the backend caches
       const fullDomain = `${subdomain}.aegis-rental.com`;
+      const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+      
       console.log(`[Company Detection] Hostname: ${hostnameLower}, Subdomain: ${subdomain}, FullDomain: ${fullDomain}`);
+      console.log(`[Company Detection] API Base URL: ${apiBaseUrl}`);
       
       try {
-        const domainMappingResponse = await axios.get(`${process.env.API_BASE_URL || 'https://localhost:7163'}/api/companies/domain-mapping`, {
+        const domainMappingUrl = `${apiBaseUrl}/api/companies/domain-mapping`;
+        console.log(`[Company Detection] Fetching domain mapping from: ${domainMappingUrl}`);
+        
+        const domainMappingResponse = await axios.get(domainMappingUrl, {
           httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
-          timeout: 5000 // Increased timeout for production
+          timeout: 10000 // Increased timeout for production
         });
         
         const domainMapping = domainMappingResponse.data?.result || domainMappingResponse.data;
         
+        console.log(`[Company Detection] Domain mapping response status: ${domainMappingResponse.status}`);
         console.log(`[Company Detection] Domain mapping keys:`, Object.keys(domainMapping || {}));
         
         if (domainMapping && domainMapping[fullDomain]) {
@@ -233,6 +240,7 @@ app.use('/api/*', async (req, res, next) => {
         } else {
           console.warn(`[Company Detection] ✗ No mapping found for ${fullDomain}`);
           console.warn(`[Company Detection] Available domains:`, Object.keys(domainMapping || {}));
+          console.warn(`[Company Detection] Looking for: ${fullDomain}`);
           // Don't set header - let backend try to resolve from hostname
         }
       } catch (err) {
@@ -241,7 +249,9 @@ app.use('/api/*', async (req, res, next) => {
         console.error(`[Company Detection] Error details:`, {
           code: err.code,
           response: err.response?.status,
-          message: err.message
+          responseData: err.response?.data,
+          message: err.message,
+          stack: err.stack
         });
         // Backend middleware will try to resolve from hostname as fallback
       }
