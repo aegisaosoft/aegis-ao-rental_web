@@ -640,9 +640,142 @@ const BookPage = () => {
         return;
       }
       
-      // For now, skip client-side BlinkID SDK due to CORS issues with workers on localhost/development
-      // The server endpoint should be used instead, and can be updated to use real BlinkID OCR
-      console.log('[BlinkID] Using server endpoint for parsing (client-side SDK has CORS restrictions)');
+      // Try client-side BlinkID SDK parsing when license key is available
+      console.log('[BlinkID] License key found, attempting client-side parsing');
+      
+      try {
+        // Load BlinkID SDK if not already loaded
+        if (!window.BlinkIDSDK) {
+          console.log('[BlinkID] Loading BlinkID SDK...');
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
+            script.async = true;
+            script.onload = () => {
+              console.log('[BlinkID] SDK loaded successfully');
+              resolve();
+            };
+            script.onerror = () => {
+              console.warn('[BlinkID] Failed to load SDK from CDN, falling back to server endpoint');
+              reject(new Error('Failed to load BlinkID SDK'));
+            };
+            document.body.appendChild(script);
+          });
+        }
+        
+        const BlinkIDSDK = window.BlinkIDSDK;
+        if (!BlinkIDSDK) {
+          throw new Error('BlinkID SDK not available');
+        }
+        
+        // Initialize BlinkID SDK
+        console.log('[BlinkID] Initializing BlinkID SDK with license key...');
+        const sdk = await BlinkIDSDK.loadWasmModule({
+          licenseKey: licenseKey,
+          engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
+          wasmModuleName: 'BlinkID'
+        });
+        
+        // Fetch the image
+        const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
+        console.log('[BlinkID] Fetching image from:', fullUrl);
+        const response = await fetch(fullUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch license image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        
+        // Create Image Recognizer
+        const recognizer = await sdk.createBlinkIdCombinedRecognizer();
+        
+        // Create RecognizerRunner
+        const recognizerRunner = await sdk.createRecognizerRunner(
+          [recognizer],
+          false,
+          (recognitionState) => {
+            console.log('[BlinkID] Recognition state:', recognitionState);
+          }
+        );
+        
+        // Process the image
+        console.log('[BlinkID] Processing image with BlinkID...');
+        const image = await sdk.createImageFromBlob(blob);
+        const processResult = await recognizerRunner.processImage(image);
+        
+        if (!processResult || processResult.length === 0) {
+          throw new Error('No recognition results');
+        }
+        
+        // Get the first result
+        const result = await recognizer.getResult();
+        console.log('[BlinkID] Recognition result:', result);
+        
+        if (result.state === BlinkIDSDK.RecognizerResultState.Empty) {
+          throw new Error('Recognition result is empty');
+        }
+        
+        // Extract data from result
+        const parsedData = {
+          licenseNumber: result.number || result.licenseNumber,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          issuingState: result.jurisdiction || result.state,
+          issuingCountry: result.address?.country || 'US',
+          expirationDate: result.dateOfExpiry ? new Date(result.dateOfExpiry.year, result.dateOfExpiry.month - 1, result.dateOfExpiry.day).toISOString().split('T')[0] : null,
+          issueDate: result.dateOfIssue ? new Date(result.dateOfIssue.year, result.dateOfIssue.month - 1, result.dateOfIssue.day).toISOString().split('T')[0] : null,
+          address: result.address?.street || result.address?.address,
+          city: result.address?.city,
+          state: result.address?.state || result.state,
+          postalCode: result.address?.postalCode,
+          country: result.address?.country || 'US',
+          sex: result.sex,
+          height: result.height,
+          eyeColor: result.eyeColor,
+          dateOfBirth: result.dateOfBirth ? new Date(result.dateOfBirth.year, result.dateOfBirth.month - 1, result.dateOfBirth.day).toISOString().split('T')[0] : null
+        };
+        
+        console.log('[BlinkID] Extracted data:', parsedData);
+        
+        // Update license data
+        const updatedLicenseData = {
+          ...licenseData,
+          ...(parsedData.licenseNumber && { licenseNumber: parsedData.licenseNumber }),
+          ...(parsedData.issuingState && { stateIssued: parsedData.issuingState }),
+          ...(parsedData.issuingCountry && { countryIssued: parsedData.issuingCountry }),
+          ...(parsedData.expirationDate && { expirationDate: parsedData.expirationDate }),
+          ...(parsedData.issueDate && { issueDate: parsedData.issueDate }),
+          ...(parsedData.address && { licenseAddress: parsedData.address }),
+          ...(parsedData.city && { licenseCity: parsedData.city }),
+          ...(parsedData.state && { licenseState: parsedData.state }),
+          ...(parsedData.postalCode && { licensePostalCode: parsedData.postalCode }),
+          ...(parsedData.sex && { sex: parsedData.sex }),
+          ...(parsedData.height && { height: parsedData.height }),
+          ...(parsedData.eyeColor && { eyeColor: parsedData.eyeColor }),
+          ...(parsedData.dateOfBirth && { dateOfBirth: parsedData.dateOfBirth })
+        };
+        
+        setLicenseData(updatedLicenseData);
+        setIsViewingLicense(false);
+        setIsLicenseModalOpen(true);
+        
+        const fullName = parsedData.firstName && parsedData.lastName 
+          ? `${parsedData.firstName} ${parsedData.lastName}`
+          : 'License information';
+        toast.success(`License information extracted successfully! ${fullName}`);
+        
+        // Cleanup
+        await recognizerRunner.delete();
+        await recognizer.delete();
+        image.delete();
+        
+        return;
+      } catch (clientError) {
+        console.warn('[BlinkID] Client-side parsing failed, falling back to server endpoint:', clientError);
+        // Fall through to server endpoint fallback
+      }
+      
+      // Fallback to server endpoint if client-side parsing fails
+      console.log('[BlinkID] Using server endpoint for parsing');
       const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
       const response = await fetch(fullUrl);
       if (!response.ok) {
