@@ -146,9 +146,9 @@ const BookPage = () => {
   // Fetch driver license image when authenticated - with smart polling to detect new uploads
   React.useEffect(() => {
     if (!isAuthenticated) {
-      setLicenseImageUrl(null);
-      return;
-    }
+        setLicenseImageUrl(null);
+        return;
+      }
 
     let consecutive404s = 0;
     const maxConsecutive404s = 3; // After 3 consecutive 404s, slow down polling
@@ -249,7 +249,7 @@ const BookPage = () => {
               testImage = new Image();
               testImage.onload = () => {
                 console.log('[License] Image verified and loaded successfully from:', imageUrl);
-                setLicenseImageUrl(imageUrl);
+        setLicenseImageUrl(imageUrl);
                 // Success - reset counter and restore normal polling
                 if (consecutive404s > 0) {
                   consecutive404s = 0;
@@ -297,24 +297,24 @@ const BookPage = () => {
       fetchLicenseImageRef.current = fetchLicenseImage;
       
       // Fetch immediately
-      fetchLicenseImage();
+    fetchLicenseImage();
 
       // Start polling - will adjust frequency based on results
       pollInterval = setInterval(fetchLicenseImage, pollDelay);
 
       // Cleanup: revoke object URL when component unmounts
-      return () => {
+    return () => {
         if (pollInterval) {
           clearInterval(pollInterval);
         }
         fetchLicenseImageRef.current = null; // Clear ref on cleanup
-        setLicenseImageUrl(prevUrl => {
-          if (prevUrl) {
-            URL.revokeObjectURL(prevUrl);
-          }
-          return null;
-        });
-      };
+      setLicenseImageUrl(prevUrl => {
+        if (prevUrl) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return null;
+      });
+    };
     }, [isAuthenticated, companyConfig, companyId, user]);
 
   // Auto-close QR modal and show license when image is uploaded while QR modal is open
@@ -997,9 +997,9 @@ const BookPage = () => {
     const origin = configuredBase || window.location.origin;
     const returnTo = window.location.pathname + window.location.search;
     
-          // Get auth token from localStorage to pass to phone
-      const token = localStorage.getItem('token');
-      
+    // Get auth token from localStorage to pass to phone
+    const token = localStorage.getItem('token');
+    
       // Log token availability for debugging
       console.log('[QR Code] Generating QR code with token:', token ? 'Present' : 'Missing');
       console.log('[QR Code] User authenticated:', isAuthenticated);
@@ -1010,9 +1010,9 @@ const BookPage = () => {
       
       // Build URL with auth token, companyId, and userId if available
       // ALWAYS include token if it exists (user is already authenticated at this point)
-      let url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+    let url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
       if (token) {
-        url += `&token=${encodeURIComponent(token)}`;
+      url += `&token=${encodeURIComponent(token)}`;
         console.log('[QR Code] Token included in QR code URL');
       } else {
         console.warn('[QR Code] WARNING: Token not found in localStorage! QR code will not include authentication.');
@@ -1312,22 +1312,22 @@ const BookPage = () => {
 
             {/* Driver License Information - Buttons */}
             <div className="bg-white rounded-lg shadow-md p-6 space-y-3">
-                              <button
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
-                      return;
-                    }
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
+                    return;
+                  }
                     setIsViewingLicense(false); // Edit mode
-                    setIsLicenseModalOpen(true);
-                  }}
-                  className="w-full btn-outline flex items-center justify-center gap-2"
-                >
-                  <CreditCard className="h-5 w-5" />
-                  {isAuthenticated 
-                    ? (customerLicense ? t('bookPage.driverLicenseInformation') : t('bookPage.createLicenseInformation'))
-                    : t('bookPage.driverLicenseInformation')}
-                </button>
+                  setIsLicenseModalOpen(true);
+                }}
+                className="w-full btn-outline flex items-center justify-center gap-2"
+              >
+                <CreditCard className="h-5 w-5" />
+                {isAuthenticated 
+                  ? (customerLicense ? t('bookPage.driverLicenseInformation') : t('bookPage.createLicenseInformation'))
+                  : t('bookPage.driverLicenseInformation')}
+              </button>
               
               {/* View License Button - only show if authenticated */}
               {isAuthenticated && (
@@ -1348,10 +1348,10 @@ const BookPage = () => {
               )}
             </div>
 
-            {/* QR Modal */}
-            {qrOpen && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-                <div className="bg-white rounded-lg p-4 w-80 text-center">
+              {/* QR Modal */}
+              {qrOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+                  <div className="bg-white rounded-lg p-4 w-80 text-center">
                     <div className="text-lg font-semibold mb-2">{t('bookPage.scanOnYourPhone')}</div>
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
@@ -1396,10 +1396,10 @@ const BookPage = () => {
                 </div>
               )}
 
-            {/* Driver License Modal */}
-            {isLicenseModalOpen && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Driver License Modal */}
+              {isLicenseModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                   {isViewingLicense ? (
                     // VIEW MODE: Only close button
                     <div className="flex justify-end items-center p-4">
@@ -1442,7 +1442,7 @@ const BookPage = () => {
                     </div>
                   )}
 
-                  <div className="p-6">
+                                          <div className="p-6">
                         {isViewingLicense ? (
                           // VIEW MODE: Show only image or message - nothing else
                           <>
@@ -1495,29 +1495,29 @@ const BookPage = () => {
                         ) : (
                           // EDIT MODE: Show form with optional image preview
                           <>
-                            {/* Display uploaded driver license image if available */}
-                            {licenseImageUrl && (
-                              <div className="mb-6 pb-6 border-b">
+                        {/* Display uploaded driver license image if available */}
+                        {licenseImageUrl && (
+                          <div className="mb-6 pb-6 border-b">
                                 <label className="block text-sm font-medium text-gray-700 mb-4 text-lg">
-                                  {t('bookPage.uploadedDriverLicense') || 'Uploaded Driver License'}
-                                </label>
+                              {t('bookPage.uploadedDriverLicense') || 'Uploaded Driver License'}
+                            </label>
                                 <div className="bg-gray-50 rounded-lg p-6 flex justify-center items-center min-h-[400px]">
-                                  <img
-                                    src={licenseImageUrl}
-                                    alt="Driver License"
+                              <img
+                                src={licenseImageUrl}
+                                alt="Driver License"
                                     className="max-w-full max-h-[600px] w-auto h-auto rounded-lg shadow-lg object-contain"
-                                    onError={(e) => {
+                                onError={(e) => {
                                       console.error('Error loading driver license image from:', licenseImageUrl);
                                       setLicenseImageUrl(null);
                                     }}
                                     onLoad={() => {
                                       console.log('Driver license image loaded successfully from:', licenseImageUrl);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                            <form onSubmit={handleSaveLicense} className="space-y-4">
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <form onSubmit={handleSaveLicense} className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* License Number */}
                           <div>
@@ -1784,10 +1784,10 @@ const BookPage = () => {
                       </form>
                           </>
                         )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           {/* Right Part - Booking Form */}
