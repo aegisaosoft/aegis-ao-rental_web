@@ -989,6 +989,35 @@ app.get('/api/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) 
   }
 });
 
+// Proxy BlinkID resources to CDN to avoid SPA routing issues
+// This handles requests to /resources/blinkid-worker.js and other BlinkID resources
+app.get('/resources/*', async (req, res) => {
+  try {
+    const resourcePath = req.path.replace('/resources/', '');
+    const cdnUrl = `https://unpkg.com/@microblink/blinkid@7.6.0/resources/${resourcePath}`;
+    
+    const response = await axios.get(cdnUrl, {
+      responseType: 'stream',
+      timeout: 10000
+    });
+    
+    // Set appropriate content type
+    const contentType = resourcePath.endsWith('.wasm') ? 'application/wasm' :
+                       resourcePath.endsWith('.js') ? 'application/javascript' :
+                       resourcePath.endsWith('.data') ? 'application/octet-stream' :
+                       'application/octet-stream';
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('[Resources Proxy] Error fetching from CDN:', error.message);
+    res.status(404).send('Resource not found');
+  }
+});
+
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
@@ -996,7 +1025,6 @@ app.get('*', (req, res) => {
   // Don't catch API routes, model image requests, or static resources
   if (req.path.startsWith('/api/') || 
       req.path.startsWith('/models/') || 
-      req.path.startsWith('/resources/') ||
       req.path.startsWith('/static/')) {
     return res.status(404).send('Not found');
   }
