@@ -653,35 +653,67 @@ const BookPage = () => {
       try {
         // Load BlinkID SDK if not already loaded
         if (!window.BlinkIDSDK) {
-          console.log('[BlinkID] Loading BlinkID SDK...');
+          console.log('[BlinkID] Loading BlinkID SDK from CDN...');
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
             script.async = true;
             script.onload = () => {
-              console.log('[BlinkID] SDK loaded successfully');
-              resolve();
+              // Wait a bit for the script to initialize
+              setTimeout(() => {
+                if (window.BlinkIDSDK) {
+                  console.log('[BlinkID] SDK loaded and available');
+                  resolve();
+                } else {
+                  console.error('[BlinkID] Script loaded but BlinkIDSDK not found on window object');
+                  reject(new Error('BlinkIDSDK not found after script load - check console for script errors'));
+                }
+              }, 100);
             };
-            script.onerror = () => {
-              console.warn('[BlinkID] Failed to load SDK from CDN, falling back to server endpoint');
-              reject(new Error('Failed to load BlinkID SDK'));
+            script.onerror = (error) => {
+              console.error('[BlinkID] Script load error:', error);
+              console.error('[BlinkID] Failed to load script from:', script.src);
+              console.error('[BlinkID] Check browser console Network tab for details');
+              reject(new Error(`Failed to load BlinkID SDK script: ${error?.message || 'Unknown error'}`));
             };
             document.body.appendChild(script);
+            
+            // Timeout after 30 seconds
+            setTimeout(() => {
+              if (!window.BlinkIDSDK) {
+                reject(new Error('Timeout loading BlinkID SDK - script may have failed silently'));
+              }
+            }, 30000);
           });
         }
         
         const BlinkIDSDK = window.BlinkIDSDK;
         if (!BlinkIDSDK) {
-          throw new Error('BlinkID SDK not available');
+          throw new Error('BlinkID SDK not available on window object');
         }
         
         // Initialize BlinkID SDK
         console.log('[BlinkID] Initializing BlinkID SDK with license key...');
-        const sdk = await BlinkIDSDK.loadWasmModule({
-          licenseKey: licenseKey,
-          engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
-          wasmModuleName: 'BlinkID'
-        });
+        console.log('[BlinkID] License key length:', licenseKey?.length || 0);
+        console.log('[BlinkID] Engine location:', 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources');
+        
+        let sdk;
+        try {
+          sdk = await BlinkIDSDK.loadWasmModule({
+            licenseKey: licenseKey,
+            engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
+            wasmModuleName: 'BlinkID'
+          });
+          console.log('[BlinkID] SDK initialized successfully');
+        } catch (initError) {
+          console.error('[BlinkID] SDK initialization error:', initError);
+          console.error('[BlinkID] Error details:', {
+            message: initError.message,
+            stack: initError.stack,
+            name: initError.name
+          });
+          throw new Error(`BlinkID SDK initialization failed: ${initError.message}`);
+        }
         
         // Fetch the image
         const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
@@ -777,7 +809,23 @@ const BookPage = () => {
         
         return;
       } catch (clientError) {
-        console.warn('[BlinkID] Client-side parsing failed, falling back to server endpoint:', clientError);
+        console.error('[BlinkID] Client-side parsing failed:', clientError);
+        console.error('[BlinkID] Error type:', clientError.name);
+        console.error('[BlinkID] Error message:', clientError.message);
+        console.error('[BlinkID] Error stack:', clientError.stack);
+        
+        // Check for specific error types
+        if (clientError.message?.includes('CORS') || clientError.message?.includes('Cross-Origin')) {
+          console.error('[BlinkID] CORS error detected - worker resources may be blocked');
+        } else if (clientError.message?.includes('license') || clientError.message?.includes('License')) {
+          console.error('[BlinkID] License-related error - check license key validity');
+        } else if (clientError.message?.includes('WASM') || clientError.message?.includes('wasm')) {
+          console.error('[BlinkID] WASM/WebAssembly error - check browser compatibility');
+        } else if (clientError.message?.includes('Worker')) {
+          console.error('[BlinkID] Web Worker error - may be CORS or CSP related');
+        }
+        
+        console.warn('[BlinkID] Falling back to server endpoint');
         // Fall through to server endpoint fallback
       }
       
