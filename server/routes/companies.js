@@ -39,6 +39,7 @@ router.get('/config', async (req, res) => {
     const queryParams = { ...req.query };
     
     console.log(`[Companies Route] GET ${proxyPath}`);
+    console.log(`[Companies Route] API Base URL: ${apiBaseUrl}`);
     console.log(`[Companies Route] Request headers from client:`, {
       'x-company-id': req.headers['x-company-id'],
       'host': req.headers['host'],
@@ -47,14 +48,30 @@ router.get('/config', async (req, res) => {
     console.log(`[Companies Route] X-Company-Id header to backend: ${headers['X-Company-Id'] || 'none'}`);
     console.log(`[Companies Route] Query params:`, queryParams);
     
+    // Use shorter timeout for Azure (15 seconds instead of 30)
+    const timeout = 15000;
+    
     const response = await axios.get(`${apiBaseUrl}${proxyPath}`, {
       headers: headers,
       params: queryParams, // Forward query parameters
       httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
-      validateStatus: () => true // Don't throw on any status code
+      validateStatus: () => true, // Don't throw on any status code
+      timeout: timeout
     });
     
     console.log(`[Companies Route] GET /config response status: ${response.status}`);
+    
+    // Handle 400 (Bad Request) - usually means company not found for hostname
+    if (response.status === 400) {
+      console.warn(`[Companies Route] Company not found for hostname. This is expected if domain is not configured.`);
+      // Return a more graceful response - company not found is not a critical error
+      return res.status(404).json({
+        message: 'Company configuration not found for this domain',
+        error: 'COMPANY_NOT_FOUND',
+        hostname: req.headers['x-forwarded-host'] || req.headers['host']
+      });
+    }
+    
     if (response.status !== 200) {
       console.log(`[Companies Route] Error response:`, response.data);
     }
@@ -62,14 +79,38 @@ router.get('/config', async (req, res) => {
     res.status(response.status).json(response.data);
   } catch (error) {
     console.error('[Companies Route] Config fetch error:', error.message);
+    console.error('[Companies Route] Error code:', error.code);
     console.error('[Companies Route] Error details:', {
       status: error.response?.status,
       data: error.response?.data,
-      message: error.message
+      message: error.message,
+      code: error.code
     });
+    
+    // Handle timeout or connection errors specifically
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      console.error('[Companies Route] Request timeout - API may be down or unreachable');
+      return res.status(503).json({
+        message: 'API service unavailable. Please try again later.',
+        error: 'SERVICE_UNAVAILABLE',
+        code: error.code
+      });
+    }
+    
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      console.error('[Companies Route] Cannot connect to API:', apiBaseUrl);
+      return res.status(503).json({
+        message: 'API service unavailable. Cannot connect to backend API.',
+        error: 'CONNECTION_FAILED',
+        code: error.code,
+        apiUrl: apiBaseUrl
+      });
+    }
+    
     res.status(error.response?.status || 500).json({
       message: error.response?.data?.message || 'Server error',
-      error: error.message
+      error: error.message,
+      code: error.code
     });
   }
 });

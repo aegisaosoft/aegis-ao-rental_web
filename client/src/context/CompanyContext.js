@@ -194,18 +194,28 @@ export const CompanyProvider = ({ children }) => {
       } catch (err) {
         // If company config is not found, that's okay - app will continue without company-specific branding
         const errorMsg = err.response?.data?.error || err.message;
-        console.error('[CompanyContext] Could not load company configuration:', errorMsg);
-        console.error('[CompanyContext] Page URL:', window.location.href);
-        console.error('[CompanyContext] API Request URL:', err.config?.url || err.request?.responseURL || 'unknown');
-        console.error('[CompanyContext] API Base URL:', err.config?.baseURL || 'unknown');
-        console.error('[CompanyContext] Full Request Config:', err.config);
-        console.error('[CompanyContext] Error details:', {
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          message: err.message
-        });
-        setError(errorMsg || 'Company configuration not available');
+        const status = err.response?.status;
+        
+        // 404 (Company not found) is expected and not a critical error - log as warning
+        if (status === 404 || err.response?.data?.error === 'COMPANY_NOT_FOUND') {
+          console.warn('[CompanyContext] Company configuration not found for this domain. Continuing without company-specific branding.');
+          console.warn('[CompanyContext] Hostname:', window.location.hostname);
+          // Don't set error state for 404 - app can continue normally
+          setError(null);
+        } else {
+          // For other errors (timeout, 500, etc.), log as error but still continue
+          console.error('[CompanyContext] Could not load company configuration:', errorMsg);
+          console.error('[CompanyContext] Page URL:', window.location.href);
+          console.error('[CompanyContext] API Request URL:', err.config?.url || err.request?.responseURL || 'unknown');
+          console.error('[CompanyContext] API Base URL:', err.config?.baseURL || 'unknown');
+          console.error('[CompanyContext] Error details:', {
+            status: status,
+            statusText: err.response?.statusText,
+            data: err.response?.data,
+            message: err.message
+          });
+          setError(errorMsg || 'Company configuration not available');
+        }
       } finally {
         setLoading(false);
       }
