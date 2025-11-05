@@ -170,20 +170,20 @@ const BookPage = () => {
             if (tokenParts.length >= 2) {
               const payload = JSON.parse(atob(tokenParts[1]));
               
-              // Extract customerId from token (NameIdentifier claim) - check all possible variations
-              currentUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+              // Extract customerId from token - prioritize nameid and customer_id (most common in JWT tokens)
+              currentUserId = payload.nameid
+                || payload.customer_id
+                || payload.customerId
+                || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
                 || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier']
                 || payload['http://schemas.microsoft.com/identity/claims/nameidentifier']
                 || payload.nameidentifier
                 || payload.NameIdentifier
-                || payload.customer_id
-                || payload.customerId
                 || payload.sub
                 || payload.userId
                 || payload.UserId
                 || payload.id
                 || payload.Id
-                || payload.nameid
                 || payload.unique_name
                 || payload.name;
               
@@ -195,14 +195,6 @@ const BookPage = () => {
                 || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/name']
                 || payload.orgid
                 || payload.organizationId;
-              
-              // If still not found, log all payload values for debugging
-              if (!currentUserId || !currentCompanyId) {
-                console.warn('[License] ⚠️ Missing IDs from token. Token payload keys:', Object.keys(payload));
-                Object.keys(payload).forEach(key => {
-                  console.log(`[License]   ${key}:`, payload[key]);
-                });
-              }
             }
           } catch (tokenError) {
             console.error('[License] Error parsing token:', tokenError);
@@ -216,7 +208,22 @@ const BookPage = () => {
             currentCompanyId = companyConfig?.id || companyId;
           }
           
+          // Only warn if BOTH are still missing AFTER fallback
           if (!currentCompanyId || !currentUserId) {
+            console.warn('[License] ⚠️ Missing IDs after all attempts. Token had userId:', !!currentUserId, 'companyId:', !!currentCompanyId);
+            // Only log token payload if we're still missing IDs after fallback
+            try {
+              const token = localStorage.getItem('token');
+              if (token) {
+                const tokenParts = token.split('.');
+                if (tokenParts.length >= 2) {
+                  const payload = JSON.parse(atob(tokenParts[1]));
+                  console.warn('[License] Token payload keys:', Object.keys(payload));
+                }
+              }
+            } catch (e) {
+              // Ignore token parsing errors here
+            }
             // Missing required parameters, skip this fetch
             console.log('[License] Missing companyId or userId, skipping fetch');
             console.log('[License] companyId:', currentCompanyId, 'userId:', currentUserId);
@@ -860,21 +867,20 @@ const BookPage = () => {
           console.log('[View License] Token payload:', payload);
           console.log('[View License] Token payload keys:', Object.keys(payload));
           
-          // Extract customerId from token (NameIdentifier claim) - check all possible variations
-          currentUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+          // Extract customerId from token - prioritize nameid and customer_id (most common in JWT tokens)
+          currentUserId = payload.nameid
+            || payload.customer_id
+            || payload.customerId
+            || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
             || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier']
             || payload['http://schemas.microsoft.com/identity/claims/nameidentifier']
             || payload.nameidentifier
             || payload.NameIdentifier
-            || payload.customer_id
-            || payload.customerId
             || payload.sub
             || payload.userId
             || payload.UserId
             || payload.id
             || payload.Id
-            || payload.nameid
-            || payload.nameid
             || payload.unique_name
             || payload.name;
           
@@ -888,14 +894,6 @@ const BookPage = () => {
             || payload.organizationId;
           
           console.log('[View License] Extracted from token - userId:', currentUserId, 'companyId:', currentCompanyId);
-          
-          // If still not found, log all payload values for debugging
-          if (!currentUserId || !currentCompanyId) {
-            console.warn('[View License] ⚠️ Missing IDs from token. All payload values:');
-            Object.keys(payload).forEach(key => {
-              console.log(`  ${key}:`, payload[key]);
-            });
-          }
         }
       } catch (error) {
         console.error('[View License] Error parsing token:', error);
@@ -908,6 +906,23 @@ const BookPage = () => {
     }
     if (!currentCompanyId) {
       currentCompanyId = companyConfig?.id || companyId;
+    }
+    
+    // Only warn if BOTH are still missing AFTER fallback
+    if (!currentCompanyId || !currentUserId) {
+      console.warn('[View License] ⚠️ Missing IDs after all attempts. Token had userId:', !!currentUserId, 'companyId:', !!currentCompanyId);
+      // Only log token payload if we're still missing IDs after fallback
+      if (token) {
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length >= 2) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            console.warn('[View License] Token payload keys:', Object.keys(payload));
+          }
+        } catch (e) {
+          // Ignore token parsing errors here
+        }
+      }
     }
     
     console.log('[View License] Final companyId:', currentCompanyId, 'userId (customerId):', currentUserId);
