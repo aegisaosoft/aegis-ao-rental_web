@@ -22,6 +22,7 @@ import { toast } from 'react-toastify';
 import { Car, ArrowLeft, CreditCard, X, Calendar, Eye } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { createBlinkId } from '@microblink/blinkid';
 
 const BookPage = () => {
   const { t } = useTranslation();
@@ -585,6 +586,25 @@ const BookPage = () => {
   };
 
   // Parse license image with BlinkID - works with any image URL (client-side parsing)
+  // Helper function to format dates from BlinkID result
+  const formatBlinkIDDate = (dateObj) => {
+    if (!dateObj) return null;
+    
+    // Handle different date formats from BlinkID
+    if (typeof dateObj === 'string') {
+      return dateObj;
+    }
+    
+    if (dateObj.year && dateObj.month && dateObj.day) {
+      const year = dateObj.year;
+      const month = String(dateObj.month).padStart(2, '0');
+      const day = String(dateObj.day).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return null;
+  };
+
   const parseLicenseImageWithBlinkID = async (imageUrl) => {
     // Prevent duplicate parsing
     if (isParsingRef.current) {
@@ -648,72 +668,19 @@ const BookPage = () => {
       }
       
       // Try client-side BlinkID SDK parsing when license key is available
-      console.log('[BlinkID] License key found, attempting client-side parsing');
+      console.log('[BlinkID] License key found, attempting client-side parsing using npm package');
       
       try {
-        // Load BlinkID SDK if not already loaded
-        if (!window.BlinkIDSDK) {
-          console.log('[BlinkID] Loading BlinkID SDK from CDN...');
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
-            script.async = true;
-            script.onload = () => {
-              // Wait a bit for the script to initialize
-              setTimeout(() => {
-                if (window.BlinkIDSDK) {
-                  console.log('[BlinkID] SDK loaded and available');
-                  resolve();
-                } else {
-                  console.error('[BlinkID] Script loaded but BlinkIDSDK not found on window object');
-                  reject(new Error('BlinkIDSDK not found after script load - check console for script errors'));
-                }
-              }, 100);
-            };
-            script.onerror = (error) => {
-              console.error('[BlinkID] Script load error:', error);
-              console.error('[BlinkID] Failed to load script from:', script.src);
-              console.error('[BlinkID] Check browser console Network tab for details');
-              reject(new Error(`Failed to load BlinkID SDK script: ${error?.message || 'Unknown error'}`));
-            };
-            document.body.appendChild(script);
-            
-            // Timeout after 30 seconds
-            setTimeout(() => {
-              if (!window.BlinkIDSDK) {
-                reject(new Error('Timeout loading BlinkID SDK - script may have failed silently'));
-              }
-            }, 30000);
-          });
-        }
-        
-        const BlinkIDSDK = window.BlinkIDSDK;
-        if (!BlinkIDSDK) {
-          throw new Error('BlinkID SDK not available on window object');
-        }
-        
-        // Initialize BlinkID SDK
+        // Use the installed npm package instead of CDN
         console.log('[BlinkID] Initializing BlinkID SDK with license key...');
         console.log('[BlinkID] License key length:', licenseKey?.length || 0);
-        console.log('[BlinkID] Engine location:', 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources');
         
-        let sdk;
-        try {
-          sdk = await BlinkIDSDK.loadWasmModule({
-            licenseKey: licenseKey,
-            engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources',
-            wasmModuleName: 'BlinkID'
-          });
-          console.log('[BlinkID] SDK initialized successfully');
-        } catch (initError) {
-          console.error('[BlinkID] SDK initialization error:', initError);
-          console.error('[BlinkID] Error details:', {
-            message: initError.message,
-            stack: initError.stack,
-            name: initError.name
-          });
-          throw new Error(`BlinkID SDK initialization failed: ${initError.message}`);
-        }
+        // Create BlinkID instance using the npm package
+        const blinkid = await createBlinkId({
+          licenseKey: licenseKey
+        });
+        
+        console.log('[BlinkID] SDK initialized successfully');
         
         // Fetch the image
         const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
@@ -724,53 +691,44 @@ const BookPage = () => {
         }
         const blob = await response.blob();
         
-        // Create Image Recognizer
-        const recognizer = await sdk.createBlinkIdCombinedRecognizer();
+        // Convert blob to base64 for BlinkID
+        const base64Image = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
         
-        // Create RecognizerRunner
-        const recognizerRunner = await sdk.createRecognizerRunner(
-          [recognizer],
-          false,
-          (recognitionState) => {
-            console.log('[BlinkID] Recognition state:', recognitionState);
-          }
-        );
-        
-        // Process the image
+        // Process the image with BlinkID
         console.log('[BlinkID] Processing image with BlinkID...');
-        const image = await sdk.createImageFromBlob(blob);
-        const processResult = await recognizerRunner.processImage(image);
+        const result = await blinkid.recognize(base64Image);
         
-        if (!processResult || processResult.length === 0) {
+        console.log('[BlinkID] Recognition result:', result);
+        
+        if (!result || !result.result) {
           throw new Error('No recognition results');
         }
         
-        // Get the first result
-        const result = await recognizer.getResult();
-        console.log('[BlinkID] Recognition result:', result);
+        const recognitionData = result.result;
         
-        if (result.state === BlinkIDSDK.RecognizerResultState.Empty) {
-          throw new Error('Recognition result is empty');
-        }
-        
-        // Extract data from result
+        // Extract data from result (BlinkID v7+ format)
         const parsedData = {
-          licenseNumber: result.number || result.licenseNumber,
-          firstName: result.firstName,
-          lastName: result.lastName,
-          issuingState: result.jurisdiction || result.state,
-          issuingCountry: result.address?.country || 'US',
-          expirationDate: result.dateOfExpiry ? new Date(result.dateOfExpiry.year, result.dateOfExpiry.month - 1, result.dateOfExpiry.day).toISOString().split('T')[0] : null,
-          issueDate: result.dateOfIssue ? new Date(result.dateOfIssue.year, result.dateOfIssue.month - 1, result.dateOfIssue.day).toISOString().split('T')[0] : null,
-          address: result.address?.street || result.address?.address,
-          city: result.address?.city,
-          state: result.address?.state || result.state,
-          postalCode: result.address?.postalCode,
-          country: result.address?.country || 'US',
-          sex: result.sex,
-          height: result.height,
-          eyeColor: result.eyeColor,
-          dateOfBirth: result.dateOfBirth ? new Date(result.dateOfBirth.year, result.dateOfBirth.month - 1, result.dateOfBirth.day).toISOString().split('T')[0] : null
+          licenseNumber: recognitionData.documentNumber || recognitionData.number || recognitionData.licenseNumber,
+          firstName: recognitionData.firstName || recognitionData.firstname,
+          lastName: recognitionData.lastName || recognitionData.lastname,
+          issuingState: recognitionData.jurisdiction || recognitionData.state || recognitionData.issuingState,
+          issuingCountry: recognitionData.country || recognitionData.issuingCountry || 'US',
+          expirationDate: recognitionData.dateOfExpiry ? formatBlinkIDDate(recognitionData.dateOfExpiry) : null,
+          issueDate: recognitionData.dateOfIssue ? formatBlinkIDDate(recognitionData.dateOfIssue) : null,
+          address: recognitionData.address?.street || recognitionData.address?.address || recognitionData.addressLine1,
+          city: recognitionData.address?.city || recognitionData.city,
+          state: recognitionData.address?.state || recognitionData.state || recognitionData.addressState,
+          postalCode: recognitionData.address?.postalCode || recognitionData.postalCode || recognitionData.zip,
+          country: recognitionData.address?.country || recognitionData.country || 'US',
+          sex: recognitionData.sex || recognitionData.gender,
+          height: recognitionData.height,
+          eyeColor: recognitionData.eyeColor,
+          dateOfBirth: recognitionData.dateOfBirth ? formatBlinkIDDate(recognitionData.dateOfBirth) : null
         };
         
         console.log('[BlinkID] Extracted data:', parsedData);
@@ -801,11 +759,6 @@ const BookPage = () => {
           ? `${parsedData.firstName} ${parsedData.lastName}`
           : 'License information';
         toast.success(`License information extracted successfully! ${fullName}`);
-        
-        // Cleanup
-        await recognizerRunner.delete();
-        await recognizer.delete();
-        image.delete();
         
         return;
       } catch (clientError) {
