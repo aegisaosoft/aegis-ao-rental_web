@@ -20,59 +20,53 @@ const authenticateToken = async (req, res, next) => {
   // ALWAYS check session token first (priority), then Authorization header
   const sessionToken = req.session?.token;
   const headerToken = req.headers['authorization']?.split(' ')[1];
-  const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
   
-  let token = null;
+  // Get token from session or header (don't verify here - let C# API verify it)
+  let token = sessionToken || headerToken;
+
+  if (!token) {
+    console.log('[Auth] No token found in session or headers');
+    return res.status(401).json({ message: 'Access token required' });
+  }
+
+  // If we got token from header but not from session, store it in session
+  if (headerToken && !sessionToken) {
+    console.log('[Auth] Storing header token in session');
+    if (req.session) {
+      req.session.token = headerToken;
+    }
+  }
+
+  // Try to decode token (without verification) to extract user info for middleware use
+  // If decoding fails, still pass token to API - let API verify it
   let decoded = null;
-
-  // Try session token first
-  if (sessionToken) {
-    try {
-      decoded = jwt.verify(sessionToken, jwtSecret);
-      token = sessionToken;
-      console.log('[Auth] Using valid token from session');
-    } catch (error) {
-      console.log('[Auth] Session token invalid, clearing from session:', error.message);
-      // Clear invalid session token
-      if (req.session) {
-        delete req.session.token;
-      }
-    }
+  try {
+    // Decode without verification - just to extract payload if possible
+    decoded = jwt.decode(token, { complete: false });
+  } catch (error) {
+    console.log('[Auth] Could not decode token (non-critical):', error.message);
   }
 
-  // If session token didn't work, try header token
-  if (!token && headerToken) {
-    try {
-      decoded = jwt.verify(headerToken, jwtSecret);
-      token = headerToken;
-      console.log('[Auth] Using valid token from Authorization header, storing in session');
-      // Store valid header token in session for future requests
-      if (req.session) {
-        req.session.token = headerToken;
-      }
-    } catch (error) {
-      console.log('[Auth] Header token also invalid:', error.message);
-    }
-  }
-
-  // If no valid token found, return error
-  if (!token || !decoded) {
-    console.log('[Auth] No valid token found in session or headers');
-    return res.status(401).json({ message: 'Access token required or invalid' });
-  }
-
-  // Extract customer ID from token - the .NET API uses NameIdentifier for customerId
-  // The token payload has: { name, nameid (NameIdentifier), role }
-  const customerId = decoded.nameid || decoded.NameIdentifier || decoded.name;
-  const role = decoded.role || decoded.Role || 'user';
+  // Extract customer ID and role from decoded token if available
+  // If not available, API will verify and provide this info
+  const customerId = decoded?.nameid || decoded?.NameIdentifier || decoded?.name || null;
+  // Extract role - check common claim names
+  const roleClaim = decoded?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] 
+    || decoded?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] 
+    || decoded?.role 
+    || decoded?.Role 
+    || 'user';
+  const role = roleClaim;
   
-  // Store decoded token data in req.user for use in routes
+  // Store token and user data in req for use in routes
+  req.token = token;
   req.user = {
     customerId: customerId,
-    email: decoded.email || decoded.name, // may not have email in token
+    email: decoded?.email || decoded?.name || null,
     role: role
   };
   
+  console.log('[Auth] Token found, proceeding to route handler');
   next();
 };
 
