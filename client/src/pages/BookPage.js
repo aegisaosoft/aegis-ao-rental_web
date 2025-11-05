@@ -611,21 +611,22 @@ const BookPage = () => {
       console.log('[BlinkID] Already parsing, skipping duplicate request');
       return;
     }
-    
+
     if (!imageUrl) {
       console.warn('[BlinkID] No image URL provided');
       return;
     }
-    
+
     try {
       isParsingRef.current = true;
       console.log('[BlinkID] Starting to parse license image from:', imageUrl);
-      
+
       const licenseKey = process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
-      
+
       if (!licenseKey) {
         console.warn('[BlinkID] License key not found, falling back to server endpoint');
-        toast.warning('BlinkID license key not configured. Using server endpoint (may return mock data).');
+        toast.warning('BlinkID license key not configured. Using server endpoint.');
+
         // Fallback to server endpoint if no license key
         const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
         const response = await fetch(fullUrl);
@@ -635,17 +636,25 @@ const BookPage = () => {
         const blob = await response.blob();
         const formData = new FormData();
         formData.append('file', blob, 'driverlicense.jpg');
+
         const parseResponse = await fetch('/api/license/validate', {
           method: 'POST',
           body: formData
         });
+
         if (!parseResponse.ok) {
+          if (parseResponse.status === 501) {
+            const errorResult = await parseResponse.json();
+            console.warn('[BlinkID] OCR not implemented on server:', errorResult);
+            toast.warning('License OCR is not yet implemented. Please enter license information manually.');
+            return;
+          }
           throw new Error(`Parsing failed: ${parseResponse.statusText}`);
         }
+
         const serverResult = await parseResponse.json();
         console.log('[BlinkID] Server parsed data:', serverResult);
-        
-        // Process server result (which may be mock data)
+
         if (serverResult.isValid && serverResult.data) {
           const parsedData = serverResult.data;
           const updatedLicenseData = {
@@ -662,26 +671,15 @@ const BookPage = () => {
           };
           setLicenseData(updatedLicenseData);
           setIsViewingLicense(false);
-          toast.warning('Note: Server returned data. Please configure BlinkID license key for real parsing.');
+          toast.success('License information extracted from server');
         }
         return;
       }
-      
-      // Try client-side BlinkID SDK parsing when license key is available
+
+      // Client-side BlinkID SDK parsing when license key is available
       console.log('[BlinkID] License key found, attempting client-side parsing using npm package');
-      
+
       try {
-        // Use the installed npm package instead of CDN
-        console.log('[BlinkID] Initializing BlinkID SDK with license key...');
-        console.log('[BlinkID] License key length:', licenseKey?.length || 0);
-        
-        // Create BlinkID instance using the npm package
-        const blinkid = await createBlinkId({
-          licenseKey: licenseKey
-        });
-        
-        console.log('[BlinkID] SDK initialized successfully');
-        
         // Fetch the image
         const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
         console.log('[BlinkID] Fetching image from:', fullUrl);
@@ -690,7 +688,7 @@ const BookPage = () => {
           throw new Error(`Failed to fetch license image: ${response.status} ${response.statusText}`);
         }
         const blob = await response.blob();
-        
+
         // Convert blob to base64 for BlinkID
         const base64Image = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -698,20 +696,31 @@ const BookPage = () => {
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-        
+
+        console.log('[BlinkID] Initializing BlinkID SDK with license key...');
+
+        // Create BlinkID instance using the npm package
+        const blinkid = await createBlinkId({
+          licenseKey: licenseKey,
+          // Optional: specify engine location if needed
+          // engineLocation: 'path/to/wasm/resources'
+        });
+
+        console.log('[BlinkID] SDK initialized successfully');
+
         // Process the image with BlinkID
         console.log('[BlinkID] Processing image with BlinkID...');
         const result = await blinkid.recognize(base64Image);
-        
+
         console.log('[BlinkID] Recognition result:', result);
-        
+
         if (!result || !result.result) {
           throw new Error('No recognition results');
         }
-        
+
         const recognitionData = result.result;
-        
-        // Extract data from result (BlinkID v7+ format)
+
+        // Extract data from result
         const parsedData = {
           licenseNumber: recognitionData.documentNumber || recognitionData.number || recognitionData.licenseNumber,
           firstName: recognitionData.firstName || recognitionData.firstname,
@@ -730,9 +739,9 @@ const BookPage = () => {
           eyeColor: recognitionData.eyeColor,
           dateOfBirth: recognitionData.dateOfBirth ? formatBlinkIDDate(recognitionData.dateOfBirth) : null
         };
-        
+
         console.log('[BlinkID] Extracted data:', parsedData);
-        
+
         // Update license data
         const updatedLicenseData = {
           ...licenseData,
@@ -750,93 +759,24 @@ const BookPage = () => {
           ...(parsedData.eyeColor && { eyeColor: parsedData.eyeColor }),
           ...(parsedData.dateOfBirth && { dateOfBirth: parsedData.dateOfBirth })
         };
-        
+
         setLicenseData(updatedLicenseData);
         setIsViewingLicense(false);
         setIsLicenseModalOpen(true);
-        
+
         const fullName = parsedData.firstName && parsedData.lastName 
           ? `${parsedData.firstName} ${parsedData.lastName}`
           : 'License information';
         toast.success(`License information extracted successfully! ${fullName}`);
-        
-        return;
+
       } catch (clientError) {
         console.error('[BlinkID] Client-side parsing failed:', clientError);
         console.error('[BlinkID] Error type:', clientError.name);
         console.error('[BlinkID] Error message:', clientError.message);
-        console.error('[BlinkID] Error stack:', clientError.stack);
-        
-        // Check for specific error types
-        if (clientError.message?.includes('CORS') || clientError.message?.includes('Cross-Origin')) {
-          console.error('[BlinkID] CORS error detected - worker resources may be blocked');
-        } else if (clientError.message?.includes('license') || clientError.message?.includes('License')) {
-          console.error('[BlinkID] License-related error - check license key validity');
-        } else if (clientError.message?.includes('WASM') || clientError.message?.includes('wasm')) {
-          console.error('[BlinkID] WASM/WebAssembly error - check browser compatibility');
-        } else if (clientError.message?.includes('Worker')) {
-          console.error('[BlinkID] Web Worker error - may be CORS or CSP related');
-        }
-        
-        console.warn('[BlinkID] Falling back to server endpoint');
-        // Fall through to server endpoint fallback
+
+        toast.error('BlinkID client-side parsing failed. Please enter license information manually.');
       }
-      
-      // Fallback to server endpoint if client-side parsing fails
-      console.log('[BlinkID] Using server endpoint for parsing');
-      const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
-      const response = await fetch(fullUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch license image: ${response.status} ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      const formData = new FormData();
-      formData.append('file', blob, 'driverlicense.jpg');
-      const parseResponse = await fetch('/api/license/validate', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!parseResponse.ok) {
-        // Check if it's a "not implemented" error
-        if (parseResponse.status === 501) {
-          const errorResult = await parseResponse.json();
-          console.warn('[BlinkID] OCR not implemented on server:', errorResult);
-          toast.warning('License OCR is not yet implemented. Please enter license information manually.');
-          // Don't throw error, just show warning and let user manually enter data
-          return;
-        }
-        throw new Error(`Parsing failed: ${parseResponse.statusText}`);
-      }
-      
-      const serverResult = await parseResponse.json();
-      console.log('[BlinkID] Server parsed data:', serverResult);
-      
-      // Process server result
-      if (serverResult.isValid && serverResult.data) {
-        const parsedData = serverResult.data;
-        const updatedLicenseData = {
-          ...licenseData,
-          ...(parsedData.licenseNumber && { licenseNumber: parsedData.licenseNumber }),
-          ...(parsedData.issuingState && { stateIssued: parsedData.issuingState }),
-          ...(parsedData.stateIssued && { stateIssued: parsedData.stateIssued }),
-          ...(parsedData.issuingCountry && { countryIssued: parsedData.issuingCountry }),
-          ...(parsedData.expirationDate && { expirationDate: parsedData.expirationDate }),
-          ...(parsedData.address && { licenseAddress: parsedData.address }),
-          ...(parsedData.city && { licenseCity: parsedData.city }),
-          ...(parsedData.state && { licenseState: parsedData.state }),
-          ...(parsedData.postalCode && { licensePostalCode: parsedData.postalCode }),
-          ...(parsedData.firstName && { firstName: parsedData.firstName }),
-          ...(parsedData.lastName && { lastName: parsedData.lastName })
-        };
-        setLicenseData(updatedLicenseData);
-        setIsViewingLicense(false);
-        const fullName = parsedData.firstName && parsedData.lastName 
-          ? `${parsedData.firstName} ${parsedData.lastName}`
-          : 'License information';
-        toast.success(`License information extracted successfully! ${fullName}`);
-      }
-      return;
+
     } catch (error) {
       console.error('[BlinkID] Error parsing license image:', error);
       toast.error('Failed to parse license image: ' + error.message);
