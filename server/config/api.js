@@ -35,12 +35,17 @@ for (const envPath of envPaths) {
 
 // Get API_BASE_URL from environment, with fallback default
 // In production (Azure), this should be set in App Service Configuration
-const API_BASE_URL = process.env.API_BASE_URL || 'https://localhost:7163';
+const API_BASE_URL = process.env.API_BASE_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net'
+    : 'https://localhost:7163');
 
+console.log('[API Config] API_BASE_URL:', API_BASE_URL);
+console.log('[API Config] NODE_ENV:', process.env.NODE_ENV);
 if (!process.env.API_BASE_URL) {
-  console.warn('config/api.js: API_BASE_URL environment variable is not set.');
-  console.warn('Using default:', API_BASE_URL);
-  console.warn('Please set API_BASE_URL in Azure App Service Configuration → Application settings');
+  console.warn('[API Config] ⚠️ API_BASE_URL environment variable is not set.');
+  console.warn('[API Config] Using fallback:', API_BASE_URL);
+  console.warn('[API Config] Please set API_BASE_URL in Azure App Service Configuration → Application settings');
 }
 
 // Create axios instance with default configuration
@@ -75,10 +80,16 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    // For development, we'll use mock data when external API fails
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Using mock data due to API error');
+    if (error.code === 'ECONNABORTED') {
+      console.error('[API Error] Request timeout - API may be down or unreachable:', API_BASE_URL);
+      console.error('[API Error] Error details:', error.message);
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      console.error('[API Error] Cannot connect to API:', API_BASE_URL);
+      console.error('[API Error] Error code:', error.code);
+    } else {
+      console.error('[API Error] API request failed:', error.response?.data || error.message);
+      console.error('[API Error] Status:', error.response?.status);
+      console.error('[API Error] URL:', error.config?.url);
     }
     return Promise.reject(error);
   }

@@ -97,6 +97,16 @@ router.get('/profile', authenticateToken, async (req, res) => {
     return res.json(response.data);
   } catch (error) {
     console.error('[Profile] Profile fetch error:', error.message);
+    console.error('[Profile] Error code:', error.code);
+    console.error('[Profile] Error response:', error.response?.status, error.response?.data);
+    
+    // Handle timeout or connection errors
+    if (error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      return res.status(503).json({ 
+        message: 'API service unavailable. Please try again later.' 
+      });
+    }
+    
     res.status(error.response?.status || 500).json({ 
       message: error.response?.data?.message || 'Server error' 
     });
