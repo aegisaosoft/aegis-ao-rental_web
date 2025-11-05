@@ -19,44 +19,45 @@ router.post('/validate', upload.single('file'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid or missing image' });
     }
 
-    if (!BLINKID_LICENSE_KEY) {
-      console.warn('[License] BlinkID license key not configured');
+    // IMPORTANT: In-browser license keys are for client-side use only
+    // Server-side processing requires BlinkID Cloud API credentials (separate from in-browser license)
+    // Since we have an in-browser license, we should focus on fixing client-side CORS issues
+    // rather than trying to use it server-side
+    
+    console.log('[License] Received image for processing, size:', file.buffer.length, 'bytes');
+    console.log('[License] Note: In-browser license keys cannot be used for server-side processing');
+    console.log('[License] Server-side OCR requires BlinkID Cloud API credentials');
+
+    // Check if we have Cloud API credentials (different from in-browser license)
+    const BLINKID_CLOUD_API_KEY = process.env.BLINKID_CLOUD_API_KEY || process.env.BLINKID_API_KEY;
+    
+    if (!BLINKID_CLOUD_API_KEY) {
+      // Return 501 - server-side processing not available without Cloud API credentials
       return res.status(501).json({ 
         isValid: false,
-        message: 'BlinkID license key not configured on server',
-        error: 'LICENSE_KEY_MISSING'
+        message: 'Server-side OCR requires BlinkID Cloud API credentials. In-browser license keys are for client-side use only.',
+        error: 'CLOUD_API_KEY_REQUIRED',
+        hint: 'To enable server-side OCR, configure BLINKID_CLOUD_API_KEY in server environment variables. Alternatively, fix client-side SDK CORS issues to use the in-browser license.'
       });
     }
 
-    console.log('[License] Processing license image with BlinkID, size:', file.buffer.length, 'bytes');
-
-    // Try to use BlinkID Cloud API or process locally
-    // Note: The in-browser SDK may not work in Node.js, so we'll try Cloud API approach
+    // If Cloud API key is available, try to use it
     try {
-      // Option 1: Try BlinkID Cloud API (if available)
-      // The Cloud API endpoint would typically be something like:
-      // https://api.microblink.com/v1/blinkid/recognize
-      
-      // For now, we'll use a direct approach with the license key
-      // Since the exact API endpoint structure may vary, we'll implement a flexible solution
-      
       const formData = new FormData();
       formData.append('image', file.buffer, {
         filename: file.originalname || 'license.jpg',
         contentType: file.mimetype
       });
-      formData.append('licenseKey', BLINKID_LICENSE_KEY);
 
-      // Try BlinkID Cloud API endpoint
-      // Note: Adjust the endpoint URL based on Microblink's actual API documentation
+      // BlinkID Cloud API endpoint (adjust based on Microblink documentation)
       const blinkidApiUrl = process.env.BLINKID_API_URL || 'https://api.microblink.com/v1/blinkid/recognize';
       
-      console.log('[License] Calling BlinkID API:', blinkidApiUrl);
+      console.log('[License] Calling BlinkID Cloud API:', blinkidApiUrl);
       
       const response = await axios.post(blinkidApiUrl, formData, {
         headers: {
           ...formData.getHeaders(),
-          'Authorization': `Bearer ${BLINKID_LICENSE_KEY}` // Alternative auth method if needed
+          'Authorization': `Bearer ${BLINKID_CLOUD_API_KEY}` // Use Cloud API key, not in-browser license
         },
         timeout: 30000,
         maxContentLength: Infinity,
