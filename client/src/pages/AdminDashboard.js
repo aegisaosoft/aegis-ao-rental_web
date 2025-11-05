@@ -214,7 +214,7 @@ const AdminDashboard = () => {
   );
 
   // Handle edit vehicle
-  const handleEditVehicle = (vehicle) => {
+  const handleEditVehicle = useCallback((vehicle) => {
     setEditingVehicle(vehicle);
     setVehicleEditForm({
       make: vehicle.Make || vehicle.make || '',
@@ -230,10 +230,10 @@ const AdminDashboard = () => {
       status: vehicle.Status || vehicle.status || 'Available',
       location: vehicle.Location || vehicle.location || ''
     });
-  };
+  }, []);
 
   // Handle delete vehicle
-  const handleDeleteVehicle = (vehicle) => {
+  const handleDeleteVehicle = useCallback((vehicle) => {
     const vehicleId = vehicle.VehicleId || vehicle.vehicleId || vehicle.id || vehicle.Id;
     const licensePlate = vehicle.LicensePlate || vehicle.licensePlate || 'this vehicle';
     
@@ -245,7 +245,7 @@ const AdminDashboard = () => {
     if (window.confirm(t('vehicles.confirmDelete') || `Are you sure you want to delete vehicle with license plate ${licensePlate}? This action cannot be undone.`)) {
       deleteVehicleMutation.mutate(vehicleId);
     }
-  };
+  }, [t, deleteVehicleMutation]);
 
   // Handle create vehicle
   const handleCreateVehicle = () => {
@@ -551,14 +551,11 @@ const AdminDashboard = () => {
       formData.append('file', file);
       formData.append('companyId', currentCompanyId || '');
 
-      // TODO: Replace with actual import API endpoint when available
-      // For now, show a message that import feature is coming
-      toast.info(t('vehicles.importFeatureComing') || 'Vehicle import feature is coming soon. API endpoint will be implemented.');
-      
-      // When API is ready, uncomment this:
-      // const response = await apiService.importVehicles(formData);
-      // toast.success(t('vehicles.importSuccess') || `Successfully imported ${response.data?.count || 0} vehicles`);
-      // queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+      // Call vehicle import API endpoint
+      const response = await apiService.importVehicles(formData);
+      const importedCount = response.data?.count || response.data?.result?.count || 0;
+      toast.success(t('vehicles.importSuccess') || `Successfully imported ${importedCount} vehicles`);
+      queryClient.invalidateQueries(['vehicles', currentCompanyId]);
       
       event.target.value = ''; // Reset file input
     } catch (error) {

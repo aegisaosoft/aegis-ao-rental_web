@@ -146,6 +146,11 @@ export const apiService = {
   getVehicleMakes: () => api.get('/vehicles/makes'),
   getVehicleLocations: () => api.get('/vehicles/locations'),
   bulkUpdateVehicleDailyRate: (data) => api.put('/vehicles/bulk-update-daily-rate', data),
+  importVehicles: (formData) => api.post('/vehicles/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
 
   // Models
   getModelsGroupedByCategory: (companyId) => {
