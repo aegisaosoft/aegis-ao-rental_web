@@ -700,10 +700,11 @@ const BookPage = () => {
         console.log('[BlinkID] Initializing BlinkID SDK with license key...');
 
         // Create BlinkID instance using the npm package
+        // Use CDN for engine resources to avoid server routing issues
         const blinkid = await createBlinkId({
           licenseKey: licenseKey,
-          // Optional: specify engine location if needed
-          // engineLocation: 'path/to/wasm/resources'
+          // Use CDN for engine resources to avoid issues with SPA routing
+          engineLocation: 'https://unpkg.com/@microblink/blinkid@latest/resources'
         });
 
         console.log('[BlinkID] SDK initialized successfully');

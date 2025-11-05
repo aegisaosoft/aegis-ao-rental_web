@@ -993,8 +993,11 @@ app.get('/api/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) 
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', (req, res) => {
-  // Don't catch API routes or model image requests
-  if (req.path.startsWith('/api/') || req.path.startsWith('/models/')) {
+  // Don't catch API routes, model image requests, or static resources
+  if (req.path.startsWith('/api/') || 
+      req.path.startsWith('/models/') || 
+      req.path.startsWith('/resources/') ||
+      req.path.startsWith('/static/')) {
     return res.status(404).send('Not found');
   }
   res.sendFile(path.join(serverPublicPath, 'index.html'));

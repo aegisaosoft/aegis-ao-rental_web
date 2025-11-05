@@ -98,6 +98,8 @@ const AdminDashboard = () => {
   const [isImportingVehicles, setIsImportingVehicles] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [vehicleEditForm, setVehicleEditForm] = useState({});
+  const [isCreatingVehicle, setIsCreatingVehicle] = useState(false);
+  const [vehicleCreateForm, setVehicleCreateForm] = useState({});
   const [isLookingUpVin, setIsLookingUpVin] = useState(false);
   
   // State for daily rate inputs
@@ -179,6 +181,38 @@ const AdminDashboard = () => {
     }
   );
 
+  // Vehicle delete mutation
+  const deleteVehicleMutation = useMutation(
+    (vehicleId) => apiService.deleteVehicle(vehicleId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        toast.success(t('vehicles.deleteSuccess') || 'Vehicle deleted successfully');
+      },
+      onError: (error) => {
+        console.error('Error deleting vehicle:', error);
+        toast.error(error.response?.data?.message || t('vehicles.deleteError') || 'Failed to delete vehicle');
+      }
+    }
+  );
+
+  // Vehicle create mutation
+  const createVehicleMutation = useMutation(
+    (data) => apiService.createVehicle(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        setIsCreatingVehicle(false);
+        setVehicleCreateForm({});
+        toast.success(t('vehicles.createSuccess') || 'Vehicle created successfully');
+      },
+      onError: (error) => {
+        console.error('Error creating vehicle:', error);
+        toast.error(error.response?.data?.message || t('vehicles.createError') || 'Failed to create vehicle');
+      }
+    }
+  );
+
   // Handle edit vehicle
   const handleEditVehicle = (vehicle) => {
     setEditingVehicle(vehicle);
@@ -196,6 +230,57 @@ const AdminDashboard = () => {
       status: vehicle.Status || vehicle.status || 'Available',
       location: vehicle.Location || vehicle.location || ''
     });
+  };
+
+  // Handle delete vehicle
+  const handleDeleteVehicle = (vehicle) => {
+    const vehicleId = vehicle.VehicleId || vehicle.vehicleId || vehicle.id || vehicle.Id;
+    const licensePlate = vehicle.LicensePlate || vehicle.licensePlate || 'this vehicle';
+    
+    if (!vehicleId) {
+      toast.error(t('vehicles.invalidVehicle') || 'Invalid vehicle ID');
+      return;
+    }
+
+    if (window.confirm(t('vehicles.confirmDelete') || `Are you sure you want to delete vehicle with license plate ${licensePlate}? This action cannot be undone.`)) {
+      deleteVehicleMutation.mutate(vehicleId);
+    }
+  };
+
+  // Handle create vehicle
+  const handleCreateVehicle = () => {
+    if (!currentCompanyId) {
+      toast.error(t('vehicles.noCompanySelected') || 'Please select a company first');
+      return;
+    }
+
+    // Validate required fields
+    if (!vehicleCreateForm.make || !vehicleCreateForm.model || !vehicleCreateForm.year || !vehicleCreateForm.licensePlate || !vehicleCreateForm.dailyRate) {
+      toast.error(t('vehicles.fillRequiredFields') || 'Please fill in all required fields: Make, Model, Year, License Plate, and Daily Rate');
+      return;
+    }
+
+    // Prepare create data
+    const createData = {
+      companyId: currentCompanyId,
+      make: vehicleCreateForm.make,
+      model: vehicleCreateForm.model,
+      year: parseInt(vehicleCreateForm.year) || 0,
+      licensePlate: vehicleCreateForm.licensePlate,
+      dailyRate: parseFloat(vehicleCreateForm.dailyRate) || 0,
+      color: vehicleCreateForm.color || null,
+      vin: vehicleCreateForm.vin || null,
+      mileage: parseInt(vehicleCreateForm.mileage) || 0,
+      transmission: vehicleCreateForm.transmission || null,
+      seats: vehicleCreateForm.seats ? parseInt(vehicleCreateForm.seats) : null,
+      status: vehicleCreateForm.status || 'Available',
+      state: vehicleCreateForm.state || null,
+      location: vehicleCreateForm.location || null,
+      imageUrl: vehicleCreateForm.imageUrl || null,
+      features: vehicleCreateForm.features ? (Array.isArray(vehicleCreateForm.features) ? vehicleCreateForm.features : vehicleCreateForm.features.split(',').map(f => f.trim())) : null
+    };
+
+    createVehicleMutation.mutate(createData);
   };
 
   // Handle VIN lookup
@@ -1577,9 +1662,10 @@ const AdminDashboard = () => {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={() => {/* TODO: Delete vehicle */}}
+            onClick={() => handleDeleteVehicle(row.original)}
             className="text-red-600 hover:text-red-900"
             title={t('delete') || 'Delete'}
+            disabled={deleteVehicleMutation.isLoading}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -3565,7 +3651,26 @@ const AdminDashboard = () => {
                   />
                 </label>
                 <button
-                  onClick={() => {/* TODO: Add vehicle creation modal */}}
+                  onClick={() => {
+                    setIsCreatingVehicle(true);
+                    setVehicleCreateForm({
+                      make: '',
+                      model: '',
+                      year: '',
+                      licensePlate: '',
+                      color: '',
+                      vin: '',
+                      mileage: 0,
+                      transmission: '',
+                      seats: '',
+                      dailyRate: '',
+                      status: 'Available',
+                      state: '',
+                      location: '',
+                      imageUrl: '',
+                      features: null
+                    });
+                  }}
                   className="btn-primary text-sm"
                 >
                   <Plus className="h-4 w-4 mr-2 inline" />
@@ -4134,6 +4239,299 @@ const AdminDashboard = () => {
                   {updateVehicleMutation.isLoading 
                     ? (t('saving') || 'Saving...') 
                     : (t('save') || 'Save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Vehicle Modal */}
+      {isCreatingVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {t('vehicles.createVehicle') || 'Create New Vehicle'}
+              </h2>
+              <button
+                onClick={() => {
+                  setIsCreatingVehicle(false);
+                  setVehicleCreateForm({});
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Vehicle Info - Required Fields */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-4 space-y-4">
+                {/* Make, Model, Year in one row */}
+                <div className="grid grid-cols-12 gap-4">
+                  {/* Make */}
+                  <div className="col-span-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.make') || 'Make'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleCreateForm.make || ''}
+                      onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, make: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={100}
+                      placeholder={t('vehicles.make') || 'Vehicle Make'}
+                      required
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div className="col-span-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.model') || 'Model'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleCreateForm.model || ''}
+                      onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, model: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={100}
+                      placeholder={t('vehicles.model') || 'Vehicle Model'}
+                      required
+                    />
+                  </div>
+
+                  {/* Year */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('year') || 'Year'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={vehicleCreateForm.year || ''}
+                      onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, year: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="1900"
+                      max="2100"
+                      placeholder={t('year') || 'Year'}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* License Plate and State in one row */}
+                <div className="grid grid-cols-12 gap-4">
+                  {/* License Plate */}
+                  <div className="col-span-9">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.licensePlate') || 'License Plate'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleCreateForm.licensePlate || ''}
+                      onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, licensePlate: e.target.value.toUpperCase() }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={50}
+                      placeholder={t('vehicles.licensePlate') || 'License Plate'}
+                      style={{ textTransform: 'uppercase' }}
+                      required
+                    />
+                  </div>
+
+                  {/* State */}
+                  <div className="col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State
+                    </label>
+                    <select
+                      value={vehicleCreateForm.state || ''}
+                      onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, state: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={!companyCountry || statesForCompanyCountry.length === 0}
+                    >
+                      <option value="">
+                        {!companyCountry 
+                          ? 'Select State (No country set)' 
+                          : statesForCompanyCountry.length === 0 
+                            ? `No states for ${companyCountry}`
+                            : 'Select State'
+                        }
+                      </option>
+                      {companyCountry && statesForCompanyCountry.length > 0 && (
+                        <optgroup label={companyCountry}>
+                          {statesForCompanyCountry.map((state) => (
+                            <option key={state.code} value={state.code}>
+                              {state.name} ({state.code})
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Daily Rate - Required */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('vehicles.dailyRate') || 'Daily Rate'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={vehicleCreateForm.dailyRate || ''}
+                    onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, dailyRate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="0"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.color') || 'Color'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleCreateForm.color || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={50}
+                />
+              </div>
+
+              {/* VIN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.vin') || 'VIN'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleCreateForm.vin || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={17}
+                  placeholder="17-character VIN"
+                  style={{ textTransform: 'uppercase' }}
+                />
+              </div>
+
+              {/* Mileage */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.mileage') || 'Mileage'}
+                </label>
+                <input
+                  type="number"
+                  value={vehicleCreateForm.mileage || 0}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, mileage: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                />
+              </div>
+
+              {/* Transmission */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.transmission') || 'Transmission'}
+                </label>
+                <select
+                  value={vehicleCreateForm.transmission || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, transmission: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">{t('select') || 'Select'}</option>
+                  <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
+                  <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
+                  <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
+                </select>
+              </div>
+
+              {/* Seats */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.seats') || 'Seats'}
+                </label>
+                <input
+                  type="number"
+                  value={vehicleCreateForm.seats || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, seats: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                  max="20"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.status') || 'Status'}
+                </label>
+                <select
+                  value={vehicleCreateForm.status || 'Available'}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
+                  <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
+                  <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
+                  <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
+                  <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
+                </select>
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.location') || 'Location'}
+                </label>
+                <input
+                  type="text"
+                  value={vehicleCreateForm.location || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={255}
+                  placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
+                />
+              </div>
+
+              {/* Image URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('vehicles.imageUrl') || 'Image URL'}
+                </label>
+                <input
+                  type="url"
+                  value={vehicleCreateForm.imageUrl || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setIsCreatingVehicle(false);
+                    setVehicleCreateForm({});
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  disabled={createVehicleMutation.isLoading}
+                >
+                  {t('cancel') || 'Cancel'}
+                </button>
+                <button
+                  onClick={handleCreateVehicle}
+                  disabled={createVehicleMutation.isLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  {createVehicleMutation.isLoading 
+                    ? (t('creating') || 'Creating...') 
+                    : (t('create') || 'Create')}
                 </button>
               </div>
             </div>
