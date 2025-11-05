@@ -989,8 +989,10 @@ app.get('/api/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) 
   }
 });
 
-// Proxy BlinkID resources to CDN to avoid SPA routing issues
-// This handles requests to /resources/blinkid-worker.js and other BlinkID resources
+// Proxy BlinkID resources to CDN as fallback when SDK tries to load from relative paths
+// Note: This is a workaround. The SDK should use engineLocation CDN, but sometimes
+// tries to load workers from /resources/* relative paths. This proxy handles those cases.
+// With in-browser license, everything runs client-side, but this ensures worker files load correctly.
 app.get('/resources/*', async (req, res) => {
   try {
     const resourcePath = req.path.replace('/resources/', '');
