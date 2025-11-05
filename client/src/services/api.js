@@ -72,7 +72,8 @@ api.interceptors.response.use(
       };
     }
     
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Handle both 401 (Unauthorized) and 403 (Forbidden) - both mean invalid/expired token or wrong token type
       // Only redirect to login if not already on login/register pages or public pages
       const currentPath = window.location.pathname;
       const publicPaths = ['/login', '/register', '/', '/home'];

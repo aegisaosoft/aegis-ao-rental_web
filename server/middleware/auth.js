@@ -20,52 +20,60 @@ const authenticateToken = async (req, res, next) => {
   // ALWAYS check session token first (priority), then Authorization header
   const sessionToken = req.session?.token;
   const headerToken = req.headers['authorization']?.split(' ')[1];
-  const token = sessionToken || headerToken;
+  const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
+  
+  let token = null;
+  let decoded = null;
 
-  if (!token) {
-    console.log('[Auth] No token found in session or headers');
-    return res.status(401).json({ message: 'Access token required' });
-  }
-
-  // If we used session token, log it
-  if (sessionToken && !headerToken) {
-    console.log('[Auth] Using token from session');
-  } else if (headerToken && !sessionToken) {
-    console.log('[Auth] Using token from Authorization header (no session token found)');
-    // Store header token in session for future requests
-    req.session.token = headerToken;
-  }
-
-  try {
-    // Use fallback JWT secret if environment variable is not set
-    const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
-    const decoded = jwt.verify(token, jwtSecret);
-    
-    // Extract customer ID from token - the .NET API uses NameIdentifier for customerId
-    // The token payload has: { name, nameid (NameIdentifier), role }
-    const customerId = decoded.nameid || decoded.NameIdentifier || decoded.name;
-    
-    // Store decoded token data in req.user for use in routes
-    req.user = {
-      customerId: customerId,
-      email: decoded.email || decoded.name, // may not have email in token
-      role: decoded.role || 'user'
-    };
-    
-    // Ensure token is in session for future requests
-    if (!req.session.token) {
-      req.session.token = token;
+  // Try session token first
+  if (sessionToken) {
+    try {
+      decoded = jwt.verify(sessionToken, jwtSecret);
+      token = sessionToken;
+      console.log('[Auth] Using valid token from session');
+    } catch (error) {
+      console.log('[Auth] Session token invalid, clearing from session:', error.message);
+      // Clear invalid session token
+      if (req.session) {
+        delete req.session.token;
+      }
     }
-    
-    next();
-  } catch (error) {
-    console.error('[Auth] Token verification error:', error.message);
-    // Clear invalid token from session
-    if (req.session) {
-      delete req.session.token;
-    }
-    return res.status(403).json({ message: 'Invalid or expired token' });
   }
+
+  // If session token didn't work, try header token
+  if (!token && headerToken) {
+    try {
+      decoded = jwt.verify(headerToken, jwtSecret);
+      token = headerToken;
+      console.log('[Auth] Using valid token from Authorization header, storing in session');
+      // Store valid header token in session for future requests
+      if (req.session) {
+        req.session.token = headerToken;
+      }
+    } catch (error) {
+      console.log('[Auth] Header token also invalid:', error.message);
+    }
+  }
+
+  // If no valid token found, return error
+  if (!token || !decoded) {
+    console.log('[Auth] No valid token found in session or headers');
+    return res.status(401).json({ message: 'Access token required or invalid' });
+  }
+
+  // Extract customer ID from token - the .NET API uses NameIdentifier for customerId
+  // The token payload has: { name, nameid (NameIdentifier), role }
+  const customerId = decoded.nameid || decoded.NameIdentifier || decoded.name;
+  const role = decoded.role || decoded.Role || 'user';
+  
+  // Store decoded token data in req.user for use in routes
+  req.user = {
+    customerId: customerId,
+    email: decoded.email || decoded.name, // may not have email in token
+    role: role
+  };
+  
+  next();
 };
 
 const requireAdmin = async (req, res, next) => {
