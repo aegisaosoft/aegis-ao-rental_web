@@ -848,24 +848,35 @@ const BookPage = () => {
     const origin = configuredBase || window.location.origin;
     const returnTo = window.location.pathname + window.location.search;
     
-    // Get auth token from localStorage to pass to phone
-    const token = localStorage.getItem('token');
-    
-    // Get companyId and userId (customerId) for query parameters
-    const currentCompanyId = companyConfig?.id || companyId;
-    const currentUserId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
-    
-    // Build URL with auth token, companyId, and userId if available
-    let url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
-    if (token && isAuthenticated) {
-      url += `&token=${encodeURIComponent(token)}`;
-    }
-    if (currentCompanyId) {
-      url += `&companyId=${encodeURIComponent(currentCompanyId)}`;
-    }
-    if (currentUserId) {
-      url += `&userId=${encodeURIComponent(currentUserId)}`;
-    }
+          // Get auth token from localStorage to pass to phone
+      const token = localStorage.getItem('token');
+      
+      // Log token availability for debugging
+      console.log('[QR Code] Generating QR code with token:', token ? 'Present' : 'Missing');
+      console.log('[QR Code] User authenticated:', isAuthenticated);
+      
+      // Get companyId and userId (customerId) for query parameters
+      const currentCompanyId = companyConfig?.id || companyId;
+      const currentUserId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
+      
+      // Build URL with auth token, companyId, and userId if available
+      // ALWAYS include token if it exists (user is already authenticated at this point)
+      let url = `${origin.replace(/\/$/, '')}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+      if (token) {
+        url += `&token=${encodeURIComponent(token)}`;
+        console.log('[QR Code] Token included in QR code URL');
+      } else {
+        console.warn('[QR Code] WARNING: Token not found in localStorage! QR code will not include authentication.');
+        toast.warning('Authentication token not found. Please log in again.');
+      }
+      if (currentCompanyId) {
+        url += `&companyId=${encodeURIComponent(currentCompanyId)}`;
+      }
+      if (currentUserId) {
+        url += `&userId=${encodeURIComponent(currentUserId)}`;
+      }
+      
+      console.log('[QR Code] Generated URL:', url.substring(0, 100) + '...');
     
     // Always show QR code modal (user can scan it with their phone)
     setQrUrl(url);
