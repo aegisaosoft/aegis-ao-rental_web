@@ -17,11 +17,23 @@ const jwt = require('jsonwebtoken');
 const apiService = require('../config/api');
 
 const authenticateToken = async (req, res, next) => {
-  // Get token from session or authorization header
-  const token = req.session.token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
+  // ALWAYS check session token first (priority), then Authorization header
+  const sessionToken = req.session?.token;
+  const headerToken = req.headers['authorization']?.split(' ')[1];
+  const token = sessionToken || headerToken;
 
   if (!token) {
+    console.log('[Auth] No token found in session or headers');
     return res.status(401).json({ message: 'Access token required' });
+  }
+
+  // If we used session token, log it
+  if (sessionToken && !headerToken) {
+    console.log('[Auth] Using token from session');
+  } else if (headerToken && !sessionToken) {
+    console.log('[Auth] Using token from Authorization header (no session token found)');
+    // Store header token in session for future requests
+    req.session.token = headerToken;
   }
 
   try {
@@ -40,9 +52,18 @@ const authenticateToken = async (req, res, next) => {
       role: decoded.role || 'user'
     };
     
+    // Ensure token is in session for future requests
+    if (!req.session.token) {
+      req.session.token = token;
+    }
+    
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('[Auth] Token verification error:', error.message);
+    // Clear invalid token from session
+    if (req.session) {
+      delete req.session.token;
+    }
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };

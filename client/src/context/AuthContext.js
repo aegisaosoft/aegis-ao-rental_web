@@ -38,13 +38,15 @@ export const AuthProvider = ({ children }) => {
           const response = await apiService.getProfile();
           setUser(response.data);
         } catch (error) {
-          // 401 during initialization just means token is invalid/expired - not an error
-          // Only log other errors
-          if (error.response?.status !== 401) {
+          // 401/403 during initialization just means token is invalid/expired - not an error
+          // Only log other errors (401 = Unauthorized, 403 = Forbidden - both mean invalid token)
+          if (error.response?.status !== 401 && error.response?.status !== 403) {
             console.error('Auth initialization error:', error);
           }
+          // Clear invalid/expired token for both 401 and 403
           localStorage.removeItem('token');
           setToken(null);
+          setUser(null);
         }
       }
       setLoading(false);

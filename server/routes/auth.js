@@ -85,11 +85,19 @@ router.post('/login', [
 // Get current user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
+    // authenticateToken middleware already verified the token and set req.user
+    // Use session token first, fallback to header token
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'Token not found' });
+    }
+    
+    console.log('[Profile] Fetching profile with token from:', req.session.token ? 'session' : 'header');
     const response = await apiService.getProfile(token);
     return res.json(response.data);
   } catch (error) {
-    console.error('Profile fetch error:', error);
+    console.error('[Profile] Profile fetch error:', error.message);
     res.status(error.response?.status || 500).json({ 
       message: error.response?.data?.message || 'Server error' 
     });
