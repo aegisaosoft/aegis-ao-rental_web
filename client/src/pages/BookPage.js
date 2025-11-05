@@ -19,7 +19,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
-import { Car, ArrowLeft, CreditCard, Camera, X, Calendar, Eye } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Eye } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 
