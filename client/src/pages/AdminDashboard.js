@@ -1672,7 +1672,7 @@ const AdminDashboard = () => {
         </div>
       ),
     },
-  ], [t]);
+  ], [t, handleEditVehicle, handleDeleteVehicle, deleteVehicleMutation.isLoading]);
 
   // Extract total count for pagination
   const vehiclesTotalCount = useMemo(() => {
