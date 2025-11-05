@@ -14,21 +14,177 @@ const MobileScan = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+  // Initialize state from localStorage immediately
+  const [companyId, setCompanyId] = useState(() => localStorage.getItem('companyId') || null);
+  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || null);
   
-  // Extract auth token from URL and store it in localStorage
+  // Use refs to persist values across renders (won't be lost on re-render)
+  // Initialize refs with current localStorage values
+  const companyIdRef = useRef(localStorage.getItem('companyId') || null);
+  const userIdRef = useRef(localStorage.getItem('userId') || null);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    companyIdRef.current = companyId;
+    userIdRef.current = userId;
+  }, [companyId, userId]);
+  
+  // Safety net: constantly sync refs from localStorage (in case something clears state)
+  // This ensures refs always have the latest values from localStorage
+  // CRITICAL: Also restore from refs if localStorage is cleared
+  useEffect(() => {
+    const syncFromStorage = () => {
+      const storedCompanyId = localStorage.getItem('companyId');
+      const storedUserId = localStorage.getItem('userId');
+      
+      // If refs have values but localStorage doesn't, restore to localStorage (protection against clearing)
+      if (companyIdRef.current && !storedCompanyId) {
+        console.log('[Sync] Restoring companyId to localStorage from ref:', companyIdRef.current);
+        localStorage.setItem('companyId', companyIdRef.current);
+      }
+      if (userIdRef.current && !storedUserId) {
+        console.log('[Sync] Restoring userId to localStorage from ref:', userIdRef.current);
+        localStorage.setItem('userId', userIdRef.current);
+      }
+      
+      // Always update refs if localStorage has values (defensive - ensure refs match localStorage)
+      if (storedCompanyId) {
+        companyIdRef.current = storedCompanyId;
+        if (!companyId) setCompanyId(storedCompanyId);
+      }
+      if (storedUserId) {
+        userIdRef.current = storedUserId;
+        if (!userId) setUserId(storedUserId);
+      }
+    };
+    
+    // Sync immediately
+    syncFromStorage();
+    
+    // Sync periodically to catch any localStorage updates/clears (every 1 second - more frequent)
+    const interval = setInterval(syncFromStorage, 1000);
+    return () => clearInterval(interval);
+  }, [companyId, userId]);
+  
+  // Extract auth token, companyId, and userId from URL and store them
   useEffect(() => {
     const tokenFromUrl = searchParams.get('token');
+    const companyIdFromUrl = searchParams.get('companyId');
+    const userIdFromUrl = searchParams.get('userId');
+    
     if (tokenFromUrl) {
       // Store the token from the QR code URL
       localStorage.setItem('token', tokenFromUrl);
       console.log('Auth token imported from QR code URL');
       toast.success('Authentication imported from QR code');
     }
+    
+    // Store companyId and userId from URL in state, refs, and localStorage
+    if (companyIdFromUrl) {
+      setCompanyId(companyIdFromUrl);
+      companyIdRef.current = companyIdFromUrl;
+      localStorage.setItem('companyId', companyIdFromUrl);
+      console.log('Company ID imported from QR code URL:', companyIdFromUrl);
+    }
+    
+    if (userIdFromUrl) {
+      setUserId(userIdFromUrl);
+      userIdRef.current = userIdFromUrl;
+      localStorage.setItem('userId', userIdFromUrl);
+      console.log('User ID imported from QR code URL:', userIdFromUrl);
+    }
+    
+    // If not in URL, try to get from localStorage or token
+    if (!companyIdFromUrl || !userIdFromUrl) {
+      const token = tokenFromUrl || localStorage.getItem('token');
+      const storedCompanyId = localStorage.getItem('companyId');
+      const storedUserId = localStorage.getItem('userId');
+      
+      // Use stored values if URL doesn't have them
+      if (!companyIdFromUrl && storedCompanyId) {
+        setCompanyId(storedCompanyId);
+        companyIdRef.current = storedCompanyId;
+      }
+      if (!userIdFromUrl && storedUserId) {
+        setUserId(storedUserId);
+        userIdRef.current = storedUserId;
+      }
+      
+      // Try to extract from token if still missing
+      if (token && (!companyIdFromUrl || !userIdFromUrl)) {
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length >= 2) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            
+            // Log the entire payload for debugging
+            console.log('[Mount] Token payload:', payload);
+            console.log('[Mount] Available token claims:', Object.keys(payload));
+            
+            // Try multiple possible claim names for userId
+            const extractedUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] 
+              || payload.sub 
+              || payload.userId 
+              || payload.UserId
+              || payload.id
+              || payload.Id
+              || payload.nameid
+              || payload.unique_name
+              || payload.name;
+            
+            // Try multiple possible claim names for companyId
+            const extractedCompanyId = payload.companyId 
+              || payload.CompanyId
+              || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']
+              || payload.company_id
+              || payload.CompanyId
+              || payload.orgid
+              || payload.organizationId;
+            
+            console.log('[Mount] Extracted from token - userId:', extractedUserId, 'companyId:', extractedCompanyId);
+            
+            if (!userIdFromUrl && !storedUserId && extractedUserId) {
+              setUserId(String(extractedUserId));
+              userIdRef.current = String(extractedUserId);
+              localStorage.setItem('userId', String(extractedUserId));
+              console.log('[Mount] User ID extracted from token:', extractedUserId);
+            }
+            if (!companyIdFromUrl && !storedCompanyId && extractedCompanyId) {
+              setCompanyId(String(extractedCompanyId));
+              companyIdRef.current = String(extractedCompanyId);
+              localStorage.setItem('companyId', String(extractedCompanyId));
+              console.log('[Mount] Company ID extracted from token:', extractedCompanyId);
+            }
+          }
+        } catch (e) {
+          console.error('[Mount] Could not extract userId/companyId from token:', e);
+          console.error('[Mount] Token (first 50 chars):', token.substring(0, 50));
+        }
+      }
+    }
   }, [searchParams]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // CRITICAL: Re-sync refs from localStorage right before file handling
+    // This ensures we have the values even if component re-rendered
+    const storedCompanyId = localStorage.getItem('companyId');
+    const storedUserId = localStorage.getItem('userId');
+    if (storedCompanyId) {
+      companyIdRef.current = storedCompanyId;
+      if (!companyId) setCompanyId(storedCompanyId);
+    }
+    if (storedUserId) {
+      userIdRef.current = storedUserId;
+      if (!userId) setUserId(storedUserId);
+    }
+    
+    console.log('[FileChange] Preserved values:', {
+      companyId: { ref: companyIdRef.current, state: companyId, localStorage: storedCompanyId },
+      userId: { ref: userIdRef.current, state: userId, localStorage: storedUserId }
+    });
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -47,6 +203,33 @@ const MobileScan = () => {
     // Create preview directly from File object (in memory)
     const reader = new FileReader();
     reader.onloadend = () => {
+      // CRITICAL: Re-sync and restore values after async file read (camera operations might clear storage)
+      const checkCompanyId = companyIdRef.current || localStorage.getItem('companyId');
+      const checkUserId = userIdRef.current || localStorage.getItem('userId');
+      
+      // Restore to localStorage if refs have values but storage doesn't
+      if (companyIdRef.current && !checkCompanyId) {
+        localStorage.setItem('companyId', companyIdRef.current);
+        console.log('[FileChange] Restored companyId to localStorage after file read');
+      }
+      if (userIdRef.current && !checkUserId) {
+        localStorage.setItem('userId', userIdRef.current);
+        console.log('[FileChange] Restored userId to localStorage after file read');
+      }
+      
+      // Final sync from refs
+      if (companyIdRef.current) {
+        localStorage.setItem('companyId', companyIdRef.current);
+      }
+      if (userIdRef.current) {
+        localStorage.setItem('userId', userIdRef.current);
+      }
+      
+      console.log('[FileChange] After file read - preserved values:', {
+        companyId: { ref: companyIdRef.current, localStorage: localStorage.getItem('companyId') },
+        userId: { ref: userIdRef.current, localStorage: localStorage.getItem('userId') }
+      });
+      
       setImagePreview(reader.result);
       setStatus('preview');
       setError('');
@@ -55,6 +238,16 @@ const MobileScan = () => {
   };
 
   const handleUpload = async () => {
+    // Check authentication first
+    const token = localStorage.getItem('token');
+    if (!token) {
+      const errorMsg = 'You must be logged in to upload a driver license. Please log in and try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      setStatus('ready');
+      return;
+    }
+
     // Read file directly from input (already in browser memory)
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
@@ -68,17 +261,174 @@ const MobileScan = () => {
     setError('');
 
     try {
-      // Send file directly from memory (File object)
-      await apiService.uploadDriverLicense(file, (progress) => {
-        setUploadProgress(progress);
-      });
-
-      toast.success('Driver license uploaded successfully!');
-      setStatus('success');
+      // CRITICAL: Re-sync from localStorage right before upload (defensive programming)
+      // This is the last chance to recover the values - ALWAYS update refs from localStorage
+      // ALSO: Restore to localStorage if refs have values but storage doesn't (protection)
+      let lastChanceCompanyId = localStorage.getItem('companyId');
+      let lastChanceUserId = localStorage.getItem('userId');
       
-      // Navigate back after a short delay
+      // If refs have values but localStorage doesn't, restore first
+      if (companyIdRef.current && !lastChanceCompanyId) {
+        localStorage.setItem('companyId', companyIdRef.current);
+        lastChanceCompanyId = companyIdRef.current;
+        console.log('[Upload] Restored companyId to localStorage from ref before upload');
+      }
+      if (userIdRef.current && !lastChanceUserId) {
+        localStorage.setItem('userId', userIdRef.current);
+        lastChanceUserId = userIdRef.current;
+        console.log('[Upload] Restored userId to localStorage from ref before upload');
+      }
+      
+      // Now sync refs from localStorage (in case it was updated elsewhere)
+      if (lastChanceCompanyId) {
+        const wasDifferent = companyIdRef.current !== lastChanceCompanyId;
+        companyIdRef.current = lastChanceCompanyId;
+        if (wasDifferent) {
+          console.log('[Upload] Synced companyId from localStorage:', lastChanceCompanyId);
+        }
+      }
+      if (lastChanceUserId) {
+        const wasDifferent = userIdRef.current !== lastChanceUserId;
+        userIdRef.current = lastChanceUserId;
+        if (wasDifferent) {
+          console.log('[Upload] Synced userId from localStorage:', lastChanceUserId);
+        }
+      }
+      
+      // Use refs first (most reliable - won't be stale), then state, then localStorage, then URL
+      // This ensures we always have the values even if component re-rendered
+      const finalCompanyId = companyIdRef.current || companyId || localStorage.getItem('companyId') || searchParams.get('companyId');
+      const finalUserId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId');
+      
+      console.log('[Upload] CompanyId sources:', {
+        ref: companyIdRef.current,
+        state: companyId,
+        localStorage: localStorage.getItem('companyId'),
+        url: searchParams.get('companyId'),
+        final: finalCompanyId
+      });
+      console.log('[Upload] UserId sources:', {
+        ref: userIdRef.current,
+        state: userId,
+        localStorage: localStorage.getItem('userId'),
+        url: searchParams.get('userId'),
+        final: finalUserId
+      });
+      
+      // ALWAYS try to extract from token first (token is source of truth)
+      let extractedCompanyId = finalCompanyId;
+      let extractedUserId = finalUserId;
+      
+      if (token) {
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length >= 2) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            
+            // Log the entire payload for debugging
+            console.log('[Upload] Token payload:', payload);
+            console.log('[Upload] Available token claims:', Object.keys(payload));
+            
+            // Try multiple possible claim names for userId
+            const possibleUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] 
+              || payload.sub 
+              || payload.userId 
+              || payload.UserId
+              || payload.id
+              || payload.Id
+              || payload.nameid
+              || payload.unique_name
+              || payload.name;
+            
+            // Try multiple possible claim names for companyId
+            const possibleCompanyId = payload.companyId 
+              || payload.CompanyId
+              || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']
+              || payload.company_id
+              || payload.CompanyId
+              || payload.orgid
+              || payload.organizationId;
+            
+            console.log('[Upload] Extracted from token - userId:', possibleUserId, 'companyId:', possibleCompanyId);
+            
+            // Use token values if we found them (token is source of truth)
+            if (possibleUserId) {
+              extractedUserId = possibleUserId;
+              // Always update state, refs, and localStorage with token values
+              setUserId(String(possibleUserId));
+              userIdRef.current = String(possibleUserId);
+              localStorage.setItem('userId', String(possibleUserId));
+              console.log('[Upload] Using userId from token:', possibleUserId);
+            }
+            
+            if (possibleCompanyId) {
+              extractedCompanyId = possibleCompanyId;
+              // Always update state, refs, and localStorage with token values
+              setCompanyId(String(possibleCompanyId));
+              companyIdRef.current = String(possibleCompanyId);
+              localStorage.setItem('companyId', String(possibleCompanyId));
+              console.log('[Upload] Using companyId from token:', possibleCompanyId);
+            }
+          }
+        } catch (e) {
+          console.error('[Upload] Could not extract userId/companyId from token:', e);
+          console.error('[Upload] Token (first 50 chars):', token.substring(0, 50));
+        }
+      } else {
+        console.warn('[Upload] No token available for extraction');
+      }
+      
+      if (!extractedCompanyId || !extractedUserId) {
+        setError('Company ID and User ID are required. Please ensure you are logged in with a valid account.');
+        toast.error('Company ID and User ID are required');
+        setStatus('ready');
+        return;
+      }
+      
+      console.log('Uploading with companyId:', extractedCompanyId, 'userId:', extractedUserId);
+      console.log('File details:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
+      
+      // Send file directly from memory (File object)
+      try {
+        const response = await apiService.uploadDriverLicense(file, extractedCompanyId, extractedUserId, (progress) => {
+          setUploadProgress(progress);
+        });
+        
+        console.log('Upload response:', response);
+        console.log('Upload successful!', response.data);
+        
+        toast.success('Driver license uploaded successfully!');
+        setStatus('success');
+      } catch (uploadError) {
+        console.error('Upload error details:', uploadError);
+        console.error('Upload error response:', uploadError.response?.data);
+        throw uploadError; // Re-throw to be caught by outer catch block
+      }
+      
+      // Try to close the window/page after a short delay
       setTimeout(() => {
-        navigate(-1); // Go back to previous page
+        // First, try to close the window directly (some mobile browsers allow this)
+        try {
+          window.close();
+        } catch (e) {
+          console.log('Could not close window:', e);
+        }
+        
+        // If window.close() didn't work, try navigating back
+        // Check if we can go back
+        if (window.history.length > 1) {
+          try {
+            navigate(-1);
+          } catch (e) {
+            console.log('Could not navigate back:', e);
+          }
+        }
+        
+        // If neither worked, the user will see the success message with instructions
       }, 1500);
     } catch (err) {
       console.error('Upload error:', err);
@@ -232,7 +582,8 @@ const MobileScan = () => {
           <div className="space-y-4 text-center">
             <div className="bg-green-900 text-green-100 p-6 rounded-lg">
               <p className="text-lg font-bold">✓ Upload Successful!</p>
-              <p className="text-sm mt-2">Redirecting back...</p>
+              <p className="text-sm mt-2">Closing page...</p>
+              <p className="text-xs mt-2 text-green-200">If the page doesn't close automatically, please close it manually.</p>
             </div>
           </div>
         )}

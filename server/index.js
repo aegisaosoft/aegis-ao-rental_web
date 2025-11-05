@@ -300,6 +300,150 @@ app.use('/api/*', async (req, res, next) => {
   next();
 });
 
+// Handle DriverLicense routes on client server (before catch-all proxy)
+// Upload endpoint - save to client server only
+app.post('/api/DriverLicense/upload', upload.any(), async (req, res) => {
+  try {
+    console.log('[DL Upload] Received upload request');
+    console.log('[DL Upload] Query params:', req.query);
+    console.log('[DL Upload] Body:', req.body);
+    console.log('[DL Upload] Files:', req.files ? req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname, size: f.size })) : 'none');
+    
+    // Handle upload directly on client server - don't forward to API
+    const file = req.files && req.files.length > 0 ? req.files[0] : null;
+    if (!file || !file.buffer) {
+      console.error('[DL Upload] No file uploaded or file has no buffer');
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Get companyId and userId from query parameters (preferred) or body
+    const companyId = req.query.companyId || req.body.companyId;
+    const userId = req.query.userId || req.body.userId;
+
+    console.log('[DL Upload] Extracted companyId:', companyId, 'userId:', userId);
+
+    if (!companyId || !userId) {
+      console.error('[DL Upload] Missing companyId or userId');
+      console.error('[DL Upload] Query:', req.query);
+      console.error('[DL Upload] Body:', req.body);
+      return res.status(400).json({ 
+        message: 'Company ID and User ID are required in query parameters or body',
+        received: {
+          query: req.query,
+          body: req.body
+        }
+      });
+    }
+
+    // Save to client server: client/public/licenses/<companyId>/<userId>/driverlicense.{originalExtension}
+    // Use absolute path to ensure we save to the correct location
+    const licensesDir = path.resolve(clientPublicPath, 'licenses', companyId.toString(), userId.toString());
+    console.log('[DL Upload] __dirname:', __dirname);
+    console.log('[DL Upload] serverPublicPath:', serverPublicPath);
+    console.log('[DL Upload] Saving to directory (resolved):', licensesDir);
+    console.log('[DL Upload] Absolute path:', path.isAbsolute(licensesDir) ? 'YES' : 'NO');
+    
+    if (!fs.existsSync(licensesDir)) {
+      console.log('[DL Upload] Creating directory:', licensesDir);
+      fs.mkdirSync(licensesDir, { recursive: true });
+    }
+
+    // Preserve original file extension
+    const originalExtension = path.extname(file.originalname) || '.jpg'; // Default to .jpg if no extension
+    const fileName = `driverlicense${originalExtension}`;
+    const filePath = path.join(licensesDir, fileName);
+    console.log('[DL Upload] Original filename:', file.originalname);
+    console.log('[DL Upload] Original extension:', originalExtension);
+    console.log('[DL Upload] Saving as:', fileName);
+    console.log('[DL Upload] Full file path:', filePath);
+
+    // Delete existing driverlicense files with any extension
+    const existingFiles = fs.readdirSync(licensesDir).filter(f => f.startsWith('driverlicense.'));
+    existingFiles.forEach(existingFile => {
+      const existingFilePath = path.join(licensesDir, existingFile);
+      console.log('[DL Upload] Deleting existing file:', existingFilePath);
+      fs.unlinkSync(existingFilePath);
+    });
+
+    // Save the new file
+    console.log('[DL Upload] Writing file, size:', file.buffer.length, 'bytes');
+    fs.writeFileSync(filePath, file.buffer);
+    
+    // Verify file was saved
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      console.log(`[DL Upload] ✅ Successfully saved to: ${filePath}`);
+      console.log(`[DL Upload] File size: ${stats.size} bytes`);
+    } else {
+      console.error(`[DL Upload] ❌ File was not saved to: ${filePath}`);
+      return res.status(500).json({ message: 'File was not saved successfully' });
+    }
+
+    // Return success response (matching API format)
+    return res.status(200).json({
+      message: 'Driver license uploaded successfully',
+      filePath: `/licenses/${companyId}/${userId}/${fileName}`,
+      companyId: companyId,
+      userId: userId
+    });
+  } catch (error) {
+    console.error('[DL Upload] ❌ Error handling upload:', error);
+    console.error('[DL Upload] Error stack:', error.stack);
+    return res.status(500).json({ 
+      message: 'An error occurred while uploading the file', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Get image endpoint - serve from client server only
+app.get('/api/DriverLicense/image', async (req, res) => {
+  try {
+    // Get companyId and userId from query parameters
+    const companyId = req.query.companyId;
+    const userId = req.query.userId;
+
+    if (!companyId || !userId) {
+      return res.status(400).json({ message: 'Company ID and User ID are required in query parameters' });
+    }
+
+    // Look in client/public/licenses first (where files are actually saved)
+    const licensesDir = path.join(clientPublicPath, 'licenses', companyId.toString(), userId.toString());
+    
+    // Look for driverlicense file with any extension
+    let filePath = null;
+    if (fs.existsSync(licensesDir)) {
+      const files = fs.readdirSync(licensesDir).filter(f => f.startsWith('driverlicense.'));
+      if (files.length > 0) {
+        filePath = path.join(licensesDir, files[0]);
+      }
+    }
+    
+    if (filePath && fs.existsSync(filePath)) {
+      return res.sendFile(path.resolve(filePath));
+    }
+    
+    // Fallback: Also check server public path (legacy support)
+    const serverLicensesDir = path.join(serverPublicPath, 'licenses', companyId.toString(), userId.toString());
+    if (fs.existsSync(serverLicensesDir)) {
+      const files = fs.readdirSync(serverLicensesDir).filter(f => f.startsWith('driverlicense.'));
+      if (files.length > 0) {
+        const serverLicensePath = path.join(serverLicensesDir, files[0]);
+        if (fs.existsSync(serverLicensePath)) {
+          console.log('[DL Image GET] ✅ Serving file from server path (fallback):', serverLicensePath);
+          return res.sendFile(path.resolve(serverLicensePath));
+        }
+      }
+    }
+    
+    res.status(404).json({ message: 'Driver license image not found' });
+  } catch (error) {
+    console.error('[DL Image] Error serving image:', error);
+    res.status(500).json({ message: 'Error serving driver license image' });
+  }
+});
+
 // Catch-all proxy for unmapped API routes (forward to C# API)
 // Handle file uploads with multer middleware
 app.use('/api/*', upload.any(), async (req, res) => {
@@ -310,8 +454,10 @@ app.use('/api/*', upload.any(), async (req, res) => {
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
     const skipPaths = ['/api/auth', '/api/vehicles', '/api/reservations', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
     // Only skip /api/companies (not /api/RentalCompanies)
-    // Note: /api/DriverLicense should go through catch-all to backend
-    if (req.originalUrl.startsWith('/api/companies') || skipPaths.some(path => req.originalUrl.startsWith(path))) {
+    // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
+    if (req.originalUrl.startsWith('/api/companies') || 
+        req.originalUrl.startsWith('/api/DriverLicense') ||
+        skipPaths.some(path => req.originalUrl.startsWith(path))) {
       return; // Let specific route handlers process it (they should call next() or res.send())
     }
     
@@ -336,12 +482,19 @@ app.use('/api/*', upload.any(), async (req, res) => {
   
       try {
       const proxyPath = req.originalUrl; // Keep full path including /api
-      console.log(`[Proxy] ${req.method} ${proxyPath} -> ${apiBaseUrl}${proxyPath}`);
+      const fullBackendUrl = `${apiBaseUrl}${proxyPath}`;
+      console.log(`[Proxy] ${req.method} ${proxyPath} -> ${fullBackendUrl}`);
       console.log(`[Proxy] Request headers:`, {
         'content-type': req.headers['content-type'],
         'authorization': req.headers['authorization'] ? 'present' : 'missing',
         'x-company-id': req.headers['x-company-id'] || 'missing'
       });
+      
+      // For 404 errors, help debug by showing what we're trying to reach
+      if (proxyPath.includes('DriverLicense')) {
+        console.log(`[Proxy] DriverLicense endpoint - Backend URL: ${fullBackendUrl}`);
+        console.log(`[Proxy] Make sure backend API is running on ${apiBaseUrl}`);
+      }
     if (req.method === 'PUT' || req.method === 'POST') {
       console.log('[Proxy] Request body:', JSON.stringify(req.body, null, 2));
     }
@@ -513,6 +666,20 @@ app.use('/api/*', upload.any(), async (req, res) => {
         console.log('[Proxy] Error response:', jsonData);
         console.log('[Proxy] Error URL was:', `${apiBaseUrl}${proxyPath}`);
         
+        // For 401 errors, provide helpful message
+        if (response.status === 401) {
+          console.error(`[Proxy] 401 Unauthorized: ${req.method} ${proxyPath}`);
+          console.error(`[Proxy] Authorization header present: ${!!req.headers.authorization}`);
+          return res.status(401).json({
+            message: `Authentication required: ${req.method} ${proxyPath}`,
+            backendUrl: `${apiBaseUrl}${proxyPath}`,
+            status: 401,
+            statusText: response.statusText,
+            error: jsonData?.message || 'You are not authenticated or your token has expired. Please log in again.',
+            hasAuthHeader: !!req.headers.authorization
+          });
+        }
+        
         // For 404 errors, provide more helpful message
         if (response.status === 404) {
           console.error(`[Proxy] 404 Not Found: ${req.method} ${proxyPath}`);
@@ -618,6 +785,12 @@ app.get('/favicon.ico', (req, res) => {
 const clientPublicPath = path.join(__dirname, '../client/public');
 const serverPublicPath = path.join(__dirname, 'public');
 
+// Log paths for debugging
+console.log('[Server] __dirname:', __dirname);
+console.log('[Server] serverPublicPath:', serverPublicPath);
+console.log('[Server] clientPublicPath:', clientPublicPath);
+console.log('[Server] process.cwd():', process.cwd());
+
 const sendModelImage = (req, res) => {
   try {
     const filename = req.params.filename;
@@ -708,6 +881,112 @@ if (fs.existsSync(modelsStaticPath)) {
 } else {
   console.log(`⚠️ Models directory not found at: ${modelsStaticPath}`);
 }
+
+// Serve driver license images from /licenses/ directory
+// Route: /licenses/:companyId/:userId/driverlicense.{ext} or /licenses/:companyId/:userId/driverlicense (auto-detect extension)
+// Note: Images are saved ONLY on client server, not on API server
+app.get('/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) => {
+  try {
+    const { companyId, userId, ext } = req.params;
+    console.log('[DL Image GET] Request received for companyId:', companyId, 'userId:', userId, 'ext:', ext);
+    // Look in client/public/licenses first (where files are actually saved)
+    const licensesDir = path.join(clientPublicPath, 'licenses', companyId, userId);
+    console.log('[DL Image GET] Looking in directory:', licensesDir);
+    console.log('[DL Image GET] Directory exists:', fs.existsSync(licensesDir));
+    
+    // If extension is provided, use it; otherwise, auto-detect
+    let filePath = null;
+    if (ext) {
+      filePath = path.join(licensesDir, `driverlicense${ext}`);
+      if (!fs.existsSync(filePath)) {
+        filePath = null; // Try auto-detect instead
+      }
+    }
+    
+    // Auto-detect: look for any driverlicense file
+    if (!filePath && fs.existsSync(licensesDir)) {
+      const files = fs.readdirSync(licensesDir).filter(f => f.startsWith('driverlicense.'));
+      console.log('[DL Image GET] Files found in directory:', files);
+      if (files.length > 0) {
+        filePath = path.join(licensesDir, files[0]);
+        console.log('[DL Image GET] Selected file path:', filePath);
+      }
+    }
+    
+    if (filePath && fs.existsSync(filePath)) {
+      console.log('[DL Image GET] ✅ Serving file:', filePath);
+      return res.sendFile(path.resolve(filePath));
+    }
+    
+    // Fallback: Also check server public path (legacy support)
+    const serverLicensesDir = path.join(serverPublicPath, 'licenses', companyId, userId);
+    console.log('[DL Image GET] Also checking server path (fallback):', serverLicensesDir);
+    if (fs.existsSync(serverLicensesDir)) {
+      const files = fs.readdirSync(serverLicensesDir).filter(f => f.startsWith('driverlicense.'));
+      if (files.length > 0) {
+        const serverLicensePath = path.join(serverLicensesDir, files[0]);
+        if (fs.existsSync(serverLicensePath)) {
+          console.log('[DL Image GET] ✅ Serving file from server path (fallback):', serverLicensePath);
+          return res.sendFile(path.resolve(serverLicensePath));
+        }
+      }
+    }
+    
+    console.log('[DL Image GET] ❌ File not found. Checked:', licensesDir, 'and', clientLicensesDir);
+    res.status(404).json({ message: 'Driver license image not found', checkedPaths: [licensesDir, clientLicensesDir] });
+  } catch (error) {
+    console.error('[DL Image GET] ❌ Error serving image:', error);
+    console.error('[DL Image GET] Error stack:', error.stack);
+    res.status(500).json({ message: 'Error serving driver license image', error: error.message });
+  }
+});
+
+// Also support /api/licenses/ path (for consistency with other endpoints)
+app.get('/api/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) => {
+  try {
+    const { companyId, userId, ext } = req.params;
+    // Look in client/public/licenses first (where files are actually saved)
+    const licensesDir = path.join(clientPublicPath, 'licenses', companyId, userId);
+    
+    // If extension is provided, use it; otherwise, auto-detect
+    let filePath = null;
+    if (ext) {
+      filePath = path.join(licensesDir, `driverlicense${ext}`);
+      if (!fs.existsSync(filePath)) {
+        filePath = null; // Try auto-detect instead
+      }
+    }
+    
+    // Auto-detect: look for any driverlicense file
+    if (!filePath && fs.existsSync(licensesDir)) {
+      const files = fs.readdirSync(licensesDir).filter(f => f.startsWith('driverlicense.'));
+      if (files.length > 0) {
+        filePath = path.join(licensesDir, files[0]);
+      }
+    }
+    
+    if (filePath && fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+    
+    // Also check client public path for development
+    const clientLicensesDir = path.join(clientPublicPath, 'licenses', companyId, userId);
+    if (fs.existsSync(clientLicensesDir)) {
+      const files = fs.readdirSync(clientLicensesDir).filter(f => f.startsWith('driverlicense.'));
+      if (files.length > 0) {
+        const clientLicensePath = path.join(clientLicensesDir, files[0]);
+        if (fs.existsSync(clientLicensePath)) {
+          return res.sendFile(clientLicensePath);
+        }
+      }
+    }
+    
+    res.status(404).json({ message: 'Driver license image not found' });
+  } catch (error) {
+    console.error('[DL Image] Error serving image:', error);
+    res.status(500).json({ message: 'Error serving driver license image' });
+  }
+});
 
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.

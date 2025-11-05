@@ -14,30 +14,16 @@ router.post('/validate', upload.single('file'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid or missing image' });
     }
 
-    // TODO: Integrate real OCR/validation. For now do basic checks and return sample data.
-    const sizeOk = file.size > 0;
-    const result = {
-      isValid: sizeOk,
-      // Sample data for testing; replace when integrating real OCR
-      data: {
-        licenseNumber: 'D123456789',
-        issuingState: 'CA',
-        issuingCountry: 'US',
-        sex: 'M',
-        height: '5\'10"',
-        eyeColor: 'Brown',
-        middleName: 'John',
-        issueDate: '2020-01-15',
-        expirationDate: '2028-01-15',
-        address: '123 Main St',
-        city: 'Los Angeles',
-        state: 'CA',
-        postalCode: '90210',
-        country: 'US',
-      }
-    };
-
-    return res.json(result);
+    // TODO: Integrate real OCR/BlinkID validation
+    // Server-side BlinkID OCR is not yet implemented
+    // Currently, client-side parsing is not available due to CORS restrictions
+    // To implement: Install @microblink/blinkid-in-browser-sdk on the server or use BlinkID Cloud API
+    
+    return res.status(501).json({ 
+      isValid: false,
+      message: 'OCR/BlinkID integration is not yet implemented on the server. Please implement real OCR parsing.',
+      error: 'NOT_IMPLEMENTED'
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ message: 'Validation failed' });

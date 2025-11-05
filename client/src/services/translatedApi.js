@@ -465,6 +465,15 @@ export const translatedApiService = {
   
   deleteCompanyLogo: async (companyId) => {
     return await apiService.deleteCompanyLogo(companyId);
+  },
+  
+  // Driver License methods (no translation needed for binary data)
+  uploadDriverLicense: (file, companyId, userId, onProgress) => {
+    return apiService.uploadDriverLicense(file, companyId, userId, onProgress);
+  },
+  
+  getDriverLicenseImage: (companyId, userId) => {
+    return apiService.getDriverLicenseImage(companyId, userId);
   }
 };
 
