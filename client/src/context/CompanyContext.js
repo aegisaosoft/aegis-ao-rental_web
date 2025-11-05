@@ -192,18 +192,26 @@ export const CompanyProvider = ({ children }) => {
           setError('Company configuration not available');
         }
       } catch (err) {
-        // If company config is not found, that's okay - app will continue without company-specific branding
+        // Company config is required for multitenant architecture
+        // If not found (400), log as warning but still allow app to continue
+        // Other errors (timeout, 500, etc.) should be logged as errors
         const errorMsg = err.response?.data?.error || err.message;
         const status = err.response?.status;
         
-        // 404 (Company not found) is expected and not a critical error - log as warning
-        if (status === 404 || err.response?.data?.error === 'COMPANY_NOT_FOUND') {
-          console.warn('[CompanyContext] Company configuration not found for this domain. Continuing without company-specific branding.');
+        // 400 (Bad Request) usually means company not found for hostname
+        // This is important for multitenant - log it but don't crash the app
+        if (status === 400) {
+          console.warn('[CompanyContext] Company configuration not found for this domain. Multitenant features may not work correctly.');
           console.warn('[CompanyContext] Hostname:', window.location.hostname);
-          // Don't set error state for 404 - app can continue normally
-          setError(null);
+          console.warn('[CompanyContext] Error:', err.response?.data?.error || errorMsg);
+          // Set error but don't block app - multitenant will be limited
+          setError('Company configuration not found for this domain');
+        } else if (status === 404) {
+          // 404 is also company not found - similar handling
+          console.warn('[CompanyContext] Company configuration not found (404). Multitenant features may not work correctly.');
+          setError('Company configuration not found');
         } else {
-          // For other errors (timeout, 500, etc.), log as error but still continue
+          // For other errors (timeout, 500, etc.), log as error
           console.error('[CompanyContext] Could not load company configuration:', errorMsg);
           console.error('[CompanyContext] Page URL:', window.location.href);
           console.error('[CompanyContext] API Request URL:', err.config?.url || err.request?.responseURL || 'unknown');

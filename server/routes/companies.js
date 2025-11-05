@@ -60,22 +60,12 @@ router.get('/config', async (req, res) => {
     });
     
     console.log(`[Companies Route] GET /config response status: ${response.status}`);
-    
-    // Handle 400 (Bad Request) - usually means company not found for hostname
-    if (response.status === 400) {
-      console.warn(`[Companies Route] Company not found for hostname. This is expected if domain is not configured.`);
-      // Return a more graceful response - company not found is not a critical error
-      return res.status(404).json({
-        message: 'Company configuration not found for this domain',
-        error: 'COMPANY_NOT_FOUND',
-        hostname: req.headers['x-forwarded-host'] || req.headers['host']
-      });
-    }
-    
     if (response.status !== 200) {
       console.log(`[Companies Route] Error response:`, response.data);
     }
     
+    // Preserve the original status code - don't modify 400 responses
+    // 400 means company not found, which is important for multitenant architecture
     res.status(response.status).json(response.data);
   } catch (error) {
     console.error('[Companies Route] Config fetch error:', error.message);
