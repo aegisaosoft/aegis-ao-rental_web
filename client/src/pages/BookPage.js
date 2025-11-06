@@ -22,7 +22,42 @@ import { toast } from 'react-toastify';
 import { Car, ArrowLeft, CreditCard, X, Calendar, Eye } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
-import { createBlinkId } from '@microblink/blinkid';
+// BlinkID will be loaded from CDN via script tag
+
+/**
+ * Load BlinkID SDK from CDN
+ * This bypasses the npm package which has issues with resource loading
+ */
+const loadBlinkIdFromCDN = () => {
+  return new Promise((resolve, reject) => {
+    // Check if already loaded
+    if (window.BlinkIDSDK) {
+      console.log('[BlinkID] SDK already loaded from cache');
+      resolve(window.BlinkIDSDK);
+      return;
+    }
+    
+    console.log('[BlinkID] Loading SDK from CDN...');
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@microblink/blinkid-in-browser@6.11.0/dist/blinkid-in-browser.min.js';
+    script.async = true;
+    
+    script.onload = () => {
+      if (window.BlinkIDSDK) {
+        console.log('[BlinkID] SDK loaded successfully from CDN');
+        resolve(window.BlinkIDSDK);
+      } else {
+        reject(new Error('BlinkID SDK failed to initialize'));
+      }
+    };
+    
+    script.onerror = () => {
+      reject(new Error('Failed to load BlinkID script from CDN'));
+    };
+    
+    document.head.appendChild(script);
+  });
+};
 
 const BookPage = () => {
   const { t } = useTranslation();
@@ -697,17 +732,17 @@ const BookPage = () => {
           reader.readAsDataURL(blob);
         });
 
-        console.log('[BlinkID] Initializing BlinkID SDK with license key...');
-
-        // Create BlinkID instance using the npm package
-        const blinkid = await createBlinkId({
-          licenseKey: licenseKey,
-          // Use the correct CDN package that HAS resources
-          engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser@6.11.0/resources/',
-          workerLocation: 'https://unpkg.com/@microblink/blinkid-in-browser@6.11.0/resources/BlinkIDWasmSDK.worker.min.js'
+        console.log('[BlinkID] Loading BlinkID SDK from CDN...');
+        
+        // Load BlinkID from CDN instead of using npm package
+        const BlinkIDSDK = await loadBlinkIdFromCDN();
+        
+        console.log('[BlinkID] Creating BlinkID recognizer...');
+        const blinkid = await BlinkIDSDK.createBlinkIdRecognizer({
+          licenseKey: licenseKey
         });
-
-        console.log('[BlinkID] SDK initialized successfully');
+        
+        console.log('[BlinkID] Recognizer created successfully');
 
         // Process the image with BlinkID
         console.log('[BlinkID] Processing image with BlinkID...');
