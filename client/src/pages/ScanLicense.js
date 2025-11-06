@@ -434,14 +434,41 @@ const ScanLicense = () => {
               muted
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="border-4 border-blue-500 rounded-2xl opacity-80" style={{ width: '85%', maxWidth: '400px', aspectRatio: '1.586' }}>
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500 -ml-1 -mt-1"></div>
-                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500 -mr-1 -mt-1"></div>
-                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500 -ml-1 -mb-1"></div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-500 -mr-1 -mb-1"></div>
-                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-center">Align license within frame</p>
+            {/* Dark overlay with cutout */}
+            <div className="absolute inset-0 pointer-events-none">
+              {/* Top dark area */}
+              <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-60" style={{ height: 'calc(50% - 140px)' }}></div>
+              {/* Bottom dark area */}
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60" style={{ height: 'calc(50% - 140px)' }}></div>
+              {/* Left dark area */}
+              <div className="absolute left-0 bg-black bg-opacity-60" style={{ top: 'calc(50% - 140px)', width: 'calc((100% - 90%) / 2)', height: '280px' }}></div>
+              {/* Right dark area */}
+              <div className="absolute right-0 bg-black bg-opacity-60" style={{ top: 'calc(50% - 140px)', width: 'calc((100% - 90%) / 2)', height: '280px' }}></div>
+              
+              {/* License frame guide - centered horizontally and vertically */}
+              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2" style={{ width: '90%', maxWidth: '450px', height: '280px' }}>
+                {/* Border frame */}
+                <div className="absolute inset-0 border-4 border-white rounded-2xl shadow-lg"></div>
+                
+                {/* Corner markers */}
+                <div className="absolute -top-1 -left-1 w-10 h-10 border-t-6 border-l-6 border-green-400 rounded-tl-2xl"></div>
+                <div className="absolute -top-1 -right-1 w-10 h-10 border-t-6 border-r-6 border-green-400 rounded-tr-2xl"></div>
+                <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-6 border-l-6 border-green-400 rounded-bl-2xl"></div>
+                <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-6 border-r-6 border-green-400 rounded-br-2xl"></div>
+                
+                {/* Instructions above frame */}
+                <div className="absolute -top-16 left-0 right-0 flex justify-center">
+                  <div className="bg-black bg-opacity-80 px-6 py-3 rounded-lg">
+                    <p className="text-white text-base font-semibold text-center">
+                      {currentSide === 'front' ? 'Place FRONT of license in frame' : 'Place BACK of license in frame'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Centering crosshair */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-8 h-0.5 bg-green-400 absolute -left-4 top-1/2"></div>
+                  <div className="w-0.5 h-8 bg-green-400 absolute left-1/2 -top-4"></div>
                 </div>
               </div>
             </div>
@@ -510,11 +537,18 @@ const ScanLicense = () => {
               Capture
             </button>
           </div>
-          {currentSide === 'back' && frontScanned && (
-            <p className="text-center text-sm text-gray-400 mt-3">
-              Tip: You can skip the back side if not needed
+          
+          {/* Scanning Tips */}
+          <div className="mt-4 text-center space-y-1">
+            <p className="text-sm text-gray-300">
+              💡 <strong>Tips:</strong> Hold camera steady • Good lighting • License flat
             </p>
-          )}
+            {currentSide === 'back' && frontScanned && (
+              <p className="text-sm text-yellow-400">
+                ⚠️ You can skip the back side if not needed
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
