@@ -162,31 +162,6 @@ const ScanLicense = () => {
         throw new Error('User ID is required to save license information');
       }
 
-      // Upload the license image first
-      if (companyId && userId) {
-        try {
-          const formData = new FormData();
-          formData.append('file', blob, 'driverlicense.jpg');
-          
-          const uploadResponse = await fetch(`/api/DriverLicense/upload?companyId=${companyId}&userId=${userId}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
-          });
-
-          if (uploadResponse.ok) {
-            console.log('[ScanLicense] License image uploaded successfully');
-          } else {
-            console.warn('[ScanLicense] License image upload failed, but continuing with data save');
-          }
-        } catch (uploadErr) {
-          console.error('[ScanLicense] Upload error:', uploadErr);
-          // Don't fail the scan if upload fails
-        }
-      }
-
       // Save license information to database
       try {
         // Convert formattedResult to match CreateCustomerLicenseDto format

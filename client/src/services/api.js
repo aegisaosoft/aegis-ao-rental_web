@@ -289,49 +289,6 @@ export const apiService = {
   // VIN Lookup
   lookupVehicleByVin: (vin) => api.get(`/vehicles/vin-lookup/${vin}`),
 
-      // Driver License Upload
-    uploadDriverLicense: (file, companyId, userId, onProgress) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Ensure companyId and userId are strings
-      const companyIdStr = String(companyId || '');
-      const userIdStr = String(userId || '');
-      
-      // Also add companyId and userId to FormData body as fallback
-      formData.append('companyId', companyIdStr);
-      formData.append('userId', userIdStr);
-      
-      console.log('[API] Uploading driver license with companyId:', companyIdStr, 'userId:', userIdStr);
-      console.log('[API] File:', file.name, file.type, file.size, 'bytes');
-      
-      const url = `/DriverLicense/upload?companyId=${encodeURIComponent(companyIdStr)}&userId=${encodeURIComponent(userIdStr)}`;
-      console.log('[API] Upload URL:', url);
-      
-      return api.post(url, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (onProgress && progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onProgress(percentCompleted);
-          }
-        },
-      }).catch(error => {
-        console.error('[API] Upload error:', error);
-        console.error('[API] Error response:', error.response?.data);
-        console.error('[API] Error status:', error.response?.status);
-        throw error;
-      });
-    },
-    
-    // Get Driver License Image
-    getDriverLicenseImage: (companyId, userId) => {
-      return api.get(`/DriverLicense/image?companyId=${companyId}&userId=${userId}`, {
-        responseType: 'blob', // Important: get binary data
-      });
-    },
 };
 
 export default api;

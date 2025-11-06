@@ -46,9 +46,6 @@ const BookPage = () => {
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [isViewingLicense, setIsViewingLicense] = useState(false); // Track if viewing vs editing
-  const [licenseImageUrl, setLicenseImageUrl] = useState(null);
-  const fetchLicenseImageRef = React.useRef(null); // Ref to store fetch function
-  const lastParsedImageUrlRef = React.useRef(null); // Track last parsed image URL to prevent loops
   const isParsingRef = React.useRef(false); // Track if parsing is in progress
 
   // Auto-detect LAN base from server when running on localhost and no custom base set
@@ -143,217 +140,6 @@ const BookPage = () => {
     loadScannedLicense();
   }, [loadScannedLicense]);
 
-  // Fetch driver license image when authenticated - with smart polling to detect new uploads
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-        setLicenseImageUrl(null);
-        return;
-      }
-
-    let consecutive404s = 0;
-    const maxConsecutive404s = 3; // After 3 consecutive 404s, slow down polling
-    let pollInterval = null;
-    let pollDelay = 3000; // Start with 3 seconds
-
-          const fetchLicenseImage = async () => {
-        try {
-          // Fetch directly with cache-busting parameter to ensure we always get the latest image
-          const token = localStorage.getItem('token');
-          if (!token) return; // Skip if no token
-          
-          // Get companyId and userId from token (primary source)
-          let currentCompanyId = null;
-          let currentUserId = null;
-          
-          // Parse token to extract IDs (primary source)
-          try {
-            const tokenParts = token.split('.');
-            if (tokenParts.length >= 2) {
-              const payload = JSON.parse(atob(tokenParts[1]));
-              
-              // Extract customerId from token - prioritize nameid and customer_id (most common in JWT tokens)
-              currentUserId = payload.nameid
-                || payload.customer_id
-                || payload.customerId
-                || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-                || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier']
-                || payload['http://schemas.microsoft.com/identity/claims/nameidentifier']
-                || payload.nameidentifier
-                || payload.NameIdentifier
-                || payload.sub
-                || payload.userId
-                || payload.UserId
-                || payload.id
-                || payload.Id
-                || payload.unique_name
-                || payload.name;
-              
-              // Extract companyId from token - check all possible variations
-              currentCompanyId = payload.company_id
-                || payload.companyId
-                || payload.CompanyId
-                || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']
-                || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/name']
-                || payload.orgid
-                || payload.organizationId;
-            }
-          } catch (tokenError) {
-            console.error('[License] Error parsing token:', tokenError);
-          }
-          
-          // Fallback to user object or config if token doesn't have the IDs
-          if (!currentUserId) {
-            currentUserId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
-          }
-          if (!currentCompanyId) {
-            currentCompanyId = companyConfig?.id || companyId;
-          }
-          
-          // Only warn if BOTH are still missing AFTER fallback
-          if (!currentCompanyId || !currentUserId) {
-            console.warn('[License] ⚠️ Missing IDs after all attempts. Token had userId:', !!currentUserId, 'companyId:', !!currentCompanyId);
-            // Only log token payload if we're still missing IDs after fallback
-            try {
-              const token = localStorage.getItem('token');
-              if (token) {
-                const tokenParts = token.split('.');
-                if (tokenParts.length >= 2) {
-                  const payload = JSON.parse(atob(tokenParts[1]));
-                  console.warn('[License] Token payload keys:', Object.keys(payload));
-                }
-              }
-            } catch (e) {
-              // Ignore token parsing errors here
-            }
-            // Missing required parameters, skip this fetch
-            console.log('[License] Missing companyId or userId, skipping fetch');
-            console.log('[License] companyId:', currentCompanyId, 'userId:', currentUserId);
-            console.log('[License] user object:', user);
-            return;
-          }
-          
-          console.log('[License] Fetching license image for companyId:', currentCompanyId, 'userId:', currentUserId);
-          
-          // Try different file extensions - start with .jpg as it's most common
-          const extensions = ['.jpg', '.png', '.jpeg'];
-          let imageUrl = null;
-          let testImage = new Image();
-          let extensionIndex = 0;
-          
-          const tryNextExtension = () => {
-            if (extensionIndex < extensions.length) {
-              const ext = extensions[extensionIndex];
-              imageUrl = `/licenses/${currentCompanyId}/${currentUserId}/driverlicense${ext}?t=${Date.now()}`;
-              console.log('[License] Trying image URL with extension:', imageUrl);
-              
-              testImage = new Image();
-              testImage.onload = () => {
-                console.log('[License] Image verified and loaded successfully from:', imageUrl);
-        setLicenseImageUrl(imageUrl);
-                // Success - reset counter and restore normal polling
-                if (consecutive404s > 0) {
-                  consecutive404s = 0;
-                  if (pollDelay > 3000) {
-                    pollDelay = 3000;
-                    clearInterval(pollInterval);
-                    pollInterval = setInterval(fetchLicenseImage, pollDelay);
-                  }
-                }
-              };
-              testImage.onerror = () => {
-                console.log('[License] Image failed to load from:', imageUrl);
-                extensionIndex++;
-                if (extensionIndex < extensions.length) {
-                  // Try next extension
-                  tryNextExtension();
-                } else {
-                  // All extensions tried, file doesn't exist
-                  console.log('[License] All extensions tried, file does not exist');
-                  consecutive404s++;
-                  
-                  // After multiple 404s, slow down polling to reduce console noise
-                  if (consecutive404s >= maxConsecutive404s && pollDelay === 3000) {
-                    pollDelay = 10000; // Change to 10 seconds
-                    clearInterval(pollInterval);
-                    pollInterval = setInterval(fetchLicenseImage, pollDelay);
-                  }
-                }
-              };
-              testImage.src = imageUrl;
-            }
-          };
-          
-          // Start trying extensions
-          tryNextExtension();
-      } catch (error) {
-        // Network errors - don't log fetch aborts or 404s
-        if (error.name !== 'AbortError' && error.response?.status !== 404 && error.status !== 404) {
-          console.error('Error fetching driver license image:', error);
-        }
-      }
-    };
-
-          // Store fetch function in ref so it can be called from handleViewLicense
-      fetchLicenseImageRef.current = fetchLicenseImage;
-      
-      // Fetch immediately
-    fetchLicenseImage();
-
-      // Start polling - will adjust frequency based on results
-      pollInterval = setInterval(fetchLicenseImage, pollDelay);
-
-      // Cleanup: revoke object URL when component unmounts
-    return () => {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-        }
-        fetchLicenseImageRef.current = null; // Clear ref on cleanup
-      setLicenseImageUrl(prevUrl => {
-        if (prevUrl) {
-          URL.revokeObjectURL(prevUrl);
-        }
-        return null;
-      });
-    };
-    }, [isAuthenticated, companyConfig, companyId, user]);
-
-  // Auto-close QR modal and show license when image is uploaded while QR modal is open
-  // Track if an image existed when QR modal was opened
-  const hadImageWhenQrOpenedRef = React.useRef(false);
-  const prevLicenseImageUrlRef = React.useRef(null);
-  
-  // Track image state when QR modal opens/closes (only depend on qrOpen)
-  React.useEffect(() => {
-    if (qrOpen) {
-      // Remember if we already had an image when QR opened
-      hadImageWhenQrOpenedRef.current = !!licenseImageUrl;
-      prevLicenseImageUrlRef.current = licenseImageUrl;
-    } else {
-      // Reset when QR modal closes
-      hadImageWhenQrOpenedRef.current = false;
-      prevLicenseImageUrlRef.current = null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qrOpen]); // Only depend on qrOpen, not licenseImageUrl
-  
-  // Close QR modal when image appears (transitions from null to value) after QR was opened
-  React.useEffect(() => {
-    // Only trigger if: QR modal is open, we now have an image, and we didn't have one when QR opened
-    if (licenseImageUrl && qrOpen && !hadImageWhenQrOpenedRef.current && !prevLicenseImageUrlRef.current) {
-      // Image was just uploaded while QR modal is open - close QR and show license modal
-      const timer = setTimeout(() => {
-        setQrOpen(false);
-        setIsLicenseModalOpen(true);
-        hadImageWhenQrOpenedRef.current = true; // Mark that we now have an image
-        prevLicenseImageUrlRef.current = licenseImageUrl;
-      }, 500); // Small delay for smooth transition
-      
-      return () => clearTimeout(timer);
-    }
-    
-    // Update previous reference for next comparison
-    prevLicenseImageUrlRef.current = licenseImageUrl;
-  }, [licenseImageUrl, qrOpen]);
 
   // Listen for storage events (when license is scanned on phone in another tab/window)
   React.useEffect(() => {
@@ -814,46 +600,11 @@ const BookPage = () => {
       return;
     }
     
-    // Don't set URL here - let fetchLicenseImage try all extensions (.jpg, .jpeg, .png)
-    // It will automatically try each extension and set the correct one
-    
-    console.log('Fetching license image, fetchLicenseImageRef.current:', fetchLicenseImageRef.current);
-    // Trigger immediate fetch of license image
-    if (fetchLicenseImageRef.current) {
-      fetchLicenseImageRef.current();
-    } else {
-      console.warn('fetchLicenseImageRef.current is null!');
-    }
-    
-    // Open the license modal in view mode to view the uploaded driver license image
+    // Open the license modal in view mode
     console.log('Opening license modal in view mode');
     setIsViewingLicense(true);
     setIsLicenseModalOpen(true);
-    
-    // Parse the existing image if available (wait a bit for image to load)
-    setTimeout(() => {
-      if (licenseImageUrl) {
-        console.log('[View License] Parsing existing license image:', licenseImageUrl);
-        parseLicenseImageWithBlinkID(licenseImageUrl);
-      }
-    }, 500);
   };
-  
-  // Parse license image when viewing license and image URL becomes available (only once per image)
-  React.useEffect(() => {
-    if (isViewingLicense && licenseImageUrl && isLicenseModalOpen) {
-      // Only parse if this is a new image URL and we're not already parsing
-      if (licenseImageUrl !== lastParsedImageUrlRef.current && !isParsingRef.current) {
-        console.log('[View License] Image URL available, parsing with BlinkID:', licenseImageUrl);
-        lastParsedImageUrlRef.current = licenseImageUrl;
-        isParsingRef.current = true;
-        parseLicenseImageWithBlinkID(licenseImageUrl).finally(() => {
-          isParsingRef.current = false;
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isViewingLicense, licenseImageUrl, isLicenseModalOpen]);
 
   // Create QR for phone scan: show QR code with link to scanning page
   const handleScanOnPhone = () => {
@@ -1315,79 +1066,14 @@ const BookPage = () => {
 
                                           <div className="p-6">
                         {isViewingLicense ? (
-                          // VIEW MODE: Show only image or message - nothing else
-                          <>
-                            {licenseImageUrl ? (
-                              <div className="flex justify-center items-center min-h-[400px] p-6">
-                                <img
-                                  src={licenseImageUrl}
-                                  alt="Driver License"
-                                  className="max-w-full max-h-[80vh] w-auto h-auto rounded-lg shadow-lg object-contain"
-                                  onError={(e) => {
-                                    console.error('[View License] ❌ Error loading image from:', licenseImageUrl);
-                                    console.error('[View License] Error event:', e);
-                                    // Don't clear immediately - wait a bit and check if it's really not there
-                                    setTimeout(() => {
-                                      // Re-check if image still fails after a moment
-                                      const testImg = new Image();
-                                      testImg.onerror = () => {
-                                        console.error('[View License] ❌ Image confirmed missing after retry');
-                                        setLicenseImageUrl(null);
-                                      };
-                                      testImg.onload = () => {
-                                        console.log('[View License] ✅ Image loaded on retry, updating src');
-                                        e.target.src = licenseImageUrl;
-                                      };
-                                      testImg.src = licenseImageUrl;
-                                    }, 1000);
-                                  }}
-                                  onLoad={() => {
-                                    console.log('[View License] ✅ Image loaded successfully from:', licenseImageUrl);
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div className="text-center py-16 px-6">
-                                <p className="text-gray-600 text-lg mb-2">No driver license image found.</p>
-                                <p className="text-gray-500 text-sm mb-2">
-                                  Looking for: <code className="bg-gray-100 px-2 py-1 rounded text-xs">/licenses/{companyConfig?.id || companyId}/{user?.id || user?.userId}/driverlicense.*</code>
-                                </p>
-                                <p className="text-gray-500 mb-6">Please upload one using the "Scan on phone" button.</p>
-                                <button
-                                  type="button"
-                                  onClick={handleScanOnPhone}
-                                  className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg"
-                                >
-                                  {t('bookPage.scanOnPhone')}
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          // EDIT MODE: Show form with optional image preview
-                          <>
-                        {/* Display uploaded driver license image if available */}
-                        {licenseImageUrl && (
-                          <div className="mb-6 pb-6 border-b">
-                                <label className="block text-sm font-medium text-gray-700 mb-4 text-lg">
-                              {t('bookPage.uploadedDriverLicense') || 'Uploaded Driver License'}
-                            </label>
-                                <div className="bg-gray-50 rounded-lg p-6 flex justify-center items-center min-h-[400px]">
-                              <img
-                                src={licenseImageUrl}
-                                alt="Driver License"
-                                    className="max-w-full max-h-[600px] w-auto h-auto rounded-lg shadow-lg object-contain"
-                                onError={(e) => {
-                                      console.error('Error loading driver license image from:', licenseImageUrl);
-                                      setLicenseImageUrl(null);
-                                    }}
-                                    onLoad={() => {
-                                      console.log('Driver license image loaded successfully from:', licenseImageUrl);
-                                }}
-                              />
-                            </div>
+                          // VIEW MODE: Show message
+                          <div className="text-center py-16 px-6">
+                            <p className="text-gray-600 text-lg mb-2">Viewing driver license information.</p>
+                            <p className="text-gray-500 mb-6">Use the edit button to modify license details.</p>
                           </div>
-                        )}
+                        ) : (
+                          // EDIT MODE: Show form
+                          <>
                         <form onSubmit={handleSaveLicense} className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* License Number */}
