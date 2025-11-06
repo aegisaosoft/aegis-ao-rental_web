@@ -6,10 +6,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createBlinkId } from '@microblink/blinkid';
 import { apiService } from '../services/api';
+import { useCompany } from '../context/CompanyContext';
 
 const ScanLicense = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { companyConfig } = useCompany();
   const [status, setStatus] = useState('init');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
@@ -19,20 +21,31 @@ const ScanLicense = () => {
   const streamRef = useRef(null);
   const blinkidRef = useRef(null);
 
-  // Initialize BlinkID SDK
+  // Initialize BlinkID SDK with company-specific license key
   useEffect(() => {
+    // Wait for company config to load
+    if (!companyConfig) {
+      setStatus('loading');
+      return;
+    }
+
     const initBlinkID = async () => {
       try {
         setStatus('loading');
 
-        const licenseKey = process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
+        // Use company-specific BlinkKey from database, fallback to environment variable
+        const licenseKey = companyConfig.blinkKey || 
+                          companyConfig.BlinkKey || 
+                          process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
 
         if (!licenseKey) {
-          toast.error('BlinkID license key missing');
-          setError('BlinkID license key missing');
+          toast.error('BlinkID license key missing. Please configure it in company settings.');
+          setError('BlinkID license key missing. Please configure it in company settings.');
           setStatus('error');
           return;
         }
+
+        console.log('[ScanLicense] Initializing BlinkID with company-specific key for:', companyConfig.companyName);
 
         // Initialize BlinkID SDK using npm package
         const blinkid = await createBlinkId({
@@ -57,7 +70,7 @@ const ScanLicense = () => {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [companyConfig]);
 
   // Start camera
   const startCamera = async () => {
@@ -73,6 +86,7 @@ const ScanLicense = () => {
 
       streamRef.current = stream;
       if (videoRef.current) {
+        videoRef.current.style.display = 'block'; // Ensure video is visible
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
@@ -89,20 +103,25 @@ const ScanLicense = () => {
   const stopCamera = () => {
     console.log('[ScanLicense] Stopping camera...');
     
-    // Step 1: Stop all media tracks
+    // Step 1: Stop all media tracks FIRST
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        console.log('[ScanLicense] Stopping track:', track.kind, track.label);
+      const tracks = streamRef.current.getTracks();
+      tracks.forEach(track => {
+        console.log('[ScanLicense] Stopping track:', track.kind, track.label, track.readyState);
         track.stop();
+        console.log('[ScanLicense] Track stopped. New state:', track.readyState);
       });
       streamRef.current = null;
     }
     
-    // Step 2: Clear video element
+    // Step 2: Aggressively clear video element
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
+      videoRef.current.src = '';
       videoRef.current.load(); // Force reload to clear any cached frames
+      // Hide video element
+      videoRef.current.style.display = 'none';
     }
     
     setScanning(false);
@@ -127,11 +146,17 @@ const ScanLicense = () => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
 
-      // STOP CAMERA IMMEDIATELY after capture
+      // STOP CAMERA IMMEDIATELY after capture - FIRST TIME
       stopCamera();
 
       // Convert canvas to blob
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+
+      // STOP CAMERA AGAIN - Double-check it's really stopped
+      if (streamRef.current || (videoRef.current && videoRef.current.srcObject)) {
+        console.warn('[ScanLicense] Camera still active! Force stopping again...');
+        stopCamera();
+      }
 
       setStatus('processing');
       toast.info('Processing license image...');
@@ -176,77 +201,82 @@ const ScanLicense = () => {
         eyeColor: result.eyeColor || '',
       };
 
-      // Store in state for display
+      // ✅ IMMEDIATE CALLBACK - Show data right away!
+      console.log('🎉 [ScanLicense] Scan successful! Extracted data:', formattedResult);
       setExtractedData(formattedResult);
-
-      // Get userId from URL params or localStorage
-      const userId = searchParams.get('userId') || localStorage.getItem('userId');
-
-      if (!userId) {
-        throw new Error('User ID is required to save license information');
-      }
-
-      // Save license information to database
-      try {
-        const convertDateForAPI = (dateStr) => {
-          if (!dateStr) return null;
-          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            return dateStr + 'T00:00:00Z';
-          }
-          try {
-            const date = new Date(dateStr);
-            if (!isNaN(date.getTime())) {
-              return date.toISOString();
-            }
-          } catch (e) {
-            console.warn('[ScanLicense] Could not parse date:', dateStr);
-          }
-          return null;
-        };
-
-        const licenseData = {
-          licenseNumber: formattedResult.licenseNumber || '',
-          stateIssued: formattedResult.issuingState || formattedResult.state || '',
-          countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
-          sex: formattedResult.sex || null,
-          height: formattedResult.height || null,
-          eyeColor: formattedResult.eyeColor || null,
-          middleName: formattedResult.middleName || null,
-          issueDate: convertDateForAPI(formattedResult.issueDate),
-          expirationDate: convertDateForAPI(formattedResult.expirationDate),
-          licenseAddress: formattedResult.address || null,
-          licenseCity: formattedResult.city || null,
-          licenseState: formattedResult.state || null,
-          licensePostalCode: formattedResult.postalCode || null,
-          licenseCountry: formattedResult.country || 'US',
-          restrictionCode: null,
-          endorsements: null
-        };
-
-        if (!licenseData.licenseNumber || !licenseData.stateIssued) {
-          throw new Error('License number and state are required');
-        }
-
-        if (!licenseData.expirationDate) {
-          throw new Error('Expiration date is required');
-        }
-
-        console.log('[ScanLicense] Saving license data to database:', licenseData);
-
-        const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
-        
-        console.log('[ScanLicense] License data saved successfully:', saveResponse);
-        toast.success('License information saved to database!');
-      } catch (saveErr) {
-        console.error('[ScanLicense] Error saving license data:', saveErr);
-        toast.error('License scanned but failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
-      }
-
+      setStatus('done');
+      toast.success('🎉 License scanned successfully!');
+      
+      // Store in localStorage immediately
       localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
 
-      toast.success('🎉 License scanned successfully!');
-      setStatus('done');
+      // NOW save to database in background (user already sees success)
+      const userId = searchParams.get('userId') || localStorage.getItem('userId');
 
+      if (userId) {
+        // Save asynchronously - don't block the UI
+        (async () => {
+          try {
+            const convertDateForAPI = (dateStr) => {
+              if (!dateStr) return null;
+              if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                return dateStr + 'T00:00:00Z';
+              }
+              try {
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                  return date.toISOString();
+                }
+              } catch (e) {
+                console.warn('[ScanLicense] Could not parse date:', dateStr);
+              }
+              return null;
+            };
+
+            const licenseData = {
+              licenseNumber: formattedResult.licenseNumber || '',
+              stateIssued: formattedResult.issuingState || formattedResult.state || '',
+              countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
+              sex: formattedResult.sex || null,
+              height: formattedResult.height || null,
+              eyeColor: formattedResult.eyeColor || null,
+              middleName: formattedResult.middleName || null,
+              issueDate: convertDateForAPI(formattedResult.issueDate),
+              expirationDate: convertDateForAPI(formattedResult.expirationDate),
+              licenseAddress: formattedResult.address || null,
+              licenseCity: formattedResult.city || null,
+              licenseState: formattedResult.state || null,
+              licensePostalCode: formattedResult.postalCode || null,
+              licenseCountry: formattedResult.country || 'US',
+              restrictionCode: null,
+              endorsements: null
+            };
+
+            if (!licenseData.licenseNumber || !licenseData.stateIssued) {
+              throw new Error('License number and state are required');
+            }
+
+            if (!licenseData.expirationDate) {
+              throw new Error('Expiration date is required');
+            }
+
+            console.log('[ScanLicense] Saving license data to database:', licenseData);
+
+            const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
+            
+            console.log('[ScanLicense] License data saved successfully:', saveResponse);
+            toast.success('✅ Saved to database!');
+          } catch (saveErr) {
+            console.error('[ScanLicense] Error saving license data:', saveErr);
+            toast.error('Failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
+          }
+        })();
+      } else {
+        console.warn('[ScanLicense] No userId available, skipping database save');
+        toast.warning('License scanned but not saved (no user ID)');
+      }
+
+      // Redirect after showing data
       const returnTo = searchParams.get('returnTo');
       if (returnTo) {
         setTimeout(() => {

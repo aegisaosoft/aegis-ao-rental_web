@@ -88,6 +88,7 @@ export const CompanyProvider = ({ children }) => {
                 invitation: miamiCompany.invitation || miamiCompany.Invitation,
                 texts: miamiCompany.texts || miamiCompany.Texts,
                 language: miamiCompany.language || miamiCompany.Language || 'en',
+                blinkKey: miamiCompany.blinkKey || miamiCompany.BlinkKey,
               };
               
               setCompanyConfig(config);

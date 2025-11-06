@@ -5,15 +5,22 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { apiService } from '../services/api';
+import { useCompany } from '../context/CompanyContext';
 
 const MobileScan = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { companyConfig } = useCompany();
   const [status, setStatus] = useState('prompt'); // prompt, ready, preview, uploading, success
   const [imagePreview, setImagePreview] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+  
+  // Check if company has BlinkID key configured
+  const hasBlinkKey = companyConfig?.blinkKey || 
+                      companyConfig?.BlinkKey || 
+                      process.env.REACT_APP_BLINKID_LICENSE_KEY;
   // Initialize state from localStorage immediately
   const [companyId, setCompanyId] = useState(() => localStorage.getItem('companyId') || null);
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || null);
@@ -516,33 +523,39 @@ const MobileScan = () => {
 
         {status === 'prompt' && (
           <div className="space-y-6">
-            <div className="bg-blue-900 bg-opacity-50 rounded-lg p-6 text-center">
-              <div className="mb-4">
-                <svg className="w-16 h-16 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
+            {/* Only show BlinkID scan option if company has key configured */}
+            {hasBlinkKey && (
+              <div className="bg-blue-900 bg-opacity-50 rounded-lg p-6 text-center">
+                <div className="mb-4">
+                  <svg className="w-16 h-16 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold mb-2">Scan Your Driver License</h2>
+                <p className="text-gray-300 mb-6">
+                  Use BlinkID to automatically extract information from your driver license.
+                </p>
+                <button
+                  onClick={handleStartBlinkIDScan}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
+                >
+                  Start BlinkID Scan
+                </button>
               </div>
-              <h2 className="text-xl font-semibold mb-2">Scan Your Driver License</h2>
-              <p className="text-gray-300 mb-6">
-                Use BlinkID to automatically extract information from your driver license.
-              </p>
-              <button
-                onClick={handleStartBlinkIDScan}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
-              >
-                Start BlinkID Scan
-              </button>
-            </div>
+            )}
             
-            <div className="text-center">
-              <p className="text-gray-400 text-sm mb-3">or</p>
-              <button
-                onClick={() => setStatus('ready')}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg"
-              >
-                Upload Photo Instead
-              </button>
-            </div>
+            {hasBlinkKey && (
+              <div className="text-center">
+                <p className="text-gray-400 text-sm mb-3">or</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setStatus('ready')}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg"
+            >
+              {hasBlinkKey ? 'Upload Photo Instead' : 'Upload Photo'}
+            </button>
             
             {error && (
               <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
