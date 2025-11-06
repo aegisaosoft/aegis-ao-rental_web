@@ -153,12 +153,24 @@ const ScanLicense = () => {
 
         console.log('[ScanLicense] Initializing BlinkID for:', companyConfig.companyName);
 
-        // Get video element
-        const videoElement = document.getElementById('blinkid-video');
+        // Wait for video element to be rendered - retry up to 10 times
+        let videoElement = null;
+        let attempts = 0;
+        
+        while (!videoElement && attempts < 10) {
+          videoElement = document.getElementById('blinkid-video');
+          if (!videoElement) {
+            console.log('[ScanLicense] Waiting for video element... attempt', attempts + 1);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+          }
+        }
         
         if (!videoElement) {
-          throw new Error('Video element not found');
+          throw new Error('Video element not found after waiting');
         }
+
+        console.log('[ScanLicense] Video element found, starting BlinkID...');
 
         // Initialize with callbacks
         const blinkid = await createBlinkId({
