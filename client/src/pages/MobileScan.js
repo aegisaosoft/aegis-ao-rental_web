@@ -501,9 +501,21 @@ const MobileScan = () => {
   };
 
   const handleStartBlinkIDScan = () => {
-    // Redirect to ScanLicense page with returnTo parameter
+    // Redirect to ScanLicense page with ALL parameters preserved
     const returnTo = searchParams.get('returnTo') || window.location.pathname;
-    navigate(`/scan?returnTo=${encodeURIComponent(returnTo)}`);
+    const token = searchParams.get('token') || localStorage.getItem('token');
+    const companyId = searchParams.get('companyId') || localStorage.getItem('companyId');
+    const userId = searchParams.get('userId') || localStorage.getItem('userId');
+    
+    // Build URL with all parameters
+    const params = new URLSearchParams();
+    params.set('returnTo', returnTo);
+    if (token) params.set('token', token);
+    if (companyId) params.set('companyId', companyId);
+    if (userId) params.set('userId', userId);
+    
+    console.log('[MobileScan] Redirecting to /scan with params:', params.toString());
+    navigate(`/scan?${params.toString()}`);
   };
 
   return (
