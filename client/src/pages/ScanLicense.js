@@ -5,7 +5,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import * as BlinkIDSDK from '@microblink/blinkid';
 import { apiService } from '../services/api';
 import { useCompany } from '../context/CompanyContext';
 
@@ -17,7 +16,11 @@ const ScanLicense = () => {
   const [error, setError] = useState('');
   const [extractedData, setExtractedData] = useState(null);
 
-  // Handle scan success - wrapped in useCallback
+  // Note: BlinkID v7 automatically handles scan results via its built-in UI
+  // This callback would be used if we had access to BlinkID's result events
+  // For now, BlinkID handles the entire flow automatically
+  
+  /* Keeping this for future implementation when we figure out BlinkID v7 callbacks
   const handleScanSuccess = useCallback(async (result) => {
     try {
       const formatDate = (dateObj) => {
@@ -126,6 +129,7 @@ const ScanLicense = () => {
       setStatus('error');
     }
   }, [searchParams, navigate]);
+  */
 
   // Initialize BlinkID - it auto-starts camera
   useEffect(() => {
