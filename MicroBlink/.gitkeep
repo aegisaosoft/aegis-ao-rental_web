@@ -1,0 +1,9 @@
+# This directory contains BlinkID license key files
+# The following files should be present:
+# - ios.key
+# - android.key
+# - in-browser.key
+#
+# These files are part of the project and will be deployed with the application.
+# They are used by the sync-blinkid-licenses.js script to update .env files.
+

@@ -104,6 +104,16 @@ aegis-ao-rental-app/
    REACT_APP_API_URL=http://localhost:5000/api
    REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
    ```
+   
+   **BlinkID License Keys** (Optional - for license scanning):
+   
+   The easiest way to sync BlinkID license keys is to use the sync script:
+   ```bash
+   npm run sync-licenses
+   ```
+   
+   This reads keys from `MicroBlink/*.key` files (ios.key, android.key, in-browser.key) in the project directory and updates all `.env` files automatically. The keys are part of the project and will be deployed with the application.
+   See `scripts/README.md` for more details.
 
 4. **Start the application**
    ```bash
@@ -117,6 +127,7 @@ aegis-ao-rental-app/
 - **Start backend only**: `npm run server`
 - **Start frontend only**: `npm run client`
 - **Build for production**: `npm run build`
+- **Sync BlinkID license keys**: `npm run sync-licenses` (reads from `MicroBlink/*.key` files)
 
 ## API Integration
 

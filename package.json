@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node server/index.js",
-    "build": "cd client && npm run build",
-    "install-client": "cd client && npm install",
+    "build": "node scripts/build-with-licenses.js",
     "build-client": "cd client && npm run build",
+    "install-client": "cd client && npm install",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "node server/index.js",
     "client": "cd client && npm start",
-    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "sync-licenses": "node scripts/sync-blinkid-licenses.js"
   },
   "engines": {
     "node": ">=22.0.0",
