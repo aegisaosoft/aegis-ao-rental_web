@@ -154,8 +154,7 @@ const ScanLicense = () => {
         eyeColor: result.eyeColor || '',
       };
 
-      // Get companyId and userId from URL params or localStorage
-      const companyId = searchParams.get('companyId') || localStorage.getItem('companyId');
+      // Get userId from URL params or localStorage
       const userId = searchParams.get('userId') || localStorage.getItem('userId');
 
       if (!userId) {
