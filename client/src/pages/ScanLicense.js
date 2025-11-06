@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createBlinkId } from '@microblink/blinkid';
+import { apiService } from '../services/api';
 
 const ScanLicense = () => {
   const navigate = useNavigate();
@@ -157,10 +158,13 @@ const ScanLicense = () => {
       const companyId = searchParams.get('companyId') || localStorage.getItem('companyId');
       const userId = searchParams.get('userId') || localStorage.getItem('userId');
 
-      // If we have IDs, upload the license image
+      if (!userId) {
+        throw new Error('User ID is required to save license information');
+      }
+
+      // Upload the license image first
       if (companyId && userId) {
         try {
-          // Upload the blob image
           const formData = new FormData();
           formData.append('file', blob, 'driverlicense.jpg');
           
@@ -173,12 +177,77 @@ const ScanLicense = () => {
           });
 
           if (uploadResponse.ok) {
-            toast.success('License uploaded successfully!');
+            console.log('[ScanLicense] License image uploaded successfully');
+          } else {
+            console.warn('[ScanLicense] License image upload failed, but continuing with data save');
           }
         } catch (uploadErr) {
-          console.error('Upload error:', uploadErr);
+          console.error('[ScanLicense] Upload error:', uploadErr);
           // Don't fail the scan if upload fails
         }
+      }
+
+      // Save license information to database
+      try {
+        // Convert formattedResult to match CreateCustomerLicenseDto format
+        // Convert date strings to ISO format for API
+        const convertDateForAPI = (dateStr) => {
+          if (!dateStr) return null;
+          // If already in ISO format (YYYY-MM-DD), use it directly
+          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr + 'T00:00:00Z'; // Convert to ISO datetime format
+          }
+          // Try to parse and convert
+          try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString();
+            }
+          } catch (e) {
+            console.warn('[ScanLicense] Could not parse date:', dateStr);
+          }
+          return null;
+        };
+
+        const licenseData = {
+          licenseNumber: formattedResult.licenseNumber || '',
+          stateIssued: formattedResult.issuingState || formattedResult.state || '',
+          countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
+          sex: formattedResult.sex || null,
+          height: formattedResult.height || null,
+          eyeColor: formattedResult.eyeColor || null,
+          middleName: formattedResult.middleName || null,
+          issueDate: convertDateForAPI(formattedResult.issueDate),
+          expirationDate: convertDateForAPI(formattedResult.expirationDate),
+          licenseAddress: formattedResult.address || null,
+          licenseCity: formattedResult.city || null,
+          licenseState: formattedResult.state || null,
+          licensePostalCode: formattedResult.postalCode || null,
+          licenseCountry: formattedResult.country || 'US',
+          restrictionCode: null,
+          endorsements: null
+        };
+
+        // Validate required fields
+        if (!licenseData.licenseNumber || !licenseData.stateIssued) {
+          throw new Error('License number and state are required');
+        }
+
+        if (!licenseData.expirationDate) {
+          throw new Error('Expiration date is required');
+        }
+
+        console.log('[ScanLicense] Saving license data to database:', licenseData);
+
+        // Call API to save license information
+        const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
+        
+        console.log('[ScanLicense] License data saved successfully:', saveResponse);
+        toast.success('License information saved to database!');
+      } catch (saveErr) {
+        console.error('[ScanLicense] Error saving license data:', saveErr);
+        toast.error('License scanned but failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
+        // Continue anyway - at least the image was uploaded
       }
 
       // Store result in localStorage for the booking page to pick up
