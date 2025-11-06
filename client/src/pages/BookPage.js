@@ -30,31 +30,22 @@ import { useTranslation } from 'react-i18next';
  */
 const loadBlinkIdFromCDN = () => {
   return new Promise((resolve, reject) => {
-    // Check if already loaded
     if (window.BlinkIDSDK) {
-      console.log('[BlinkID] SDK already loaded from cache');
       resolve(window.BlinkIDSDK);
       return;
     }
     
-    console.log('[BlinkID] Loading SDK from CDN...');
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@microblink/blinkid-in-browser@6.11.0/dist/blinkid-in-browser.min.js';
-    script.async = true;
-    
+    // CORRECT package name with -sdk suffix
+    script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@6.13.3/dist/blinkid-sdk.min.js';
     script.onload = () => {
       if (window.BlinkIDSDK) {
-        console.log('[BlinkID] SDK loaded successfully from CDN');
         resolve(window.BlinkIDSDK);
       } else {
-        reject(new Error('BlinkID SDK failed to initialize'));
+        reject(new Error('BlinkIDSDK not found on window'));
       }
     };
-    
-    script.onerror = () => {
-      reject(new Error('Failed to load BlinkID script from CDN'));
-    };
-    
+    script.onerror = () => reject(new Error('Failed to load BlinkID from CDN'));
     document.head.appendChild(script);
   });
 };
