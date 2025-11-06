@@ -648,7 +648,9 @@ const BookPage = () => {
       // Initialize BlinkID SDK
       console.log('[BlinkID] Initializing BlinkID SDK...');
       const blinkid = await createBlinkId({
-        licenseKey: licenseKey
+        licenseKey: licenseKey,
+        // Specify CDN location for resources to avoid 404 errors
+        resourcesLocation: 'https://unpkg.com/@microblink/blinkid@7.4.1/public/resources/'
       });
       
       console.log('[BlinkID] SDK initialized, recognizing image...');
