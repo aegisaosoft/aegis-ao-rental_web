@@ -14,14 +14,10 @@ const ScanLicense = () => {
   const [status, setStatus] = useState('init');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
-  const [frontScanned, setFrontScanned] = useState(false);
-  const [backScanned, setBackScanned] = useState(false);
-  const [currentSide, setCurrentSide] = useState('front'); // 'front' or 'back'
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const blinkidRef = useRef(null);
-  const frontDataRef = useRef(null);
 
   // Initialize BlinkID SDK
   useEffect(() => {
@@ -89,7 +85,7 @@ const ScanLicense = () => {
     }
   };
 
-  // Capture and process image
+  // Capture and process image - ONE TIME ONLY
   const captureAndProcess = async () => {
     if (!videoRef.current || !canvasRef.current || !blinkidRef.current) {
       return;
@@ -107,165 +103,136 @@ const ScanLicense = () => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
 
+      // STOP CAMERA IMMEDIATELY after capture
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      setScanning(false);
+
       // Convert canvas to blob
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
 
-      // Process based on current side
-      if (currentSide === 'front') {
-        // Mark front as scanned
-        setFrontScanned(true);
-        toast.success('✅ Front side captured!');
+      setStatus('processing');
+      toast.info('Processing license image...');
 
-        setStatus('processing');
-        toast.info('Processing front side...');
+      // Recognize the image using BlinkID v7
+      const result = await blinkidRef.current.recognize(blob);
+      
+      if (!result || !result.isValid) {
+        throw new Error('Could not extract license information. Please try again.');
+      }
 
-        // Recognize the front image using BlinkID v7
-        const result = await blinkidRef.current.recognize(blob);
-        
-        if (!result || !result.isValid) {
-          throw new Error('Could not extract license information from front. Please try again.');
+      // Format the result
+      const formatDate = (dateObj) => {
+        if (!dateObj) return '';
+        if (typeof dateObj === 'string') return dateObj;
+        if (dateObj.year && dateObj.month && dateObj.day) {
+          return `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
         }
+        if (dateObj instanceof Date) {
+          return dateObj.toISOString().split('T')[0];
+        }
+        return '';
+      };
 
-        // Format the result
-        const formatDate = (dateObj) => {
-          if (!dateObj) return '';
-          if (typeof dateObj === 'string') return dateObj;
-          if (dateObj.year && dateObj.month && dateObj.day) {
-            return `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
+      const formattedResult = {
+        licenseNumber: result.documentNumber || result.licenseNumber || '',
+        firstName: result.firstName || '',
+        lastName: result.lastName || '',
+        middleName: result.middleName || '',
+        issuingState: result.issuingState || result.state || result.jurisdiction || '',
+        issuingCountry: result.issuingCountry || result.country || 'US',
+        expirationDate: result.expirationDate ? formatDate(result.expirationDate) : '',
+        issueDate: result.issueDate ? formatDate(result.issueDate) : '',
+        address: result.address || result.addressLine1 || '',
+        city: result.city || '',
+        state: result.state || result.addressState || '',
+        postalCode: result.postalCode || result.zip || '',
+        country: result.country || 'US',
+        dateOfBirth: result.dateOfBirth ? formatDate(result.dateOfBirth) : '',
+        sex: result.sex || result.gender || '',
+        height: result.height || '',
+        eyeColor: result.eyeColor || '',
+      };
+
+      // Get userId from URL params or localStorage
+      const userId = searchParams.get('userId') || localStorage.getItem('userId');
+
+      if (!userId) {
+        throw new Error('User ID is required to save license information');
+      }
+
+      // Save license information to database
+      try {
+        const convertDateForAPI = (dateStr) => {
+          if (!dateStr) return null;
+          if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr + 'T00:00:00Z';
           }
-          if (dateObj instanceof Date) {
-            return dateObj.toISOString().split('T')[0];
+          try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString();
+            }
+          } catch (e) {
+            console.warn('[ScanLicense] Could not parse date:', dateStr);
           }
-          return '';
+          return null;
         };
 
-        const formattedResult = {
-          licenseNumber: result.documentNumber || result.licenseNumber || '',
-          firstName: result.firstName || '',
-          lastName: result.lastName || '',
-          middleName: result.middleName || '',
-          issuingState: result.issuingState || result.state || result.jurisdiction || '',
-          issuingCountry: result.issuingCountry || result.country || 'US',
-          expirationDate: result.expirationDate ? formatDate(result.expirationDate) : '',
-          issueDate: result.issueDate ? formatDate(result.issueDate) : '',
-          address: result.address || result.addressLine1 || '',
-          city: result.city || '',
-          state: result.state || result.addressState || '',
-          postalCode: result.postalCode || result.zip || '',
-          country: result.country || 'US',
-          dateOfBirth: result.dateOfBirth ? formatDate(result.dateOfBirth) : '',
-          sex: result.sex || result.gender || '',
-          height: result.height || '',
-          eyeColor: result.eyeColor || '',
+        const licenseData = {
+          licenseNumber: formattedResult.licenseNumber || '',
+          stateIssued: formattedResult.issuingState || formattedResult.state || '',
+          countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
+          sex: formattedResult.sex || null,
+          height: formattedResult.height || null,
+          eyeColor: formattedResult.eyeColor || null,
+          middleName: formattedResult.middleName || null,
+          issueDate: convertDateForAPI(formattedResult.issueDate),
+          expirationDate: convertDateForAPI(formattedResult.expirationDate),
+          licenseAddress: formattedResult.address || null,
+          licenseCity: formattedResult.city || null,
+          licenseState: formattedResult.state || null,
+          licensePostalCode: formattedResult.postalCode || null,
+          licenseCountry: formattedResult.country || 'US',
+          restrictionCode: null,
+          endorsements: null
         };
 
-        // Store front data
-        frontDataRef.current = formattedResult;
+        // Validate required fields
+        if (!licenseData.licenseNumber || !licenseData.stateIssued) {
+          throw new Error('License number and state are required');
+        }
 
-        toast.success('Front side processed! Now scan the back side.');
+        if (!licenseData.expirationDate) {
+          throw new Error('Expiration date is required');
+        }
+
+        console.log('[ScanLicense] Saving license data to database:', licenseData);
+
+        // Call API to save license information
+        const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
         
-        // Switch to back side
-        setCurrentSide('back');
-        setStatus('ready');
-        
-      } else {
-        // Back side
-        setBackScanned(true);
-        toast.success('✅ Back side captured!');
+        console.log('[ScanLicense] License data saved successfully:', saveResponse);
+        toast.success('License information saved to database!');
+      } catch (saveErr) {
+        console.error('[ScanLicense] Error saving license data:', saveErr);
+        toast.error('License scanned but failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
+      }
 
-        // Stop camera since we're done
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-        }
-        setScanning(false);
+      // Store result in localStorage for the booking page to pick up
+      localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
 
-        setStatus('processing');
-        toast.info('Processing back side...');
+      toast.success('🎉 License scanned successfully!');
+      setStatus('done');
 
-        // You can optionally process the back side too, but for now we'll just use front data
-        // Some licenses have barcode on back that BlinkID can read
-
-        const formattedResult = frontDataRef.current;
-
-        // Get userId from URL params or localStorage
-        const userId = searchParams.get('userId') || localStorage.getItem('userId');
-
-        if (!userId) {
-          throw new Error('User ID is required to save license information');
-        }
-
-        // Save license information to database
-        try {
-          // Convert formattedResult to match CreateCustomerLicenseDto format
-          const convertDateForAPI = (dateStr) => {
-            if (!dateStr) return null;
-            if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-              return dateStr + 'T00:00:00Z';
-            }
-            try {
-              const date = new Date(dateStr);
-              if (!isNaN(date.getTime())) {
-                return date.toISOString();
-              }
-            } catch (e) {
-              console.warn('[ScanLicense] Could not parse date:', dateStr);
-            }
-            return null;
-          };
-
-          const licenseData = {
-            licenseNumber: formattedResult.licenseNumber || '',
-            stateIssued: formattedResult.issuingState || formattedResult.state || '',
-            countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
-            sex: formattedResult.sex || null,
-            height: formattedResult.height || null,
-            eyeColor: formattedResult.eyeColor || null,
-            middleName: formattedResult.middleName || null,
-            issueDate: convertDateForAPI(formattedResult.issueDate),
-            expirationDate: convertDateForAPI(formattedResult.expirationDate),
-            licenseAddress: formattedResult.address || null,
-            licenseCity: formattedResult.city || null,
-            licenseState: formattedResult.state || null,
-            licensePostalCode: formattedResult.postalCode || null,
-            licenseCountry: formattedResult.country || 'US',
-            restrictionCode: null,
-            endorsements: null
-          };
-
-          // Validate required fields
-          if (!licenseData.licenseNumber || !licenseData.stateIssued) {
-            throw new Error('License number and state are required');
-          }
-
-          if (!licenseData.expirationDate) {
-            throw new Error('Expiration date is required');
-          }
-
-          console.log('[ScanLicense] Saving license data to database:', licenseData);
-
-          // Call API to save license information
-          const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
-          
-          console.log('[ScanLicense] License data saved successfully:', saveResponse);
-          toast.success('License information saved to database!');
-        } catch (saveErr) {
-          console.error('[ScanLicense] Error saving license data:', saveErr);
-          toast.error('License scanned but failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
-        }
-
-        // Store result in localStorage for the booking page to pick up
-        localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
-
-        toast.success('🎉 License scanned successfully!');
-        setStatus('done');
-
-        // Navigate back to returnTo page if provided
-        const returnTo = searchParams.get('returnTo');
-        if (returnTo) {
-          setTimeout(() => {
-            navigate(returnTo);
-          }, 2000);
-        }
+      // Navigate back to returnTo page if provided
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        setTimeout(() => {
+          navigate(returnTo);
+        }, 2000);
       }
     } catch (err) {
       console.error('Processing error:', err);
@@ -290,111 +257,14 @@ const ScanLicense = () => {
     setStatus('ready');
   };
 
-  // Skip back side
-  const skipBack = async () => {
-    if (!frontDataRef.current) return;
-
-    // Stop camera
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    setScanning(false);
-
-    toast.info('Skipping back side...');
-    setStatus('processing');
-
-    const formattedResult = frontDataRef.current;
-    const userId = searchParams.get('userId') || localStorage.getItem('userId');
-
-    if (!userId) {
-      toast.error('User ID is required');
-      return;
-    }
-
-    // Save license information (same as above but without back side scan)
-    try {
-      const convertDateForAPI = (dateStr) => {
-        if (!dateStr) return null;
-        if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-          return dateStr + 'T00:00:00Z';
-        }
-        try {
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString();
-          }
-        } catch (e) {
-          return null;
-        }
-      };
-
-      const licenseData = {
-        licenseNumber: formattedResult.licenseNumber || '',
-        stateIssued: formattedResult.issuingState || formattedResult.state || '',
-        countryIssued: formattedResult.issuingCountry || formattedResult.country || 'US',
-        sex: formattedResult.sex || null,
-        height: formattedResult.height || null,
-        eyeColor: formattedResult.eyeColor || null,
-        middleName: formattedResult.middleName || null,
-        issueDate: convertDateForAPI(formattedResult.issueDate),
-        expirationDate: convertDateForAPI(formattedResult.expirationDate),
-        licenseAddress: formattedResult.address || null,
-        licenseCity: formattedResult.city || null,
-        licenseState: formattedResult.state || null,
-        licensePostalCode: formattedResult.postalCode || null,
-        licenseCountry: formattedResult.country || 'US',
-        restrictionCode: null,
-        endorsements: null
-      };
-
-      if (!licenseData.licenseNumber || !licenseData.stateIssued || !licenseData.expirationDate) {
-        throw new Error('Required license information is missing');
-      }
-
-      await apiService.upsertCustomerLicense(userId, licenseData);
-      localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
-      
-      toast.success('License saved successfully!');
-      setStatus('done');
-
-      const returnTo = searchParams.get('returnTo');
-      if (returnTo) {
-        setTimeout(() => navigate(returnTo), 2000);
-      }
-    } catch (err) {
-      toast.error('Failed to save license: ' + err.message);
-      setStatus('error');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 p-4 shadow-lg">
         <h1 className="text-xl font-bold text-center">Scan Driver License</h1>
         <p className="text-sm text-center text-gray-400 mt-1">
-          {currentSide === 'front' ? 'Scan FRONT side' : 'Scan BACK side'}
+          Position your license in the frame
         </p>
-      </div>
-
-      {/* Status Indicators */}
-      <div className="flex justify-center gap-8 p-4 bg-gray-800">
-        <div className="flex items-center gap-2">
-          {frontScanned ? (
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
-          ) : (
-            <div className="h-6 w-6 rounded-full border-2 border-gray-500" />
-          )}
-          <span className={frontScanned ? 'text-green-500' : 'text-gray-400'}>Front</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {backScanned ? (
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
-          ) : (
-            <div className="h-6 w-6 rounded-full border-2 border-gray-500" />
-          )}
-          <span className={backScanned ? 'text-green-500' : 'text-gray-400'}>Back</span>
-        </div>
       </div>
 
       {/* Main Content */}
@@ -414,7 +284,7 @@ const ScanLicense = () => {
           <div className="text-center">
             <Camera className="h-24 w-24 text-blue-500 mx-auto mb-4" />
             <p className="text-xl font-bold mb-6">
-              Ready to scan {currentSide === 'front' ? 'FRONT' : 'BACK'} side
+              Ready to scan your license
             </p>
             <button
               onClick={startCamera}
@@ -460,7 +330,7 @@ const ScanLicense = () => {
                 <div className="absolute -top-16 left-0 right-0 flex justify-center">
                   <div className="bg-black bg-opacity-80 px-6 py-3 rounded-lg">
                     <p className="text-white text-base font-semibold text-center">
-                      {currentSide === 'front' ? 'Place FRONT of license in frame' : 'Place BACK of license in frame'}
+                      Place license in frame
                     </p>
                   </div>
                 </div>
@@ -521,14 +391,6 @@ const ScanLicense = () => {
             >
               Cancel
             </button>
-            {currentSide === 'back' && frontScanned && (
-              <button
-                onClick={skipBack}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-4 rounded-lg"
-              >
-                Skip Back
-              </button>
-            )}
             <button
               onClick={captureAndProcess}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2"
@@ -539,15 +401,10 @@ const ScanLicense = () => {
           </div>
           
           {/* Scanning Tips */}
-          <div className="mt-4 text-center space-y-1">
+          <div className="mt-4 text-center">
             <p className="text-sm text-gray-300">
               💡 <strong>Tips:</strong> Hold camera steady • Good lighting • License flat
             </p>
-            {currentSide === 'back' && frontScanned && (
-              <p className="text-sm text-yellow-400">
-                ⚠️ You can skip the back side if not needed
-              </p>
-            )}
           </div>
         </div>
       )}
