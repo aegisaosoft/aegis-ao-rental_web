@@ -137,8 +137,6 @@ const ScanLicense = () => {
 
     const initBlinkID = async () => {
       try {
-        setStatus('loading');
-
         // Use company-specific BlinkKey
         const licenseKey = companyConfig.blinkKey || 
                           companyConfig.BlinkKey || 
@@ -152,6 +150,9 @@ const ScanLicense = () => {
         }
 
         console.log('[ScanLicense] Initializing BlinkID for:', companyConfig.companyName);
+
+        // Set status to scanning FIRST so the video element gets rendered
+        setStatus('scanning');
 
         // Wait for video element to be rendered - retry up to 10 times
         let videoElement = null;
@@ -197,7 +198,6 @@ const ScanLicense = () => {
         // Start automatic scanning
         await blinkid.startCameraStream(videoElement);
         
-        setStatus('scanning');
         console.log('[ScanLicense] Automatic scanning started');
       } catch (e) {
         console.error('[ScanLicense] Init error:', e);
