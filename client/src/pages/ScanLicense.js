@@ -84,21 +84,28 @@ const ScanLicense = () => {
     }
   };
 
-  // Stop camera helper function
+  // Stop camera helper function - COMPREHENSIVE CLEANUP
   const stopCamera = () => {
     console.log('[ScanLicense] Stopping camera...');
+    
+    // Step 1: Stop all media tracks
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
-        console.log('[ScanLicense] Stopping track:', track.kind);
+        console.log('[ScanLicense] Stopping track:', track.kind, track.label);
         track.stop();
       });
       streamRef.current = null;
     }
+    
+    // Step 2: Clear video element
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.srcObject = null;
+      videoRef.current.load(); // Force reload to clear any cached frames
     }
+    
     setScanning(false);
-    console.log('[ScanLicense] Camera stopped');
+    console.log('[ScanLicense] Camera stopped completely');
   };
 
   // Capture and process image
