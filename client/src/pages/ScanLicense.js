@@ -1,12 +1,11 @@
 /*
- * Microblink BlinkID in-browser scanning page for mobile - with front/back support
+ * Microblink BlinkID in-browser scanning page for mobile
  */
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createBlinkId } from '@microblink/blinkid';
 import { apiService } from '../services/api';
-import { CheckCircle2, Camera, XCircle } from 'lucide-react';
 
 const ScanLicense = () => {
   const navigate = useNavigate();
@@ -85,7 +84,24 @@ const ScanLicense = () => {
     }
   };
 
-  // Capture and process image - ONE TIME ONLY
+  // Stop camera helper function
+  const stopCamera = () => {
+    console.log('[ScanLicense] Stopping camera...');
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        console.log('[ScanLicense] Stopping track:', track.kind);
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setScanning(false);
+    console.log('[ScanLicense] Camera stopped');
+  };
+
+  // Capture and process image
   const captureAndProcess = async () => {
     if (!videoRef.current || !canvasRef.current || !blinkidRef.current) {
       return;
@@ -104,11 +120,7 @@ const ScanLicense = () => {
       ctx.drawImage(video, 0, 0);
 
       // STOP CAMERA IMMEDIATELY after capture
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      setScanning(false);
+      stopCamera();
 
       // Convert canvas to blob
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
@@ -200,7 +212,6 @@ const ScanLicense = () => {
           endorsements: null
         };
 
-        // Validate required fields
         if (!licenseData.licenseNumber || !licenseData.stateIssued) {
           throw new Error('License number and state are required');
         }
@@ -211,7 +222,6 @@ const ScanLicense = () => {
 
         console.log('[ScanLicense] Saving license data to database:', licenseData);
 
-        // Call API to save license information
         const saveResponse = await apiService.upsertCustomerLicense(userId, licenseData);
         
         console.log('[ScanLicense] License data saved successfully:', saveResponse);
@@ -221,13 +231,11 @@ const ScanLicense = () => {
         toast.error('License scanned but failed to save to database: ' + (saveErr.response?.data?.message || saveErr.message));
       }
 
-      // Store result in localStorage for the booking page to pick up
       localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
 
-      toast.success('🎉 License scanned successfully!');
+      toast.success('License scanned successfully!');
       setStatus('done');
 
-      // Navigate back to returnTo page if provided
       const returnTo = searchParams.get('returnTo');
       if (returnTo) {
         setTimeout(() => {
@@ -239,7 +247,6 @@ const ScanLicense = () => {
       toast.error('Failed to process license. Please try again.');
       setError(err.message || 'Processing failed');
       setStatus('error');
-      // Reset to allow retry
       setTimeout(() => {
         setStatus('ready');
         setError('');
@@ -249,165 +256,105 @@ const ScanLicense = () => {
 
   // Cancel scanning
   const cancelScan = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setScanning(false);
+    stopCamera();
     setStatus('ready');
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      {/* Header */}
-      <div className="bg-gray-800 p-4 shadow-lg">
-        <h1 className="text-xl font-bold text-center">Scan Driver License</h1>
-        <p className="text-sm text-center text-gray-400 mt-1">
-          Position your license in the frame
-        </p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+      <div className="w-full max-w-md">
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+          <h1 className="text-2xl font-bold mb-4 text-center">Driver License Scan</h1>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center relative">
-        {status === 'init' && (
-          <div className="text-center"><p>Initializing scanner...</p></div>
-        )}
+          {status === 'init' && (
+            <div className="text-center">
+              <p className="mb-4">Initializing scanner...</p>
+            </div>
+          )}
 
-        {status === 'loading' && (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-            <p>Loading BlinkID SDK...</p>
-          </div>
-        )}
+          {status === 'loading' && (
+            <div className="text-center">
+              <p className="mb-4">Loading BlinkID SDK...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+            </div>
+          )}
 
-        {status === 'ready' && !scanning && (
-          <div className="text-center">
-            <Camera className="h-24 w-24 text-blue-500 mx-auto mb-4" />
-            <p className="text-xl font-bold mb-6">
-              Ready to scan your license
-            </p>
-            <button
-              onClick={startCamera}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-lg"
-            >
-              Start Camera
-            </button>
-          </div>
-        )}
+          {status === 'ready' && !scanning && (
+            <div className="space-y-4">
+              <p className="text-center mb-4">Click to start camera and scan your license</p>
+              <button
+                onClick={startCamera}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg"
+              >
+                Start Camera
+              </button>
+            </div>
+          )}
 
-        {status === 'ready' && scanning && (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            {/* Dark overlay with cutout */}
-            <div className="absolute inset-0 pointer-events-none">
-              {/* Top dark area */}
-              <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-60" style={{ height: 'calc(50% - 140px)' }}></div>
-              {/* Bottom dark area */}
-              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60" style={{ height: 'calc(50% - 140px)' }}></div>
-              {/* Left dark area */}
-              <div className="absolute left-0 bg-black bg-opacity-60" style={{ top: 'calc(50% - 140px)', width: 'calc((100% - 90%) / 2)', height: '280px' }}></div>
-              {/* Right dark area */}
-              <div className="absolute right-0 bg-black bg-opacity-60" style={{ top: 'calc(50% - 140px)', width: 'calc((100% - 90%) / 2)', height: '280px' }}></div>
-              
-              {/* License frame guide - centered horizontally and vertically */}
-              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2" style={{ width: '90%', maxWidth: '450px', height: '280px' }}>
-                {/* Border frame */}
-                <div className="absolute inset-0 border-4 border-white rounded-2xl shadow-lg"></div>
-                
-                {/* Corner markers */}
-                <div className="absolute -top-1 -left-1 w-10 h-10 border-t-6 border-l-6 border-green-400 rounded-tl-2xl"></div>
-                <div className="absolute -top-1 -right-1 w-10 h-10 border-t-6 border-r-6 border-green-400 rounded-tr-2xl"></div>
-                <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-6 border-l-6 border-green-400 rounded-bl-2xl"></div>
-                <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-6 border-r-6 border-green-400 rounded-br-2xl"></div>
-                
-                {/* Instructions above frame */}
-                <div className="absolute -top-16 left-0 right-0 flex justify-center">
-                  <div className="bg-black bg-opacity-80 px-6 py-3 rounded-lg">
-                    <p className="text-white text-base font-semibold text-center">
-                      Place license in frame
-                    </p>
+          {status === 'ready' && scanning && (
+            <div className="space-y-4">
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="border-4 border-blue-500 rounded-lg" style={{ width: '80%', height: '60%' }}>
+                    <div className="absolute top-2 left-2 text-xs text-blue-400">Align license here</div>
                   </div>
                 </div>
-                
-                {/* Centering crosshair */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                  <div className="w-8 h-0.5 bg-green-400 absolute -left-4 top-1/2"></div>
-                  <div className="w-0.5 h-8 bg-green-400 absolute left-1/2 -top-4"></div>
-                </div>
+              </div>
+              <canvas ref={canvasRef} className="hidden" />
+              <div className="flex gap-2">
+                <button
+                  onClick={captureAndProcess}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg"
+                >
+                  Capture & Scan
+                </button>
+                <button
+                  onClick={cancelScan}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-          </>
-        )}
+          )}
 
-        {status === 'processing' && (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-            <p className="text-lg">Processing license...</p>
-          </div>
-        )}
+          {status === 'processing' && (
+            <div className="text-center">
+              <p className="mb-4">Processing license image...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+            </div>
+          )}
 
-        {status === 'done' && (
-          <div className="text-center">
-            <CheckCircle2 className="h-24 w-24 text-green-500 mx-auto mb-4" />
-            <p className="text-2xl font-bold mb-2">Success!</p>
-            <p className="text-gray-400">License scanned successfully</p>
-            <p className="text-sm text-gray-500 mt-2">Redirecting...</p>
-          </div>
-        )}
+          {status === 'done' && (
+            <div className="text-center">
+              <p className="text-green-400 mb-4">✓ License scanned successfully!</p>
+              <p className="text-sm text-gray-400">Redirecting back...</p>
+            </div>
+          )}
 
-        {status === 'error' && (
-          <div className="text-center">
-            <XCircle className="h-24 w-24 text-red-500 mx-auto mb-4" />
-            <p className="text-xl font-bold mb-2">Error</p>
-            <p className="text-gray-400">{error || 'An error occurred'}</p>
-            <button
-              onClick={() => {
-                setStatus('ready');
-                setError('');
-              }}
-              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
-
-        <canvas ref={canvasRef} className="hidden" />
-      </div>
-
-      {/* Controls */}
-      {status === 'ready' && scanning && (
-        <div className="bg-gray-800 p-6 shadow-lg">
-          <div className="flex gap-3 max-w-md mx-auto">
-            <button
-              onClick={cancelScan}
-              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={captureAndProcess}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2"
-            >
-              <Camera className="h-6 w-6" />
-              Capture
-            </button>
-          </div>
-          
-          {/* Scanning Tips */}
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-300">
-              💡 <strong>Tips:</strong> Hold camera steady • Good lighting • License flat
-            </p>
-          </div>
+          {status === 'error' && (
+            <div className="text-center">
+              <p className="text-red-400 mb-4">{error || 'An error occurred'}</p>
+              <button
+                onClick={() => {
+                  setStatus('ready');
+                  setError('');
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
