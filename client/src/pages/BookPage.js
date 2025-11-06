@@ -19,10 +19,9 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
-import { Car, ArrowLeft, CreditCard, X, Calendar, Eye } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
-import { createBlinkId } from '@microblink/blinkid';
 
 const BookPage = () => {
   const { t } = useTranslation();
@@ -45,8 +44,6 @@ const BookPage = () => {
   const [qrUrl, setQrUrl] = useState('');
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
-  const [isViewingLicense, setIsViewingLicense] = useState(false); // Track if viewing vs editing
-  const [isParsingLicense, setIsParsingLicense] = useState(false);
 
   // Auto-detect LAN base from server when running on localhost and no custom base set
   React.useEffect(() => {
@@ -371,208 +368,6 @@ const BookPage = () => {
     });
   };
 
-  const parseLicenseImageWithBlinkID = async (imageUrl) => {
-    setIsParsingLicense(true); // 👈 Начало сканирования
-    
-    try {
-      const licenseKey = process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
-      if (!licenseKey) {
-        console.error('[BlinkID] License key not found');
-        toast.error('BlinkID license key not configured');
-        return;
-      }
-      
-      // Fetch the image as blob
-      const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
-      console.log('[BlinkID] Fetching image from:', fullUrl);
-      
-      const response = await fetch(fullUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-      }
-      
-      const blob = await response.blob();
-      console.log('[BlinkID] Image fetched, size:', blob.size, 'bytes');
-      
-      // Initialize BlinkID SDK
-      console.log('[BlinkID] Initializing BlinkID SDK...');
-      const blinkid = await createBlinkId({
-        licenseKey: licenseKey
-      });
-      
-      console.log('[BlinkID] SDK initialized, recognizing image...');
-      
-      // Recognize the image using BlinkID v7
-      const result = await blinkid.recognize(blob);
-      
-      if (result && result.isValid) {
-        toast.success('✅ Сканирование завершено!');
-        
-        // Format the result
-        const formatDate = (dateObj) => {
-          if (!dateObj) return '';
-          if (typeof dateObj === 'string') return dateObj;
-          if (dateObj.year && dateObj.month && dateObj.day) {
-            return `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
-          }
-          if (dateObj instanceof Date) {
-            return dateObj.toISOString().split('T')[0];
-          }
-          return '';
-        };
-        
-        // Extract data from result
-        const parsedData = {
-          licenseNumber: result.documentNumber || result.licenseNumber || '',
-          firstName: result.firstName || '',
-          lastName: result.lastName || '',
-          middleName: result.middleName || '',
-          dateOfBirth: result.dateOfBirth ? formatDate(result.dateOfBirth) : '',
-          sex: result.sex || result.gender || '',
-          height: result.height || '',
-          eyeColor: result.eyeColor || '',
-          stateIssued: result.issuingState || result.state || result.jurisdiction || '',
-          countryIssued: result.issuingCountry || result.country || 'US',
-          expirationDate: result.expirationDate ? formatDate(result.expirationDate) : '',
-          issueDate: result.issueDate ? formatDate(result.issueDate) : '',
-          licenseAddress: result.address || result.addressLine1 || '',
-          licenseCity: result.city || '',
-          licenseState: result.state || result.addressState || '',
-          licensePostalCode: result.postalCode || result.zip || '',
-          licenseCountry: result.country || 'US'
-        };
-        
-        console.log('[BlinkID] Parsed data:', parsedData);
-        
-        // Update license data
-        setLicenseData(prev => ({
-          ...prev,
-          ...Object.fromEntries(
-            Object.entries(parsedData).filter(([_, v]) => v)
-          )
-        }));
-        
-        // Switch to edit mode and show modal
-        setIsViewingLicense(false);
-        setIsLicenseModalOpen(true);
-      } else {
-        console.warn('[BlinkID] Recognition failed or invalid result');
-        toast.warning('Could not extract license information. Please enter manually.');
-        setIsViewingLicense(false);
-        setIsLicenseModalOpen(true);
-      }
-      
-    } catch (error) {
-      console.error('[BlinkID] Error parsing license:', error);
-      toast.error('❌ Ошибка сканирования: ' + error.message);
-    } finally {
-      setIsParsingLicense(false); // 👈 Конец сканирования (успех или ошибка)
-    }
-  };
-
-  // View license: open license modal to show uploaded DL image
-  const handleViewLicense = async () => {
-    console.log('handleViewLicense called');
-    if (!isAuthenticated) {
-      toast.error(t('bookPage.pleaseLoginToViewLicense') || 'Please login to view license');
-      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
-      return;
-    }
-    
-    // Get token and parse it for IDs - token is primary source
-    const token = localStorage.getItem('token');
-    let currentCompanyId = null;
-    let currentUserId = null;
-    
-    // Parse token to extract IDs (primary source)
-    if (token) {
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length >= 2) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          console.log('[View License] Token payload:', payload);
-          console.log('[View License] Token payload keys:', Object.keys(payload));
-          
-          // Extract customerId from token - prioritize nameid and customer_id (most common in JWT tokens)
-          currentUserId = payload.nameid
-            || payload.customer_id
-            || payload.customerId
-            || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-            || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier']
-            || payload['http://schemas.microsoft.com/identity/claims/nameidentifier']
-            || payload.nameidentifier
-            || payload.NameIdentifier
-            || payload.sub
-            || payload.userId
-            || payload.UserId
-            || payload.id
-            || payload.Id
-            || payload.unique_name
-            || payload.name;
-          
-          // Extract companyId from token - check all possible variations
-          currentCompanyId = payload.company_id
-            || payload.companyId
-            || payload.CompanyId
-            || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']
-            || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/name']
-            || payload.orgid
-            || payload.organizationId;
-          
-          console.log('[View License] Extracted from token - userId:', currentUserId, 'companyId:', currentCompanyId);
-        }
-      } catch (error) {
-        console.error('[View License] Error parsing token:', error);
-      }
-    }
-    
-    // Fallback to user object or config if token doesn't have the IDs
-    if (!currentUserId) {
-      currentUserId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
-    }
-    if (!currentCompanyId) {
-      currentCompanyId = companyConfig?.id || companyId;
-    }
-    
-    // Only warn if BOTH are still missing AFTER fallback
-    if (!currentCompanyId || !currentUserId) {
-      console.warn('[View License] ⚠️ Missing IDs after all attempts. Token had userId:', !!currentUserId, 'companyId:', !!currentCompanyId);
-      // Only log token payload if we're still missing IDs after fallback
-      if (token) {
-        try {
-          const tokenParts = token.split('.');
-          if (tokenParts.length >= 2) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            console.warn('[View License] Token payload keys:', Object.keys(payload));
-          }
-        } catch (e) {
-          // Ignore token parsing errors here
-        }
-      }
-    }
-    
-    console.log('[View License] Final companyId:', currentCompanyId, 'userId (customerId):', currentUserId);
-    console.log('[View License] user object:', user);
-    console.log('[View License] companyConfig:', companyConfig);
-    
-    if (!currentCompanyId) {
-      console.error('[View License] ❌ Missing companyId!');
-      toast.error('Company ID not found. Please refresh the page.');
-      return;
-    }
-    
-    if (!currentUserId) {
-      console.error('[View License] ❌ Missing userId (customerId)!');
-      console.error('[View License] Available user properties:', user ? Object.keys(user) : 'user is null/undefined');
-      toast.error('User ID (customer ID) not found. Please log in again.');
-      return;
-    }
-    
-    // Open the license modal in view mode
-    console.log('Opening license modal in view mode');
-    setIsViewingLicense(true);
-    setIsLicenseModalOpen(true);
-  };
 
   // Create QR for phone scan: show QR code with link to scanning page
   const handleScanOnPhone = () => {
@@ -908,7 +703,6 @@ const BookPage = () => {
                     navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
                     return;
                   }
-                    setIsViewingLicense(false); // Edit mode
                   setIsLicenseModalOpen(true);
                 }}
                 className="w-full btn-outline flex items-center justify-center gap-2"
@@ -919,23 +713,6 @@ const BookPage = () => {
                   : t('bookPage.driverLicenseInformation')}
               </button>
               
-              {/* View License Button - only show if authenticated */}
-              {isAuthenticated && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('View License button clicked');
-                    handleViewLicense();
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
-                  title="View Driver License"
-                  type="button"
-                >
-                  <Eye className="h-5 w-5" />
-                  View License
-                </button>
-              )}
             </div>
 
               {/* QR Modal */}
@@ -990,21 +767,7 @@ const BookPage = () => {
               {isLicenseModalOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                  {isViewingLicense ? (
-                    // VIEW MODE: Only close button
-                    <div className="flex justify-end items-center p-4">
-                      <button
-                        onClick={() => {
-                          setIsLicenseModalOpen(false);
-                          setIsViewingLicense(false);
-                        }}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <X className="h-6 w-6" />
-                      </button>
-                    </div>
-                  ) : (
-                    // EDIT MODE: Full header with title and buttons
+                    {/* Header with title and buttons */}
                     <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
                       <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                         <CreditCard className="h-6 w-6 mr-2" />
@@ -1022,7 +785,6 @@ const BookPage = () => {
                         <button
                           onClick={() => {
                             setIsLicenseModalOpen(false);
-                            setIsViewingLicense(false);
                           }}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
                         >
@@ -1030,19 +792,9 @@ const BookPage = () => {
                         </button>
                       </div>
                     </div>
-                  )}
 
-                                          <div className="p-6">
-                        {isViewingLicense ? (
-                          // VIEW MODE: Show message
-                          <div className="text-center py-16 px-6">
-                            <p className="text-gray-600 text-lg mb-2">Viewing driver license information.</p>
-                            <p className="text-gray-500 mb-6">Use the edit button to modify license details.</p>
-                          </div>
-                        ) : (
-                          // EDIT MODE: Show form
-                          <>
-                        <form onSubmit={handleSaveLicense} className="space-y-4">
+                    <div className="p-6">
+                      <form onSubmit={handleSaveLicense} className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* License Number */}
                           <div>
@@ -1307,8 +1059,6 @@ const BookPage = () => {
                           </button>
                         </div>
                       </form>
-                          </>
-                        )}
                     </div>
                   </div>
                 </div>
