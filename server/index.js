@@ -1022,45 +1022,33 @@ app.get('/api/licenses/:companyId/:userId/driverlicense:ext?', async (req, res) 
   }
 });
 
-// Proxy BlinkID resources to CDN as fallback when SDK tries to load from relative paths
-// Note: This is a workaround. The SDK should use engineLocation CDN, but sometimes
-// tries to load workers from /resources/* relative paths. This proxy handles those cases.
-// With in-browser license, everything runs client-side, but this ensures worker files load correctly.
-app.get('/resources/*', async (req, res) => {
-  try {
-    const resourcePath = req.path.replace('/resources/', '');
-    const cdnUrl = `https://unpkg.com/@microblink/blinkid@7.6.0/resources/${resourcePath}`;
-    
-    const response = await axios.get(cdnUrl, {
-      responseType: 'stream',
-      timeout: 10000
-    });
-    
-    // Set appropriate content type
-    const contentType = resourcePath.endsWith('.wasm') ? 'application/wasm' :
-                       resourcePath.endsWith('.js') ? 'application/javascript' :
-                       resourcePath.endsWith('.data') ? 'application/octet-stream' :
-                       'application/octet-stream';
-    
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    response.data.pipe(res);
-  } catch (error) {
-    console.error('[Resources Proxy] Error fetching from CDN:', error.message);
-    res.status(404).send('Resource not found');
-  }
-});
+// Serve BlinkID resources - must come BEFORE the catch-all route
+// Serve from node_modules/@microblink/blinkid/resources
+// Check both server/node_modules and root node_modules
+const serverNodeModules = path.join(__dirname, 'node_modules/@microblink/blinkid/resources');
+const rootNodeModules = path.join(__dirname, '../node_modules/@microblink/blinkid/resources');
+const blinkidResourcesPath = fs.existsSync(serverNodeModules) ? serverNodeModules : 
+                              fs.existsSync(rootNodeModules) ? rootNodeModules : null;
+
+if (blinkidResourcesPath) {
+  app.use('/resources', express.static(blinkidResourcesPath));
+  console.log(`✅ BlinkID resources served from: ${blinkidResourcesPath}`);
+} else {
+  console.warn(`⚠️  BlinkID resources directory not found. Checked:`);
+  console.warn(`   - ${serverNodeModules}`);
+  console.warn(`   - ${rootNodeModules}`);
+  console.warn('   Make sure @microblink/blinkid is installed: npm install @microblink/blinkid');
+}
 
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', (req, res) => {
-  // Don't catch API routes, model image requests, or static resources
+  // Don't catch API routes, model image requests, static resources, or BlinkID resources
   if (req.path.startsWith('/api/') || 
       req.path.startsWith('/models/') || 
-      req.path.startsWith('/static/')) {
+      req.path.startsWith('/static/') ||
+      req.path.startsWith('/resources/')) {
     return res.status(404).send('Not found');
   }
   res.sendFile(path.join(serverPublicPath, 'index.html'));
