@@ -9,7 +9,7 @@ import { apiService } from '../services/api';
 const MobileScan = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('ready'); // ready, preview, uploading, success
+  const [status, setStatus] = useState('prompt'); // prompt, ready, preview, uploading, success
   const [imagePreview, setImagePreview] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
@@ -493,10 +493,16 @@ const MobileScan = () => {
     }
   };
 
+  const handleStartBlinkIDScan = () => {
+    // Redirect to ScanLicense page with returnTo parameter
+    const returnTo = searchParams.get('returnTo') || window.location.pathname;
+    navigate(`/scan?returnTo=${encodeURIComponent(returnTo)}`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Upload Driver License</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Driver License Scan</h1>
 
         {/* File input - always in DOM so file remains accessible */}
         <input
@@ -507,6 +513,44 @@ const MobileScan = () => {
           onChange={handleFileChange}
           className="hidden"
         />
+
+        {status === 'prompt' && (
+          <div className="space-y-6">
+            <div className="bg-blue-900 bg-opacity-50 rounded-lg p-6 text-center">
+              <div className="mb-4">
+                <svg className="w-16 h-16 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Scan Your Driver License</h2>
+              <p className="text-gray-300 mb-6">
+                Use BlinkID to automatically extract information from your driver license.
+              </p>
+              <button
+                onClick={handleStartBlinkIDScan}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
+              >
+                Start BlinkID Scan
+              </button>
+            </div>
+            
+            <div className="text-center">
+              <p className="text-gray-400 text-sm mb-3">or</p>
+              <button
+                onClick={() => setStatus('ready')}
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg"
+              >
+                Upload Photo Instead
+              </button>
+            </div>
+            
+            {error && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+          </div>
+        )}
 
         {status === 'ready' && (
           <div className="space-y-4">

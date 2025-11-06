@@ -2,57 +2,28 @@
  * Microblink BlinkID in-browser scanning page for mobile
  */
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { createBlinkId } from '@microblink/blinkid';
 
 const ScanLicense = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('init');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const BlinkIDSDKRef = useRef(null);
-  const sessionIdRef = useRef(null);
+  const blinkidRef = useRef(null);
 
   // Initialize BlinkID SDK
   useEffect(() => {
     const initBlinkID = async () => {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const sessionId = params.get('sessionId');
-        if (!sessionId) {
-          toast.error('Missing session');
-          setError('Missing session ID');
-          setStatus('error');
-          return;
-        }
-        sessionIdRef.current = sessionId;
         setStatus('loading');
 
-        // Load BlinkID SDK
-        if (!window.BlinkIDSDK) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/dist/index.min.js';
-            script.async = true;
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load BlinkID SDK'));
-            document.body.appendChild(script);
-          });
-        }
-
-        const BlinkIDSDK = window.BlinkIDSDK;
-        BlinkIDSDKRef.current = BlinkIDSDK;
-
-        const ua = navigator.userAgent || navigator.vendor || '';
-        const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-        const isAndroid = /android/i.test(ua);
-        const licenseKey = (
-          (isIOS && process.env.REACT_APP_BLINKID_LICENSE_KEY_IOS) ||
-          (isAndroid && process.env.REACT_APP_BLINKID_LICENSE_KEY_ANDROID) ||
-          process.env.REACT_APP_BLINKID_LICENSE_KEY ||
-          ''
-        );
+        const licenseKey = process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
 
         if (!licenseKey) {
           toast.error('BlinkID license key missing');
@@ -61,11 +32,12 @@ const ScanLicense = () => {
           return;
         }
 
-        await BlinkIDSDK.loadWasmModule({
-          licenseKey,
-          engineLocation: 'https://unpkg.com/@microblink/blinkid-in-browser-sdk@latest/resources'
+        // Initialize BlinkID SDK using npm package
+        const blinkid = await createBlinkId({
+          licenseKey: licenseKey
         });
 
+        blinkidRef.current = blinkid;
         setStatus('ready');
       } catch (e) {
         console.error('BlinkID initialization error:', e);
@@ -113,7 +85,7 @@ const ScanLicense = () => {
 
   // Capture and process image
   const captureAndProcess = async () => {
-    if (!videoRef.current || !canvasRef.current || !BlinkIDSDKRef.current) {
+    if (!videoRef.current || !canvasRef.current || !blinkidRef.current) {
       return;
     }
 
@@ -137,63 +109,91 @@ const ScanLicense = () => {
 
       // Convert canvas to blob
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-      
-      // Convert blob to base64 for BlinkID
-      const base64Image = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
 
       setStatus('processing');
       toast.info('Processing license image...');
 
-      // Create BlinkID recognizer
-      const { RecognizerRunner, WASM_SDK } = BlinkIDSDKRef.current;
-      const recognizerRunner = await RecognizerRunner.create(WASM_SDK, true);
+      // Recognize the image using BlinkID v7
+      const result = await blinkidRef.current.recognize(blob);
       
-      // Create USDL recognizer
-      const { USDLRecognizer } = BlinkIDSDKRef.current;
-      const usdlRecognizer = new USDLRecognizer();
-      await recognizerRunner.recognize(usdlRecognizer, base64Image);
+      if (!result || !result.isValid) {
+        throw new Error('Could not extract license information. Please try again.');
+      }
 
-      const result = usdlRecognizer.result;
-      
       // Format the result
-      const formattedResult = {
-        licenseNumber: result.licenseNumber || '',
-        firstName: result.firstName || '',
-        lastName: result.lastName || '',
-        issuingState: result.issuingState || '',
-        issuingCountry: result.issuingCountry || 'US',
-        expirationDate: result.expirationDate ? new Date(result.expirationDate).toISOString().split('T')[0] : '',
-        issueDate: result.dateOfIssue ? new Date(result.dateOfIssue).toISOString().split('T')[0] : '',
-        address: result.address || '',
-        city: result.city || '',
-        state: result.state || '',
-        postalCode: result.postalCode || '',
-        country: result.country || 'US',
-        dateOfBirth: result.dateOfBirth ? new Date(result.dateOfBirth).toISOString().split('T')[0] : '',
+      const formatDate = (dateObj) => {
+        if (!dateObj) return '';
+        if (typeof dateObj === 'string') return dateObj;
+        if (dateObj.year && dateObj.month && dateObj.day) {
+          return `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
+        }
+        if (dateObj instanceof Date) {
+          return dateObj.toISOString().split('T')[0];
+        }
+        return '';
       };
 
-      // Clean up recognizer
-      usdlRecognizer.delete();
-      await recognizerRunner.delete();
+      const formattedResult = {
+        licenseNumber: result.documentNumber || result.licenseNumber || '',
+        firstName: result.firstName || '',
+        lastName: result.lastName || '',
+        middleName: result.middleName || '',
+        issuingState: result.issuingState || result.state || result.jurisdiction || '',
+        issuingCountry: result.issuingCountry || result.country || 'US',
+        expirationDate: result.expirationDate ? formatDate(result.expirationDate) : '',
+        issueDate: result.issueDate ? formatDate(result.issueDate) : '',
+        address: result.address || result.addressLine1 || '',
+        city: result.city || '',
+        state: result.state || result.addressState || '',
+        postalCode: result.postalCode || result.zip || '',
+        country: result.country || 'US',
+        dateOfBirth: result.dateOfBirth ? formatDate(result.dateOfBirth) : '',
+        sex: result.sex || result.gender || '',
+        height: result.height || '',
+        eyeColor: result.eyeColor || '',
+      };
 
-      // Post result to server
-      const response = await fetch(`/api/scan/session/${encodeURIComponent(sessionIdRef.current)}/result`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formattedResult)
-      });
+      // Get companyId and userId from URL params or localStorage
+      const companyId = searchParams.get('companyId') || localStorage.getItem('companyId');
+      const userId = searchParams.get('userId') || localStorage.getItem('userId');
 
-      if (!response.ok) {
-        throw new Error('Failed to upload scan result');
+      // If we have IDs, upload the license image
+      if (companyId && userId) {
+        try {
+          // Upload the blob image
+          const formData = new FormData();
+          formData.append('file', blob, 'driverlicense.jpg');
+          
+          const uploadResponse = await fetch(`/api/DriverLicense/upload?companyId=${companyId}&userId=${userId}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          });
+
+          if (uploadResponse.ok) {
+            toast.success('License uploaded successfully!');
+          }
+        } catch (uploadErr) {
+          console.error('Upload error:', uploadErr);
+          // Don't fail the scan if upload fails
+        }
       }
+
+      // Store result in localStorage for the booking page to pick up
+      localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
 
       toast.success('License scanned successfully!');
       setStatus('done');
+
+      // Navigate back to returnTo page if provided
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        setTimeout(() => {
+          navigate(returnTo);
+        }, 2000);
+      }
     } catch (err) {
       console.error('Processing error:', err);
       toast.error('Failed to process license. Please try again.');
