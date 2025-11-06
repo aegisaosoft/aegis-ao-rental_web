@@ -13,6 +13,7 @@ const ScanLicense = () => {
   const [status, setStatus] = useState('init');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [extractedData, setExtractedData] = useState(null); // Store extracted license data
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -175,6 +176,9 @@ const ScanLicense = () => {
         eyeColor: result.eyeColor || '',
       };
 
+      // Store in state for display
+      setExtractedData(formattedResult);
+
       // Get userId from URL params or localStorage
       const userId = searchParams.get('userId') || localStorage.getItem('userId');
 
@@ -240,14 +244,14 @@ const ScanLicense = () => {
 
       localStorage.setItem('scannedLicenseData', JSON.stringify(formattedResult));
 
-      toast.success('License scanned successfully!');
+      toast.success('🎉 License scanned successfully!');
       setStatus('done');
 
       const returnTo = searchParams.get('returnTo');
       if (returnTo) {
         setTimeout(() => {
           navigate(returnTo);
-        }, 2000);
+        }, 5000); // Give user 5 seconds to review data
       }
     } catch (err) {
       console.error('Processing error:', err);
@@ -341,8 +345,102 @@ const ScanLicense = () => {
 
           {status === 'done' && (
             <div className="text-center">
-              <p className="text-green-400 mb-4">✓ License scanned successfully!</p>
-              <p className="text-sm text-gray-400">Redirecting back...</p>
+              <p className="text-green-400 mb-4 text-xl font-bold">✓ License Scanned Successfully!</p>
+              
+              {extractedData && (
+                <div className="bg-gray-700 rounded-lg p-4 mt-4 text-left max-h-96 overflow-y-auto">
+                  <h3 className="text-lg font-semibold mb-3 text-white text-center">Extracted Information</h3>
+                  
+                  <div className="space-y-2 text-sm">
+                    {extractedData.firstName && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">First Name:</span>
+                        <span className="text-white font-medium">{extractedData.firstName}</span>
+                      </div>
+                    )}
+                    {extractedData.lastName && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Last Name:</span>
+                        <span className="text-white font-medium">{extractedData.lastName}</span>
+                      </div>
+                    )}
+                    {extractedData.middleName && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Middle Name:</span>
+                        <span className="text-white font-medium">{extractedData.middleName}</span>
+                      </div>
+                    )}
+                    {extractedData.dateOfBirth && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Date of Birth:</span>
+                        <span className="text-white font-medium">{extractedData.dateOfBirth}</span>
+                      </div>
+                    )}
+                    {extractedData.licenseNumber && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">License #:</span>
+                        <span className="text-white font-medium">{extractedData.licenseNumber}</span>
+                      </div>
+                    )}
+                    {extractedData.issuingState && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">State:</span>
+                        <span className="text-white font-medium">{extractedData.issuingState}</span>
+                      </div>
+                    )}
+                    {extractedData.expirationDate && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Expiration:</span>
+                        <span className="text-white font-medium">{extractedData.expirationDate}</span>
+                      </div>
+                    )}
+                    {extractedData.address && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Address:</span>
+                        <span className="text-white font-medium text-right">{extractedData.address}</span>
+                      </div>
+                    )}
+                    {extractedData.city && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">City:</span>
+                        <span className="text-white font-medium">{extractedData.city}</span>
+                      </div>
+                    )}
+                    {extractedData.state && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">State:</span>
+                        <span className="text-white font-medium">{extractedData.state}</span>
+                      </div>
+                    )}
+                    {extractedData.postalCode && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">ZIP:</span>
+                        <span className="text-white font-medium">{extractedData.postalCode}</span>
+                      </div>
+                    )}
+                    {extractedData.sex && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Sex:</span>
+                        <span className="text-white font-medium">{extractedData.sex}</span>
+                      </div>
+                    )}
+                    {extractedData.height && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Height:</span>
+                        <span className="text-white font-medium">{extractedData.height}</span>
+                      </div>
+                    )}
+                    {extractedData.eyeColor && (
+                      <div className="flex justify-between border-b border-gray-600 pb-1">
+                        <span className="text-gray-400">Eye Color:</span>
+                        <span className="text-white font-medium">{extractedData.eyeColor}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-sm text-gray-400 mt-4">Redirecting back in 5 seconds...</p>
             </div>
           )}
 
