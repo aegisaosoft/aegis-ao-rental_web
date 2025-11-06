@@ -72,7 +72,11 @@ app.use(helmet({
         "http://localhost:5000",
         "https://fonts.googleapis.com",
         "https://unpkg.com",
-        "https://cdn.jsdelivr.net"
+        "https://cdn.jsdelivr.net",
+        // Add Microblink license validation domains
+        "https://*.microblink.com",
+        "https://api.microblink.com",
+        "https://baltazar.microblink.com"  // BlinkID license validation server
       ],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
