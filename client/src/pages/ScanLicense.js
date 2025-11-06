@@ -2,19 +2,14 @@
  * Microblink BlinkID License Scanning
  * Using BlinkID v7 SDK with automatic camera and UI
  */
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { apiService } from '../services/api';
 import { useCompany } from '../context/CompanyContext';
 
 const ScanLicense = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { companyConfig } = useCompany();
   const [status, setStatus] = useState('init');
   const [error, setError] = useState('');
-  const [extractedData, setExtractedData] = useState(null);
 
   // Note: BlinkID v7 automatically handles scan results via its built-in UI
   // This callback would be used if we had access to BlinkID's result events
@@ -201,54 +196,16 @@ const ScanLicense = () => {
             </div>
           )}
 
-          {status === 'done' && extractedData && (
+          {status === 'done' && (
             <div className="text-center">
               <p className="text-green-400 mb-4 text-xl font-bold">✓ Scan Successful!</p>
               
-              <div className="bg-gray-700 rounded-lg p-4 mt-4 text-left max-h-96 overflow-y-auto">
-                <h3 className="text-lg font-semibold mb-3 text-white text-center">License Information</h3>
-                
-                <div className="space-y-2 text-sm">
-                  {extractedData.firstName && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">First Name:</span>
-                      <span className="text-white font-medium">{extractedData.firstName}</span>
-                    </div>
-                  )}
-                  {extractedData.lastName && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">Last Name:</span>
-                      <span className="text-white font-medium">{extractedData.lastName}</span>
-                    </div>
-                  )}
-                  {extractedData.dateOfBirth && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">DOB:</span>
-                      <span className="text-white font-medium">{extractedData.dateOfBirth}</span>
-                    </div>
-                  )}
-                  {extractedData.licenseNumber && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">License #:</span>
-                      <span className="text-white font-medium">{extractedData.licenseNumber}</span>
-                    </div>
-                  )}
-                  {extractedData.issuingState && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">State:</span>
-                      <span className="text-white font-medium">{extractedData.issuingState}</span>
-                    </div>
-                  )}
-                  {extractedData.expirationDate && (
-                    <div className="flex justify-between border-b border-gray-600 pb-1">
-                      <span className="text-gray-400">Expires:</span>
-                      <span className="text-white font-medium">{extractedData.expirationDate}</span>
-                    </div>
-                  )}
-                </div>
+              <div className="bg-gray-700 rounded-lg p-4 mt-4 text-center">
+                <p className="text-white">License scanned successfully!</p>
+                <p className="text-gray-400 text-sm mt-2">BlinkID has processed your license.</p>
               </div>
               
-              <p className="text-sm text-gray-400 mt-4">Redirecting in 5 seconds...</p>
+              <p className="text-sm text-gray-400 mt-4">You can close this page now.</p>
             </div>
           )}
 
