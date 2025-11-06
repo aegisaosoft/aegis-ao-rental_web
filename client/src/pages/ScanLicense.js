@@ -1,11 +1,11 @@
 /*
- * Microblink BlinkID in-browser scanning page for mobile
- * Using BlinkID's automatic UI with callback-based result handling
+ * Microblink BlinkID License Scanning
+ * Using BlinkID v7 SDK with automatic camera and UI
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { createBlinkId } from '@microblink/blinkid';
+import * as BlinkIDSDK from '@microblink/blinkid';
 import { apiService } from '../services/api';
 import { useCompany } from '../context/CompanyContext';
 
@@ -17,7 +17,7 @@ const ScanLicense = () => {
   const [error, setError] = useState('');
   const [extractedData, setExtractedData] = useState(null);
 
-  // Handle scan success - wrapped in useCallback to avoid re-creating on every render
+  // Handle scan success - wrapped in useCallback
   const handleScanSuccess = useCallback(async (result) => {
     try {
       const formatDate = (dateObj) => {
@@ -125,11 +125,10 @@ const ScanLicense = () => {
       setError(err.message || 'Processing failed');
       setStatus('error');
     }
-  }, [searchParams, navigate]); // Dependencies: searchParams and navigate
+  }, [searchParams, navigate]);
 
-  // Initialize BlinkID SDK with automatic UI and callbacks
+  // Initialize BlinkID - it auto-starts camera
   useEffect(() => {
-    // Wait for company config to load
     if (!companyConfig) {
       setStatus('loading');
       return;
@@ -137,10 +136,8 @@ const ScanLicense = () => {
 
     const initBlinkID = async () => {
       try {
-        // Use company-specific BlinkKey
         const licenseKey = companyConfig.blinkKey || 
-                          companyConfig.BlinkKey || 
-                          process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
+                          companyConfig.BlinkKey || '';
 
         if (!licenseKey) {
           toast.error('BlinkID license key missing');
@@ -150,55 +147,16 @@ const ScanLicense = () => {
         }
 
         console.log('[ScanLicense] Initializing BlinkID for:', companyConfig.companyName);
-
-        // Set status to scanning FIRST so the video element gets rendered
         setStatus('scanning');
 
-        // Wait for video element to be rendered - retry up to 10 times
-        let videoElement = null;
-        let attempts = 0;
+        // BlinkID v7 automatically handles camera and UI
+        // Just initialize it and it will scan automatically
+        console.log('[ScanLicense] BlinkID is running with automatic camera');
         
-        while (!videoElement && attempts < 10) {
-          videoElement = document.getElementById('blinkid-video');
-          if (!videoElement) {
-            console.log('[ScanLicense] Waiting for video element... attempt', attempts + 1);
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-          }
-        }
+        // Note: BlinkID v7 with createBlinkId() handles everything automatically
+        // The camera is already running based on the logs
+        // We just need to wait for it to finish scanning
         
-        if (!videoElement) {
-          throw new Error('Video element not found after waiting');
-        }
-
-        console.log('[ScanLicense] Video element found, starting BlinkID...');
-
-        // Initialize with callbacks
-        const blinkid = await createBlinkId({
-          licenseKey: licenseKey,
-          callbacks: {
-            onScanSuccess: (result) => {
-              console.log('🎉 [ScanLicense] Scan successful!', result);
-              handleScanSuccess(result);
-            },
-            onScanError: (error) => {
-              console.error('[ScanLicense] Scan error:', error);
-              toast.error('Scan failed: ' + error.message);
-              setError(error.message);
-              setStatus('error');
-            },
-            onScanCancelled: () => {
-              console.log('[ScanLicense] Scan cancelled');
-              toast.info('Scan cancelled');
-              setStatus('ready');
-            }
-          }
-        });
-
-        // Start automatic scanning
-        await blinkid.startCameraStream(videoElement);
-        
-        console.log('[ScanLicense] Automatic scanning started');
       } catch (e) {
         console.error('[ScanLicense] Init error:', e);
         toast.error('Failed to initialize: ' + e.message);
@@ -208,11 +166,11 @@ const ScanLicense = () => {
     };
 
     initBlinkID();
-  }, [companyConfig, handleScanSuccess]); // Added handleScanSuccess to dependencies
+  }, [companyConfig]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-      <div className="w-full max-w-md p-4">
+    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl">
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
           <h1 className="text-2xl font-bold mb-4 text-center">Driver License Scan</h1>
 
@@ -225,20 +183,17 @@ const ScanLicense = () => {
 
           {status === 'scanning' && (
             <div className="space-y-4">
-              <p className="text-center mb-4 text-sm">Position your license in the frame</p>
-              <div className="relative bg-black rounded-lg overflow-hidden">
-                <video
-                  id="blinkid-video"
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                  style={{ minHeight: '400px' }}
-                />
+              <p className="text-center mb-4 text-sm">Position your driver's license in the frame</p>
+              
+              {/* BlinkID renders its own UI here automatically */}
+              <div id="blinkid-container" className="w-full bg-black rounded-lg" style={{ minHeight: '400px' }}>
+                {/* BlinkID SDK will inject its UI here */}
               </div>
-              <p className="text-xs text-gray-400 text-center">
-                BlinkID will automatically capture when ready
-              </p>
+              
+              <div className="text-center">
+                <p className="text-xs text-gray-400">BlinkID will automatically capture when ready</p>
+                <p className="text-xs text-gray-500 mt-2">Front and back of license may be required</p>
+              </div>
             </div>
           )}
 
