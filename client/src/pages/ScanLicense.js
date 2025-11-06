@@ -2,7 +2,7 @@
  * Microblink BlinkID in-browser scanning page for mobile
  * Using BlinkID's automatic UI with callback-based result handling
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createBlinkId } from '@microblink/blinkid';
@@ -17,79 +17,8 @@ const ScanLicense = () => {
   const [error, setError] = useState('');
   const [extractedData, setExtractedData] = useState(null);
 
-  // Initialize BlinkID SDK with automatic UI and callbacks
-  useEffect(() => {
-    // Wait for company config to load
-    if (!companyConfig) {
-      setStatus('loading');
-      return;
-    }
-
-    const initBlinkID = async () => {
-      try {
-        setStatus('loading');
-
-        // Use company-specific BlinkKey
-        const licenseKey = companyConfig.blinkKey || 
-                          companyConfig.BlinkKey || 
-                          process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
-
-        if (!licenseKey) {
-          toast.error('BlinkID license key missing');
-          setError('BlinkID license key missing');
-          setStatus('error');
-          return;
-        }
-
-        console.log('[ScanLicense] Initializing BlinkID for:', companyConfig.companyName);
-
-        // Get video element
-        const videoElement = document.getElementById('blinkid-video');
-        
-        if (!videoElement) {
-          throw new Error('Video element not found');
-        }
-
-        // Initialize with callbacks
-        const blinkid = await createBlinkId({
-          licenseKey: licenseKey,
-          callbacks: {
-            onScanSuccess: (result) => {
-              console.log('🎉 [ScanLicense] Scan successful!', result);
-              handleScanSuccess(result);
-            },
-            onScanError: (error) => {
-              console.error('[ScanLicense] Scan error:', error);
-              toast.error('Scan failed: ' + error.message);
-              setError(error.message);
-              setStatus('error');
-            },
-            onScanCancelled: () => {
-              console.log('[ScanLicense] Scan cancelled');
-              toast.info('Scan cancelled');
-              setStatus('ready');
-            }
-          }
-        });
-
-        // Start automatic scanning
-        await blinkid.startCameraStream(videoElement);
-        
-        setStatus('scanning');
-        console.log('[ScanLicense] Automatic scanning started');
-      } catch (e) {
-        console.error('[ScanLicense] Init error:', e);
-        toast.error('Failed to initialize: ' + e.message);
-        setError(e.message || 'Initialization failed');
-        setStatus('error');
-      }
-    };
-
-    initBlinkID();
-  }, [companyConfig]);
-
-  // Handle scan success
-  const handleScanSuccess = async (result) => {
+  // Handle scan success - wrapped in useCallback to avoid re-creating on every render
+  const handleScanSuccess = useCallback(async (result) => {
     try {
       const formatDate = (dateObj) => {
         if (!dateObj) return '';
@@ -196,7 +125,78 @@ const ScanLicense = () => {
       setError(err.message || 'Processing failed');
       setStatus('error');
     }
-  };
+  }, [searchParams, navigate]); // Dependencies: searchParams and navigate
+
+  // Initialize BlinkID SDK with automatic UI and callbacks
+  useEffect(() => {
+    // Wait for company config to load
+    if (!companyConfig) {
+      setStatus('loading');
+      return;
+    }
+
+    const initBlinkID = async () => {
+      try {
+        setStatus('loading');
+
+        // Use company-specific BlinkKey
+        const licenseKey = companyConfig.blinkKey || 
+                          companyConfig.BlinkKey || 
+                          process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
+
+        if (!licenseKey) {
+          toast.error('BlinkID license key missing');
+          setError('BlinkID license key missing');
+          setStatus('error');
+          return;
+        }
+
+        console.log('[ScanLicense] Initializing BlinkID for:', companyConfig.companyName);
+
+        // Get video element
+        const videoElement = document.getElementById('blinkid-video');
+        
+        if (!videoElement) {
+          throw new Error('Video element not found');
+        }
+
+        // Initialize with callbacks
+        const blinkid = await createBlinkId({
+          licenseKey: licenseKey,
+          callbacks: {
+            onScanSuccess: (result) => {
+              console.log('🎉 [ScanLicense] Scan successful!', result);
+              handleScanSuccess(result);
+            },
+            onScanError: (error) => {
+              console.error('[ScanLicense] Scan error:', error);
+              toast.error('Scan failed: ' + error.message);
+              setError(error.message);
+              setStatus('error');
+            },
+            onScanCancelled: () => {
+              console.log('[ScanLicense] Scan cancelled');
+              toast.info('Scan cancelled');
+              setStatus('ready');
+            }
+          }
+        });
+
+        // Start automatic scanning
+        await blinkid.startCameraStream(videoElement);
+        
+        setStatus('scanning');
+        console.log('[ScanLicense] Automatic scanning started');
+      } catch (e) {
+        console.error('[ScanLicense] Init error:', e);
+        toast.error('Failed to initialize: ' + e.message);
+        setError(e.message || 'Initialization failed');
+        setStatus('error');
+      }
+    };
+
+    initBlinkID();
+  }, [companyConfig, handleScanSuccess]); // Added handleScanSuccess to dependencies
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
