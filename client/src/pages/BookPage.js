@@ -22,6 +22,7 @@ import { toast } from 'react-toastify';
 import { Car, ArrowLeft, CreditCard, X, Calendar, Eye } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { createBlinkId } from '@microblink/blinkid';
 
 const BookPage = () => {
   const { t } = useTranslation();
@@ -45,6 +46,7 @@ const BookPage = () => {
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [isViewingLicense, setIsViewingLicense] = useState(false); // Track if viewing vs editing
+  const [isParsingLicense, setIsParsingLicense] = useState(false);
 
   // Auto-detect LAN base from server when running on localhost and no custom base set
   React.useEffect(() => {
@@ -369,7 +371,104 @@ const BookPage = () => {
     });
   };
 
-
+  const parseLicenseImageWithBlinkID = async (imageUrl) => {
+    setIsParsingLicense(true); // 👈 Начало сканирования
+    
+    try {
+      const licenseKey = process.env.REACT_APP_BLINKID_LICENSE_KEY || '';
+      if (!licenseKey) {
+        console.error('[BlinkID] License key not found');
+        toast.error('BlinkID license key not configured');
+        return;
+      }
+      
+      // Fetch the image as blob
+      const fullUrl = imageUrl.startsWith('http') ? imageUrl : window.location.origin + imageUrl;
+      console.log('[BlinkID] Fetching image from:', fullUrl);
+      
+      const response = await fetch(fullUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('[BlinkID] Image fetched, size:', blob.size, 'bytes');
+      
+      // Initialize BlinkID SDK
+      console.log('[BlinkID] Initializing BlinkID SDK...');
+      const blinkid = await createBlinkId({
+        licenseKey: licenseKey
+      });
+      
+      console.log('[BlinkID] SDK initialized, recognizing image...');
+      
+      // Recognize the image using BlinkID v7
+      const result = await blinkid.recognize(blob);
+      
+      if (result && result.isValid) {
+        toast.success('✅ Сканирование завершено!');
+        
+        // Format the result
+        const formatDate = (dateObj) => {
+          if (!dateObj) return '';
+          if (typeof dateObj === 'string') return dateObj;
+          if (dateObj.year && dateObj.month && dateObj.day) {
+            return `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
+          }
+          if (dateObj instanceof Date) {
+            return dateObj.toISOString().split('T')[0];
+          }
+          return '';
+        };
+        
+        // Extract data from result
+        const parsedData = {
+          licenseNumber: result.documentNumber || result.licenseNumber || '',
+          firstName: result.firstName || '',
+          lastName: result.lastName || '',
+          middleName: result.middleName || '',
+          dateOfBirth: result.dateOfBirth ? formatDate(result.dateOfBirth) : '',
+          sex: result.sex || result.gender || '',
+          height: result.height || '',
+          eyeColor: result.eyeColor || '',
+          stateIssued: result.issuingState || result.state || result.jurisdiction || '',
+          countryIssued: result.issuingCountry || result.country || 'US',
+          expirationDate: result.expirationDate ? formatDate(result.expirationDate) : '',
+          issueDate: result.issueDate ? formatDate(result.issueDate) : '',
+          licenseAddress: result.address || result.addressLine1 || '',
+          licenseCity: result.city || '',
+          licenseState: result.state || result.addressState || '',
+          licensePostalCode: result.postalCode || result.zip || '',
+          licenseCountry: result.country || 'US'
+        };
+        
+        console.log('[BlinkID] Parsed data:', parsedData);
+        
+        // Update license data
+        setLicenseData(prev => ({
+          ...prev,
+          ...Object.fromEntries(
+            Object.entries(parsedData).filter(([_, v]) => v)
+          )
+        }));
+        
+        // Switch to edit mode and show modal
+        setIsViewingLicense(false);
+        setIsLicenseModalOpen(true);
+      } else {
+        console.warn('[BlinkID] Recognition failed or invalid result');
+        toast.warning('Could not extract license information. Please enter manually.');
+        setIsViewingLicense(false);
+        setIsLicenseModalOpen(true);
+      }
+      
+    } catch (error) {
+      console.error('[BlinkID] Error parsing license:', error);
+      toast.error('❌ Ошибка сканирования: ' + error.message);
+    } finally {
+      setIsParsingLicense(false); // 👈 Конец сканирования (успех или ошибка)
+    }
+  };
 
   // View license: open license modal to show uploaded DL image
   const handleViewLicense = async () => {
