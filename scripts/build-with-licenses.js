@@ -13,6 +13,7 @@
 
 const { execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs-extra');
 
 console.log('🔨 Building with license keys...\n');
 
@@ -37,9 +38,40 @@ try {
     cwd: path.join(__dirname, '..'),
     stdio: 'inherit'
   });
-  console.log('\n✅ Build complete!');
+  console.log('✅ React build complete\n');
 } catch (error) {
   console.error('\n❌ Build failed');
   process.exit(1);
 }
 
+// Finally, copy BlinkID resources to build output
+try {
+  console.log('3️⃣  Copying BlinkID resources...');
+  const sourceDir = path.join(__dirname, '..', 'client', 'node_modules', '@microblink', 'blinkid', 'resources');
+  const destDir = path.join(__dirname, '..', 'client', 'build', 'resources');
+  
+  // Check if source exists
+  if (!fs.existsSync(sourceDir)) {
+    console.warn('⚠️  BlinkID resources not found at:', sourceDir);
+    console.warn('   Skipping BlinkID resources copy');
+    console.warn('   Install BlinkID: cd client && npm install @microblink/blinkid\n');
+  } else {
+    // Ensure destination directory exists
+    fs.ensureDirSync(destDir);
+    
+    // Copy resources
+    fs.copySync(sourceDir, destDir, { overwrite: true });
+    
+    console.log('✅ BlinkID resources copied to build/resources');
+    
+    // List copied files for verification
+    const files = fs.readdirSync(destDir);
+    console.log(`   Copied ${files.length} resource files/folders\n`);
+  }
+} catch (error) {
+  console.error('❌ Failed to copy BlinkID resources:', error.message);
+  console.error('   Build succeeded but BlinkID may not work in production\n');
+  // Don't exit - BlinkID is optional, main build succeeded
+}
+
+console.log('✨ Build complete!');
