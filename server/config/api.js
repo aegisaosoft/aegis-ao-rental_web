@@ -35,10 +35,11 @@ for (const envPath of envPaths) {
 
 // Get API_BASE_URL from environment, with fallback default
 // In production (Azure), this should be set in App Service Configuration
+// For local development, default to Azure API (or set API_BASE_URL in .env to point to local API)
 const API_BASE_URL = process.env.API_BASE_URL || 
   (process.env.NODE_ENV === 'production' 
     ? 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net'
-    : 'https://localhost:7163');
+    : 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net'); // Default to Azure API for local testing
 
 console.log('[API Config] API_BASE_URL:', API_BASE_URL);
 console.log('[API Config] NODE_ENV:', process.env.NODE_ENV);

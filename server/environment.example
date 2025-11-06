@@ -1,7 +1,13 @@
 # Node.js Server Environment Variables
 NODE_ENV=development
 PORT=5000
-API_BASE_URL=http://localhost:5000/api
+
+# API Backend URL
+# Option 1: Use Azure API (default if not set)
+# API_BASE_URL=https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net
+# Option 2: Use local .NET API
+# API_BASE_URL=https://localhost:7163
+# API_BASE_URL=http://localhost:5094
 
 # Database Configuration (if using local database)
 DB_HOST=localhost

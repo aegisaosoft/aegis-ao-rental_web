@@ -21,6 +21,7 @@ const apiService = require('../config/api');
 router.get('/config', async (req, res) => {
   try {
     const axios = require('axios');
+    // Use Azure API by default for local testing (or set API_BASE_URL in .env)
     const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const proxyPath = '/api/companies/config';
     
@@ -48,8 +49,8 @@ router.get('/config', async (req, res) => {
     console.log(`[Companies Route] X-Company-Id header to backend: ${headers['X-Company-Id'] || 'none'}`);
     console.log(`[Companies Route] Query params:`, queryParams);
     
-    // Use shorter timeout for Azure (15 seconds instead of 30)
-    const timeout = 15000;
+    // Use longer timeout for Azure to handle slow responses (30 seconds)
+    const timeout = 30000;
     
     const response = await axios.get(`${apiBaseUrl}${proxyPath}`, {
       headers: headers,
@@ -62,10 +63,17 @@ router.get('/config', async (req, res) => {
     console.log(`[Companies Route] GET /config response status: ${response.status}`);
     if (response.status !== 200) {
       console.log(`[Companies Route] Error response:`, response.data);
+      
+      // If API returns 503, it means the service is unavailable
+      // This could be during startup or health check failure
+      if (response.status === 503) {
+        console.error(`[Companies Route] API returned 503 - Service Unavailable. This may indicate the API is still starting up or health checks are failing.`);
+      }
     }
     
     // Preserve the original status code - don't modify 400 responses
     // 400 means company not found, which is important for multitenant architecture
+    // 503 means service unavailable - forward it as-is
     res.status(response.status).json(response.data);
   } catch (error) {
     console.error('[Companies Route] Config fetch error:', error.message);
@@ -77,23 +85,40 @@ router.get('/config', async (req, res) => {
       code: error.code
     });
     
-    // Handle timeout or connection errors specifically
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      console.error('[Companies Route] Request timeout - API may be down or unreachable');
-      return res.status(503).json({
-        message: 'API service unavailable. Please try again later.',
-        error: 'SERVICE_UNAVAILABLE',
-        code: error.code
+    // Handle timeout errors - return 504 Gateway Timeout
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+      console.error('[Companies Route] Gateway timeout - API took longer than 30 seconds to respond');
+      console.error('[Companies Route] API URL:', apiBaseUrl);
+      console.error('[Companies Route] This could indicate the API is slow, overloaded, or experiencing issues.');
+      return res.status(504).json({
+        message: 'Gateway Timeout - The backend API did not respond in time. Please try again in a moment.',
+        error: 'GATEWAY_TIMEOUT',
+        code: error.code,
+        apiUrl: apiBaseUrl,
+        timestamp: new Date().toISOString()
       });
     }
     
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+    // Handle connection refused or unreachable API
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
       console.error('[Companies Route] Cannot connect to API:', apiBaseUrl);
+      console.error('[Companies Route] Error code:', error.code);
       return res.status(503).json({
-        message: 'API service unavailable. Cannot connect to backend API.',
+        message: 'Service Unavailable - Cannot connect to backend API. The API may be down or restarting.',
         error: 'CONNECTION_FAILED',
         code: error.code,
-        apiUrl: apiBaseUrl
+        apiUrl: apiBaseUrl,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // If the API itself returned 503, forward it
+    if (error.response?.status === 503) {
+      console.error('[Companies Route] API returned 503 Service Unavailable');
+      return res.status(503).json({
+        message: error.response?.data?.message || 'API service unavailable. The backend service may be starting up.',
+        error: 'SERVICE_UNAVAILABLE',
+        data: error.response?.data
       });
     }
     

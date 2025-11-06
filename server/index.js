@@ -51,6 +51,14 @@ const mockRoutes = require('./routes/mock');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Log startup information
+console.log('='.repeat(60));
+console.log('Node.js Proxy Server Starting...');
+console.log(`Port: ${PORT}`);
+console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`API_BASE_URL: ${process.env.API_BASE_URL || 'NOT SET (will use default)'}`);
+console.log('='.repeat(60));
+
 // Security middleware with CSP
 app.use(helmet({
   contentSecurityPolicy: {
@@ -239,6 +247,7 @@ app.use('/api/*', async (req, res, next) => {
       // Try to get domain mapping from API (cached by backend)
       // This is a lightweight call that the backend caches
       const fullDomain = `${subdomain}.aegis-rental.com`;
+      // Use Azure API by default for local testing (or set API_BASE_URL in .env)
       const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
       
       console.log(`[Company Detection] Hostname: ${hostnameLower}, Subdomain: ${subdomain}, FullDomain: ${fullDomain}`);
@@ -716,6 +725,30 @@ app.use('/api/*', upload.any(), async (req, res) => {
         backendUrl: `${apiBaseUrl}${req.originalUrl}`
       });
       
+      // Handle timeout errors - return 504 Gateway Timeout
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+        console.error(`[Proxy] Gateway timeout - API took longer than 30 seconds to respond: ${apiBaseUrl}${req.originalUrl}`);
+        return res.status(504).json({
+          message: 'Gateway Timeout - The backend API did not respond in time. Please try again in a moment.',
+          error: 'GATEWAY_TIMEOUT',
+          code: error.code,
+          backendUrl: `${apiBaseUrl}${req.originalUrl}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Handle connection refused or unreachable API
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
+        console.error(`[Proxy] Cannot connect to API: ${apiBaseUrl}`);
+        return res.status(503).json({
+          message: 'Service Unavailable - Cannot connect to backend API. The API may be down or restarting.',
+          error: 'SERVICE_UNAVAILABLE',
+          code: error.code,
+          backendUrl: `${apiBaseUrl}${req.originalUrl}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       // If it's a 404 from the backend, provide more context
       if (error.response?.status === 404) {
         return res.status(404).json({
@@ -1038,20 +1071,22 @@ const startServer = async () => {
   try {
     // Check required environment variables
     if (!process.env.API_BASE_URL) {
-      console.error('ERROR: API_BASE_URL environment variable is not set!');
-      console.error('Please set API_BASE_URL in Azure App Service Configuration');
-      // Don't exit in production - let it try to use default
-      if (process.env.NODE_ENV !== 'production') {
-        process.exit(1);
-      }
+      console.warn('⚠️  WARNING: API_BASE_URL environment variable is not set!');
+      console.warn('Using default Azure API URL for local development.');
+      console.warn('To use a different API, set API_BASE_URL in .env file or environment variables.');
+      // Don't exit - we have a default now
     }
     
     // HTTP server (production uses Azure HTTPS)
     const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`API Base URL: ${process.env.API_BASE_URL || 'NOT SET'}`);
-      console.log(`Health check: http://0.0.0.0:${PORT}/api/health`);
+      console.log('='.repeat(60));
+      console.log(`✅ Node.js Proxy Server is running!`);
+      console.log(`   Local:   http://localhost:${PORT}`);
+      console.log(`   Network: http://0.0.0.0:${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   API Backend: ${process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net (default)'}`);
+      console.log(`   Health check: http://localhost:${PORT}/api/health`);
+      console.log('='.repeat(60));
     });
     
     // Handle server errors
