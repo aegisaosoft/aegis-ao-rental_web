@@ -15,7 +15,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Shield, Clock, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
+import { Car, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
@@ -222,55 +222,6 @@ const Home = () => {
     return normalizeSections(rawTexts);
   }, [companyConfig]);
 
-  const resolveLocalizedValue = useCallback(
-    (map, preferredLang) => {
-      if (!map || typeof map !== 'object') return null;
-
-      const normalizeLang = (value) => (value || '').toString().toLowerCase();
-
-      const langCandidates = [
-        normalizeLang(preferredLang),
-        normalizeLang(companyConfig?.language),
-        normalizeLang(i18n.language)
-      ]
-        .filter(Boolean)
-        .filter((value, index, self) => self.indexOf(value) === index);
-
-      if (!langCandidates.includes('en')) {
-        langCandidates.push('en');
-      }
-
-      const checkVariants = (lang) => {
-        if (!lang) return null;
-        const variants = [
-          lang,
-          lang.toUpperCase(),
-          lang.split('-')[0],
-          lang.split('-')[0]?.toUpperCase()
-        ].filter(Boolean);
-
-        for (const variant of variants) {
-          const value = map[variant];
-          if (typeof value === 'string' && value.trim()) {
-            return value.trim();
-          }
-        }
-        return null;
-      };
-
-      for (const lang of langCandidates) {
-        const value = checkVariants(lang);
-        if (value) return value;
-      }
-
-      const fallbackValue = Object.values(map).find(
-        (value) => typeof value === 'string' && value.trim()
-      );
-      return fallbackValue ? fallbackValue.trim() : null;
-    },
-    [companyConfig]
-  );
-
   const heroSection = useMemo(() => {
     const fallback = {
       title: 'Meet our newest fleet yet',
@@ -349,7 +300,13 @@ const Home = () => {
       notes,
       layout: (firstSection.notesLayout || 'vertical').toLowerCase()
     };
-  }, [companySections, translate]);
+  }, [
+    companySections,
+    translate,
+    companyConfig?.videoLink,
+    companyConfig?.video,
+    companyConfig?.videoURL
+  ]);
 
   const { sectionsAfterModels, sectionsStartIndex } = useMemo(() => {
     if (!Array.isArray(companySections) || companySections.length === 0) {
