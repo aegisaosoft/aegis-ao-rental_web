@@ -19,7 +19,6 @@ import { Car, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n/config';
 import { useCompany } from '../context/CompanyContext';
 
 const Home = () => {
