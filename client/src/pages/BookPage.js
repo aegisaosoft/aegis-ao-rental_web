@@ -776,14 +776,14 @@ const BookPage = () => {
                       <div className="flex items-center gap-2">
                         {/* Only show scan button if company has BlinkID key */}
                         {(companyConfig?.blinkKey || companyConfig?.BlinkKey || process.env.REACT_APP_BLINKID_LICENSE_KEY) && (
-                          <button
-                            type="button"
-                            onClick={handleScanOnPhone}
-                            className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md"
-                            title={t('bookPage.scanOnPhoneViaQr')}
-                          >
-                            {t('bookPage.scanOnPhone')}
-                          </button>
+                        <button
+                          type="button"
+                          onClick={handleScanOnPhone}
+                          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md"
+                          title={t('bookPage.scanOnPhoneViaQr')}
+                        >
+                          {t('bookPage.scanOnPhone')}
+                        </button>
                         )}
                         <button
                           onClick={() => {
