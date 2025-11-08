@@ -81,8 +81,14 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      // Allow camera streams and video playback from self/blob
-      mediaSrc: ["'self'", "blob:"],
+      // Allow camera streams and video playback from self/blob and Azure public assets
+      mediaSrc: [
+        "'self'",
+        "blob:",
+        "https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net",
+        "https://*.azurewebsites.net",
+        "https://*.aegis-rental.com"
+      ],
       imgSrc: ["'self'", "data:", "https:"],
       workerSrc: ["'self'", "blob:", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       childSrc: ["'self'", "blob:"],
