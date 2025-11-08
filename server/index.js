@@ -85,6 +85,9 @@ app.use(helmet({
       mediaSrc: [
         "'self'",
         "blob:",
+        "data:",
+        "https:",
+        "http://localhost:3000",
         "https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net",
         "https://*.azurewebsites.net",
         "https://*.aegis-rental.com"
