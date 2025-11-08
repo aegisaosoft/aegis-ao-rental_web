@@ -27,6 +27,7 @@ const Navbar = () => {
   
   // Get company name from company config, or show "Unknown"
   const displayCompanyName = companyConfig?.companyName || 'Unknown';
+  const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
   
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -47,7 +48,17 @@ const Navbar = () => {
   const toggleUserMenu = () => setUserMenuOpen(!userMenuOpen);
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
+    <nav className="bg-white shadow-lg sticky top-0 z-40">
+      {logoUrl && logoUrl.trim() && (
+        <div className="hidden sm:block pointer-events-none select-none">
+          <img
+            src={logoUrl}
+            alt={displayCompanyName}
+            className="absolute top-0 left-0 h-16 max-h-16 w-auto object-cover"
+            aria-hidden="true"
+          />
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Left side - Company filter and Logo */}

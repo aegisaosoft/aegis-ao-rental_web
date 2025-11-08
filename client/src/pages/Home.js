@@ -13,17 +13,95 @@
  *
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Shield, Clock, Star, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
+import { Car, Shield, Clock, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n/config';
 import { useCompany } from '../context/CompanyContext';
 
 const Home = () => {
-  const { t } = useTranslation();
+  const { i18n: i18nInstance, t } = useTranslation();
+  const currentLanguage = (i18nInstance.language || 'en').toLowerCase();
   const { companyConfig } = useCompany();
+
+  const bundledTranslations = useMemo(() => {
+    const resources = i18nInstance?.options?.resources || {};
+    const map = {};
+
+    const flatten = (obj, prefix = []) => {
+      Object.entries(obj || {}).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          const normalizedKey = [...prefix, key].join('.').toLowerCase();
+          map.__current__[normalizedKey] = value;
+        } else if (typeof value === 'object' && value !== null) {
+          flatten(value, [...prefix, key]);
+        }
+      });
+    };
+
+    const result = {};
+    Object.entries(resources).forEach(([lng, bundle]) => {
+      map.__current__ = {};
+      flatten(bundle);
+      const lowerLang = lng.toLowerCase();
+      result[lowerLang] = { ...(result[lowerLang] || {}), ...map.__current__ };
+      const base = lowerLang.split('-')[0];
+      if (base) {
+        result[base] = { ...(result[base] || {}), ...map.__current__ };
+      }
+    });
+
+    return result;
+  }, [i18nInstance?.options?.resources]);
+
+  const translate = useCallback(
+    (value, defaultValue = '') => {
+      if (!value) return defaultValue;
+      if (typeof value === 'string') return value;
+
+      const normalized = Object.entries(value).reduce((acc, [key, val]) => {
+        if (typeof val === 'string') {
+          acc[key.toLowerCase()] = val;
+        }
+        return acc;
+      }, {});
+
+      const langCandidates = [
+        currentLanguage,
+        currentLanguage.split('-')[0],
+        (companyConfig?.language || '').toLowerCase(),
+        'en'
+      ].filter(Boolean);
+
+      for (const lang of langCandidates) {
+        const literal = normalized[lang];
+        if (literal && literal.trim()) {
+          return literal.trim();
+        }
+
+        const bundle = bundledTranslations[lang];
+        if (bundle) {
+          for (const str of Object.values(normalized)) {
+            if (str) {
+              const key = str.toLowerCase();
+              if (bundle[key]) {
+                return bundle[key];
+              }
+            }
+          }
+        }
+      }
+
+      const fallbackLiteral = Object.values(normalized).find(
+        (val) => typeof val === 'string' && val.trim()
+      );
+      return fallbackLiteral ? fallbackLiteral.trim() : defaultValue;
+    },
+    [bundledTranslations, companyConfig?.language, currentLanguage]
+  );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
@@ -118,6 +196,178 @@ const Home = () => {
     console.log('DEBUG Home: Total calculated - vehicles:', totalVehicles, 'available:', totalAvailable);
     return { fleetCount: totalVehicles, availableCount: totalAvailable };
   }, [modelsGrouped]);
+
+  const companySections = useMemo(() => {
+    const rawTexts = companyConfig?.texts;
+
+    const normalizeSections = (source) => {
+      if (!source) return [];
+      if (Array.isArray(source)) return source;
+      if (Array.isArray(source?.sections)) return source.sections;
+      if (Array.isArray(source?.Sections)) return source.Sections;
+
+      if (typeof source === 'string') {
+        try {
+          const parsed = JSON.parse(source);
+          return normalizeSections(parsed);
+        } catch (err) {
+          console.warn('[Home] Unable to parse company texts JSON:', err);
+          return [];
+        }
+      }
+
+      return [];
+    };
+
+    return normalizeSections(rawTexts);
+  }, [companyConfig]);
+
+  const resolveLocalizedValue = useCallback(
+    (map, preferredLang) => {
+      if (!map || typeof map !== 'object') return null;
+
+      const normalizeLang = (value) => (value || '').toString().toLowerCase();
+
+      const langCandidates = [
+        normalizeLang(preferredLang),
+        normalizeLang(companyConfig?.language),
+        normalizeLang(i18n.language)
+      ]
+        .filter(Boolean)
+        .filter((value, index, self) => self.indexOf(value) === index);
+
+      if (!langCandidates.includes('en')) {
+        langCandidates.push('en');
+      }
+
+      const checkVariants = (lang) => {
+        if (!lang) return null;
+        const variants = [
+          lang,
+          lang.toUpperCase(),
+          lang.split('-')[0],
+          lang.split('-')[0]?.toUpperCase()
+        ].filter(Boolean);
+
+        for (const variant of variants) {
+          const value = map[variant];
+          if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+          }
+        }
+        return null;
+      };
+
+      for (const lang of langCandidates) {
+        const value = checkVariants(lang);
+        if (value) return value;
+      }
+
+      const fallbackValue = Object.values(map).find(
+        (value) => typeof value === 'string' && value.trim()
+      );
+      return fallbackValue ? fallbackValue.trim() : null;
+    },
+    [companyConfig]
+  );
+
+  const heroSection = useMemo(() => {
+    const fallback = {
+      title: 'Meet our newest fleet yet',
+      description: "New rental cars. No lines. Let's go!",
+      video: (companyConfig?.videoLink || companyConfig?.video || companyConfig?.videoURL || '')
+        ?.toString()
+        ?.trim()
+    };
+
+    const firstSection = companySections[0];
+    if (!firstSection) {
+      return fallback;
+    }
+
+    const videoUrl =
+        (companyConfig?.videoLink || companyConfig?.video || companyConfig?.videoURL || '')
+        ?.toString()
+        ?.trim();
+
+    if (videoUrl) {
+      return {
+        title: '',
+        description: '',
+        video: videoUrl
+      };
+    }
+
+    const heroTitle = translate(firstSection.title, fallback.title);
+    const heroDescription = translate(firstSection.description, fallback.description);
+
+    return {
+      title: heroTitle || fallback.title,
+      description: heroDescription || fallback.description,
+      video: fallback.video
+    };
+  }, [companySections, translate, companyConfig?.videoLink, companyConfig?.video, companyConfig?.videoURL]);
+
+  const sectionNotes = useMemo(() => {
+    const firstSection = companySections[0];
+    const videoUrl =
+      (companyConfig?.videoLink || companyConfig?.video || companyConfig?.videoURL || '')
+        ?.toString()
+        ?.trim();
+
+    if (videoUrl) {
+      return { notes: [], layout: 'horizontal' };
+    }
+
+    if (!firstSection?.notes?.length) {
+      return { notes: [], layout: 'vertical' };
+    }
+
+    const notes =
+      firstSection.notes?.map((note) => {
+        const title = translate(note.title) || '';
+        const caption = translate(note.caption) || '';
+        const description = translate(note.text) || '';
+
+        const svg =
+          typeof note.symbol === 'string' && note.symbol.trim().startsWith('<')
+            ? note.symbol
+            : null;
+
+        return {
+          title,
+          caption,
+          description,
+          svg,
+          icon: null,
+          foreColor: note.symbolForeColor || '#FACC15',
+          backColor: note.backColor || 'rgba(255,255,255,0.08)'
+        };
+      }) || [];
+
+    return {
+      notes,
+      layout: (firstSection.notesLayout || 'vertical').toLowerCase()
+    };
+  }, [companySections, translate]);
+
+  const { sectionsAfterModels, sectionsStartIndex } = useMemo(() => {
+    if (!Array.isArray(companySections) || companySections.length === 0) {
+      return { sectionsAfterModels: [], sectionsStartIndex: 0 };
+    }
+
+    const rawVideo =
+      (companyConfig?.videoLink || companyConfig?.video || companyConfig?.videoURL || '')
+        ?.toString()
+        ?.trim();
+
+    const startIndex = rawVideo ? 0 : 1;
+
+    return {
+      sectionsAfterModels: companySections.slice(startIndex),
+      sectionsStartIndex: startIndex
+    };
+  }, [companySections, companyConfig?.videoLink, companyConfig?.video, companyConfig?.videoURL]);
   
   // Update company name - show "Unknown" if no company
   useEffect(() => {
@@ -127,24 +377,6 @@ const Home = () => {
       setCompanyName('Unknown');
     }
   }, [companyConfig]);
-
-  const features = [
-    {
-      icon: <Car className="h-8 w-8 text-yellow-400" />,
-      title: '#1 Loyalty Program',
-      description: 'Rewards for every rental'
-    },
-    {
-      icon: <Clock className="h-8 w-8 text-yellow-400" />,
-      title: 'Skip the line',
-      description: 'No hassle, just drive'
-    },
-    {
-      icon: <Shield className="h-8 w-8 text-yellow-400" />,
-      title: 'Trusted for 100+ years',
-      description: 'Reliable service you can count on'
-    }
-  ];
 
   return (
     <div className="min-h-screen">
@@ -256,20 +488,57 @@ const Home = () => {
             </div>
 
             {/* Promotional Content - Right Side */}
-            <div className="text-white">
-              <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
-                Meet our newest fleet yet
-              </h1>
-              <p className="text-2xl mb-8 text-gray-200">
-                New rental cars. No lines. Let's go!
-              </p>
+            <div className="text-white w-full">
+              {heroSection.video ? (
+                <div className="w-full aspect-video rounded-lg overflow-hidden shadow-2xl">
+                  <video
+                    className="w-full h-full object-cover"
+                    src={heroSection.video}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  >
+                    <source src={heroSection.video} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
+                    {heroSection.title}
+                  </h1>
+                  <p className="text-2xl mb-8 text-gray-200">
+                    {heroSection.description}
+                  </p>
+                </>
+              )}
 
               {/* Feature Highlights */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-                {features.map((feature, index) => (
+            {sectionNotes.notes.map((feature, index) => (
                   <div key={index} className="flex flex-col items-start">
                     <div className="mb-2">
-                      {feature.icon}
+                      {feature.svg ? (
+                        <div
+                          className="h-12 w-12 rounded-full flex items-center justify-center"
+                          style={{
+                            backgroundColor: feature.backColor || 'rgba(255,255,255,0.08)',
+                            color: feature.foreColor || '#FACC15'
+                          }}
+                        >
+                          <span
+                            className="h-6 w-6"
+                            aria-hidden="true"
+                            dangerouslySetInnerHTML={{ __html: feature.svg }}
+                          />
+                        </div>
+                      ) : feature.icon ? (
+                        feature.icon
+                      ) : (
+                        <Car className="h-8 w-8 text-yellow-400" />
+                      )}
                     </div>
                     <h3 className="text-lg font-semibold mb-1">{feature.title}</h3>
                     <p className="text-gray-300 text-sm">{feature.description}</p>
@@ -561,69 +830,231 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t('home.whyChoose', { companyName })}
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              {t('home.description')}
-            </p>
+      {/* Company Sections */}
+      {sectionsAfterModels.length > 0 && (
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+            {sectionsAfterModels.map((section, index) => {
+              const sectionNumber = sectionsStartIndex + index + 1;
+              const title = translate(section.title) || '';
+              const description = translate(section.description) || '';
+              const alignment = (section.alignment || 'left').toLowerCase();
+              const notesLayout = (section.notesLayout || 'vertical').toLowerCase();
+              const backgroundImage =
+                typeof section.backgroundImage === 'string'
+                  ? section.backgroundImage
+                  : section.backgroundImage?.url || '';
+              const cardStyle = section.backColor
+                ? { backgroundColor: section.backColor }
+                : undefined;
+              const headingClass =
+                alignment === 'center'
+                  ? 'text-center mx-auto'
+                  : alignment === 'right'
+                  ? 'text-right ml-auto'
+                  : 'text-left';
+              const descriptionClass =
+                alignment === 'center'
+                  ? 'mx-auto text-center'
+                  : alignment === 'right'
+                  ? 'ml-auto text-right'
+                  : 'text-left';
+              const hasNotes = Array.isArray(section.notes) && section.notes.length > 0;
+              const notesWrapperClass =
+                notesLayout === 'horizontal'
+                  ? 'grid gap-6 md:grid-cols-2 xl:grid-cols-3'
+                  : 'space-y-6';
+
+              return (
+                <div
+                  key={`company-section-${sectionNumber}`}
+                  className="relative rounded-3xl overflow-hidden shadow-xl border border-gray-100"
+                  style={cardStyle}
+                >
+                  {backgroundImage && (
+                    <div className="absolute inset-0">
+                      <img
+                        src={backgroundImage}
+                        alt={`Section ${sectionNumber} background`}
+                        className="w-full h-full object-cover opacity-35"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+                  <div className="relative backdrop-blur-sm bg-white/90 dark:bg-gray-900/80 p-10 md:p-16 space-y-8">
+                    <div className="space-y-4">
+                      {title && (
+                        <h2
+                          className={`text-3xl md:text-4xl font-bold text-gray-900 ${headingClass}`}
+                          style={section.foreColor ? { color: section.foreColor } : undefined}
+                        >
+                          {title}
+                        </h2>
+                      )}
+                      {description && (
+                        <p
+                          className={`text-lg md:text-xl text-gray-700 max-w-3xl ${descriptionClass}`}
+                          style={section.foreColor ? { color: section.foreColor } : undefined}
+                        >
+                          {description}
+                        </p>
+                      )}
+                    </div>
+
+                    {hasNotes && (
+                      <div className={notesWrapperClass}>
+                        {section.notes.map((note, noteIndex) => {
+                          const noteTitle = translate(note.title) || '';
+                          const noteCaption = translate(note.caption) || '';
+                          const noteText = translate(note.text) || '';
+                          const notePicture =
+                            (typeof note.picture === 'string' && note.picture) ||
+                            note.picture?.url ||
+                            '';
+                          const symbolSvg =
+                            typeof note.symbol === 'string' && note.symbol.trim().startsWith('<')
+                              ? note.symbol
+                              : null;
+                          const symbolColor = note.symbolForeColor || '#FACC15';
+                          const noteForeground = note.foreColor || undefined;
+                          const noteBackground =
+                            note.backColor ||
+                            (notesLayout === 'horizontal' ? 'rgba(17, 24, 39, 0.03)' : 'rgba(17, 24, 39, 0.02)');
+
+                          if (!noteTitle && !noteCaption && !noteText && !notePicture && !symbolSvg) {
+                            return null;
+                          }
+
+                          const noteContent =
+                            notesLayout === 'vertical' ? (
+                              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                                <div className="flex-shrink-0 flex flex-col items-start gap-3 min-w-[56px]">
+                                  {notePicture && (
+                                    <img
+                                      src={notePicture}
+                                      alt={noteTitle || `Section ${sectionNumber} note ${noteIndex + 1}`}
+                                      className="w-14 h-14 rounded-md object-cover"
+                                      loading="lazy"
+                                    />
+                                  )}
+                                  {(symbolSvg || note.symbol) && (
+                                    <div
+                                      className="h-12 w-12 rounded-full flex items-center justify-center"
+                                      style={{ backgroundColor: note.backColor || 'rgba(0,0,0,0.08)', color: symbolColor }}
+                                    >
+                                      {symbolSvg ? (
+                                        <span
+                                          className="h-6 w-6"
+                                          aria-hidden="true"
+                                          dangerouslySetInnerHTML={{ __html: symbolSvg }}
+                                        />
+                                      ) : (
+                                        <Car className="h-6 w-6" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  {noteTitle && (
+                                    <h3
+                                      className="text-xl font-semibold"
+                                      style={noteForeground ? { color: noteForeground } : undefined}
+                                    >
+                                      {noteTitle}
+                                    </h3>
+                                  )}
+                                  {noteCaption && (
+                                    <p
+                                      className="text-sm font-medium uppercase tracking-wide opacity-80"
+                                      style={noteForeground ? { color: noteForeground } : undefined}
+                                    >
+                                      {noteCaption}
+                                    </p>
+                                  )}
+                                  {noteText && (
+                                    <p
+                                      className="text-base leading-relaxed"
+                                      style={noteForeground ? { color: noteForeground } : undefined}
+                                    >
+                                      {noteText}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {notePicture && (
+                                  <img
+                                    src={notePicture}
+                                    alt={noteTitle || `Section ${sectionNumber} note ${noteIndex + 1}`}
+                                    className="w-full h-40 object-cover rounded-md mb-4"
+                                    loading="lazy"
+                                  />
+                                )}
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div
+                                    className="h-12 w-12 rounded-full flex items-center justify-center"
+                                    style={{ backgroundColor: note.backColor || 'rgba(0,0,0,0.08)', color: symbolColor }}
+                                  >
+                                    {symbolSvg ? (
+                                      <span
+                                        className="h-6 w-6"
+                                        aria-hidden="true"
+                                        dangerouslySetInnerHTML={{ __html: symbolSvg }}
+                                      />
+                                    ) : (
+                                      <Car className="h-6 w-6" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    {noteTitle && (
+                                      <h3
+                                        className="text-lg font-semibold"
+                                        style={noteForeground ? { color: noteForeground } : undefined}
+                                      >
+                                        {noteTitle}
+                                      </h3>
+                                    )}
+                                    {noteCaption && (
+                                      <p
+                                        className="text-sm opacity-80"
+                                        style={noteForeground ? { color: noteForeground } : undefined}
+                                      >
+                                        {noteCaption}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {noteText && (
+                                  <p
+                                    className="text-base leading-relaxed"
+                                    style={noteForeground ? { color: noteForeground } : undefined}
+                                  >
+                                    {noteText}
+                                  </p>
+                                )}
+                              </>
+                            );
+
+                          return (
+                            <div
+                              key={`section-${sectionNumber}-note-${noteIndex}`}
+                              className="rounded-2xl p-6 shadow-md border border-gray-100"
+                              style={{ backgroundColor: noteBackground, color: noteForeground }}
+                            >
+                              {noteContent}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center p-6 rounded-lg hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-4">
-                <Car className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {t('home.features.wideSelection.title')}
-              </h3>
-              <p className="text-gray-600">
-                {t('home.features.wideSelection.description')}
-              </p>
-            </div>
-
-            <div className="text-center p-6 rounded-lg hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-4">
-                <Shield className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {t('home.features.fullyInsured.title')}
-              </h3>
-              <p className="text-gray-600">
-                {t('home.features.fullyInsured.description')}
-              </p>
-            </div>
-
-            <div className="text-center p-6 rounded-lg hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-4">
-                <Clock className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {t('home.features.support.title')}
-              </h3>
-              <p className="text-gray-600">
-                {t('home.features.support.description')}
-              </p>
-            </div>
-
-            <div className="text-center p-6 rounded-lg hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-4">
-                <Star className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {t('home.features.premiumService.title')}
-              </h3>
-              <p className="text-gray-600">
-                {t('home.features.premiumService.description')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA Section */}
       <section className="bg-gray-900 text-white py-20">

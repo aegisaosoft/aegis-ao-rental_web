@@ -23,6 +23,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
+import LoadingSpinner from './components/common/LoadingSpinner';
 
 // Pages
 import Home from './pages/Home';
@@ -46,7 +47,7 @@ import DriverLicenseScanner from './pages/DriverLicenseScanner';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
-import { CompanyProvider } from './context/CompanyContext';
+import { CompanyProvider, useCompany } from './context/CompanyContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -64,6 +65,95 @@ const TitleUpdater = () => {
   return null;
 };
 
+const AppLayout = () => {
+  const { loading, error, companyConfig } = useCompany();
+
+  if (loading && !companyConfig) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <LoadingSpinner size="lg" text="Loading your rental experience..." />
+      </div>
+    );
+  }
+
+  if (error && !companyConfig) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4 text-center">
+        <h1 className="text-2xl font-semibold text-gray-900">We’re preparing this site</h1>
+        <p className="mt-4 text-gray-600 max-w-md">
+          {typeof error === 'string'
+            ? error
+            : 'We were unable to load the company configuration. Please try again in a moment.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-6 inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Retry Loading
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <ScrollToTop />
+      <TitleUpdater />
+      <Navbar />
+      <main className="min-h-screen">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/vehicles/:id" element={<VehicleDetail />} />
+          <Route path="/book" element={<BookPage />} />
+          <Route path="/booking/:vehicleId" element={<Booking />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/scan" element={<ScanLicense />} />
+          <Route path="/scan-mobile" element={<MobileScan />} />
+          <Route path="/m" element={<MobileHome />} />
+          <Route path="/m/vehicles" element={<MobileVehicles />} />
+          <Route path="/m/booking" element={<MobileBooking />} />
+          <Route path="/m/my-bookings" element={<MobileMyBookings />} />
+          <Route path="/dl-scan" element={<DriverLicenseScanner />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      <Footer />
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'auto',
+          maxWidth: '500px',
+        }}
+        toastStyle={{
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+          padding: '16px 24px',
+          fontSize: '16px',
+          fontWeight: '500',
+        }}
+      />
+    </div>
+  );
+};
+
 function App() {
   // App component - Aegis AO Car Rental System - Production Deploy
   return (
@@ -76,60 +166,7 @@ function App() {
               v7_relativeSplatPath: true,
             }}
           >
-            <div className="min-h-screen bg-gray-50">
-              <ScrollToTop />
-              <TitleUpdater />
-              <Navbar />
-              <main className="min-h-screen">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/vehicles/:id" element={<VehicleDetail />} />
-                <Route path="/book" element={<BookPage />} />
-                <Route path="/booking/:vehicleId" element={<Booking />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/my-bookings" element={<MyBookings />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/settings" element={<Settings />} />
-              <Route path="/scan" element={<ScanLicense />} />
-                <Route path="/scan-mobile" element={<MobileScan />} />
-                <Route path="/m" element={<MobileHome />} />
-                <Route path="/m/vehicles" element={<MobileVehicles />} />
-                <Route path="/m/booking" element={<MobileBooking />} />
-                <Route path="/m/my-bookings" element={<MobileMyBookings />} />
-                <Route path="/dl-scan" element={<DriverLicenseScanner />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-            <ToastContainer
-              position="top-center"
-              autoClose={3000}
-              hideProgressBar={false}
-              newestOnTop={true}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
-              style={{
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'auto',
-                maxWidth: '500px',
-              }}
-              toastStyle={{
-                borderRadius: '12px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-                padding: '16px 24px',
-                fontSize: '16px',
-                fontWeight: '500',
-              }}
-            />
-          </div>
+            <AppLayout />
         </Router>
       </AuthProvider>
       </CompanyProvider>
