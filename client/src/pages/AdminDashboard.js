@@ -935,7 +935,10 @@ const AdminDashboard = () => {
   );
 
   const allAdditionalServices = allAdditionalServicesResponse?.data || allAdditionalServicesResponse || [];
-  const companyServices = companyServicesResponse?.data || companyServicesResponse || [];
+  const companyServices = useMemo(() => {
+    const raw = companyServicesResponse?.data || companyServicesResponse || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [companyServicesResponse]);
 
   const [assignmentOverrides, setAssignmentOverrides] = useState({});
 
