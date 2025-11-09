@@ -31,7 +31,7 @@ const BookPage = () => {
   const queryClient = useQueryClient();
 
   // Get filters from URL
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   const categoryId = searchParams.get('category');
   const make = searchParams.get('make');
   const model = searchParams.get('model');
@@ -682,7 +682,7 @@ const BookPage = () => {
                   </h1>
                   {modelDailyRate > 0 && (
                     <p className="text-xl font-semibold text-blue-600 mb-2">
-                      ${modelDailyRate.toFixed(2)} / {t('vehicles.day')}
+                      {formatPrice(modelDailyRate)} / {t('vehicles.day')}
                     </p>
                   )}
                   {modelDescription && (
@@ -1169,7 +1169,7 @@ const BookPage = () => {
                             {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} {t('bookPage.days')}
                           </span>
                           <span className="text-xl font-bold text-blue-600">
-                            ${calculateGrandTotal().toFixed(2)}
+                            {formatPrice(calculateGrandTotal())}
                           </span>
                         </div>
                       </div>
@@ -1196,7 +1196,7 @@ const BookPage = () => {
                 <div>
                   {modelDailyRate > 0 && (
                     <p className="text-xl font-semibold text-blue-600 mb-2">
-                      ${modelDailyRate.toFixed(2)} / {t('vehicles.day')}
+                      {formatPrice(modelDailyRate)} / {t('vehicles.day')}
                     </p>
                   )}
                   <h2 className="text-lg font-bold text-gray-900 mb-4">{t('bookPage.additionalOptions')}</h2>
@@ -1221,7 +1221,8 @@ const BookPage = () => {
                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
                               <span>
-                                {service.serviceName || service.ServiceName}: ${(service.servicePrice || service.ServicePrice || 0).toFixed(0)} / day.
+                                {service.serviceName || service.ServiceName}:{' '}
+                                {formatPrice(service.servicePrice || service.ServicePrice || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / {t('vehicles.day') || 'day'}.
                               </span>
                             </div>
                           );
@@ -1232,7 +1233,7 @@ const BookPage = () => {
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-semibold text-gray-900">Total:</span>
-                          <span className="text-xl font-bold text-blue-600">${calculateGrandTotal().toFixed(2)}</span>
+                          <span className="text-xl font-bold text-blue-600">{formatPrice(calculateGrandTotal())}</span>
                         </div>
                       </div>
 

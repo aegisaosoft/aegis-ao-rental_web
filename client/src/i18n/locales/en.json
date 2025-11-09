@@ -462,7 +462,13 @@
            "reservations": "Reservations",
            "customers": "Customers",
            "vehicles": "Vehicles",
-           "bookingSettings": "Booking Settings",
+          "bookingSettings": "Booking Settings",
+          "servicePriceModalTitle": "Customize Service Price",
+          "servicePriceModalDescription": "Set a company-specific price for {{serviceName}}. Leave blank to use the base price.",
+          "servicePriceModalLabel": "Company Price",
+          "servicePriceModalPlaceholder": "Base price: {{basePrice}}",
+          "servicePriceModalInvalid": "Please enter a valid price (0 or greater).",
+          "servicePriceModalMandatoryLabel": "Mandatory (For Company)",
            "bookingConfiguration": "Booking Configuration",
            "bookingSettingsComingSoon": "Booking settings management coming soon...",
            "vehicleManagementComingSoon": "Vehicle management coming soon...",
@@ -580,6 +586,5 @@
            "showing": "Showing",
            "to": "to",
            "of": "of"
-         }
+        }
 }
-

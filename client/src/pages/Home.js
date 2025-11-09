@@ -14,17 +14,19 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Car, ArrowRight, Calendar, Users, Fuel, Settings } from 'lucide-react';
 import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
+import AICarAssistant from '../components/AICarAssistant';
 
 const Home = () => {
   const { i18n: i18nInstance, t } = useTranslation();
   const currentLanguage = (i18nInstance.language || 'en').toLowerCase();
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
+  const navigate = useNavigate();
 
   const bundledTranslations = useMemo(() => {
     const resources = i18nInstance?.options?.resources || {};
@@ -195,6 +197,114 @@ const Home = () => {
     console.log('DEBUG Home: Total calculated - vehicles:', totalVehicles, 'available:', totalAvailable);
     return { fleetCount: totalVehicles, availableCount: totalAvailable };
   }, [modelsGrouped]);
+
+  const availableVehicles = useMemo(() => {
+    if (!Array.isArray(modelsGrouped)) return [];
+
+    const deduped = new Map();
+
+    modelsGrouped.forEach((categoryGroup) => {
+      const categoryName =
+        categoryGroup?.categoryName ||
+        categoryGroup?.CategoryName ||
+        categoryGroup?.category ||
+        '';
+
+      (categoryGroup?.models || []).forEach((model) => {
+        const modelMake = model.make || model.Make || '';
+        const modelName = model.modelName || model.model_name || model.ModelName || '';
+        const modelFeatures = Array.isArray(model.features)
+          ? model.features
+          : Array.isArray(model.Features)
+          ? model.Features
+          : [];
+        const modelYears = Array.isArray(model.years) ? model.years : [];
+
+        const pushVehicle = (vehicleSource = {}, fallbackIdSuffix = '') => {
+          const vehicleId =
+            vehicleSource.vehicle_id ||
+            vehicleSource.vehicleId ||
+            vehicleSource.id ||
+            vehicleSource.Id ||
+            vehicleSource.VehicleId ||
+            vehicleSource.VehicleID ||
+            model.id ||
+            model.model_id ||
+            `${modelMake}-${modelName}-${fallbackIdSuffix}`;
+
+          if (deduped.has(vehicleId)) {
+            return;
+          }
+
+          const normalized = {
+            id: vehicleId,
+            vehicle_id: vehicleId,
+            make: vehicleSource.make || vehicleSource.Make || modelMake,
+            model: vehicleSource.model || vehicleSource.Model || modelName,
+            year:
+              vehicleSource.year ||
+              vehicleSource.Year ||
+              model.year ||
+              model.Year ||
+              model.modelYear ||
+              (modelYears.length > 0 ? modelYears[0] : undefined),
+            daily_rate:
+              vehicleSource.daily_rate ||
+              vehicleSource.dailyRate ||
+              model.dailyRate ||
+              model.daily_rate ||
+              null,
+            seats: vehicleSource.seats || vehicleSource.Seats || model.seats || model.Seats || null,
+            type: vehicleSource.type || vehicleSource.Type || model.type || categoryName || '',
+            transmission:
+              vehicleSource.transmission ||
+              vehicleSource.Transmission ||
+              model.transmission ||
+              model.Transmission ||
+              '',
+            fuel_type:
+              vehicleSource.fuel_type ||
+              vehicleSource.fuelType ||
+              vehicleSource.FuelType ||
+              model.fuelType ||
+              model.FuelType ||
+              '',
+            features: Array.isArray(vehicleSource.features)
+              ? vehicleSource.features
+              : modelFeatures,
+          };
+
+          normalized.dailyRate = normalized.daily_rate;
+
+          deduped.set(vehicleId, normalized);
+        };
+
+        const vehiclesArray =
+          (model.vehicles || model.Vehicles || model.vehiclesByCategory || []) || [];
+
+        if (Array.isArray(vehiclesArray) && vehiclesArray.length > 0) {
+          vehiclesArray.forEach((vehicle, index) => pushVehicle(vehicle, index));
+        } else {
+          pushVehicle({}, 'model');
+        }
+      });
+    });
+
+    return Array.from(deduped.values());
+  }, [modelsGrouped]);
+
+  const vehicles = availableVehicles;
+
+  const handleSelectVehicle = useCallback(
+    (vehicle) => {
+      if (!vehicle) return;
+      const targetId = vehicle.vehicle_id || vehicle.id;
+      if (targetId) {
+        navigate(`/vehicle/${targetId}`);
+      }
+    },
+    [navigate]
+  );
 
   const companySections = useMemo(() => {
     const rawTexts = companyConfig?.texts;
@@ -660,7 +770,7 @@ const Home = () => {
                                     />
                                     {group.dailyRate && (
                                       <div className="absolute top-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-semibold">
-                                        ${parseFloat(group.dailyRate).toFixed(2)}/day
+                                        {formatPrice(group.dailyRate)}/{t('vehicles.day') || 'day'}
                                       </div>
                                     )}
                                     {effectiveCompanyId && group.vehicleCount > 0 && (
@@ -721,7 +831,7 @@ const Home = () => {
                                     <div className="flex justify-between items-center mt-4">
                                       {group.dailyRate && (
                                         <div className="vehicle-price">
-                                          ${parseFloat(group.dailyRate).toFixed(2)}
+                                          {formatPrice(group.dailyRate)}
                                           <span className="text-sm text-gray-600">/{t('vehicles.day') || 'day'}</span>
                                         </div>
                                       )}
@@ -1030,6 +1140,13 @@ const Home = () => {
           </Link>
         </div>
       </section>
+
+      {vehicles.length > 0 && (
+        <AICarAssistant
+          onSelectVehicle={handleSelectVehicle}
+          availableVehicles={vehicles}
+        />
+      )}
     </div>
   );
 };

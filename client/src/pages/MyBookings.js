@@ -25,7 +25,7 @@ import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../
 const MyBookings = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
 
   const { data: bookings, isLoading, error } = useQuery(
@@ -155,7 +155,7 @@ const MyBookings = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-semibold text-blue-600">
-                        {t('myBookings.totalCost')}: ${booking.total_amount}
+                        {t('myBookings.totalCost')}: {formatPrice(booking.total_amount)}
                       </div>
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                         {getStatusIcon(booking.status)}

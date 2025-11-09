@@ -29,7 +29,7 @@ const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
   
   const [formData, setFormData] = useState({
@@ -154,7 +154,7 @@ const Booking = () => {
                       <h4 className="font-semibold text-gray-900">
                         {vehicle.year} {vehicle.make} {vehicle.model}
                       </h4>
-                      <p className="text-gray-600">${vehicle.daily_rate} {t('vehicles.perDay')}</p>
+                      <p className="text-gray-600">{formatPrice(vehicle.daily_rate)} {t('vehicles.perDay')}</p>
                     </div>
                   </div>
                 </div>
@@ -249,7 +249,7 @@ const Booking = () => {
                 
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('booking.dailyRate')}</span>
-                  <span className="font-medium">${vehicle.daily_rate}</span>
+                  <span className="font-medium">{formatPrice(vehicle.daily_rate)}</span>
                 </div>
                 
                 {formData.pickupDate && formData.returnDate && (
@@ -264,7 +264,7 @@ const Booking = () => {
                     <div className="border-t pt-4">
                       <div className="flex justify-between text-lg font-semibold">
                         <span>{t('booking.total')}</span>
-                        <span className="text-blue-600">${calculateTotal()}</span>
+                        <span className="text-blue-600">{formatPrice(calculateTotal())}</span>
                       </div>
                     </div>
                   </>

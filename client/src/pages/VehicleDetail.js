@@ -20,12 +20,14 @@ import { MapPin, Users, Fuel, Settings, Star, Shield, Clock, Edit2, X } from 'lu
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useCompany } from '../context/CompanyContext';
 
 const VehicleDetail = () => {
   const { id } = useParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isAuthenticated, isAdmin } = useAuth();
+  const { formatPrice } = useCompany();
   const [selectedDates, setSelectedDates] = useState({
     pickupDate: '',
     returnDate: ''
@@ -161,7 +163,7 @@ const VehicleDetail = () => {
                 )}
               </div>
               <p className="text-xl text-blue-600 font-semibold mb-4">
-                ${vehicle.daily_rate || vehicle.DailyRate} {t('vehicleDetail.perDay')}
+                {formatPrice(vehicle.daily_rate || vehicle.DailyRate)} {t('vehicleDetail.perDay')}
               </p>
             </div>
 
@@ -236,7 +238,7 @@ const VehicleDetail = () => {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">{t('vehicleDetail.totalFor')} {Math.ceil((new Date(selectedDates.returnDate) - new Date(selectedDates.pickupDate)) / (1000 * 60 * 60 * 24))} {t('vehicleDetail.days')}:</span>
-                      <span className="text-xl font-bold text-blue-600">${calculateTotal()}</span>
+                    <span className="text-xl font-bold text-blue-600">{formatPrice(calculateTotal())}</span>
                     </div>
                   </div>
                 )}

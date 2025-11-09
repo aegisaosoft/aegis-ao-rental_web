@@ -13,10 +13,11 @@
  *
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { apiService } from '../services/api';
 import i18n from '../i18n/config';
 import { getLanguageForCountry } from '../utils/countryLanguage';
+import { formatCurrency, normalizeCurrencyCode, getCurrencySymbol } from '../utils/currency';
 
 const CompanyContext = createContext();
 
@@ -38,196 +39,127 @@ export const CompanyProvider = ({ children }) => {
       try {
         setLoading(true);
         setError(null);
-        
-        // Log the API call details
+
         const apiBaseUrl = '/api';
         const endpoint = '/companies/config';
         console.log('[CompanyContext] Loading company config from:', `${apiBaseUrl}${endpoint}`);
         console.log('[CompanyContext] Current hostname:', window.location.hostname);
-        
-        // In development on localhost, proactively load miamilifecars as default
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
-        if (isDevelopment && isLocalhost) {
-          console.log('[CompanyContext] Development mode on localhost: Loading miamilifecars company as default');
-          try {
-            // Try to get all companies and find miamilifecars
-            const companiesResponse = await apiService.getCompanies();
-            const companies = companiesResponse.data?.result || companiesResponse.data || [];
-            const miamiCompany = Array.isArray(companies) 
-              ? companies.find(c => 
-                  (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
-                  (c.companyName && c.companyName.toLowerCase().includes('miami'))
-                )
-              : null;
-            
-            if (miamiCompany) {
-              console.log('[CompanyContext] Found miamilifecars company, using as default:', miamiCompany.companyName || miamiCompany.CompanyName);
-              // Map company data to config format (handle both snake_case and camelCase)
-              const config = {
-                id: miamiCompany.id || miamiCompany.CompanyId || miamiCompany.companyId,
-                companyName: miamiCompany.companyName || miamiCompany.CompanyName || 'Miami Life Cars',
-                subdomain: miamiCompany.subdomain || miamiCompany.Subdomain,
-                fullDomain: miamiCompany.fullDomain || (miamiCompany.subdomain ? `${miamiCompany.subdomain}.aegis-rental.com` : null) || (miamiCompany.Subdomain ? `${miamiCompany.Subdomain}.aegis-rental.com` : null),
-                email: miamiCompany.email || miamiCompany.Email || '',
-                logoUrl: miamiCompany.logoUrl || miamiCompany.LogoUrl,
-                faviconUrl: miamiCompany.faviconUrl || miamiCompany.FaviconUrl,
-                primaryColor: miamiCompany.primaryColor || miamiCompany.PrimaryColor || '#007bff',
-                secondaryColor: miamiCompany.secondaryColor || miamiCompany.SecondaryColor || '#6c757d',
-                motto: miamiCompany.motto || miamiCompany.Motto,
-                mottoDescription: miamiCompany.mottoDescription || miamiCompany.MottoDescription,
-                about: miamiCompany.about || miamiCompany.About,
-                videoLink: miamiCompany.videoLink || miamiCompany.VideoLink,
-                bannerLink: miamiCompany.bannerLink || miamiCompany.BannerLink,
-                backgroundLink: miamiCompany.backgroundLink || miamiCompany.BackgroundLink,
-                website: miamiCompany.website || miamiCompany.Website,
-                customCss: miamiCompany.customCss || miamiCompany.CustomCss,
-                country: miamiCompany.country || miamiCompany.Country,
-                bookingIntegrated: miamiCompany.bookingIntegrated || miamiCompany.BookingIntegrated || false,
-                invitation: miamiCompany.invitation || miamiCompany.Invitation,
-                texts: miamiCompany.texts || miamiCompany.Texts,
-                language: miamiCompany.language || miamiCompany.Language || 'en',
-                blinkKey: miamiCompany.blinkKey || miamiCompany.BlinkKey,
-              };
-              
-              setCompanyConfig(config);
-              applyCompanyStyles(config);
-              if (config.companyName) {
-                document.title = `${config.companyName} - Premium Car Rental Services`;
-              }
-              if (config.faviconUrl) {
-                updateFavicon(config.faviconUrl);
-              }
-              setCompanyLanguage(config);
-              setLoading(false);
-              return;
-            } else {
-              console.warn('[CompanyContext] Miamilifecars company not found in companies list');
-            }
-          } catch (fallbackErr) {
-            console.error('[CompanyContext] Failed to load miamilifecars fallback:', fallbackErr);
-            // Continue to try normal flow
-          }
-        }
-        
-        // Call the API endpoint which will automatically detect company from domain
+
         let response;
         try {
           response = await apiService.getCurrentCompanyConfig();
         } catch (err) {
-          // If config fails and we're in development, the fallback above should have handled it
-          // But if it didn't, try one more time
-          if (isDevelopment && isLocalhost) {
-            console.log('[CompanyContext] Config endpoint failed, trying miamilifecars fallback again');
-            try {
-              const companiesResponse = await apiService.getCompanies();
-              const companies = companiesResponse.data?.result || companiesResponse.data || [];
-              const miamiCompany = Array.isArray(companies) 
-                ? companies.find(c => 
-                    (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
-                    (c.companyName && c.companyName.toLowerCase().includes('miami'))
-                  )
-                : null;
-              
-              if (miamiCompany) {
-                console.log('[CompanyContext] Found miamilifecars company on error fallback');
-                response = { data: miamiCompany };
-              } else {
-                throw err; // Re-throw original error
-              }
-            } catch (fallbackErr) {
-              console.error('[CompanyContext] Fallback also failed:', fallbackErr);
-              throw err; // Re-throw original error
-            }
-          } else {
-            throw err; // Re-throw if not development or not localhost
+          console.error('[CompanyContext] Could not load company configuration:', err);
+          response = await loadFallbackCompany();
+          if (!response) {
+            setLoading(false);
+            setError('Unable to load company configuration');
+            return;
           }
         }
-        
+
         let config = response.data?.result || response.data;
-        
-        // If config is empty or has no ID, and we're in development, try miamilifecars
-        if ((!config || !config.id) && isDevelopment && isLocalhost) {
-          console.log('[CompanyContext] Config empty, trying miamilifecars fallback');
-          try {
-            const companiesResponse = await apiService.getCompanies();
-            const companies = companiesResponse.data?.result || companiesResponse.data || [];
-            const miamiCompany = Array.isArray(companies) 
-              ? companies.find(c => 
-                  (c.subdomain && c.subdomain.toLowerCase() === 'miamilifecars') || 
-                  (c.companyName && c.companyName.toLowerCase().includes('miami'))
-                )
-              : null;
-            
-            if (miamiCompany) {
-              console.log('[CompanyContext] Using miamilifecars as fallback for empty config');
-              config = miamiCompany;
-            }
-          } catch (fallbackErr) {
-            console.error('[CompanyContext] Fallback failed:', fallbackErr);
+
+        if (!config || !config.id) {
+          console.warn('[CompanyContext] Config empty, attempting fallback company.');
+          const fallbackResponse = await loadFallbackCompany();
+          if (fallbackResponse?.data) {
+            config = fallbackResponse.data;
           }
         }
-        
+
         if (config && config.id) {
-          console.log('[CompanyContext] Loaded company config:', config.companyName, config.id);
-          setCompanyConfig(config);
-          
-          // Apply company-specific styling
-          applyCompanyStyles(config);
-          
-          // Update document title
-          if (config.companyName) {
-            document.title = `${config.companyName} - Premium Car Rental Services`;
+          const normalizedConfig = {
+            ...config,
+            currency: normalizeCurrencyCode(config.currency || config.Currency || 'USD')
+          };
+          console.log('[CompanyContext] Loaded company config:', normalizedConfig.companyName, normalizedConfig.id, 'currency', normalizedConfig.currency);
+          setCompanyConfig(normalizedConfig);
+
+          applyCompanyStyles(normalizedConfig);
+
+          if (normalizedConfig.companyName) {
+            document.title = `${normalizedConfig.companyName} - Premium Car Rental Services`;
           }
-          
-          // Update favicon if available
-          if (config.faviconUrl) {
-            updateFavicon(config.faviconUrl);
+
+          if (normalizedConfig.faviconUrl) {
+            updateFavicon(normalizedConfig.faviconUrl);
           }
-          
-          // Set language from company config
-          setCompanyLanguage(config);
+
+          setCompanyLanguage(normalizedConfig);
         } else {
           console.warn('[CompanyContext] No company config returned or invalid response:', config);
           setError('Company configuration not available');
         }
       } catch (err) {
-        // Company config is required for multitenant architecture
-        // If not found (400), log as warning but still allow app to continue
-        // Other errors (timeout, 500, etc.) should be logged as errors
-        const errorMsg = err.response?.data?.error || err.message;
-        const status = err.response?.status;
-        
-        // 400 (Bad Request) usually means company not found for hostname
-        // This is important for multitenant - log it but don't crash the app
-        if (status === 400) {
-          console.warn('[CompanyContext] Company configuration not found for this domain. Multitenant features may not work correctly.');
-          console.warn('[CompanyContext] Hostname:', window.location.hostname);
-          console.warn('[CompanyContext] Error:', err.response?.data?.error || errorMsg);
-          // Set error but don't block app - multitenant will be limited
-          setError('Company configuration not found for this domain');
-        } else if (status === 404) {
-          // 404 is also company not found - similar handling
-          console.warn('[CompanyContext] Company configuration not found (404). Multitenant features may not work correctly.');
-          setError('Company configuration not found');
-        } else {
-          // For other errors (timeout, 500, etc.), log as error
-          console.error('[CompanyContext] Could not load company configuration:', errorMsg);
-          console.error('[CompanyContext] Page URL:', window.location.href);
-          console.error('[CompanyContext] API Request URL:', err.config?.url || err.request?.responseURL || 'unknown');
-          console.error('[CompanyContext] API Base URL:', err.config?.baseURL || 'unknown');
-          console.error('[CompanyContext] Error details:', {
-            status: status,
-            statusText: err.response?.statusText,
-            data: err.response?.data,
-            message: err.message
-          });
-          setError(errorMsg || 'Company configuration not available');
-        }
+        console.error('[CompanyContext] Could not load company configuration:', err);
+        setError('Failed to load company configuration');
       } finally {
         setLoading(false);
       }
+    };
+
+    const loadFallbackCompany = async () => {
+      try {
+        const companiesResponse = await apiService.getCompanies();
+        const companies = companiesResponse.data?.result || companiesResponse.data || [];
+        const fallbackCompany = Array.isArray(companies)
+          ? companies.find((c) => {
+              const subdomain = (c.subdomain || c.Subdomain || '').toString().toLowerCase();
+              const name = (c.companyName || c.CompanyName || '').toString().toLowerCase();
+              return subdomain === 'miamilifecars' || name.includes('miami life cars') || name.includes('miamilife');
+            })
+          : null;
+
+        if (fallbackCompany) {
+          console.log('[CompanyContext] Using fallback company configuration from API:', fallbackCompany.companyName || fallbackCompany.CompanyName);
+          return { data: fallbackCompany };
+        }
+
+        console.warn('[CompanyContext] Fallback company not found in company list, using static default.');
+      } catch (fallbackErr) {
+        console.error('[CompanyContext] Fallback company load failed:', fallbackErr);
+        console.warn('[CompanyContext] Using static fallback company data.');
+      }
+
+      return {
+        data: {
+          id: '81ff1053-9988-4c0d-bcbe-3f44b9449f22',
+          companyName: 'Miami Life Cars',
+          email: 'miamilifecars@gmail.com',
+          bookingIntegrated: true,
+          videoLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/video.mp4',
+          bannerLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/banner.png',
+          motto: 'Meet our newest fleet yet',
+          mottoDescription: "New rental cars. No lines. Let's go!",
+          texts: [
+            {
+              title: {
+                en: 'Why rent your car with Miami Life Cars in Florida?',
+                es: '¿Por qué rentar tu auto con Miami Life Cars en Florida?',
+                pt: 'Por que alugar seu carro com Miami Life Cars na Flórida?',
+                fr: 'Pourquoi louer votre voiture avec Miami Life Cars en Floride ?',
+                de: 'Warum sollten Sie Ihr Auto bei Miami Life Cars in Florida mieten?'
+              },
+              description: {
+                en: 'Are you looking to navigate one of the most popular cities in the world, or set off on a road trip into the country? Miami Life Cars is here to help...'
+              },
+              notes: []
+            }
+          ],
+          website: 'https://miamilifecars.aegis-rental.com',
+          backgroundLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/background.png',
+          subdomain: 'miamilifecars',
+          primaryColor: '#007bff',
+          secondaryColor: '#6c757d',
+          logoUrl: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/logo.jpg',
+          faviconUrl: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/favicon.png',
+          country: 'United States',
+          language: 'en',
+          blinkKey: 'sRwCAB5taWFtaWxpZmVjYXJzLmFlZ2lzLXJlbnRhbC5jb20GbGV5SkRjbVZoZEdWa1QyNGlPakUzTmpJME1EZzRNVFl3TVRBc0lrTnlaV0YwWldSR2IzSWlPaUppTlRrMFpUazFZUzB6T0RFMkxUUXdNV1V0WW1JM055MHpaR1JsT0RRME1qQTBNVEVpZlE9Pbv1rgG/yLgd0nzSiRWxJK8kMSb26of5X9/vmuLBdCMHr4jrBzFRHprgqfnMf37yoaPzE+DXFL9zyGiDM9NRQTnWyY7xgNtACwQSOXA4bM6WdteuYOCVYPg0eAvwH7k=',
+          currency: 'USD'
+        }
+      };
     };
 
     loadCompanyConfig();
@@ -244,9 +176,9 @@ export const CompanyProvider = ({ children }) => {
     // Create style element for company-specific CSS
     const styleElement = document.createElement('style');
     styleElement.id = 'company-custom-styles';
-    
+
     let css = '';
-    
+
     // Apply primary color
     if (config.primaryColor) {
       css += `
@@ -292,20 +224,20 @@ export const CompanyProvider = ({ children }) => {
   const setCompanyLanguage = (config) => {
     // Check if user has manually set a language preference
     const hasManualLanguagePreference = localStorage.getItem('languageManuallySet') === 'true';
-    
+
     // If user manually set language, don't override
     if (hasManualLanguagePreference) {
       console.log('[CompanyContext] User has manual language preference, keeping current language');
       return;
     }
-    
+
     let targetLanguage = null;
-    
+
     // Priority 1: Use company's language field if set
     if (config.language) {
       targetLanguage = config.language;
       console.log('[CompanyContext] Using company language:', targetLanguage);
-    } 
+    }
     // Priority 2: Fallback to country-based language
     else if (config.country) {
       targetLanguage = getLanguageForCountry(config.country);
@@ -313,17 +245,17 @@ export const CompanyProvider = ({ children }) => {
         console.log('[CompanyContext] Using country-based language:', targetLanguage, 'for country:', config.country);
       }
     }
-    
+
     // Set the language if we found one and it's different from current
     if (targetLanguage) {
       const currentLanguage = i18n.language || localStorage.getItem('i18nextLng') || 'en';
-      
+
       // Special handling for Canada - don't change if already French or English
       if (config.country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
         console.log('[CompanyContext] Canada detected, keeping current language:', currentLanguage);
         return;
       }
-      
+
       if (currentLanguage !== targetLanguage) {
         console.log('[CompanyContext] Changing language from', currentLanguage, 'to', targetLanguage);
         i18n.changeLanguage(targetLanguage);
@@ -335,10 +267,24 @@ export const CompanyProvider = ({ children }) => {
     }
   };
 
+  const currencyCode = useMemo(() => normalizeCurrencyCode(companyConfig?.currency || 'USD'), [companyConfig?.currency]);
+  const currencySymbol = useMemo(() => getCurrencySymbol(currencyCode), [currencyCode]);
+  const formatPrice = useCallback(
+    (amount, options = {}) => {
+      const { currency: overrideCurrency, currencyCode: overrideCurrencyCode, ...rest } = options || {};
+      const targetCurrency = normalizeCurrencyCode(overrideCurrencyCode || overrideCurrency || currencyCode);
+      return formatCurrency(amount, targetCurrency, rest);
+    },
+    [currencyCode]
+  );
+
   const value = {
     companyConfig,
     loading,
     error,
+    currencyCode,
+    currencySymbol,
+    formatPrice,
     // Helper to check if company has booking integration
     hasBookingIntegration: companyConfig?.bookingIntegrated === true,
     // Helper to get company language

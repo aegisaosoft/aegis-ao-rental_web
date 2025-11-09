@@ -200,7 +200,8 @@ export const apiService = {
   // Company Services
   getCompanyServices: (companyId, params = {}) => api.get(`/CompanyServices/company/${companyId}`, { params }),
   addServiceToCompany: (data) => api.post('/CompanyServices', data),
-  removeServiceFromCompany: (companyId, serviceId) => api.delete(`/CompanyServices/${companyId}/${serviceId}`),
+  removeServiceFromCompany: (companyId, serviceId) =>
+    api.delete(`/CompanyServices/${companyId}/${serviceId}`),
   updateCompanyService: (companyId, serviceId, data) => api.put(`/CompanyServices/${companyId}/${serviceId}`, data),
   // Additional Services
   getAdditionalServices: (params = {}) => api.get('/AdditionalServices', { params }),

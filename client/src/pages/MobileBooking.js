@@ -7,7 +7,7 @@ import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
 
 const MobileBooking = () => {
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -75,7 +75,7 @@ const MobileBooking = () => {
              onError={(e)=>{ if (!e.target.src.includes('/economy.jpg')) e.target.src='/economy.jpg'; }} />
         <div className="text-left">
           <div className="font-semibold text-gray-900 text-sm">{title}</div>
-          <div className="text-gray-600 text-xs">${(vehicle.daily_rate || vehicle.dailyRate || 0)} per day</div>
+          <div className="text-gray-600 text-xs">{formatPrice(vehicle.daily_rate || vehicle.dailyRate || 0)} per day</div>
         </div>
       </div>
       <div className="bg-white rounded-md shadow p-3 mb-6 text-sm">

@@ -5,7 +5,7 @@ import { translatedApiService as apiService } from '../services/translatedApi';
 import { useCompany } from '../context/CompanyContext';
 
 const MobileVehicles = () => {
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const pickupDate = searchParams.get('pickupDate') || '';
@@ -61,7 +61,7 @@ const MobileVehicles = () => {
                      onError={(e)=>{ if (!e.target.src.includes('/economy.jpg')) e.target.src='/economy.jpg'; }} />
                 <div className="text-left">
                   <div className="font-semibold text-gray-900 text-sm">{title}</div>
-                  <div className="text-gray-600 text-xs">${(v.daily_rate || v.dailyRate || 0)} per day</div>
+                  <div className="text-gray-600 text-xs">{formatPrice(v.daily_rate || v.dailyRate || 0)} per day</div>
                 </div>
               </button>
             );

@@ -364,6 +364,12 @@ app.use('/api/*', upload.any(), async (req, res) => {
       const proxyPath = req.originalUrl; // Keep full path including /api
       const fullBackendUrl = `${apiBaseUrl}${proxyPath}`;
       console.log(`[Proxy] ${req.method} ${proxyPath} -> ${fullBackendUrl}`);
+      if (req.method === 'DELETE') {
+        console.log('[Proxy] DELETE params:', {
+          companyId: req.params.companyId,
+          serviceId: req.params.serviceId,
+        });
+      }
       console.log(`[Proxy] Request headers:`, {
         'content-type': req.headers['content-type'],
         'authorization': req.headers['authorization'] ? 'present' : 'missing',
@@ -629,24 +635,63 @@ app.use('/api/*', upload.any(), async (req, res) => {
       }
     
     // Handle connection/network errors
-    if (error.code === 'ECONNRESET' || error.code === 'EPIPE' || 
-        error.message?.includes('Connection: close') || 
-        error.message?.includes('Parse Error')) {
-      // Try to get the status if available
+    if (
+      error.code === 'ECONNRESET' ||
+      error.code === 'EPIPE' ||
+      error.message?.includes('Connection: close') ||
+      error.message?.includes('Parse Error')
+    ) {
+      console.warn('[Proxy] Connection/parse error encountered', {
+        method: req.method,
+        url: req.originalUrl,
+        message: error.message,
+        code: error.code,
+        responseStatus: error.response?.status,
+        responseHeaders: error.response?.headers,
+        requestStatus: error.request?.res?.statusCode ?? error.request?.statusCode,
+      });
+
+      const inferredStatus =
+        error.response?.status ??
+        error.request?.res?.statusCode ??
+        error.request?.statusCode ??
+        null;
+
+      if (inferredStatus === 204 || inferredStatus === 200) {
+        console.warn(
+          '[Proxy] Suppressing parse/connection error for successful response',
+          {
+            method: req.method,
+            url: req.originalUrl,
+            inferredStatus,
+            message: error.message,
+          }
+        );
+        return res.status(inferredStatus).end();
+      }
+
+      if (inferredStatus === null && req.method === 'DELETE') {
+        console.warn(
+          '[Proxy] Treating DELETE parse/connection error as 204',
+          {
+            method: req.method,
+            url: req.originalUrl,
+            message: error.message,
+            code: error.code,
+          }
+        );
+        return res.status(204).end();
+      }
+
       if (error.response?.status) {
-        // If it's a 204, send it properly
-        if (error.response.status === 204) {
-          return res.status(204).end();
-        }
-        // Otherwise, return the error response
         return res.status(error.response.status).json(
           error.response.data || { message: error.message }
         );
       }
-      // If no response, it's a network error
+
       return res.status(500).json({
         message: 'Network error connecting to backend API',
-        error: error.message
+        error: error.message,
       });
     }
     

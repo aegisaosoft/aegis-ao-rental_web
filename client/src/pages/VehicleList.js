@@ -26,7 +26,7 @@ const VehicleList = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice } = useCompany();
   // Get companyId from domain context only
   const effectiveCompanyId = companyConfig?.id || null;
 
@@ -434,7 +434,7 @@ const VehicleList = () => {
                       }}
                     />
                     <div className="absolute top-4 right-4 bg-yellow-500 text-black px-2 py-1 rounded-full text-sm font-semibold">
-                      ${dailyRate}/{t('vehicles.day')}
+                      {formatPrice(dailyRate)}/{t('vehicles.day')}
                     </div>
                   </div>
                   
@@ -484,7 +484,7 @@ const VehicleList = () => {
 
                     <div className="flex justify-between items-center mt-4">
                       <div className="vehicle-price">
-                        ${dailyRate}
+                        {formatPrice(dailyRate)}
                         <span className="text-sm text-gray-600">/{t('vehicles.day')}</span>
                       </div>
                       <div className="flex gap-2">

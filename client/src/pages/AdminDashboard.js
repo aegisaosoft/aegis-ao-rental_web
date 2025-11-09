@@ -30,10 +30,30 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 
+const initialServicePricingModalState = {
+  open: false,
+  service: null,
+  basePrice: 0,
+  priceInput: '',
+  isMandatory: false,
+  submitting: false,
+  error: null,
+};
+
+const getServiceIdentifier = (service) =>
+  service?.additionalServiceId ||
+  service?.AdditionalServiceId ||
+  service?.additional_service_id ||
+  service?.id ||
+  service?.Id ||
+  service?.serviceId ||
+  service?.ServiceId ||
+  null;
+
 const AdminDashboard = () => {
   const { t } = useTranslation();
   const { user, isAuthenticated, isAdmin, isMainAdmin } = useAuth();
-  const { companyConfig } = useCompany();
+  const { companyConfig, formatPrice, currencySymbol, currencyCode } = useCompany();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
@@ -105,6 +125,141 @@ const AdminDashboard = () => {
   // State for daily rate inputs
   const [dailyRateInputs, setDailyRateInputs] = useState({});
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+  const [servicePricingModal, setServicePricingModal] = useState(initialServicePricingModalState);
+
+  const formatRate = useCallback(
+    (value, options = {}) => {
+      if (value === null || value === undefined || value === '') return '—';
+      if (typeof value === 'string' && value.toLowerCase() === 'different') return value;
+      const numeric = Number(value);
+      if (Number.isNaN(numeric)) return value;
+      const {
+        minimumFractionDigits = 2,
+        maximumFractionDigits = 2,
+        ...rest
+      } = options || {};
+      return formatPrice(numeric, { minimumFractionDigits, maximumFractionDigits, ...rest });
+    },
+    [formatPrice]
+  );
+
+  const resetServicePricingModal = useCallback(() => {
+    setServicePricingModal(initialServicePricingModalState);
+  }, []);
+
+  const handleServicePricingInputChange = useCallback((event) => {
+    const { value } = event.target;
+    setServicePricingModal((prev) => ({
+      ...prev,
+      priceInput: value,
+      error: null,
+    }));
+  }, []);
+
+  const handleServicePricingMandatoryToggle = useCallback((event) => {
+    const { checked } = event.target;
+    setServicePricingModal((prev) => ({
+      ...prev,
+      isMandatory: checked,
+    }));
+  }, []);
+
+  const submitServicePricingModal = useCallback(async () => {
+    if (!servicePricingModal.service) {
+      resetServicePricingModal();
+      return;
+    }
+
+    const parsedPrice = parseFloat(servicePricingModal.priceInput);
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      setServicePricingModal((prev) => ({
+        ...prev,
+        error: t('admin.servicePriceModalInvalid'),
+      }));
+      return;
+    }
+
+    try {
+      setServicePricingModal((prev) => ({
+        ...prev,
+        submitting: true,
+        error: null,
+      }));
+
+      const serviceId = getServiceIdentifier(servicePricingModal.service);
+
+      console.debug('[AdminDashboard] Submitting service pricing modal', {
+        companyId: currentCompanyId,
+        serviceId,
+        parsedPrice,
+        isMandatory: servicePricingModal.isMandatory,
+      });
+      const response = await apiService.addServiceToCompany({
+        companyId: currentCompanyId,
+        additionalServiceId: serviceId,
+        price: parsedPrice,
+        isMandatory: servicePricingModal.isMandatory,
+        isActive: true,
+      });
+      const addedService = response?.data || response;
+      console.debug('[AdminDashboard] Add service response', addedService);
+
+      setAssignmentOverrides((prev) => ({
+        ...prev,
+        [serviceId]: true,
+      }));
+
+      queryClient.setQueryData(['companyServices', currentCompanyId], (prev) => {
+        if (!prev) return prev;
+
+        const normalizeList = (list) => {
+          if (!Array.isArray(list)) return list;
+          const exists = list.some(
+            (item) =>
+              (item.additionalServiceId ||
+                item.AdditionalServiceId ||
+                item.additional_service_id) === serviceId
+          );
+          if (exists) return list;
+          return [...list, addedService];
+        };
+
+        if (Array.isArray(prev)) {
+          return normalizeList(prev);
+        }
+
+        if (prev?.data) {
+          return {
+            ...prev,
+            data: normalizeList(prev.data),
+          };
+        }
+
+        return prev;
+      });
+
+      toast.success(t('admin.serviceAddedToCompany'), {
+        position: 'top-center',
+        autoClose: 2000,
+      });
+
+      resetServicePricingModal();
+      queryClient.invalidateQueries(['companyServices', currentCompanyId]);
+      queryClient.invalidateQueries(['allAdditionalServices']);
+    } catch (error) {
+      console.error('Error adding service to company:', error);
+      const message = error.response?.data?.message || t('admin.serviceAssignmentFailed');
+      setServicePricingModal((prev) => ({
+        ...prev,
+        error: message,
+      }));
+    } finally {
+      setServicePricingModal((prev) => ({
+        ...prev,
+        submitting: false,
+      }));
+    }
+  }, [currentCompanyId, queryClient, resetServicePricingModal, servicePricingModal, t]);
 
   // Get company ID - use only from domain context
   const getCompanyId = useCallback(() => {
@@ -781,11 +936,40 @@ const AdminDashboard = () => {
 
   const allAdditionalServices = allAdditionalServicesResponse?.data || allAdditionalServicesResponse || [];
   const companyServices = companyServicesResponse?.data || companyServicesResponse || [];
+
+  const [assignmentOverrides, setAssignmentOverrides] = useState({});
+
+  useEffect(() => {
+    setAssignmentOverrides({});
+  }, [companyServicesResponse, currentCompanyId]);
   
   // Create a Set of service IDs that are assigned to the company for quick lookup
   const assignedServiceIds = new Set(
     companyServices.map(cs => cs.additionalServiceId || cs.AdditionalServiceId || cs.additional_service_id)
   );
+
+  const companyServicesMap = useMemo(() => {
+    const map = new Map();
+    const duplicates = new Set();
+
+    companyServices.forEach((cs) => {
+      const id = cs.additionalServiceId || cs.AdditionalServiceId || cs.additional_service_id;
+      if (id === undefined || id === null) return;
+
+      if (map.has(id)) {
+        duplicates.add(id);
+        return;
+      }
+
+      map.set(id, cs);
+    });
+
+    if (duplicates.size > 0) {
+      console.warn('[AdminDashboard] Multiple company service entries found for additionalServiceIds:', Array.from(duplicates));
+    }
+
+    return map;
+  }, [companyServices]);
 
   // Additional Service mutations (for creating new services)
   const createServiceMutation = useMutation(
@@ -1145,7 +1329,9 @@ const AdminDashboard = () => {
 
   const handleEditService = (service) => {
     const serviceId = service.id || service.Id;
-    const isAssigned = assignedServiceIds.has(serviceId);
+    const baseAssigned = assignedServiceIds.has(serviceId);
+    const hasOverride = Object.prototype.hasOwnProperty.call(assignmentOverrides, serviceId);
+    const isAssigned = hasOverride ? assignmentOverrides[serviceId] : baseAssigned;
     
     if (isAssigned) {
       // Editing company service - only company-specific fields
@@ -1288,13 +1474,28 @@ const AdminDashboard = () => {
   // Handle quick toggle of service isActive or isMandatory
   const handleToggleServiceField = async (service, field) => {
     const serviceId = service.id || service.Id;
-    const currentValue = service[field] !== undefined ? service[field] : (service[field.charAt(0).toUpperCase() + field.slice(1)] !== undefined ? service[field.charAt(0).toUpperCase() + field.slice(1)] : false);
+    const isAssigned = assignedServiceIds.has(serviceId);
+    let currentValue;
+
+    if (isAssigned) {
+      const companyService = companyServicesMap.get(serviceId) || {};
+      currentValue = companyService[field];
+      if (currentValue === undefined) {
+        const altKey = field.charAt(0).toUpperCase() + field.slice(1);
+        currentValue = companyService[altKey];
+      }
+    } else {
+      currentValue = service[field];
+      if (currentValue === undefined) {
+        const altKey = field.charAt(0).toUpperCase() + field.slice(1);
+        currentValue = service[altKey];
+      }
+    }
+
     const newValue = !currentValue;
 
     try {
       // Check if service is assigned to this company
-      const isAssigned = assignedServiceIds.has(serviceId);
-      
       if (isAssigned) {
         // Update company service (only allowed fields: isMandatory, isActive)
         if (field === 'isMandatory' || field === 'isActive') {
@@ -1333,65 +1534,96 @@ const AdminDashboard = () => {
 
   // Handle toggle service assignment to company
   const handleToggleServiceAssignment = async (service) => {
-    const serviceId = service.id || service.Id;
-    const isAssigned = assignedServiceIds.has(serviceId);
+    const serviceId = getServiceIdentifier(service);
+    const baseAssigned = assignedServiceIds.has(serviceId);
+    const hasOverride = Object.prototype.hasOwnProperty.call(assignmentOverrides, serviceId);
+    const isAssigned = hasOverride ? assignmentOverrides[serviceId] : baseAssigned;
+    console.debug('[AdminDashboard] Toggle service assignment', {
+      serviceId,
+      baseAssigned,
+      hasOverride,
+      isAssigned,
+    });
 
     try {
       if (isAssigned) {
-        // Remove service from company
+        setAssignmentOverrides((prev) => ({
+          ...prev,
+          [serviceId]: false,
+        }));
+
+        console.debug('[AdminDashboard] Removing service from company via API', {
+          companyId: currentCompanyId,
+          serviceId,
+        });
+
         await apiService.removeServiceFromCompany(currentCompanyId, serviceId);
+        console.debug('[AdminDashboard] Remove service completed successfully');
+
+        queryClient.setQueryData(['companyServices', currentCompanyId], (prev) => {
+          if (!prev) return prev;
+
+          const filterList = (list) => {
+            if (!Array.isArray(list)) return list;
+            return list.filter(
+              (item) =>
+                (item.additionalServiceId ||
+                  item.AdditionalServiceId ||
+                  item.additional_service_id) !== serviceId
+            );
+          };
+
+          if (Array.isArray(prev)) {
+            return filterList(prev);
+          }
+
+          if (prev?.data) {
+            return {
+              ...prev,
+              data: filterList(prev.data),
+            };
+          }
+
+          return prev;
+        });
+
         toast.success(t('admin.serviceRemovedFromCompany'), {
           position: 'top-center',
           autoClose: 2000,
         });
+        queryClient.invalidateQueries(['companyServices', currentCompanyId]);
+        queryClient.invalidateQueries(['allAdditionalServices']);
+        console.debug('[AdminDashboard] Invalidated companyServices & allAdditionalServices caches');
       } else {
-        // Add service to company - require price and mandatory input
         const basePrice = service.price || service.Price || 0;
         const baseMandatory = service.isMandatory || service.IsMandatory || false;
-        
-        // Prompt for price
-        const priceInput = window.prompt(
-          t('admin.enterServicePrice', { basePrice: basePrice.toFixed(2) }),
-          basePrice.toFixed(2)
-        );
-        
-        if (priceInput === null) {
-          // User cancelled
-          return;
-        }
-        
-        const price = parseFloat(priceInput);
-        if (isNaN(price) || price < 0) {
-          toast.error(t('admin.invalidPrice'), {
-            position: 'top-center',
-            autoClose: 3000,
-          });
-          return;
-        }
-        
-        // Prompt for mandatory status
-        const isMandatory = window.confirm(
-          baseMandatory 
-            ? t('admin.confirmMandatoryService')
-            : t('admin.confirmOptionalService')
-        );
-        
-        // Add service to company with price and mandatory
-        await apiService.addServiceToCompany({
-          companyId: currentCompanyId,
-          additionalServiceId: serviceId,
-          price: price,
-          isMandatory: isMandatory,
-          isActive: true
+
+        console.debug('[AdminDashboard] Opening pricing modal for service', {
+          serviceId,
+          basePrice,
+          baseMandatory,
         });
-        toast.success(t('admin.serviceAddedToCompany'), {
-          position: 'top-center',
-          autoClose: 2000,
+
+        setServicePricingModal({
+          open: true,
+          service,
+          basePrice,
+          priceInput: Number.isFinite(basePrice) ? basePrice.toFixed(2) : '0.00',
+          isMandatory: baseMandatory,
+          submitting: false,
+          error: null,
         });
       }
-      queryClient.invalidateQueries(['companyServices', currentCompanyId]);
     } catch (error) {
+      setAssignmentOverrides((prev) => {
+        const next = { ...prev };
+        delete next[serviceId];
+        return next;
+      });
       console.error('Error toggling service assignment:', error);
+      if (error.response) {
+        console.error('[AdminDashboard] Error response payload:', error.response.data);
+      }
       toast.error(error.response?.data?.message || t('admin.serviceAssignmentFailed'), {
         position: 'top-center',
         autoClose: 3000,
@@ -2967,7 +3199,7 @@ const AdminDashboard = () => {
                             </button>
                             <div className="flex items-center gap-2 ml-4">
                               <span className="text-sm font-medium text-gray-700 min-w-[80px] text-right">
-                                {categoryDisplayRate !== 'different' ? `$${categoryDisplayRate?.toFixed(2)}` : categoryDisplayRate}
+                                {categoryDisplayRate !== 'different' ? formatRate(categoryDisplayRate) : categoryDisplayRate}
                               </span>
                               <input
                                 type="number"
@@ -3063,7 +3295,7 @@ const AdminDashboard = () => {
                                       </button>
                                       <div className="flex items-center gap-2 ml-4">
                                         <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
-                                          {makeDisplayRate !== 'different' ? `$${makeDisplayRate?.toFixed(2)}` : makeDisplayRate}
+                                          {makeDisplayRate !== 'different' ? formatRate(makeDisplayRate) : makeDisplayRate}
                                         </span>
                                         <input
                                           type="number"
@@ -3119,7 +3351,7 @@ const AdminDashboard = () => {
                                             <span className="font-medium text-gray-800">{group.modelName}</span>
                                             <div className="flex items-center gap-2">
                                               <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
-                                                {modelDisplayRate !== 'different' ? `$${modelDisplayRate?.toFixed(2)}` : modelDisplayRate}
+                                                {modelDisplayRate !== 'different' ? formatRate(modelDisplayRate) : modelDisplayRate}
                                               </span>
                                               <input
                                                 type="number"
@@ -3180,7 +3412,7 @@ const AdminDashboard = () => {
                                                     {year} ({vehicleCount})
                                                   </span>
                                                   <span className="text-xs font-medium text-gray-600 min-w-[45px]">
-                                                    {yearRate != null && yearRate !== '' ? `$${yearRate}` : '—'}
+                                                    {yearRate != null && yearRate !== '' ? formatRate(yearRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                                                   </span>
                                                   <input
                                                     type="number"
@@ -3341,7 +3573,7 @@ const AdminDashboard = () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.servicePrice')} ({t('admin.companyPrice')})
+                              {t('admin.servicePrice')} ({t('admin.companyPrice')} · {currencySymbol}{currencyCode})
                             </label>
                             <input
                               type="number"
@@ -3351,9 +3583,11 @@ const AdminDashboard = () => {
                               className="input-field"
                               step="0.01"
                               min="0"
-                              placeholder={editingServiceBaseInfo ? `Base: $${(editingServiceBaseInfo.price || editingServiceBaseInfo.Price || 0).toFixed(2)}` : ''}
+                              placeholder={editingServiceBaseInfo ? `Base: ${formatRate(editingServiceBaseInfo.price || editingServiceBaseInfo.Price || 0, { currency: 'USD' })}` : ''}
                             />
-                            <p className="text-xs text-gray-500 mt-1">{t('admin.companyPriceHint')}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {t('admin.companyPriceHint')} ({currencySymbol}{currencyCode})
+                            </p>
                           </div>
                         </div>
                       ) : (
@@ -3388,7 +3622,7 @@ const AdminDashboard = () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.servicePrice')} *
+                              {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.servicePrice')} * (USD)
                             </label>
                             <input
                               type="number"
@@ -3533,8 +3767,45 @@ const AdminDashboard = () => {
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {allAdditionalServices.map((service) => {
-                              const serviceId = service.id || service.Id;
-                              const isAssigned = assignedServiceIds.has(serviceId);
+                              const serviceId = getServiceIdentifier(service);
+                              const baseAssigned = assignedServiceIds.has(serviceId);
+                              const hasOverride = Object.prototype.hasOwnProperty.call(
+                                assignmentOverrides,
+                                serviceId
+                              );
+                              const isAssigned = hasOverride
+                                ? assignmentOverrides[serviceId]
+                                : baseAssigned;
+                              const companyServiceRaw = companyServicesMap.get(serviceId);
+                              const companyService = isAssigned ? companyServiceRaw : null;
+                              const basePrice =
+                                service.price !== undefined && service.price !== null
+                                  ? service.price
+                                  : service.Price ?? 0;
+                              const companyPrice =
+                                companyService &&
+                                (companyService.price ?? companyService.Price ?? basePrice);
+                              const displayPrice = isAssigned ? companyPrice ?? basePrice : basePrice;
+                              const formattedPrice = isAssigned
+                                ? formatRate(displayPrice)
+                                : formatRate(displayPrice, { currency: 'USD' });
+                              const displayMaxQuantity = isAssigned
+                                ? companyService?.maxQuantity ??
+                                  companyService?.MaxQuantity ??
+                                  service.maxQuantity ??
+                                  service.MaxQuantity ??
+                                  1
+                                : service.maxQuantity || service.MaxQuantity || 1;
+                              const isMandatory = isAssigned
+                                ? companyService?.isMandatory ??
+                                  companyService?.IsMandatory ??
+                                  false
+                                : service.isMandatory ?? service.IsMandatory ?? false;
+                              const isActive = isAssigned
+                                ? companyService?.isActive ??
+                                  companyService?.IsActive ??
+                                  true
+                                : service.isActive ?? service.IsActive ?? true;
                               return (
                               <tr key={serviceId} className={`hover:bg-gray-50 ${isAssigned ? 'bg-green-50' : ''}`}>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -3567,25 +3838,25 @@ const AdminDashboard = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <span className="text-sm font-medium text-gray-900">
-                                    ${(service.price || service.Price || 0).toFixed(2)}
+                                    {formattedPrice}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <span className="text-sm text-gray-900">
-                                    {service.maxQuantity || service.MaxQuantity || 1}
+                                    {displayMaxQuantity}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <label className="flex items-center cursor-pointer">
                                     <input
                                       type="checkbox"
-                                      checked={service.isMandatory || service.IsMandatory || false}
+                                      checked={!!isMandatory}
                                       onChange={() => handleToggleServiceField(service, 'isMandatory')}
                                       className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
                                       title={t('admin.isMandatory')}
                                     />
                                     <span className="ml-2 text-sm text-gray-700">
-                                      {service.isMandatory || service.IsMandatory ? t('common.yes') : t('common.no')}
+                                      {isMandatory ? t('common.yes') : t('common.no')}
                                     </span>
                                   </label>
                                 </td>
@@ -3593,15 +3864,13 @@ const AdminDashboard = () => {
                                   <label className="flex items-center cursor-pointer">
                                     <input
                                       type="checkbox"
-                                      checked={service.isActive !== undefined ? service.isActive : (service.IsActive !== undefined ? service.IsActive : true)}
+                                      checked={!!isActive}
                                       onChange={() => handleToggleServiceField(service, 'isActive')}
                                       className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
                                       title={t('admin.isActive')}
                                     />
                                     <span className="ml-2 text-sm text-gray-700">
-                                      {service.isActive !== undefined ? service.isActive : (service.IsActive !== undefined ? service.IsActive : true)
-                                        ? t('status.active') 
-                                        : t('status.inactive')}
+                                      {isActive ? t('status.active') : t('status.inactive')}
                                     </span>
                                   </label>
                                 </td>
@@ -4531,6 +4800,93 @@ const AdminDashboard = () => {
                     : (t('create') || 'Create')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {servicePricingModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">
+                {t('admin.servicePriceModalTitle')}
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                {t('admin.servicePriceModalDescription', {
+                  serviceName:
+                    servicePricingModal.service?.name ||
+                    servicePricingModal.service?.Name ||
+                    '',
+                })}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('admin.servicePriceModalLabel')} ({currencySymbol}
+                  {currencyCode})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={servicePricingModal.priceInput}
+                  onChange={handleServicePricingInputChange}
+                  placeholder={t('admin.servicePriceModalPlaceholder', {
+                    basePrice: formatRate(servicePricingModal.basePrice, {
+                      currency: 'USD',
+                    }),
+                  })}
+                  className="input-field"
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('admin.servicePriceModalPlaceholder', {
+                    basePrice: formatRate(servicePricingModal.basePrice, {
+                      currency: 'USD',
+                    }),
+                  })}
+                </p>
+              </div>
+
+              <label className="flex items-center space-x-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={servicePricingModal.isMandatory}
+                  onChange={handleServicePricingMandatoryToggle}
+                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span>{t('admin.servicePriceModalMandatoryLabel')}</span>
+              </label>
+            </div>
+
+            {servicePricingModal.error && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                {servicePricingModal.error}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={resetServicePricingModal}
+                className="btn-outline"
+                disabled={servicePricingModal.submitting}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={submitServicePricingModal}
+                disabled={servicePricingModal.submitting}
+                className="btn-primary"
+              >
+                {servicePricingModal.submitting
+                  ? t('common.saving')
+                  : t('common.save')}
+              </button>
             </div>
           </div>
         </div>
