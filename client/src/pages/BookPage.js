@@ -808,7 +808,24 @@ React.useEffect(() => {
     } finally {
       setCheckoutLoading(false);
     }
-  }, [companyConfig?.currency, companyId, ensureVehicleSelection, formData.additionalNotes, formData.pickupDate, formData.returnDate, make, model, t, user, calculateGrandTotal, calculateServicesTotal, modelDailyRate, openAuthModal]);
+  }, [
+    companyConfig?.currency,
+    companyId,
+    ensureVehicleSelection,
+    formData.additionalNotes,
+    formData.pickupDate,
+    formData.returnDate,
+    formData.pickupLocation,
+    formData.returnLocation,
+    make,
+    model,
+    t,
+    user,
+    calculateGrandTotal,
+    calculateServicesTotal,
+    modelDailyRate,
+    openAuthModal,
+  ]);
 
   const handleAuthSuccess = useCallback(async () => {
     resetAuthModal();

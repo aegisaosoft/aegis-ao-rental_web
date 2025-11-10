@@ -19,6 +19,30 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Lookup customer by email (public - no auth required)
+router.get('/email/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const response = await apiService.getCustomerByEmail(email.trim());
+    res.json(response.data);
+  } catch (error) {
+    const status = error.response?.status || 500;
+    const message =
+      error.response?.data?.message ||
+      (status === 404 ? 'Customer not found' : 'Server error');
+
+    if (status !== 404) {
+      console.error('Customer email lookup error:', error.response?.data || error.message);
+    }
+
+    res.status(status).json({ message });
+  }
+});
+
 // Get all customers (admin only)
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {

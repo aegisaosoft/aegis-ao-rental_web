@@ -142,6 +142,7 @@ const apiService = {
   getCustomer: (id) => apiClient.get(`/api/customers/${id}`),
   createCustomer: (data) => apiClient.post('/api/customers', data),
   updateCustomer: (id, data) => apiClient.put(`/api/customers/${id}`, data),
+  getCustomerByEmail: (email) => apiClient.get(`/api/customers/email/${encodeURIComponent(email)}`),
 
   // Authentication
   login: (credentials) => apiClient.post('/api/auth/login', credentials),
