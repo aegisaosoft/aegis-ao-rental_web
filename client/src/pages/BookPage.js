@@ -584,20 +584,20 @@ React.useEffect(() => {
 
   // QR-based phone scan flow removed to satisfy current lint and scope
 
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     if (!modelDailyRate) return 0;
-    
+
     // If dates are not set, return the daily rate (1 day)
     if (!formData.pickupDate || !formData.returnDate) {
       return modelDailyRate;
     }
-    
+
     const pickup = new Date(formData.pickupDate);
     const returnDate = new Date(formData.returnDate);
     const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)));
-    
+
     return days * modelDailyRate;
-  };
+  }, [formData.pickupDate, formData.returnDate, modelDailyRate]);
 
   // Handle service checkbox toggle
   const handleServiceToggle = (service) => {
@@ -617,7 +617,7 @@ React.useEffect(() => {
   };
 
   // Calculate total for all selected services
-  const calculateServicesTotal = () => {
+  const calculateServicesTotal = useCallback(() => {
     if (!formData.pickupDate || !formData.returnDate) return 0;
     
     const pickup = new Date(formData.pickupDate);
@@ -628,14 +628,14 @@ React.useEffect(() => {
       const price = selectedService.service.servicePrice || selectedService.service.ServicePrice || 0;
       return total + (price * days * selectedService.quantity);
     }, 0);
-  };
+  }, [formData.pickupDate, formData.returnDate, selectedServices]);
 
   // Calculate grand total (vehicle daily rate + selected services)
-  const calculateGrandTotal = () => {
+  const calculateGrandTotal = useCallback(() => {
     const vehicleTotal = calculateTotal();
     const servicesTotal = calculateServicesTotal();
     return vehicleTotal + servicesTotal;
-  };
+  }, [calculateTotal, calculateServicesTotal]);
 
   const ensureVehicleSelection = useCallback(async () => {
     let vehicle = selectedVehicle;
