@@ -196,8 +196,8 @@ const BookPage = () => {
   const [formData, setFormData] = useState(() => ({
     pickupDate: initialPickupDate,
     returnDate: initialReturnDate,
-    pickupLocation: '',
-    returnLocation: '',
+    pickupLocation: savedSearchFilters?.pickupLocation || '',
+    returnLocation: savedSearchFilters?.returnLocation || '',
     additionalNotes: ''
   }));
 
@@ -270,7 +270,9 @@ React.useEffect(() => {
     startDate: formData.pickupDate || '',
     endDate: formData.returnDate || '',
     category: initialSearchCategory || '',
-    locationId: searchLocationParam || ''
+      locationId: searchLocationParam || '',
+      pickupLocation: formData.pickupLocation || '',
+      returnLocation: formData.returnLocation || ''
   };
 
   try {
