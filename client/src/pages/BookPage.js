@@ -265,22 +265,29 @@ const BookPage = () => {
     loadScannedLicense();
   }, [loadScannedLicense]);
 
-React.useEffect(() => {
-  const payload = {
-    startDate: formData.pickupDate || '',
-    endDate: formData.returnDate || '',
-    category: initialSearchCategory || '',
+  React.useEffect(() => {
+    const payload = {
+      startDate: formData.pickupDate || '',
+      endDate: formData.returnDate || '',
+      category: initialSearchCategory || '',
       locationId: searchLocationParam || '',
       pickupLocation: formData.pickupLocation || '',
       returnLocation: formData.returnLocation || ''
-  };
+    };
 
-  try {
-    localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(payload));
-  } catch (error) {
-    console.warn('[BookPage] Failed to persist search filters:', error);
-  }
-}, [formData.pickupDate, formData.returnDate, initialSearchCategory, searchLocationParam]);
+    try {
+      localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.warn('[BookPage] Failed to persist search filters:', error);
+    }
+  }, [
+    formData.pickupDate,
+    formData.returnDate,
+    formData.pickupLocation,
+    formData.returnLocation,
+    initialSearchCategory,
+    searchLocationParam
+  ]);
 
   React.useEffect(() => {
     if (!companyCountryName) return;
