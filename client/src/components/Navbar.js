@@ -13,251 +13,113 @@
  *
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Menu, X, User, Car, Calendar, Settings, LogOut, LayoutDashboard } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from './LanguageSwitcher';
+import { LayoutDashboard, Settings as SettingsIcon } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
+
+const NAV_ITEMS = [
+  { label: 'home', to: '/' },
+  { label: 'about', to: '/about' },
+  { label: 'terms', to: '/terms' },
+  { label: 'contact', to: '/contact' },
+];
 
 const Navbar = () => {
-  // Get company context from domain only
-  const { companyConfig } = useCompany();
-  
-  // Get company name from company config, or show "Unknown"
-  const displayCompanyName = companyConfig?.companyName || 'Unknown';
-  const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
-  
-  const [isOpen, setIsOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { user, logout, isAuthenticated, isMainAdmin } = useAuth();
   const { t } = useTranslation();
+  const { companyConfig } = useCompany();
+  const { isAuthenticated, isMainAdmin, logout, user } = useAuth();
   const navigate = useNavigate();
 
-  // Language is now set by CompanyContext when company config loads
-  // No need to set language here - it's handled centrally
+  const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
 
   const handleLogout = () => {
     logout();
     navigate('/');
-    setUserMenuOpen(false);
   };
 
-  const toggleMenu = () => setIsOpen(!isOpen);
-  const toggleUserMenu = () => setUserMenuOpen(!userMenuOpen);
+  const renderNavLinks = () => (
+    <nav className="flex items-center gap-10 text-xs font-semibold uppercase tracking-[0.35em] text-slate-900">
+      {NAV_ITEMS.map((item) => (
+        <Link
+          key={item.label}
+          to={item.to}
+          className="transition-colors duration-150 hover:text-blue-600"
+        >
+          {t(`navbar.${item.label}`, item.label)}
+        </Link>
+      ))}
+      {isAuthenticated && (
+        <>
+          <Link
+            to="/settings"
+            className="flex items-center gap-2 transition-colors duration-150 hover:text-blue-600"
+            title={t('navbar.settings')}
+            aria-label={t('navbar.settings')}
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </Link>
+          {(isMainAdmin || user?.isAdmin) && (
+            <Link
+              to="/admin"
+              className="flex items-center gap-2 transition-colors duration-150 hover:text-blue-600"
+              title={t('navbar.dashboard')}
+              aria-label={t('navbar.dashboard')}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </Link>
+          )}
+        </>
+      )}
+    </nav>
+  );
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-40">
-      {logoUrl && logoUrl.trim() && (
-        <div className="hidden sm:block pointer-events-none select-none">
-          <img
-            src={logoUrl}
-            alt={displayCompanyName}
-            className="absolute top-0 left-0 h-16 max-h-16 w-auto object-cover"
-            aria-hidden="true"
-          />
-        </div>
-      )}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Left side - Company filter and Logo */}
-          <div className="flex items-center space-x-2">
-            {/* Logo icon */}
-            <Link to="/" className="flex items-center space-x-2">
-              <Car className="h-8 w-8 text-blue-600" />
-            </Link>
-            
-            {/* Company Display - Static text only */}
-            <span className="text-xl font-bold text-gray-900">
-              {displayCompanyName || 'Unknown'}
+    <header className="bg-white border-b border-gray-200">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <div className="flex items-center">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={companyConfig?.companyName || 'Company logo'}
+              className="h-16 w-auto object-contain"
+            />
+          ) : (
+            <span className="text-xl font-semibold tracking-wide text-gray-900">
+              {companyConfig?.companyName || 'M.L.C RENT CARS'}
             </span>
-            
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
-              {t('nav.home')}
-            </Link>
-            {isAuthenticated && (
-              <Link to="/my-bookings" className="text-gray-700 hover:text-blue-600 transition-colors">
-                {t('nav.myBookings')}
-              </Link>
-            )}
-          </div>
-
-          {/* Language Switcher - Always Visible */}
-          <div className="hidden md:flex">
-            <LanguageSwitcher />
-          </div>
-
-          {/* Desktop Auth */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <>
-                {/* Main Admin Dashboard Button - Only for Main Admin */}
-                {isMainAdmin && (
-                  <Link
-                    to="/admin"
-                    className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors p-2 rounded-md hover:bg-gray-100"
-                    title={t('nav.adminDashboard')}
-                  >
-                    <LayoutDashboard className="h-5 w-5" />
-                  </Link>
-                )}
-
-                {/* Settings Button */}
-                <Link
-                  to="/settings"
-                  className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors p-2 rounded-md hover:bg-gray-100"
-                  title={t('nav.settings')}
-                >
-                  <Settings className="h-5 w-5" />
-                </Link>
-                
-                <div className="relative">
-                  <button
-                    onClick={toggleUserMenu}
-                    className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors"
-                  >
-                    <User className="h-5 w-5" />
-                    <span>{user?.firstName}</span>
-                  </button>
-                
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                    <Link
-                      to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      {t('nav.profile')}
-                    </Link>
-                    <Link
-                      to="/my-bookings"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {t('nav.myBookings')}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      {t('nav.logout')}
-                    </button>
-                  </div>
-                )}
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center space-x-4">
-                <Link
-                  to="/login"
-                  className="text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  {t('nav.login')}
-                </Link>
-                <Link
-                  to="/register"
-                  className="btn-primary"
-                >
-                  {t('nav.signUp')}
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={toggleMenu}
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
+          )}
         </div>
 
-        {/* Mobile Navigation */}
-        {isOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-              <Link
-                to="/"
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                {t('nav.home')}
-              </Link>
-              {isAuthenticated && (
-                <>
-                  <Link
-                    to="/my-bookings"
-                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {t('nav.myBookings')}
-                  </Link>
-                  <Link
-                    to="/profile"
-                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {t('nav.profile')}
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    {t('nav.settings')}
-                  </Link>
-                  {user?.isAdmin && (
-                    <Link
-                      to="/admin"
-                      className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      {t('nav.adminDashboard')}
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                  >
-                    {t('nav.logout')}
-                  </button>
-                </>
-              )}
-              {!isAuthenticated && (
-                <>
-                  <Link
-                    to="/login"
-                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {t('nav.login')}
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {t('nav.signUp')}
-                  </Link>
-                </>
-              )}
+        <div className="hidden items-center gap-10 md:flex">
+          {renderNavLinks()}
+          <div className="flex items-center gap-6">
+            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-900">
+              <LanguageSwitcher />
             </div>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-900 transition-colors duration-150 hover:text-blue-600"
+              >
+                {t('navbar.logout')}
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-900 transition-colors duration-150 hover:text-blue-600"
+              >
+                {t('navbar.login')}
+              </Link>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

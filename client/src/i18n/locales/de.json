@@ -173,6 +173,22 @@
     "bookModel": "{{make}} {{model}} Buchen",
     "selectVehicleAndComplete": "Wählen Sie ein Fahrzeug aus und schließen Sie Ihre Buchung ab",
     "driverLicenseInformation": "Führerscheininformationen",
+    "driverLicenseHelper": "Verwalten Sie Ihre Führerscheindaten vor dem Checkout.",
+    "ratePerDayTitle": "Preis pro Tag",
+    "noAdditionalOptions": "Keine zusätzlichen Optionen verfügbar"
+  },
+  "navbar": {
+    "home": "Startseite",
+    "about": "Über uns",
+    "carRentals": "Autovermietung",
+    "terms": "AGB",
+    "contact": "Kontakt",
+    "settings": "Einstellungen",
+    "dashboard": "Dashboard",
+    "login": "Anmelden",
+    "logout": "Abmelden"
+  },
+  "bookPage": {
     "editExisting": "(Vorhandenes bearbeiten)",
     "createNew": "(Neu erstellen)",
     "loginToEnterLicense": "Bitte melden Sie sich an, um Ihre Führerscheininformationen einzugeben",
@@ -241,6 +257,17 @@
     "rentTheCar": "Auto Mieten",
     "additionalOptions": "Zusätzliche Optionen",
     "noAdditionalOptions": "Keine zusätzlichen Optionen verfügbar"
+  },
+  "navbar": {
+    "home": "Startseite",
+    "about": "Über uns",
+    "carRentals": "Autovermietung",
+    "terms": "AGB",
+    "contact": "Kontakt",
+    "settings": "Einstellungen",
+    "dashboard": "Dashboard",
+    "login": "Anmelden",
+    "logout": "Abmelden"
   },
   "footer": {
     "description": "Ihr vertrauenswürdiger Partner für Premium-Autovermietungsservices. Erleben Sie die Freiheit der Straße mit unserer großen Auswahl an Fahrzeugen.",

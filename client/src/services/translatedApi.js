@@ -210,7 +210,10 @@ export const translatedApiService = {
     const response = await apiService.getCustomer(id);
     return translateResponse(response);
   },
-  
+  getCustomerByEmail: async (email) => {
+    const response = await apiService.getCustomerByEmail(email);
+    return translateResponse(response);
+  },
   createCustomer: async (data) => {
     const response = await apiService.createCustomer(data);
     return translateResponse(response);
@@ -247,7 +250,11 @@ export const translatedApiService = {
     const response = await apiService.getPaymentMethods(customerId);
     return translateResponse(response);
   },
-  
+  createCheckoutSession: async (data) => {
+    const response = await apiService.createCheckoutSession(data);
+    return translateResponse(response);
+  },
+
   // Companies
   getCompanies: async (params = {}) => {
     const response = await apiService.getCompanies(params);

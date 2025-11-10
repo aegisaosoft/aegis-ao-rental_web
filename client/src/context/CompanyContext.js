@@ -19,6 +19,12 @@ import i18n from '../i18n/config';
 import { getLanguageForCountry } from '../utils/countryLanguage';
 import { formatCurrency, normalizeCurrencyCode, getCurrencySymbol } from '../utils/currency';
 
+const normalizeAiIntegration = (value) => {
+  if (!value) return 'claude';
+  const normalized = value.toString().trim().toLowerCase();
+  return ['free', 'claude', 'premium'].includes(normalized) ? normalized : 'claude';
+};
+
 const CompanyContext = createContext();
 
 export const useCompany = () => {
@@ -71,7 +77,8 @@ export const CompanyProvider = ({ children }) => {
         if (config && config.id) {
           const normalizedConfig = {
             ...config,
-            currency: normalizeCurrencyCode(config.currency || config.Currency || 'USD')
+            currency: normalizeCurrencyCode(config.currency || config.Currency || 'USD'),
+            aiIntegration: normalizeAiIntegration(config.aiIntegration || config.AiIntegration)
           };
           console.log('[CompanyContext] Loaded company config:', normalizedConfig.companyName, normalizedConfig.id, 'currency', normalizedConfig.currency);
           setCompanyConfig(normalizedConfig);
@@ -157,7 +164,8 @@ export const CompanyProvider = ({ children }) => {
           country: 'United States',
           language: 'en',
           blinkKey: 'sRwCAB5taWFtaWxpZmVjYXJzLmFlZ2lzLXJlbnRhbC5jb20GbGV5SkRjbVZoZEdWa1QyNGlPakUzTmpJME1EZzRNVFl3TVRBc0lrTnlaV0YwWldSR2IzSWlPaUppTlRrMFpUazFZUzB6T0RFMkxUUXdNV1V0WW1JM055MHpaR1JsT0RRME1qQTBNVEVpZlE9Pbv1rgG/yLgd0nzSiRWxJK8kMSb26of5X9/vmuLBdCMHr4jrBzFRHprgqfnMf37yoaPzE+DXFL9zyGiDM9NRQTnWyY7xgNtACwQSOXA4bM6WdteuYOCVYPg0eAvwH7k=',
-          currency: 'USD'
+          currency: 'USD',
+          aiIntegration: 'claude'
         }
       };
     };
@@ -285,6 +293,7 @@ export const CompanyProvider = ({ children }) => {
     currencyCode,
     currencySymbol,
     formatPrice,
+    aiIntegration: normalizeAiIntegration(companyConfig?.aiIntegration),
     // Helper to check if company has booking integration
     hasBookingIntegration: companyConfig?.bookingIntegrated === true,
     // Helper to get company language

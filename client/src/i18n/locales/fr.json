@@ -168,14 +168,18 @@
     "enterPickupLocation": "Entrez le lieu de récupération",
     "enterReturnLocation": "Entrez le lieu de retour"
   },
+  "navbar": {
+    "home": "Accueil",
+    "about": "À propos",
+    "carRentals": "Location de Voitures",
+    "terms": "Conditions générales",
+    "contact": "Contact",
+    "settings": "Paramètres",
+    "dashboard": "Tableau de bord",
+    "login": "Connexion",
+    "logout": "Déconnexion"
+  },
   "bookPage": {
-    "noModelSelected": "Aucun Modèle Sélectionné",
-    "selectModelToBook": "Veuillez sélectionner un modèle de véhicule à réserver.",
-    "returnToHome": "Retour à l'Accueil",
-    "backToHome": "Retour à l'Accueil",
-    "bookModel": "Réserver {{make}} {{model}}",
-    "selectVehicleAndComplete": "Sélectionnez un véhicule et complétez votre réservation",
-    "driverLicenseInformation": "Informations sur le Permis de Conduire",
     "editExisting": "(Modifier l'existant)",
     "createNew": "(Créer nouveau)",
     "loginToEnterLicense": "Veuillez vous connecter pour saisir vos informations de permis de conduire",
@@ -244,6 +248,17 @@
     "rentTheCar": "Louer la Voiture",
     "additionalOptions": "Options Supplémentaires",
     "noAdditionalOptions": "Aucune option supplémentaire disponible"
+  },
+  "navbar": {
+    "home": "Accueil",
+    "about": "À propos",
+    "carRentals": "Location de Voitures",
+    "terms": "Conditions générales",
+    "contact": "Contact",
+    "settings": "Paramètres",
+    "dashboard": "Tableau de bord",
+    "login": "Connexion",
+    "logout": "Déconnexion"
   },
   "footer": {
     "description": "Votre partenaire de confiance pour les services premium de location de voitures. Profitez de la liberté de la route avec notre large sélection de véhicules.",

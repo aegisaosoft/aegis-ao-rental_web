@@ -373,14 +373,15 @@ const Settings = () => {
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                        className={`w-full flex items-center justify-center px-3 py-2 rounded-md transition-colors ${
                           activeTab === tab.id
                             ? 'bg-blue-100 text-blue-700'
                             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                         }`}
+                        title={tab.label}
+                        aria-label={tab.label}
                       >
-                        <Icon className="h-4 w-4 mr-3" />
-                        {tab.label}
+                        <Icon className="h-5 w-5" aria-hidden="true" />
                       </button>
                     );
                   })}

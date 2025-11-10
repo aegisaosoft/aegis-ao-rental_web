@@ -13,21 +13,32 @@
  *
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
-import { Car, ArrowLeft, CreditCard, X, Calendar } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
+import { countryToLanguage } from '../utils/countryLanguage';
+
+const INITIAL_AUTH_FORM = {
+  email: '',
+  password: '',
+  firstName: '',
+  lastName: '',
+  confirmPassword: ''
+};
+
+const SEARCH_FILTERS_STORAGE_KEY = 'rentalSearchFilters';
 
 const BookPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, login: loginUser, register: registerUser } = useAuth();
   const queryClient = useQueryClient();
 
   // Get filters from URL
@@ -71,19 +82,130 @@ const BookPage = () => {
     }
   }, []);
   const [modelImageSrc, setModelImageSrc] = useState('/economy.jpg');
-  const [formData, setFormData] = useState({
-    pickupDate: '',
-    returnDate: '',
+
+  const savedSearchFilters = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(SEARCH_FILTERS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.warn('[BookPage] Failed to load saved search filters:', error);
+      return null;
+    }
+  }, []);
+
+  const searchStartDate = searchParams.get('startDate');
+  const searchEndDate = searchParams.get('endDate');
+  const searchCategoryParam = searchParams.get('searchCategory');
+  const searchLocationParam =
+    searchParams.get('locationId') || savedSearchFilters?.locationId || '';
+
+  const initialPickupDate = searchStartDate || savedSearchFilters?.startDate || '';
+  const initialReturnDate = searchEndDate || savedSearchFilters?.endDate || '';
+  const initialSearchCategory = searchCategoryParam || savedSearchFilters?.category || '';
+
+  const companyCountryName = useMemo(
+    () => companyConfig?.country || companyConfig?.Country || 'United States',
+    [companyConfig]
+  );
+
+  const countryOptions = useMemo(() => {
+    if (typeof Intl?.supportedValuesOf === 'function') {
+      try {
+        const regionCodes = Intl.supportedValuesOf('region').filter((code) =>
+          /^[A-Z]{2}$/.test(code)
+        );
+        const displayNames = new Intl.DisplayNames(
+          [i18n.language || 'en'],
+          { type: 'region' }
+        );
+        return regionCodes
+          .map((code) => ({
+            code,
+            name: displayNames.of(code) || code,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      } catch (error) {
+        console.warn('[BookPage] Failed to generate country list from Intl API:', error);
+      }
+    }
+
+    const fallbackCountries = Array.from(
+      new Set([
+        'United States',
+        'Canada',
+        'Brazil',
+        'Argentina',
+        'Chile',
+        'Colombia',
+        'Mexico',
+        'Peru',
+        'Uruguay',
+        'Paraguay',
+        'Bolivia',
+        'Ecuador',
+        'Venezuela',
+        'Costa Rica',
+        'Panama',
+        'Guatemala',
+        'Honduras',
+        'El Salvador',
+        'Nicaragua',
+        'Belize',
+        'Dominican Republic',
+        'Cuba',
+        'Jamaica',
+        'Bahamas',
+        'Barbados',
+        'Antigua and Barbuda',
+        'Saint Lucia',
+        'Trinidad and Tobago',
+        'United Kingdom',
+        'Ireland',
+        'France',
+        'Germany',
+        'Italy',
+        'Spain',
+        'Portugal',
+        'Netherlands',
+        'Belgium',
+        'Switzerland',
+        'Austria',
+        'Norway',
+        'Sweden',
+        'Finland',
+        'Denmark',
+        'Australia',
+        'New Zealand',
+        'Japan',
+        'South Korea',
+        'China',
+        'India',
+        'South Africa',
+        'Morocco',
+        'Egypt',
+        'Turkey',
+        ...Object.keys(countryToLanguage || {}),
+      ])
+    ).sort((a, b) => a.localeCompare(b));
+
+    return fallbackCountries.map((name) => ({
+      code: name,
+      name,
+    }));
+  }, [i18n.language]);
+  const [formData, setFormData] = useState(() => ({
+    pickupDate: initialPickupDate,
+    returnDate: initialReturnDate,
     pickupLocation: '',
     returnLocation: '',
     additionalNotes: ''
-  });
+  }));
 
   // Driver License form data
   const [licenseData, setLicenseData] = useState({
     licenseNumber: '',
     stateIssued: '',
-    countryIssued: 'US',
+    countryIssued: companyCountryName || 'United States',
     sex: '',
     height: '',
     eyeColor: '',
@@ -98,6 +220,12 @@ const BookPage = () => {
     restrictionCode: '',
     endorsements: ''
   });
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authStep, setAuthStep] = useState('email');
+  const [authForm, setAuthForm] = useState(INITIAL_AUTH_FORM);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   // Load license data from localStorage
   const loadScannedLicense = React.useCallback(() => {
@@ -136,6 +264,35 @@ const BookPage = () => {
   React.useEffect(() => {
     loadScannedLicense();
   }, [loadScannedLicense]);
+
+React.useEffect(() => {
+  const payload = {
+    startDate: formData.pickupDate || '',
+    endDate: formData.returnDate || '',
+    category: initialSearchCategory || '',
+    locationId: searchLocationParam || ''
+  };
+
+  try {
+    localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('[BookPage] Failed to persist search filters:', error);
+  }
+}, [formData.pickupDate, formData.returnDate, initialSearchCategory, searchLocationParam]);
+
+  React.useEffect(() => {
+    if (!companyCountryName) return;
+    setLicenseData((prev) => {
+      if (
+        !prev.countryIssued ||
+        prev.countryIssued === 'US' ||
+        prev.countryIssued === 'United States'
+      ) {
+        return { ...prev, countryIssued: companyCountryName };
+      }
+      return prev;
+    });
+  }, [companyCountryName]);
 
 
   // Listen for storage events (when license is scanned on phone in another tab/window)
@@ -284,6 +441,7 @@ const BookPage = () => {
   const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
   // Explicitly use Description field (not CategoryName)
   const modelDescription = modelData?.description || modelData?.Description || '';
+  const modelCategory = modelData?.categoryName || modelData?.CategoryName || modelData?.category || '';
   
   // Auto-select mandatory services when services load
   React.useEffect(() => {
@@ -479,108 +637,75 @@ const BookPage = () => {
     return vehicleTotal + servicesTotal;
   };
 
-  const handleRentCar = async () => {
-    // Prohibit booking if no company
-    if (!companyId) {
-      toast.error('Booking is not available. Please access via a company subdomain.');
-      navigate('/');
-      return;
-    }
-    
-    if (!isAuthenticated) {
-      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
-      return;
-    }
-    
-    if (!formData.pickupDate || !formData.returnDate) {
-      toast.error(t('bookPage.selectPickupAndReturn'));
-      return;
-    }
-    
-    // Get first available vehicle via API if none selected
-    let vehicleToUse = selectedVehicle;
-    let vehicleId = null;
-    
-    if (!vehicleToUse) {
+  const ensureVehicleSelection = useCallback(async () => {
+    let vehicle = selectedVehicle;
+    let vehicleId = selectedVehicleId;
+
+    if (!vehicle || !vehicleId) {
       try {
-        // Call API to get first available vehicle for this model
         const response = await apiService.getFirstAvailableVehicle({
           make,
           model,
           companyId,
-          status: 'Available'
+          status: 'Available',
+          pageSize: 1
         });
-        
-        // Handle different response structures
-        const vehiclesData = response?.data || response;
-        let vehiclesList = [];
-        
-        if (Array.isArray(vehiclesData)) {
-          vehiclesList = vehiclesData;
-        } else if (Array.isArray(vehiclesData?.items)) {
-          vehiclesList = vehiclesData.items;
-        } else if (Array.isArray(vehiclesData?.data)) {
-          vehiclesList = vehiclesData.data;
-        } else if (vehiclesData?.Vehicles && Array.isArray(vehiclesData.Vehicles)) {
-          vehiclesList = vehiclesData.Vehicles;
-        } else if (vehiclesData?.vehicles && Array.isArray(vehiclesData.vehicles)) {
-          vehiclesList = vehiclesData.vehicles;
-        }
-        
-        vehicleToUse = vehiclesList[0];
-        
-        if (vehicleToUse) {
-          vehicleId = vehicleToUse.vehicle_id || vehicleToUse.vehicleId || vehicleToUse.id;
-          setSelectedVehicleId(vehicleId);
+
+        const data = response?.data || response;
+        let list = [];
+
+        if (Array.isArray(data?.items)) list = data.items;
+        else if (Array.isArray(data?.data)) list = data.data;
+        else if (Array.isArray(data?.vehicles)) list = data.vehicles;
+        else if (Array.isArray(data)) list = data;
+
+        const firstVehicle = list[0];
+        if (firstVehicle) {
+          const id = firstVehicle.vehicle_id || firstVehicle.vehicleId || firstVehicle.id;
+          if (id) {
+            setSelectedVehicleId(id);
+            vehicle = firstVehicle;
+            vehicleId = id;
+          }
         }
       } catch (error) {
         console.error('Error fetching first available vehicle:', error);
       }
-    } else {
-      vehicleId = vehicleToUse.vehicle_id || vehicleToUse.vehicleId || vehicleToUse.id;
     }
-    
-    if (!vehicleToUse || !vehicleId) {
-      toast.error(t('bookPage.pleaseSelectVehicle'));
-      return;
-    }
-    
-    // Create booking data directly
-    try {
-      const bookingData = {
-        vehicleId: vehicleId,
-        companyId: vehicleToUse.company_id || vehicleToUse.companyId || companyId,
-        customerId: user.id || user.customer_id || user.customerId,
-        pickupDate: formData.pickupDate,
-        returnDate: formData.returnDate,
-        pickupLocation: formData.pickupLocation || vehicleToUse.location || '',
-        returnLocation: formData.returnLocation || vehicleToUse.location || '',
-        additionalNotes: formData.additionalNotes || ''
-      };
 
-      await apiService.createReservation(bookingData);
-      toast.success(t('bookPage.bookingCreated'));
-      navigate('/my-bookings');
-    } catch (error) {
-      toast.error(error.response?.data?.message || t('bookPage.bookingFailed'));
-      console.error('Booking error:', error);
+    if (!vehicle || !vehicleId) {
+      toast.error(t('bookPage.pleaseSelectVehicle'));
+      return null;
     }
+
+    return { vehicle, vehicleId };
+  }, [companyId, make, model, selectedVehicle, selectedVehicleId, setSelectedVehicleId, t]);
+
+  const resetAuthModal = useCallback(() => {
+    setAuthStep('email');
+    setAuthForm(INITIAL_AUTH_FORM);
+    setAuthError('');
+  }, []);
+
+  const openAuthModal = useCallback(() => {
+    setAuthForm((prev) => ({ ...INITIAL_AUTH_FORM, email: prev.email || user?.email || '' }));
+    setAuthStep('email');
+    setAuthError('');
+    setAuthModalOpen(true);
+  }, [user]);
+
+  const handleCloseAuthModal = () => {
+    if (authLoading || checkoutLoading) return;
+    setAuthModalOpen(false);
+    resetAuthModal();
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!isAuthenticated) {
-      toast.error(t('bookPage.pleaseLoginToBook'));
-      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
-      return;
-    }
+  const handleAuthInputChange = (e) => {
+    const { name, value } = e.target;
+    setAuthForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-    if (!selectedVehicleId) {
-      toast.error(t('bookPage.pleaseSelectVehicle'));
-      return;
-    }
-
+  const proceedToCheckout = useCallback(async () => {
     if (!formData.pickupDate || !formData.returnDate) {
       toast.error(t('bookPage.selectPickupAndReturn'));
       return;
@@ -594,43 +719,215 @@ const BookPage = () => {
       return;
     }
 
+    const customerId =
+      user?.id ||
+      user?.customer_id ||
+      user?.customerId ||
+      user?.CustomerId ||
+      user?.customer?.id ||
+      null;
+
+    if (!customerId) {
+      toast.error(t('bookPage.loginToComplete', 'Please sign in to complete your booking.'));
+      openAuthModal();
+      return;
+    }
+
+    const selection = await ensureVehicleSelection();
+    if (!selection) return;
+
+    const { vehicle, vehicleId } = selection;
+
     try {
-      if (!Array.isArray(vehicles)) {
-        toast.error(t('bookPage.vehicleDataNotAvailable'));
-        return;
-      }
+      setCheckoutLoading(true);
 
-      const vehicle = vehicles.find(v => 
-        (v.vehicle_id || v.vehicleId || v.id) === selectedVehicleId
-      );
-
-      if (!vehicle) {
-        toast.error(t('bookPage.selectedVehicleNotFound'));
-        return;
-      }
+      const dailyRate = Number(vehicle.daily_rate || vehicle.dailyRate || modelDailyRate || 0);
+      const additionalFees = calculateServicesTotal();
 
       const bookingData = {
-        vehicleId: vehicle.vehicle_id || vehicle.vehicleId || vehicle.id,
+        vehicleId,
         companyId: vehicle.company_id || vehicle.companyId || companyId,
-        customerId: user.id || user.customer_id || user.customerId,
+        customerId,
         pickupDate: formData.pickupDate,
         returnDate: formData.returnDate,
         pickupLocation: formData.pickupLocation || vehicle.location || '',
         returnLocation: formData.returnLocation || vehicle.location || '',
-        dailyRate: vehicle.daily_rate || vehicle.dailyRate || 0,
+        dailyRate,
         taxAmount: 0,
         insuranceAmount: 0,
-        additionalFees: 0,
-        additionalNotes: formData.additionalNotes
+        additionalFees,
+        additionalNotes: formData.additionalNotes || ''
       };
 
-      await apiService.createReservation(bookingData);
-      toast.success(t('bookPage.bookingCreated'));
-      navigate('/my-bookings');
+      const reservationResponse = await apiService.createReservation(bookingData);
+      const reservation = reservationResponse?.data || reservationResponse;
+      const reservationId = reservation?.id || reservation?.Id;
+
+      if (!reservationId) {
+        toast.error(t('bookPage.bookingFailed') || 'Unable to create reservation.');
+        return;
+      }
+
+      const amount = calculateGrandTotal();
+      if (amount <= 0) {
+        toast.error(t('bookPage.invalidAmount') || 'Payment amount must be greater than zero.');
+        return;
+      }
+
+      const checkoutResponse = await apiService.createCheckoutSession({
+        customerId: user.id || user.customer_id || user.customerId,
+        companyId: vehicle.company_id || vehicle.companyId || companyId,
+        reservationId,
+        amount,
+        currency: (companyConfig?.currency || 'USD').toLowerCase(),
+        description: `${make || ''} ${model || ''}`.trim() || 'Vehicle Booking',
+        successUrl: `${window.location.origin}/my-bookings?reservation=${reservationId ?? ''}`,
+        cancelUrl: `${window.location.origin}${window.location.pathname}${window.location.search}`
+      });
+
+      const checkoutData = checkoutResponse?.data || checkoutResponse;
+      const sessionUrl = checkoutData?.url || checkoutData?.Url;
+
+      if (sessionUrl) {
+        localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
+        window.location.href = sessionUrl;
+      } else {
+        toast.error(t('bookPage.checkoutUnable') || 'Unable to start payment session.');
+      }
     } catch (error) {
-      toast.error(error.response?.data?.message || t('bookPage.bookingFailed'));
-      console.error('Booking error:', error);
+      const status = error.response?.status;
+      const message = error.response?.data?.message || error.message;
+
+      if (status === 401 || status === 403) {
+        toast.error(t('bookPage.sessionExpired', 'Your session expired. Please sign in again.'));
+        openAuthModal();
+      } else {
+        toast.error(message || t('bookPage.bookingFailed'));
+      }
+      console.error('Checkout error:', error);
+    } finally {
+      setCheckoutLoading(false);
     }
+  }, [companyConfig?.currency, companyId, ensureVehicleSelection, formData.additionalNotes, formData.pickupDate, formData.returnDate, make, model, t, user, calculateGrandTotal, calculateServicesTotal, modelDailyRate, openAuthModal]);
+
+  const handleAuthSuccess = useCallback(async () => {
+    resetAuthModal();
+    setAuthModalOpen(false);
+    await proceedToCheckout();
+  }, [proceedToCheckout, resetAuthModal]);
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    if (!authForm.email.trim()) {
+      setAuthError(t('auth.emailRequired') || 'Email is required.');
+      return;
+    }
+    try {
+      setAuthLoading(true);
+      setAuthError('');
+      const normalizedEmail = authForm.email.trim().toLowerCase();
+      setAuthForm((prev) => ({ ...prev, email: normalizedEmail }));
+      await apiService.getCustomerByEmail(normalizedEmail);
+      setAuthStep('password');
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setAuthStep('signup');
+        setAuthError('');
+      } else {
+        setAuthError(error.response?.data?.message || t('auth.emailCheckFailed') || 'Unable to verify email.');
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!authForm.password) {
+      setAuthError(t('auth.passwordRequired') || 'Password is required.');
+      return;
+    }
+    try {
+      setAuthLoading(true);
+      setAuthError('');
+      await loginUser({
+        email: authForm.email.trim().toLowerCase(),
+        password: authForm.password
+      });
+      await handleAuthSuccess();
+    } catch (error) {
+      setAuthError(error.response?.data?.message || t('auth.invalidCredentials') || 'Invalid email or password.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async (e) => {
+    e.preventDefault();
+    if (!authForm.firstName || !authForm.lastName) {
+      setAuthError(t('auth.nameRequired') || 'First and last name are required.');
+      return;
+    }
+    if (!authForm.password) {
+      setAuthError(t('auth.passwordRequired') || 'Password is required.');
+      return;
+    }
+    if (authForm.password !== authForm.confirmPassword) {
+      setAuthError(t('auth.passwordMismatch') || 'Passwords do not match.');
+      return;
+    }
+
+    try {
+      setAuthLoading(true);
+      setAuthError('');
+      await registerUser({
+        email: authForm.email.trim().toLowerCase(),
+        password: authForm.password,
+        firstName: authForm.firstName,
+        lastName: authForm.lastName
+      });
+      await handleAuthSuccess();
+    } catch (error) {
+      setAuthError(error.response?.data?.message || t('auth.registrationFailed') || 'Unable to create account.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+ 
+  const handleRentCar = async () => {
+    if (checkoutLoading) return;
+
+    if (!companyId) {
+      toast.error('Booking is not available. Please access via a company subdomain.');
+      navigate('/');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
+    await proceedToCheckout();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (checkoutLoading) return;
+
+    if (!companyId) {
+      toast.error('Booking is not available. Please access via a company subdomain.');
+      navigate('/');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
+    await proceedToCheckout();
   };
 
   if (!make || !model) {
@@ -651,475 +948,119 @@ const BookPage = () => {
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Part - Header and Vehicle Selection */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Back Button */}
-            <Link to="/" className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-4">
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              {t('bookPage.backToHome')}
-            </Link>
+    <>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-6">
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            {t('bookPage.backToHome')}
+          </Link>
 
-            {/* Header with Model Picture */}
-            <div>
-              <div className="flex flex-col gap-4 mb-6">
-                {/* Model Picture */}
-                {make && model && (
-                  <div className="relative">
-                    <img
-                      src={modelImageSrc}
-                      alt={`${make} ${model}`}
-                      className="w-full h-64 object-cover rounded-lg shadow-md"
-                    />
-                  </div>
-                )}
-                {/* Header Text */}
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-8">
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <img
+                  src={modelImageSrc}
+                  alt={`${make} ${model}`}
+                  className="w-full h-64 object-cover"
+                />
+                <div className="p-6 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
+                    {(make && model) ? `${make} ${model}` : t('bookPage.selectedVehicleLabel', 'Selected Vehicle')}
+                  </p>
+                  <h1 className="text-3xl font-bold text-gray-900">
                     {t('bookPage.bookModel', { make, model })}
                   </h1>
                   {modelDailyRate > 0 && (
-                    <p className="text-xl font-semibold text-blue-600 mb-2">
+                    <p className="text-xl font-semibold text-blue-600">
                       {formatPrice(modelDailyRate)} / {t('vehicles.day')}
                     </p>
                   )}
-                  {modelDescription && (
-                    <p className="text-gray-600 mb-4">{modelDescription}</p>
+                  {modelCategory && (
+                    <p className="text-sm font-semibold uppercase text-gray-700">
+                      {modelCategory}
+                    </p>
                   )}
-                  {!modelDescription && (
-                    <p className="text-gray-600 mb-4">{t('bookPage.selectVehicleAndComplete')}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Driver License Information - Buttons */}
-            <div className="bg-white rounded-lg shadow-md p-6 space-y-3">
-              <button
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
-                    return;
-                  }
-                  setIsLicenseModalOpen(true);
-                }}
-                className="w-full btn-outline flex items-center justify-center gap-2"
-              >
-                <CreditCard className="h-5 w-5" />
-                {isAuthenticated 
-                  ? (customerLicense ? t('bookPage.driverLicenseInformation') : t('bookPage.createLicenseInformation'))
-                  : t('bookPage.driverLicenseInformation')}
-              </button>
-              
-            </div>
-
-              {/* QR Modal */}
-              {qrOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-                  <div className="bg-white rounded-lg p-4 w-80 text-center">
-                    <div className="text-lg font-semibold mb-2">{t('bookPage.scanOnYourPhone')}</div>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
-                      alt="QR"
-                      className="mx-auto mb-2"
-                    />
-                    <div className="text-xs break-all text-gray-600 mb-3">{qrUrl}</div>
-                    <div className="text-left mb-3">
-                      <label className="block text-xs text-gray-600 mb-1">{t('bookPage.publicBaseUrl')}</label>
-                      <input
-                        type="text"
-                        value={qrBase}
-                        onChange={(e)=>setQrBase(e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded"
-                        placeholder={t('bookPage.lanIpPlaceholder')}
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success(t('common.saved')); }}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
-                        >{t('common.save')}</button>
-                                                  <button
-                            onClick={()=>{
-                              const origin = (qrBase || window.location.origin).replace(/\/$/, '');
-                              const returnTo = window.location.pathname + window.location.search;
-                              const token = localStorage.getItem('token');
-                              let url = `${origin}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
-                              if (token && isAuthenticated) {
-                                url += `&token=${encodeURIComponent(token)}`;
-                              }
-                              setQrUrl(url);
-                            }}
-                            className="flex-1 bg-gray-200 text-gray-800 py-1 rounded text-sm"
-                          >Update QR</button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={()=>setQrOpen(false)}
-                      className="w-full bg-gray-200 text-gray-800 py-2 rounded-md font-semibold"
-                    >Close</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Driver License Modal */}
-              {isLicenseModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                    {/* Header with title and buttons */}
-                    <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-                      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                        <CreditCard className="h-6 w-6 mr-2" />
-                        {t('bookPage.driverLicenseInformation')}
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        {/* Only show scan button if company has BlinkID key */}
-                        {(companyConfig?.blinkKey || companyConfig?.BlinkKey || process.env.REACT_APP_BLINKID_LICENSE_KEY) && (
-                        <button
-                          type="button"
-                          onClick={handleScanOnPhone}
-                          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md"
-                          title={t('bookPage.scanOnPhoneViaQr')}
-                        >
-                          {t('bookPage.scanOnPhone')}
-                        </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setIsLicenseModalOpen(false);
-                          }}
-                          className="text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          <X className="h-6 w-6" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-6">
-                      <form onSubmit={handleSaveLicense} className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* License Number */}
-                          <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.licenseNumber')} *
-                      </label>
-                      <input
-                        type="text"
-                        name="licenseNumber"
-                        value={licenseData.licenseNumber}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-
-                    {/* State Issued */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.stateIssued')} *
-                      </label>
-                      <input
-                        type="text"
-                        name="stateIssued"
-                        value={licenseData.stateIssued}
-                        onChange={handleLicenseChange}
-                        maxLength="2"
-                        placeholder="e.g., NJ"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-
-                    {/* Country Issued */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.countryIssued')}
-                      </label>
-                      <input
-                        type="text"
-                        name="countryIssued"
-                        value={licenseData.countryIssued}
-                        onChange={handleLicenseChange}
-                        maxLength="2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Expiration Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.expirationDate')} *
-                      </label>
-                      <input
-                        type="date"
-                        name="expirationDate"
-                        value={licenseData.expirationDate}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-
-                    {/* Issue Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.issueDate')}
-                      </label>
-                      <input
-                        type="date"
-                        name="issueDate"
-                        value={licenseData.issueDate}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Sex */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.sex')}
-                      </label>
-                      <select
-                        name="sex"
-                        value={licenseData.sex}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">{t('bookPage.select')}</option>
-                        <option value="M">{t('bookPage.male')}</option>
-                        <option value="F">{t('bookPage.female')}</option>
-                        <option value="X">{t('bookPage.other')}</option>
-                      </select>
-                    </div>
-
-                    {/* Height */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.height')}
-                      </label>
-                      <input
-                        type="text"
-                        name="height"
-                        value={licenseData.height}
-                        onChange={handleLicenseChange}
-                        placeholder="e.g., 5'10 inches"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Eye Color */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.eyeColor')}
-                      </label>
-                      <input
-                        type="text"
-                        name="eyeColor"
-                        value={licenseData.eyeColor}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Middle Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.middleName')}
-                      </label>
-                      <input
-                        type="text"
-                        name="middleName"
-                        value={licenseData.middleName}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                          </div>
-                        </div>
-
-                        {/* License Address */}
-                        <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('bookPage.address')}
-                    </label>
-                    <input
-                      type="text"
-                      name="licenseAddress"
-                      value={licenseData.licenseAddress}
-                      onChange={handleLicenseChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* License City */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.city')}
-                      </label>
-                      <input
-                        type="text"
-                        name="licenseCity"
-                        value={licenseData.licenseCity}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* License State */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.state')}
-                      </label>
-                      <input
-                        type="text"
-                        name="licenseState"
-                        value={licenseData.licenseState}
-                        onChange={handleLicenseChange}
-                        maxLength="2"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* License Postal Code */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.postalCode')}
-                      </label>
-                      <input
-                        type="text"
-                        name="licensePostalCode"
-                        value={licenseData.licensePostalCode}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* License Country */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.country')}
-                      </label>
-                      <input
-                        type="text"
-                        name="licenseCountry"
-                        value={licenseData.licenseCountry}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Restriction Code */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.restrictionCode')}
-                      </label>
-                      <input
-                        type="text"
-                        name="restrictionCode"
-                        value={licenseData.restrictionCode}
-                        onChange={handleLicenseChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Endorsements */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('bookPage.endorsements')}
-                    </label>
-                    <input
-                      type="text"
-                      name="endorsements"
-                      value={licenseData.endorsements}
-                      onChange={handleLicenseChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                        <div className="flex gap-3 pt-4 border-t">
-                          <button
-                            type="button"
-                            onClick={() => setIsLicenseModalOpen(false)}
-                            className="flex-1 btn-secondary py-2"
-                            disabled={saveLicenseMutation.isLoading}
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="submit"
-                            className="flex-1 btn-primary py-2"
-                            disabled={saveLicenseMutation.isLoading}
-                          >
-                            {saveLicenseMutation.isLoading 
-                              ? t('bookPage.saving') 
-                              : customerLicense 
-                                ? t('bookPage.updateLicenseInformation') 
-                                : t('bookPage.createLicenseInformation')}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              )}
-          </div>
-
-          {/* Right Part - Booking Form */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              {/* Start Date and End Date at the top */}
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('home.startDate')}
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="date"
-                        name="pickupDate"
-                        value={formData.pickupDate}
-                        onChange={handleChange}
-                        min={today}
-                        required
-                        placeholder="mm/dd/yyyy"
-                        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('home.endDate')}
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="date"
-                        name="returnDate"
-                        value={formData.returnDate}
-                        onChange={handleChange}
-                        min={formData.pickupDate || today}
-                        required
-                        placeholder="mm/dd/yyyy"
-                        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
-                      />
-                    </div>
-                  </div>
+                  {modelDescription ? (
+                    <p className="text-gray-600">{modelDescription}</p>
+                  ) : null}
                 </div>
               </div>
 
-              {selectedVehicle ? (
-                <>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('bookPage.bookingDetails')}</h2>
-                  
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                  {t('bookPage.driverLicenseInformation')}
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  {t('bookPage.driverLicenseHelper', 'Manage your driver license details before checkout.')}
+                </p>
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login', { state: { returnTo: `/book?${searchParams.toString()}` } });
+                      return;
+                    }
+                    setIsLicenseModalOpen(true);
+                  }}
+                  className="w-full btn-outline flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  {isAuthenticated 
+                    ? (customerLicense ? t('bookPage.driverLicenseInformation') : t('bookPage.createLicenseInformation'))
+                    : t('bookPage.driverLicenseInformation')}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-8">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  {t('bookPage.bookingDetails')}
+                </h2>
+                <div className="mb-6 pb-6 border-b border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('home.startDate')}
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="date"
+                          name="pickupDate"
+                          value={formData.pickupDate}
+                          onChange={handleChange}
+                          min={today}
+                          required
+                          placeholder="mm/dd/yyyy"
+                          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('home.endDate')}
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="date"
+                          name="returnDate"
+                          value={formData.returnDate}
+                          onChange={handleChange}
+                          min={formData.pickupDate || today}
+                          required
+                          placeholder="mm/dd/yyyy"
+                          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedVehicle ? (
                   <form onSubmit={handleSubmit} className="space-y-4">
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('bookPage.pickupLocationLabel')}
@@ -1178,94 +1119,664 @@ const BookPage = () => {
                     <button
                       type="submit"
                       className="w-full btn-primary py-3 text-lg"
-                      disabled={!isAuthenticated}
+                      disabled={checkoutLoading}
                     >
-                      {isAuthenticated ? t('bookPage.completeBooking') : t('bookPage.loginToBook')}
+                      {checkoutLoading
+                        ? t('bookPage.processingPayment', 'Processing...')
+                        : t('bookPage.completeBooking')}
                     </button>
-
-                    {!isAuthenticated && (
-                      <p className="text-sm text-center text-gray-600">
-                        <Link to="/login" className="text-blue-600 hover:underline">
-                          {t('bookPage.login')}
-                        </Link> {t('bookPage.signInToComplete')}
-                      </p>
-                    )}
                   </form>
-                </>
-              ) : (
+                ) : null}
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                {modelDailyRate > 0 && (
+                  <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">
+                    {formatPrice(modelDailyRate)} / {t('vehicles.day')}
+                  </p>
+                )}
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                  {t('bookPage.ratePerDayTitle', 'Rate per Day')}
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  {t('bookPage.additionalOptions')}
+                </p>
+
+                {additionalOptions.length > 0 ? (
+                  <div className="space-y-2">
+                    {additionalOptions.map((service) => {
+                      const serviceId = service.additionalServiceId || service.AdditionalServiceId;
+                      const isSelected = selectedServices.some(s => s.id === serviceId);
+                      const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory;
+
+                      return (
+                        <label
+                          key={serviceId}
+                          className="flex items-center gap-3 text-gray-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected || isMandatory}
+                            onChange={() => !isMandatory && handleServiceToggle(service)}
+                            disabled={isMandatory}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span>
+                            {service.serviceName || service.ServiceName}:{' '}
+                            {formatPrice(service.servicePrice || service.ServicePrice || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / {t('vehicles.day') || 'day'}.
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">
+                    {t('bookPage.noAdditionalOptions')}
+                  </p>
+                )}
+
+                <div className="mt-6 border-t border-gray-200 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {t('bookPage.totalLabel', 'Total')}
+                    </span>
+                    <span className="text-xl font-bold text-blue-600">
+                      {formatPrice(calculateGrandTotal())}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleRentCar}
+                  className="w-full btn-primary py-3 text-lg mt-4"
+                  disabled={checkoutLoading}
+                >
+                  {checkoutLoading
+                    ? t('bookPage.processingPayment', 'Processing...')
+                    : t('bookPage.rentTheCar')}
+                </button>
+
+                {!isAuthenticated && (
+                  <p className="text-sm text-center text-gray-600 mt-2">
+                    <Link to="/login" className="text-blue-600 hover:underline">
+                      {t('bookPage.login')}
+                    </Link>{' '}
+                    {t('bookPage.signInToComplete')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* QR Modal */}
+          {qrOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+              <div className="bg-white rounded-lg p-4 w-80 text-center">
+                <div className="text-lg font-semibold mb-2">{t('bookPage.scanOnYourPhone')}</div>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
+                  alt="QR"
+                  className="mx-auto mb-2"
+                />
+                <div className="text-xs break-all text-gray-600 mb-3">{qrUrl}</div>
+                <div className="text-left mb-3">
+                  <label className="block text-xs text-gray-600 mb-1">{t('bookPage.publicBaseUrl')}</label>
+                  <input
+                    type="text"
+                    value={qrBase}
+                    onChange={(e)=>setQrBase(e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded"
+                    placeholder={t('bookPage.lanIpPlaceholder')}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success(t('common.saved')); }}
+                      className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
+                    >{t('common.save')}</button>
+                    <button
+                      onClick={()=>{
+                        const origin = (qrBase || window.location.origin).replace(/\/$/, '');
+                        const returnTo = window.location.pathname + window.location.search;
+                        const token = localStorage.getItem('token');
+                        let url = `${origin}/scan-mobile?returnTo=${encodeURIComponent(returnTo)}`;
+                        if (token && isAuthenticated) {
+                          url += `&token=${encodeURIComponent(token)}`;
+                        }
+                        setQrUrl(url);
+                      }}
+                      className="flex-1 bg-gray-200 text-gray-800 py-1 rounded text-sm"
+                    >Update QR</button>
+                  </div>
+                </div>
+                <button
+                  onClick={()=>setQrOpen(false)}
+                  className="w-full bg-gray-200 text-gray-800 py-2 rounded-md font-semibold"
+                >Close</button>
+              </div>
+            </div>
+          )}
+
+          {/* Driver License Modal */}
+          {isLicenseModalOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Header with title and buttons */}
+                <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <CreditCard className="h-6 w-6 mr-2" />
+                    {t('bookPage.driverLicenseInformation')}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    {(companyConfig?.blinkKey || companyConfig?.BlinkKey || process.env.REACT_APP_BLINKID_LICENSE_KEY) && (
+                    <button
+                      type="button"
+                      onClick={handleScanOnPhone}
+                      className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded shadow-md"
+                      title={t('bookPage.scanOnPhoneViaQr')}
+                    >
+                      {t('bookPage.scanOnPhone')}
+                    </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setIsLicenseModalOpen(false);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <form onSubmit={handleSaveLicense} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* License Number */}
+                      <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.licenseNumber')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseNumber"
+                    value={licenseData.licenseNumber}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                {/* State Issued */}
                 <div>
-                  {modelDailyRate > 0 && (
-                    <p className="text-xl font-semibold text-blue-600 mb-2">
-                      {formatPrice(modelDailyRate)} / {t('vehicles.day')}
-                    </p>
-                  )}
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">{t('bookPage.additionalOptions')}</h2>
-                  {additionalOptions.length > 0 ? (
-                    <>
-                      <div className="space-y-1">
-                        {additionalOptions.map((service) => {
-                          const serviceId = service.additionalServiceId || service.AdditionalServiceId;
-                          const isSelected = selectedServices.some(s => s.id === serviceId);
-                          const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory;
-                          
-                          return (
-                            <div 
-                              key={serviceId}
-                              className="flex items-center gap-2 text-gray-700"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected || isMandatory}
-                                onChange={() => !isMandatory && handleServiceToggle(service)}
-                                disabled={isMandatory}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span>
-                                {service.serviceName || service.ServiceName}:{' '}
-                                {formatPrice(service.servicePrice || service.ServicePrice || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / {t('vehicles.day') || 'day'}.
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                      {/* Total */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold text-gray-900">Total:</span>
-                          <span className="text-xl font-bold text-blue-600">{formatPrice(calculateGrandTotal())}</span>
-                        </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.stateIssued')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="stateIssued"
+                    value={licenseData.stateIssued}
+                    onChange={handleLicenseChange}
+                    maxLength="2"
+                    placeholder="e.g., NJ"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                {/* Country Issued */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.countryIssued')}
+                  </label>
+                  <input
+                    type="text"
+                    name="countryIssued"
+                    value={licenseData.countryIssued}
+                    onChange={handleLicenseChange}
+                    list="country-issued-options"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <datalist id="country-issued-options">
+                    {countryOptions.map(({ code, name }) => (
+                      <option key={code} value={name} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Expiration Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.expirationDate')} *
+                  </label>
+                  <input
+                    type="date"
+                    name="expirationDate"
+                    value={licenseData.expirationDate}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                {/* Issue Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.issueDate')}
+                  </label>
+                  <input
+                    type="date"
+                    name="issueDate"
+                    value={licenseData.issueDate}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Sex */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.sex')}
+                  </label>
+                  <select
+                    name="sex"
+                    value={licenseData.sex}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('bookPage.select')}</option>
+                    <option value="M">{t('bookPage.male')}</option>
+                    <option value="F">{t('bookPage.female')}</option>
+                    <option value="X">{t('bookPage.other')}</option>
+                  </select>
+                </div>
+
+                {/* Height */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.height')}
+                  </label>
+                  <input
+                    type="text"
+                    name="height"
+                    value={licenseData.height}
+                    onChange={handleLicenseChange}
+                    placeholder="e.g., 5'10 inches"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Eye Color */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.eyeColor')}
+                  </label>
+                  <input
+                    type="text"
+                    name="eyeColor"
+                    value={licenseData.eyeColor}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Middle Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.middleName')}
+                  </label>
+                  <input
+                    type="text"
+                    name="middleName"
+                    value={licenseData.middleName}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
                       </div>
 
-                      {/* Rent the Car Button */}
+                      {/* License Address */}
+                      <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('bookPage.address')}
+                </label>
+                <input
+                  type="text"
+                  name="licenseAddress"
+                  value={licenseData.licenseAddress}
+                  onChange={handleLicenseChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* License City */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.city')}
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseCity"
+                    value={licenseData.licenseCity}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* License State */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.state')}
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseState"
+                    value={licenseData.licenseState}
+                    onChange={handleLicenseChange}
+                    maxLength="2"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* License Postal Code */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.postalCode')}
+                  </label>
+                  <input
+                    type="text"
+                    name="licensePostalCode"
+                    value={licenseData.licensePostalCode}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* License Country */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.country')}
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseCountry"
+                    value={licenseData.licenseCountry}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Restriction Code */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('bookPage.restrictionCode')}
+                  </label>
+                  <input
+                    type="text"
+                    name="restrictionCode"
+                    value={licenseData.restrictionCode}
+                    onChange={handleLicenseChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Endorsements */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('bookPage.endorsements')}
+                </label>
+                <input
+                  type="text"
+                  name="endorsements"
+                  value={licenseData.endorsements}
+                  onChange={handleLicenseChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+                    <div className="flex gap-3 pt-4 border-t">
                       <button
-                        onClick={handleRentCar}
-                        className="w-full btn-primary py-3 text-lg mt-4"
+                        type="button"
+                        onClick={() => setIsLicenseModalOpen(false)}
+                        className="flex-1 btn-secondary py-2"
+                        disabled={saveLicenseMutation.isLoading}
                       >
-                        {t('bookPage.rentTheCar')}
+                        {t('common.cancel')}
                       </button>
-
-                      {!isAuthenticated && (
-                        <p className="text-sm text-center text-gray-600 mt-2">
-                          <Link to="/login" className="text-blue-600 hover:underline">
-                            {t('bookPage.login')}
-                          </Link> {t('bookPage.signInToComplete')}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">{t('bookPage.noAdditionalOptions')}</p>
+                      <button
+                        type="submit"
+                        className="flex-1 btn-primary py-2"
+                        disabled={saveLicenseMutation.isLoading}
+                      >
+                        {saveLicenseMutation.isLoading 
+                          ? t('bookPage.saving') 
+                          : customerLicense 
+                            ? t('bookPage.updateLicenseInformation') 
+                            : t('bookPage.createLicenseInformation')}
+                      </button>
                     </div>
-                  )}
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {authModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={handleCloseAuthModal} />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={handleCloseAuthModal}
+              className="absolute right-4 top-4 rounded-full p-2 text-gray-500 hover:bg-gray-100"
+              disabled={authLoading || checkoutLoading}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {authStep === 'email' && (t('auth.enterEmail') || 'Enter your email to continue')}
+                  {authStep === 'password' && (t('auth.enterPassword') || 'Enter your password')}
+                  {authStep === 'signup' && (t('auth.createAccount') || 'Create your account')}
+                </h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  {authStep === 'email' && (t('auth.emailSubtitle') || 'We will check if you already have an account.')}
+                  {authStep === 'password' && (t('auth.passwordSubtitle') || 'Sign in to continue to payment.')}
+                  {authStep === 'signup' && (t('auth.signupSubtitle') || 'Quickly create an account to finish your booking.')}
+                </p>
+              </div>
+
+              {authError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {authError}
                 </div>
               )}
 
+              {authStep === 'email' && (
+                <form className="space-y-4" onSubmit={handleEmailSubmit}>
+                  <label className="text-sm font-medium text-gray-700">
+                    {t('auth.email', 'Email')}
+                  </label>
+                  <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                    <Mail className="mr-2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={authForm.email}
+                      onChange={handleAuthInputChange}
+                      className="w-full border-none text-gray-900 outline-none"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      required
+                      disabled={authLoading}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn-primary w-full py-2"
+                    disabled={authLoading}
+                  >
+                    {authLoading ? (t('auth.checking', 'Checking...')) : (t('common.continue', 'Continue'))}
+                  </button>
+                </form>
+              )}
+
+              {authStep === 'password' && (
+                <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {t('auth.signingInAs', 'Signing in as')} <span className="font-semibold">{authForm.email}</span>
+                  </div>
+                  <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                    <Lock className="mr-2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="password"
+                      name="password"
+                      value={authForm.password}
+                      onChange={handleAuthInputChange}
+                      className="w-full border-none text-gray-900 outline-none"
+                      placeholder={t('auth.passwordPlaceholder', 'Enter your password')}
+                      autoComplete="current-password"
+                      required
+                      disabled={authLoading}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      className="w-1/3 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      onClick={() => {
+                        setAuthStep('email');
+                        setAuthError('');
+                        setAuthForm((prev) => ({ ...prev, password: '' }));
+                      }}
+                      disabled={authLoading}
+                    >
+                      {t('common.back', 'Back')}
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-2/3 btn-primary py-2"
+                      disabled={authLoading}
+                    >
+                      {authLoading ? (t('auth.signingIn', 'Signing in...')) : (t('auth.continueToPayment', 'Continue to payment'))}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {authStep === 'signup' && (
+                <form className="space-y-4" onSubmit={handleSignupSubmit}>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">
+                        {t('auth.firstName', 'First name')}
+                      </label>
+                      <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                        <UserIcon className="mr-2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={authForm.firstName}
+                          onChange={handleAuthInputChange}
+                          className="w-full border-none text-gray-900 outline-none"
+                          placeholder="John"
+                          autoComplete="given-name"
+                          required
+                          disabled={authLoading}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">
+                        {t('auth.lastName', 'Last name')}
+                      </label>
+                      <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                        <UserIcon className="mr-2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={authForm.lastName}
+                          onChange={handleAuthInputChange}
+                          className="w-full border-none text-gray-900 outline-none"
+                          placeholder="Doe"
+                          autoComplete="family-name"
+                          required
+                          disabled={authLoading}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {t('auth.creatingForEmail', 'Creating account for')} <span className="font-semibold">{authForm.email}</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                      <Lock className="mr-2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="password"
+                        name="password"
+                        value={authForm.password}
+                        onChange={handleAuthInputChange}
+                        className="w-full border-none text-gray-900 outline-none"
+                        placeholder={t('auth.passwordPlaceholder', 'Enter your password')}
+                        autoComplete="new-password"
+                        required
+                        disabled={authLoading}
+                      />
+                    </div>
+                    <div className="flex items-center rounded-lg border border-gray-300 px-3 py-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200">
+                      <Lock className="mr-2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        value={authForm.confirmPassword}
+                        onChange={handleAuthInputChange}
+                        className="w-full border-none text-gray-900 outline-none"
+                        placeholder={t('auth.confirmPasswordPlaceholder', 'Confirm password')}
+                        autoComplete="new-password"
+                        required
+                        disabled={authLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      className="w-1/3 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      onClick={() => {
+                        setAuthStep('email');
+                        setAuthError('');
+                        setAuthForm((prev) => ({ ...prev, firstName: '', lastName: '', password: '', confirmPassword: '' }));
+                      }}
+                      disabled={authLoading}
+                    >
+                      {t('common.back', 'Back')}
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-2/3 btn-primary py-2"
+                      disabled={authLoading}
+                    >
+                      {authLoading ? (t('auth.creatingAccount', 'Creating account...')) : (t('auth.signUpAndPay', 'Sign up & continue'))}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

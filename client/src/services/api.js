@@ -172,6 +172,7 @@ export const apiService = {
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),
   getCustomer: (id) => api.get(`/customers/${id}`),
+  getCustomerByEmail: (email) => api.get(`/customers/email/${encodeURIComponent(email)}`),
   createCustomer: (data) => api.post('/customers', data),
   updateCustomer: (id, data) => api.put(`/customers/${id}`, data),
   
@@ -183,6 +184,7 @@ export const apiService = {
   createPaymentIntent: (data) => api.post('/payments/intent', data),
   confirmPayment: (paymentIntentId) => api.post(`/payments/confirm/${paymentIntentId}`),
   getPaymentMethods: (customerId) => api.get(`/payments/methods/${customerId}`),
+  createCheckoutSession: (data) => api.post('/payments/checkout-session', data),
 
   // Companies
   getCompanies: (params = {}) => api.get('/RentalCompanies', { params }),
@@ -250,46 +252,6 @@ export const apiService = {
     });
   },
   deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
-  
-  uploadCompanyBanner: (companyId, file, onProgress) => {
-    const formData = new FormData();
-    formData.append('banner', file);
-    
-    return api.post(`/Media/companies/${companyId}/banner`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percentCompleted);
-        }
-      },
-    });
-  },
-  deleteCompanyBanner: (companyId) => api.delete(`/Media/companies/${companyId}/banner`),
-  
-  uploadCompanyLogo: (companyId, file, onProgress) => {
-    const formData = new FormData();
-    formData.append('logo', file);
-    
-    return api.post(`/Media/companies/${companyId}/logo`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(percentCompleted);
-        }
-      },
-    });
-  },
-  deleteCompanyLogo: (companyId) => api.delete(`/Media/companies/${companyId}/logo`),
-
-  // VIN Lookup
-  lookupVehicleByVin: (vin) => api.get(`/vehicles/vin-lookup/${vin}`),
-
 };
 
-export default api;
+export default apiService;

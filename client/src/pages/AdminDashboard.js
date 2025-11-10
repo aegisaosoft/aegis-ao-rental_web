@@ -2028,86 +2028,93 @@ const AdminDashboard = () => {
             <div className="space-y-2">
               <button
                 onClick={() => setActiveSection('company')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'company'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
+                title={t('admin.companyProfile')}
+                aria-label={t('admin.companyProfile')}
               >
-                <Building2 className="h-5 w-5 mr-2" />
-                {t('admin.companyProfile')}
+                <Building2 className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('vehicles')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'vehicles'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('vehicles.title')}
+                aria-label={t('vehicles.title')}
               >
-                <Car className="h-5 w-5 mr-2" />
-                {t('vehicles.title')}
+                <Car className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('vehicleManagement')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'vehicleManagement'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('admin.vehicles')}
+                aria-label={t('admin.vehicles')}
               >
-                <Car className="h-5 w-5 mr-2" />
-                {t('admin.vehicles')}
+                <Car className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('reservations')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'reservations'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('admin.reservations')}
+                aria-label={t('admin.reservations')}
               >
-                <Calendar className="h-5 w-5 mr-2" />
-                {t('admin.reservations')}
+                <Calendar className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('customers')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'customers'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('admin.customers')}
+                aria-label={t('admin.customers')}
               >
-                <Users className="h-5 w-5 mr-2" />
-                {t('admin.customers')}
+                <Users className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('bookingSettings')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'bookingSettings'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('admin.bookingSettings')}
+                aria-label={t('admin.bookingSettings')}
               >
-                <Calendar className="h-5 w-5 mr-2" />
-                {t('admin.bookingSettings')}
+                <Calendar className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setActiveSection('reports')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center ${
+                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
                   activeSection === 'reports'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
+                title={t('admin.viewReports')}
+                aria-label={t('admin.viewReports')}
               >
-                <TrendingUp className="h-5 w-5 mr-2" />
-                {t('admin.viewReports')}
+                <TrendingUp className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
           </Card>

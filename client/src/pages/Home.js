@@ -22,6 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 import AICarAssistant from '../components/AICarAssistant';
 
+const SEARCH_FILTERS_STORAGE_KEY = 'rentalSearchFilters';
+
 const Home = () => {
   const { i18n: i18nInstance, t } = useTranslation();
   const currentLanguage = (i18nInstance.language || 'en').toLowerCase();
@@ -108,6 +110,7 @@ const Home = () => {
   const [category, setCategory] = useState('');
   const [companyName, setCompanyName] = useState('Rentals');
   const modelsSectionRef = useRef(null);
+  const filtersLoadedRef = useRef(false);
   
   // Determine effective company ID (domain context only - no fallback)
   const effectiveCompanyId = companyConfig?.id || null;
@@ -127,6 +130,40 @@ const Home = () => {
   const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
   const showLocationDropdown = companyLocations.length > 1;
   const [selectedLocationId, setSelectedLocationId] = useState('');
+
+  useEffect(() => {
+    try {
+      const savedRaw = localStorage.getItem(SEARCH_FILTERS_STORAGE_KEY);
+      if (!savedRaw) {
+        filtersLoadedRef.current = true;
+        return;
+      }
+      const saved = JSON.parse(savedRaw);
+      if (saved.startDate) setStartDate(saved.startDate);
+      if (saved.endDate) setEndDate(saved.endDate);
+      if (saved.category) setCategory(saved.category);
+      if (saved.locationId) setSelectedLocationId(saved.locationId);
+    } catch (error) {
+      console.warn('[Home] Failed to load saved search filters:', error);
+    } finally {
+      filtersLoadedRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoadedRef.current) return;
+    try {
+      const payload = {
+        startDate: startDate || '',
+        endDate: endDate || '',
+        category: category || '',
+        locationId: selectedLocationId || '',
+      };
+      localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.warn('[Home] Failed to persist search filters:', error);
+    }
+  }, [startDate, endDate, category, selectedLocationId]);
   
   // Fetch models grouped by category - filtered by company from domain
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
@@ -172,6 +209,28 @@ const Home = () => {
     // Date availability checking removed - all vehicles are available
     return allModels;
   }, [modelsGroupedResponse]);
+
+  const filteredModelsGrouped = useMemo(() => {
+    if (!Array.isArray(modelsGrouped)) return [];
+
+    return modelsGrouped.filter((categoryGroup = {}) => {
+      const rawName =
+        categoryGroup.categoryName ||
+        categoryGroup.category_name ||
+        categoryGroup.CategoryName ||
+        '';
+
+      const normalizedName = rawName.toString().toLowerCase();
+      const slug = normalizedName.replace(/\s+/g, '-');
+
+      const matchesCategory =
+        !category ||
+        normalizedName.includes(category.toLowerCase()) ||
+        slug === category.toLowerCase();
+
+      return matchesCategory;
+    });
+  }, [modelsGrouped, category]);
   
   // Calculate total vehicle count and available count from models
   const { fleetCount, availableCount } = useMemo(() => {
@@ -650,9 +709,22 @@ const Home = () => {
               <p className="text-gray-600 mb-4">{t('home.noModelsAvailable')}</p>
               <p className="text-gray-500 text-sm">Response: {JSON.stringify(modelsGroupedResponse?.slice?.(0, 200) || modelsGroupedResponse)}</p>
             </div>
+          ) : filteredModelsGrouped.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-2">
+                {t('home.noModelsMatchFilters', 'No vehicles match your filters. Try another category.')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setCategory('')}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-700 transition-colors"
+              >
+                {t('home.resetFilters', 'Reset filters')}
+              </button>
+            </div>
           ) : (
               <div className="space-y-16">
-                {modelsGrouped.map((categoryGroup) => {
+                {filteredModelsGrouped.map((categoryGroup) => {
                   const categoryName = categoryGroup.categoryName || categoryGroup.category_name || '';
                   const categoryId = categoryGroup.categoryId || categoryGroup.category_id;
                   
@@ -749,6 +821,17 @@ const Home = () => {
                               // Use /models/ path - served statically by Express in both dev and production
                               const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
                               
+                              const bookingParams = new URLSearchParams();
+                              if (categoryId) bookingParams.set('category', categoryId);
+                              if (group.make) bookingParams.set('make', group.make);
+                              if (group.modelName) bookingParams.set('model', group.modelName);
+                              if (effectiveCompanyId) bookingParams.set('companyId', effectiveCompanyId);
+                              if (startDate) bookingParams.set('startDate', startDate);
+                              if (endDate) bookingParams.set('endDate', endDate);
+                              if (category) bookingParams.set('searchCategory', category);
+                              if (selectedLocationId) bookingParams.set('locationId', selectedLocationId);
+                              const bookingUrl = effectiveCompanyId ? `/book?${bookingParams.toString()}` : '#';
+
                               return (
                                 <div key={`${group.make}_${group.modelName}_${index}`} className="vehicle-card flex-shrink-0" style={{ width: '320px', minWidth: '320px' }}>
                                   <div className="relative">
@@ -836,7 +919,7 @@ const Home = () => {
                                         </div>
                                       )}
                                       <Link
-                                        to={effectiveCompanyId ? `/book?category=${categoryId}&make=${encodeURIComponent(group.make)}&model=${encodeURIComponent(group.modelName)}&companyId=${effectiveCompanyId}` : '#'}
+                                        to={bookingUrl}
                                         className={`btn-primary text-sm ${!effectiveCompanyId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                                         onClick={(e) => {
                                           if (!effectiveCompanyId) {

@@ -1,39 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Mic, Volume2, Zap, Crown } from 'lucide-react';
+import { Sparkles, Mic, Volume2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import './AICarAssistant.css';
 
-const MODE_CONFIG = {
-  free: {
-    icon: <Zap className="w-5 h-5" />,
-    name: 'Free',
-    description: 'Smart rule-based recommendations',
-    cost: '$0',
-    badge: 'Always Free',
-    color: '#10b981',
-  },
-  claude: {
-    icon: <Sparkles className="w-5 h-5" />,
-    name: 'Claude AI',
-    description: 'Advanced AI recommendations',
-    cost: '$0.007/request',
-    badge: 'Best Value',
-    color: '#6366f1',
-  },
-  premium: {
-    icon: <Crown className="w-5 h-5" />,
-    name: 'Premium',
-    description: 'GPT-4 + HD Voice',
-    cost: '$0.045/request',
-    badge: 'VIP Only',
-    color: '#f59e0b',
-  },
-};
-
 const DEFAULT_MODE = 'claude';
+const normalizeMode = (value) => {
+  if (!value) return DEFAULT_MODE;
+  const normalized = value.toString().trim().toLowerCase();
+  return ['free', 'claude', 'premium'].includes(normalized) ? normalized : DEFAULT_MODE;
+};
 
 const normalizeVehiclePayload = (vehicle) => {
   if (!vehicle) return null;
@@ -77,11 +55,10 @@ const normalizeVehiclePayload = (vehicle) => {
 
 const AICarAssistant = ({ availableVehicles = [], onSelectVehicle }) => {
   const { t, i18n } = useTranslation();
-  const { formatPrice } = useCompany();
+  const { formatPrice, aiIntegration } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [mode, setMode] = useState(DEFAULT_MODE);
   const [summary, setSummary] = useState('');
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -93,6 +70,7 @@ const AICarAssistant = ({ availableVehicles = [], onSelectVehicle }) => {
         .filter((item) => item !== null),
     [availableVehicles]
   );
+  const mode = useMemo(() => normalizeMode(aiIntegration), [aiIntegration]);
 
   const {
     transcript,
@@ -252,31 +230,6 @@ const AICarAssistant = ({ availableVehicles = [], onSelectVehicle }) => {
               <div className="ai-header">
                 <Sparkles className="w-8 h-8 text-indigo-600" />
                 <h2 className="ai-title">{t('ai.assistantTitle', 'AI Chat')}</h2>
-              </div>
-
-              <div className="mode-switcher">
-                {Object.entries(MODE_CONFIG).map(([modeKey, config]) => (
-                  <button
-                    key={modeKey}
-                    type="button"
-                    className={`mode-option ${mode === modeKey ? 'active' : ''}`}
-                    onClick={() => setMode(modeKey)}
-                    style={mode === modeKey ? { borderColor: config.color } : undefined}
-                  >
-                    <div
-                      className="mode-icon"
-                      style={mode === modeKey ? { color: 'white' } : { color: config.color }}
-                    >
-                      {config.icon}
-                    </div>
-                    <div className="mode-details">
-                      <div className="mode-name">{config.name}</div>
-                      <div className="mode-description">{config.description}</div>
-                      <div className="mode-cost">{config.cost}</div>
-                    </div>
-                    {mode === modeKey && <div className="mode-badge">{config.badge}</div>}
-                  </button>
-                ))}
               </div>
 
               <div className="input-section">

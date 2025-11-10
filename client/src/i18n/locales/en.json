@@ -173,6 +173,8 @@
     "bookModel": "Book {{make}} {{model}}",
     "selectVehicleAndComplete": "Select a vehicle and complete your booking",
     "driverLicenseInformation": "Driver License Information",
+    "driverLicenseHelper": "Manage your driver license details before checkout.",
+    "ratePerDayTitle": "Rate per Day",
     "editExisting": "(Edit existing)",
     "createNew": "(Create new)",
     "loginToEnterLicense": "Please login to enter your driver license information",
@@ -241,6 +243,17 @@
     "rentTheCar": "Rent the Car",
     "additionalOptions": "Additional Options",
     "noAdditionalOptions": "No additional options available"
+  },
+  "navbar": {
+    "home": "Home",
+    "about": "About",
+    "carRentals": "Car Rentals",
+    "terms": "Terms & Conditions",
+    "contact": "Contact",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
+    "login": "Login",
+    "logout": "Logout"
   },
   "footer": {
     "description": "Your trusted partner for premium car rental services. Experience the freedom of the road with our wide selection of vehicles.",

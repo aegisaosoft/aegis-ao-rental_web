@@ -173,6 +173,8 @@
     "bookModel": "Reservar {{make}} {{model}}",
     "selectVehicleAndComplete": "Selecione um veículo e complete sua reserva",
     "driverLicenseInformation": "Informações da Carteira de Motorista",
+    "driverLicenseHelper": "Gerencie os dados da sua carteira de motorista antes de finalizar.",
+    "ratePerDayTitle": "Tarifa por Dia",
     "editExisting": "(Editar existente)",
     "createNew": "(Criar novo)",
     "loginToEnterLicense": "Por favor, faça login para inserir suas informações da carteira de motorista",
@@ -241,6 +243,17 @@
     "rentTheCar": "Alugar o Carro",
     "additionalOptions": "Opções Adicionais",
     "noAdditionalOptions": "Nenhuma opção adicional disponível"
+  },
+  "navbar": {
+    "home": "Início",
+    "about": "Sobre",
+    "carRentals": "Aluguel de Carros",
+    "terms": "Termos e Condições",
+    "contact": "Contato",
+    "settings": "Configurações",
+    "dashboard": "Painel",
+    "login": "Entrar",
+    "logout": "Sair"
   },
   "footer": {
     "description": "Seu parceiro confiável para serviços premium de aluguel de carros. Experimente a liberdade da estrada com nossa ampla seleção de veículos.",

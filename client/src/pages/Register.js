@@ -14,7 +14,7 @@
  */
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { Car, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
@@ -36,6 +36,10 @@ const Register = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = location.state?.returnTo;
+  const redirectTarget =
+    (typeof returnTo === 'string' && returnTo.trim().length > 0 ? returnTo : '/') || '/';
 
   const handleChange = (e) => {
     setFormData({
@@ -68,7 +72,7 @@ const Register = () => {
         password: formData.password
       });
       toast.success(t('register.success'));
-      navigate('/');
+      navigate(redirectTarget, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || t('register.failed'));
     } finally {
@@ -88,7 +92,8 @@ const Register = () => {
         <p className="mt-2 text-center text-sm text-gray-600">
           {t('register.subtitle')}{' '}
           <Link
-            to="/login"
+            to={{ pathname: '/login', search: '' }}
+            state={returnTo ? { returnTo } : undefined}
             className="font-medium text-blue-600 hover:text-blue-500"
           >
             {t('register.signIn')}
