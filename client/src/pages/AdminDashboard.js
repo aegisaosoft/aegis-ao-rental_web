@@ -13,7 +13,7 @@
  *
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
@@ -51,7 +51,7 @@ const getServiceIdentifier = (service) =>
   null;
 
 const AdminDashboard = () => {
-  const { t: i18nT, i18n } = useTranslation();
+  const { t: i18nT } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
       if (!key) return fallback ?? '';
