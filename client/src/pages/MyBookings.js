@@ -28,8 +28,8 @@ const MyBookings = () => {
   const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
 
-  const [searchParams] = React.useState(() => new URLSearchParams(window.location.search));
-  const [bookingParam, setBookingParam] = React.useState(() => searchParams.get('booking'));
+  const searchParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
+  const bookingParam = React.useMemo(() => searchParams.get('booking'), [searchParams]);
 
   const bookingQuery = useQuery(
     ['bookingDetail', bookingParam, companyId],

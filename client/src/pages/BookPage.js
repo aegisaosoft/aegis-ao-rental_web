@@ -23,9 +23,6 @@ import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon }
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { countryToLanguage } from '../utils/countryLanguage';
-import { apiService as rawApiService } from '../services/api';
-import { currencyFormatter } from '../utils/currency';
-import { imageUtils } from '../utils/imageUtils';
 import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
 
 const INITIAL_AUTH_FORM = {
@@ -515,19 +512,16 @@ const BookPage = () => {
   );
 
   // Ensure vehicles is always an array
-  const vehiclesPayload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
-  const vehicles = Array.isArray(vehiclesPayload?.items)
-    ? vehiclesPayload.items
-    : Array.isArray(vehiclesPayload?.data)
-      ? vehiclesPayload.data
-      : Array.isArray(vehiclesPayload?.vehicles)
-        ? vehiclesPayload.vehicles
-        : Array.isArray(vehiclesPayload)
-          ? vehiclesPayload
-          : Array.isArray(vehiclesResponse)
-            ? vehiclesResponse
-            : [];
-  
+  const vehicles = React.useMemo(() => {
+    const payload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.vehicles)) return payload.vehicles;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(vehiclesResponse)) return vehiclesResponse;
+    return [];
+  }, [vehiclesResponse]);
+
   const selectedVehicle = Array.isArray(vehicles) ? vehicles.find(v => 
     (v.vehicle_id || v.vehicleId || v.id) === selectedVehicleId
   ) : null;
@@ -869,6 +863,7 @@ const BookPage = () => {
     }
   }, [
     companyConfig?.currency,
+    companyConfig?.securityDeposit,
     companyId,
     ensureVehicleSelection,
     formData.additionalNotes,
