@@ -13,7 +13,7 @@
  *
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
@@ -51,7 +51,31 @@ const getServiceIdentifier = (service) =>
   null;
 
 const AdminDashboard = () => {
-  const { t } = useTranslation();
+  const { t: i18nT, i18n } = useTranslation();
+  const translate = useCallback(
+    (key, fallback) => {
+      if (!key) return fallback ?? '';
+      const normalizedKey = key.startsWith('vehicles.') ? key.slice('vehicles.'.length) : key;
+
+      let translation = i18nT(normalizedKey);
+
+      if (!translation || translation === normalizedKey) {
+        translation = i18nT(key);
+      }
+
+      if (!translation || translation === key || translation === normalizedKey) {
+        if (fallback !== undefined) {
+          return fallback;
+        }
+        return '';
+      }
+
+      return translation;
+    },
+    [i18nT]
+  );
+
+  const t = translate;
   const { user, isAuthenticated, isAdmin, isMainAdmin } = useAuth();
   const { companyConfig, formatPrice, currencySymbol, currencyCode } = useCompany();
   const queryClient = useQueryClient();
@@ -514,56 +538,170 @@ const AdminDashboard = () => {
       status: vehicleCreateForm.status || 'Available',
       state: vehicleCreateForm.state || null,
       location: vehicleCreateForm.location || null,
-      imageUrl: vehicleCreateForm.imageUrl || null,
       features: vehicleCreateForm.features ? (Array.isArray(vehicleCreateForm.features) ? vehicleCreateForm.features : vehicleCreateForm.features.split(',').map(f => f.trim())) : null
     };
 
     createVehicleMutation.mutate(createData);
   };
 
-  // Handle VIN lookup
-  const handleVinLookup = async () => {
-    const vin = vehicleEditForm.vin?.trim().toUpperCase();
-    
-    if (!vin || vin.length !== 17) {
+  const collectVinFields = (root) => {
+    const fields = new Map();
+    const queue = [];
+    const visited = new Set();
+
+    const enqueue = (value) => {
+      if (!value) return;
+      if (typeof value !== 'object') return;
+      if (visited.has(value)) return;
+      visited.add(value);
+      queue.push(value);
+    };
+
+    if (Array.isArray(root)) {
+      root.forEach(enqueue);
+    } else if (root && typeof root === 'object') {
+      enqueue(root);
+    }
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current || typeof current !== 'object') continue;
+
+      Object.entries(current).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          const normalizedKey = String(key).toLowerCase();
+          if (!fields.has(normalizedKey)) {
+            fields.set(normalizedKey, value);
+          }
+
+          if (Array.isArray(value)) {
+            value.forEach(enqueue);
+          } else if (typeof value === 'object') {
+            enqueue(value);
+          }
+        }
+      });
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[VIN Lookup] Flattened fields:', Array.from(fields.entries()));
+    }
+
+    return fields;
+  };
+
+  const mapVinDataToFormUpdates = (vehicleData) => {
+    if (!vehicleData) {
+      return {};
+    }
+
+    const fields = collectVinFields(vehicleData);
+    if (fields.size === 0) {
+      return {};
+    }
+
+    const getFirstValue = (keys, transform = (value) => value) => {
+      for (const key of keys) {
+        const normalizedKey = key.toLowerCase();
+        if (fields.has(normalizedKey)) {
+          return transform(fields.get(normalizedKey));
+        }
+      }
+      return undefined;
+    };
+
+    const toStringValue = (value) => {
+      if (typeof value === 'number') return value.toString();
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.map(toStringValue).join(', ');
+      return String(value);
+    };
+
+    const updates = {};
+    const makeValue = getFirstValue(['make', 'manufacturer', 'make_name', 'brand']);
+    if (makeValue !== undefined) {
+      updates.make = toStringValue(makeValue);
+    }
+
+    const modelValue = getFirstValue(['model', 'modelname', 'model_name']);
+    if (modelValue !== undefined) {
+      updates.model = toStringValue(modelValue);
+    }
+
+    const yearValue = getFirstValue(['year', 'modelyear', 'vehicle_year'], (value) => {
+      const numeric = parseInt(value, 10);
+      if (!Number.isNaN(numeric) && numeric >= 1900 && numeric <= 2100) {
+        return numeric.toString();
+      }
+      return toStringValue(value);
+    });
+    if (yearValue !== undefined) {
+      updates.year = yearValue;
+    }
+
+    const colorValue = getFirstValue(['color', 'exteriorcolor']);
+    if (colorValue !== undefined) {
+      updates.color = toStringValue(colorValue);
+    }
+
+    const transmissionValue = getFirstValue(['transmission', 'drivetype', 'transmissiontype']);
+    if (transmissionValue !== undefined) {
+      updates.transmission = toStringValue(transmissionValue);
+    }
+
+    const seatsValue = getFirstValue(['seats', 'seatcount', 'passengercapacity'], (value) => {
+      const numeric = parseInt(value, 10);
+      if (!Number.isNaN(numeric) && numeric > 0) {
+        return numeric.toString();
+      }
+      return toStringValue(value);
+    });
+    if (seatsValue !== undefined) {
+      updates.seats = seatsValue;
+    }
+
+    return updates;
+  };
+
+  const lookupVinAndPopulateForm = async (vin, updateForm) => {
+    const normalizedVin = vin?.trim().toUpperCase();
+
+    if (!normalizedVin || normalizedVin.length !== 17) {
       toast.error(t('vehicles.invalidVin') || 'Please enter a valid 17-character VIN');
       return;
     }
 
     setIsLookingUpVin(true);
     try {
-      const response = await apiService.lookupVehicleByVin(vin);
-      const vehicleData = response.data;
-      
-      // Auto-populate form fields from VIN lookup response
-      setVehicleEditForm(prev => ({
+      const response = await apiService.lookupVehicleByVin(normalizedVin);
+      const rawPayload = response?.data?.data ?? response?.data ?? response;
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[VIN Lookup] Raw payload:', rawPayload);
+      }
+      const updates = mapVinDataToFormUpdates(rawPayload);
+
+      updateForm((prev) => ({
         ...prev,
-        // Map make, model, year from API response (case-insensitive)
-        ...(vehicleData.make && { make: vehicleData.make }),
-        ...(vehicleData.Make && { make: vehicleData.Make }),
-        ...(vehicleData.model && { model: vehicleData.model }),
-        ...(vehicleData.Model && { model: vehicleData.Model }),
-        ...(vehicleData.modelName && { model: vehicleData.modelName }),
-        ...(vehicleData.ModelName && { model: vehicleData.ModelName }),
-        ...(vehicleData.year && { year: vehicleData.year }),
-        ...(vehicleData.Year && { year: vehicleData.Year }),
-        // Map other fields
-        ...(vehicleData.color && { color: vehicleData.color }),
-        ...(vehicleData.Color && { color: vehicleData.Color }),
-        ...(vehicleData.transmission && { transmission: vehicleData.transmission }),
-        ...(vehicleData.Transmission && { transmission: vehicleData.Transmission }),
-        ...(vehicleData.seats && { seats: vehicleData.seats }),
-        ...(vehicleData.Seats && { seats: vehicleData.Seats }),
+        vin: normalizedVin,
+        ...updates,
       }));
-      
+
       toast.success(t('vehicles.vinLookupSuccess') || 'Vehicle information retrieved successfully');
     } catch (error) {
-      console.error('VIN lookup error:', error);
-      toast.error(error.response?.data?.message || t('vehicles.vinLookupError') || 'Failed to lookup VIN information');
+      console.error('[AdminDashboard] VIN lookup error:', error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        t('vehicles.vinLookupError') ||
+        'Failed to lookup VIN information';
+      toast.error(message);
     } finally {
       setIsLookingUpVin(false);
     }
   };
+
+  const handleVinLookup = () => lookupVinAndPopulateForm(vehicleEditForm.vin, setVehicleEditForm);
+  const handleCreateVinLookup = () => lookupVinAndPopulateForm(vehicleCreateForm.vin, setVehicleCreateForm);
 
   // Handle save vehicle changes
   const handleSaveVehicle = () => {
@@ -2075,28 +2213,40 @@ const AdminDashboard = () => {
   // Vehicle table columns
   const vehicleColumns = useMemo(() => [
     {
-      header: t('vehicles.licensePlate'),
+      id: 'licensePlate',
+      header: t('vehicles.licensePlate', 'License Plate'),
       accessorFn: row => row.LicensePlate || row.licensePlate || '',
+      cell: info => info.getValue(),
     },
     {
-      header: t('vehicles.make'),
+      id: 'make',
+      header: t('vehicles.make', 'Make'),
       accessorFn: row => row.Make || row.make || '',
+      cell: info => info.getValue(),
     },
     {
-      header: t('vehicles.model'),
+      id: 'model',
+      header: t('vehicles.model', 'Model'),
       accessorFn: row => row.Model || row.model || '',
+      cell: info => info.getValue(),
     },
     {
-      header: t('year'),
+      id: 'year',
+      header: t('vehicles.year', 'Year'),
       accessorFn: row => row.Year || row.year || '',
+      cell: info => info.getValue(),
     },
     {
-      header: t('vehicles.color'),
+      id: 'color',
+      header: t('vehicles.color', 'Color'),
       accessorFn: row => row.Color || row.color || 'N/A',
+      cell: info => info.getValue() || 'N/A',
     },
     {
-      header: t('vehicles.status'),
+      id: 'status',
+      header: t('vehicles.status', 'Status'),
       accessorFn: row => row.Status || row.status || '',
+      cell: info => info.getValue(),
     },
     {
       header: t('actions'),
@@ -4302,7 +4452,7 @@ const AdminDashboard = () => {
               <div className="flex gap-2">
                 <label className="btn-secondary text-sm cursor-pointer" style={{ margin: 0 }}>
                   <Upload className="h-4 w-4 mr-2 inline" />
-                  {isImportingVehicles ? (t('vehicles.importing') || 'Importing...') : (t('admin.importVehicles') || 'Import Vehicles')}
+                  {isImportingVehicles ? (t('vehicles.importing') || 'Importing...') : t('admin.importVehicles', 'Import Vehicles')}
                   <input
                     type="file"
                     accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -4328,7 +4478,6 @@ const AdminDashboard = () => {
                       status: 'Available',
                       state: '',
                       location: '',
-                      imageUrl: '',
                       features: null
                     });
                   }}
@@ -4632,7 +4781,7 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">
-                {t('vehicles.editVehicle') || 'Edit Vehicle'}
+                {t('vehicles.editVehicle', 'Edit Vehicle')}
               </h2>
               <button
                 onClick={() => {
@@ -4791,7 +4940,7 @@ const AdminDashboard = () => {
                     ) : (
                       <>
                         <Search className="h-4 w-4" />
-                        {t('vehicles.lookupVin') || 'VIN Lookup'}
+                        {t('vehicles.lookupVin', 'Lookup Vin')}
                       </>
                     )}
                   </button>
@@ -4913,7 +5062,7 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">
-                {t('vehicles.createVehicle') || 'Create New Vehicle'}
+                {t('vehicles.createVehicle', 'Create Vehicle')}
               </h2>
               <button
                 onClick={() => {
@@ -5069,15 +5218,38 @@ const AdminDashboard = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   {t('vehicles.vin') || 'VIN'}
                 </label>
-                <input
-                  type="text"
-                  value={vehicleCreateForm.vin || ''}
-                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  maxLength={17}
-                  placeholder="17-character VIN"
-                  style={{ textTransform: 'uppercase' }}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={vehicleCreateForm.vin || ''}
+                    onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxLength={17}
+                    placeholder="17-character VIN"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateVinLookup}
+                    disabled={isLookingUpVin || !vehicleCreateForm.vin || vehicleCreateForm.vin.length !== 17}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {isLookingUpVin ? (
+                      <>
+                        <LoadingSpinner />
+                        {t('vehicles.lookingUp') || 'Looking up...'}
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4" />
+                        {t('vehicles.lookupVin', 'Lookup Vin')}
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('vehicles.vinLookupHint') || 'Enter 17-character VIN and click Lookup to auto-fill vehicle information'}
+                </p>
               </div>
 
               {/* Mileage */}
@@ -5159,17 +5331,17 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* Image URL */}
+              {/* Features */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.imageUrl') || 'Image URL'}
+                  {t('vehicles.features') || 'Features'}
                 </label>
-                <input
-                  type="url"
-                  value={vehicleCreateForm.imageUrl || ''}
-                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                <textarea
+                  value={vehicleCreateForm.features || ''}
+                  onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, features: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="https://example.com/image.jpg"
+                  rows="3"
+                  placeholder="Enter vehicle features separated by commas"
                 />
               </div>
 

@@ -112,7 +112,10 @@ export const translatedApiService = {
     const response = await apiService.getVehicle(id);
     return translateResponse(response);
   },
-  
+  lookupVehicleByVin: async (vin) => {
+    const response = await apiService.lookupVehicleByVin(vin);
+    return translateResponse(response);
+  },
   createVehicle: async (data) => {
     const response = await apiService.createVehicle(data);
     return translateResponse(response);

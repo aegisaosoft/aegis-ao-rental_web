@@ -54,52 +54,28 @@ router.get('/', async (req, res) => {
 router.get('/vin-lookup/:vin', authenticateToken, async (req, res) => {
   try {
     const { vin } = req.params;
-    
+
     if (!vin || vin.length !== 17) {
-      return res.status(400).json({ 
-        message: 'Invalid VIN. VIN must be exactly 17 characters.' 
+      return res.status(400).json({
+        message: 'Invalid VIN. VIN must be exactly 17 characters.'
       });
     }
 
-    // Call external VIN validation API
     const axios = require('axios');
-    const vinApiUrl = `https://vehicle-validation.aegis-rental.com/index.html`;
-    
-    // Try as API endpoint first (GET with VIN parameter)
-    try {
-      const response = await axios.get(vinApiUrl, {
-        params: { vin: vin.toUpperCase() },
-        timeout: 10000,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      return res.json(response.data);
-    } catch (apiError) {
-      // If GET fails, try POST
-      try {
-        const response = await axios.post(vinApiUrl, {
-          vin: vin.toUpperCase()
-        }, {
-          timeout: 10000,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-        return res.json(response.data);
-      } catch (postError) {
-        console.error('VIN lookup API error:', postError.response?.data || postError.message);
-        return res.status(postError.response?.status || 500).json({ 
-          message: postError.response?.data?.message || 'Failed to lookup VIN information',
-          error: postError.message
-        });
+    const vinApiUrl = `https://vehicle-validation.aegis-rental.com/api/vin/decode/${encodeURIComponent(vin.toUpperCase())}`;
+
+    const response = await axios.get(vinApiUrl, {
+      timeout: 10000,
+      headers: {
+        'Accept': 'application/json'
       }
-    }
+    });
+
+    return res.json(response.data);
   } catch (error) {
-    console.error('VIN lookup error:', error);
-    res.status(500).json({ 
-      message: 'Server error while looking up VIN',
+    console.error('VIN lookup error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to lookup VIN information',
       error: error.message
     });
   }

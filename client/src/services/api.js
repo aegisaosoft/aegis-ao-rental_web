@@ -122,6 +122,7 @@ export const apiService = {
   // Vehicles
   getVehicles: (params = {}) => api.get('/vehicles', { params }),
   getVehicle: (id) => api.get(`/vehicles/${id}`),
+  lookupVehicleByVin: (vin) => api.get(`/vehicles/vin-lookup/${encodeURIComponent(vin)}`),
   createVehicle: (data) => api.post('/vehicles', data),
   updateVehicle: (id, data) => api.put(`/vehicles/${id}`, data),
   deleteVehicle: (id) => api.delete(`/vehicles/${id}`),
