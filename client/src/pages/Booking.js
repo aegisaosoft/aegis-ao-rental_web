@@ -94,10 +94,11 @@ const Booking = () => {
         returnDate: formData.returnDate,
         pickupLocation: formData.pickupLocation,
         returnLocation: formData.returnLocation,
-        additionalNotes: formData.additionalNotes
+        additionalNotes: formData.additionalNotes,
+        securityDeposit: companyConfig?.securityDeposit ?? 1000
       };
 
-      await apiService.createReservation(bookingData);
+    await apiService.createBooking(bookingData);
       toast.success(t('booking.success'));
       navigate('/my-bookings');
     } catch (error) {

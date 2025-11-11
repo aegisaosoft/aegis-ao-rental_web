@@ -56,11 +56,32 @@ const AdminDashboard = () => {
   const { companyConfig, formatPrice, currencySymbol, currencyCode } = useCompany();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [isEditingDeposit, setIsEditingDeposit] = useState(false);
+  const [securityDepositDraft, setSecurityDepositDraft] = useState('');
+  const [isSavingDeposit, setIsSavingDeposit] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
   const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'customers', 'reports', etc.
+  const tabCaptions = useMemo(
+    () => ({
+      info: t(
+        'admin.tabCaptionInfo',
+        'Manage core company details, contact information, and financial defaults.'
+      ),
+      design: t(
+        'admin.tabCaptionDesign',
+        'Configure branding assets, imagery, and styling used across customer experiences.'
+      ),
+      locations: t(
+        'admin.tabCaptionLocations',
+        'Add or edit pickup and return locations that customers can select during booking.'
+      ),
+    }),
+    [t]
+  );
+
   const [uploadProgress, setUploadProgress] = useState({
     video: 0,
     banner: 0,
@@ -127,6 +148,18 @@ const AdminDashboard = () => {
   const [isUpdatingRate, setIsUpdatingRate] = useState(false);
   const [servicePricingModal, setServicePricingModal] = useState(initialServicePricingModalState);
 
+  // Bookings filters & pagination
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('');
+  const [bookingCustomerFilter, setBookingCustomerFilter] = useState('');
+  const [bookingDateFrom, setBookingDateFrom] = useState('');
+  const [bookingDateTo, setBookingDateTo] = useState('');
+  const [bookingPage, setBookingPage] = useState(1);
+  const [bookingPageSize, setBookingPageSize] = useState(10);
+
+  useEffect(() => {
+    setBookingPage(1);
+  }, [bookingStatusFilter, bookingCustomerFilter, bookingDateFrom, bookingDateTo]);
+
   const formatRate = useCallback(
     (value, options = {}) => {
       if (value === null || value === undefined || value === '') return '—';
@@ -142,6 +175,53 @@ const AdminDashboard = () => {
     },
     [formatPrice]
   );
+
+  const formatDate = useCallback((value) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString();
+  }, []);
+
+  const formatBookingStatus = useCallback(
+    (status) => {
+      if (!status) return t('booking.statusPending', 'Pending');
+      const normalized = status.toLowerCase();
+      switch (normalized) {
+        case 'pending':
+          return t('booking.statusPending', 'Pending');
+        case 'confirmed':
+          return t('booking.statusConfirmed', 'Confirmed');
+        case 'active':
+          return t('booking.statusActive', 'Active');
+        case 'completed':
+          return t('booking.statusCompleted', 'Completed');
+        case 'cancelled':
+        case 'canceled':
+          return t('booking.statusCancelled', 'Cancelled');
+        default:
+          return status;
+      }
+    },
+    [t]
+  );
+
+  const getBookingStatusColor = useCallback((status) => {
+    if (!status) return 'bg-yellow-100 text-yellow-700';
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-700';
+      case 'active':
+        return 'bg-blue-100 text-blue-700';
+      case 'completed':
+        return 'bg-gray-100 text-gray-700';
+      case 'cancelled':
+      case 'canceled':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-yellow-100 text-yellow-700';
+    }
+  }, []);
 
   const resetServicePricingModal = useCallback(() => {
     setServicePricingModal(initialServicePricingModalState);
@@ -289,6 +369,9 @@ const AdminDashboard = () => {
       onSuccess: (data) => {
         // Handle both axios response format and direct data
         const companyInfo = data?.data || data;
+        if (companyInfo && (companyInfo.securityDeposit === undefined || companyInfo.securityDeposit === null)) {
+          companyInfo.securityDeposit = 1000;
+        }
         setCompanyFormData(companyInfo);
       },
       onError: (error) => {
@@ -934,11 +1017,83 @@ const AdminDashboard = () => {
     }
   );
 
+  const { data: companyBookingsResponse, isLoading: isLoadingBookings, error: bookingsError } = useQuery(
+    [
+      'companyBookings',
+      currentCompanyId,
+      bookingStatusFilter,
+      bookingCustomerFilter,
+      bookingDateFrom,
+      bookingDateTo,
+      bookingPage,
+      bookingPageSize,
+      activeSection,
+    ],
+    () =>
+      apiService.getCompanyBookings(currentCompanyId, {
+        status: bookingStatusFilter || undefined,
+        customer: bookingCustomerFilter || undefined,
+        pickupStart: bookingDateFrom || undefined,
+        pickupEnd: bookingDateTo || undefined,
+        page: bookingPage,
+        pageSize: bookingPageSize,
+      }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'reservations',
+      keepPreviousData: true,
+      onError: (error) => {
+        console.error('Error loading company bookings:', error);
+      },
+    }
+  );
+
   const allAdditionalServices = allAdditionalServicesResponse?.data || allAdditionalServicesResponse || [];
   const companyServices = useMemo(() => {
     const raw = companyServicesResponse?.data || companyServicesResponse || [];
     return Array.isArray(raw) ? raw : [];
   }, [companyServicesResponse]);
+
+  const bookingsData = useMemo(() => {
+    const payload = companyBookingsResponse?.data || companyBookingsResponse;
+    if (!payload) {
+      return { items: [], totalCount: 0, page: bookingPage, pageSize: bookingPageSize };
+    }
+
+    const items = Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.Bookings)
+        ? payload.Bookings
+        : Array.isArray(payload?.bookings)
+          ? payload.bookings
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+              ? payload
+              : [];
+
+    const totalCount = payload?.totalCount ?? payload?.TotalCount ?? items.length;
+    const pageValue = payload?.page ?? payload?.Page ?? bookingPage;
+    const pageSizeValue = payload?.pageSize ?? payload?.PageSize ?? bookingPageSize;
+
+    return {
+      items,
+      totalCount,
+      page: pageValue,
+      pageSize: pageSizeValue,
+    };
+  }, [companyBookingsResponse, bookingPage, bookingPageSize]);
+
+  const filteredBookings = bookingsData.items;
+  const totalBookings = bookingsData.totalCount;
+  const totalBookingPages = bookingsData.pageSize
+    ? Math.max(1, Math.ceil(totalBookings / bookingsData.pageSize))
+    : 1;
+
+  useEffect(() => {
+    if (bookingPage > totalBookingPages) {
+      setBookingPage(totalBookingPages || 1);
+    }
+  }, [bookingPage, totalBookingPages]);
 
   const [assignmentOverrides, setAssignmentOverrides] = useState({});
 
@@ -1109,6 +1264,16 @@ const AdminDashboard = () => {
 
   const handleCompanyInputChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === 'securityDeposit') {
+      const numericValue = value === '' ? '' : parseFloat(value);
+      setCompanyFormData(prev => ({
+        ...prev,
+        securityDeposit: value === '' || Number.isNaN(numericValue) ? '' : numericValue
+      }));
+      return;
+    }
+
     setCompanyFormData(prev => ({
       ...prev,
       [name]: value
@@ -1127,10 +1292,6 @@ const AdminDashboard = () => {
       logoLink: companyFormData.logoLink || null,
       bannerLink: companyFormData.bannerLink || null,
       videoLink: companyFormData.videoLink || null,
-      invitation: companyFormData.invitation || null,
-      motto: companyFormData.motto || null,
-      mottoDescription: companyFormData.mottoDescription || null,
-      texts: companyFormData.texts || null,
       backgroundLink: companyFormData.backgroundLink || null,
       about: companyFormData.about || null,
       bookingIntegrated: companyFormData.bookingIntegrated || null,
@@ -1141,7 +1302,11 @@ const AdminDashboard = () => {
       logoUrl: companyFormData.logoUrl || null,
       faviconUrl: companyFormData.faviconUrl || null,
       customCss: companyFormData.customCss || null,
-      country: companyFormData.country || null
+      country: companyFormData.country || null,
+      securityDeposit:
+        companyFormData.securityDeposit === '' || companyFormData.securityDeposit == null
+          ? null
+          : Number(companyFormData.securityDeposit)
     };
     
     // Auto-add https:// to URLs if missing
@@ -1188,6 +1353,57 @@ const AdminDashboard = () => {
     }
   };
 
+  const beginSecurityDepositEdit = () => {
+    if (isEditingCompany || !currentCompanyId) return;
+    const currentDeposit =
+      companyFormData.securityDeposit ??
+      actualCompanyData?.securityDeposit ??
+      1000;
+    setSecurityDepositDraft(
+      currentDeposit != null ? currentDeposit.toString() : ''
+    );
+    setIsEditingDeposit(true);
+  };
+
+  const cancelSecurityDepositEdit = () => {
+    setIsEditingDeposit(false);
+    setSecurityDepositDraft('');
+    setIsSavingDeposit(false);
+  };
+
+  const handleSecurityDepositSave = () => {
+    const numericValue = parseFloat(securityDepositDraft);
+    if (Number.isNaN(numericValue) || numericValue < 0) {
+      toast.error(
+        t('admin.invalidSecurityDeposit', 'Please enter a valid non-negative amount.')
+      );
+      return;
+    }
+    setIsSavingDeposit(true);
+    updateCompanyMutation.mutate(
+      { securityDeposit: numericValue },
+      {
+        onSuccess: () => {
+          setCompanyFormData((prev) => ({
+            ...prev,
+            securityDeposit: numericValue,
+          }));
+          cancelSecurityDepositEdit();
+        },
+        onError: (error) => {
+          console.error('Error updating security deposit:', error);
+          toast.error(
+            error.response?.data?.message ||
+              t('admin.securityDepositUpdateFailed', 'Failed to update security deposit.')
+          );
+        },
+        onSettled: () => {
+          setIsSavingDeposit(false);
+        },
+      }
+    );
+  };
+
   const handleCancelEdit = () => {
     // If creating new company (no currentCompanyId), reset form
     if (!currentCompanyId) {
@@ -1200,6 +1416,7 @@ const AdminDashboard = () => {
       setCompanyFormData(companyInfo);
       setIsEditingCompany(false);
     }
+    cancelSecurityDepositEdit();
   };
 
   // Location handlers
@@ -2028,7 +2245,7 @@ const AdminDashboard = () => {
             <div className="space-y-2">
               <button
                 onClick={() => setActiveSection('company')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'company'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2037,10 +2254,11 @@ const AdminDashboard = () => {
                 aria-label={t('admin.companyProfile')}
               >
                 <Building2 className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs">{t('admin.companyProfile')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('vehicles')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'vehicles'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2050,10 +2268,11 @@ const AdminDashboard = () => {
                 aria-label={t('vehicles.title')}
               >
                 <Car className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('vehicles.title')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('vehicleManagement')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'vehicleManagement'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2063,10 +2282,11 @@ const AdminDashboard = () => {
                 aria-label={t('admin.vehicles')}
               >
                 <Car className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.vehicles')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('reservations')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'reservations'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2076,10 +2296,11 @@ const AdminDashboard = () => {
                 aria-label={t('admin.reservations')}
               >
                 <Calendar className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.reservations')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('customers')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'customers'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2089,10 +2310,11 @@ const AdminDashboard = () => {
                 aria-label={t('admin.customers')}
               >
                 <Users className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.customers')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('bookingSettings')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'bookingSettings'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2102,10 +2324,11 @@ const AdminDashboard = () => {
                 aria-label={t('admin.bookingSettings')}
               >
                 <Calendar className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.bookingSettings')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('reports')}
-                className={`w-full px-4 py-3 rounded-lg transition-colors flex items-center justify-center ${
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
                   activeSection === 'reports'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -2115,6 +2338,7 @@ const AdminDashboard = () => {
                 aria-label={t('admin.viewReports')}
               >
                 <TrendingUp className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.viewReports')}</span>
               </button>
             </div>
           </Card>
@@ -2195,6 +2419,9 @@ const AdminDashboard = () => {
                     </button>
                   </nav>
             </div>
+                <p className="text-sm text-gray-500 mb-6">
+                  {tabCaptions[activeTab]}
+                </p>
 
                 {/* Company Info Tab */}
                 {activeTab === 'info' && (
@@ -2266,6 +2493,38 @@ const AdminDashboard = () => {
                         </optgroup>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.securityDeposit', 'Security Deposit')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        name="securityDeposit"
+                        min="0"
+                        step="0.01"
+                        value={
+                          companyFormData.securityDeposit === '' ||
+                          companyFormData.securityDeposit == null
+                            ? ''
+                            : companyFormData.securityDeposit
+                        }
+                        onChange={handleCompanyInputChange}
+                        className="input-field pr-14"
+                        placeholder="1000"
+                      />
+                      <span className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-500">
+                        {companyFormData.currency || 'USD'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t(
+                        'admin.securityDepositHelp',
+                        'Default deposit amount required for bookings created under this company.'
+                      )}
+                    </p>
                   </div>
 
                   {/* Media Links */}
@@ -2435,80 +2694,6 @@ const AdminDashboard = () => {
                         </p>
                       </div>
                     )}
-                  </div>
-
-                  {/* Marketing Content */}
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
-                      {t('admin.marketingContent')}
-                    </h4>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.invitation')}
-                    </label>
-                    <input
-                      type="text"
-                      name="invitation"
-                      value={companyFormData.invitation || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="Find & Book a Great Deal Today"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.motto')}
-                    </label>
-                    <input
-                      type="text"
-                      name="motto"
-                      value={companyFormData.motto || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="Meet our newest fleet yet"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.mottoDescription')}
-                    </label>
-                    <input
-                      type="text"
-                      name="mottoDescription"
-                      value={companyFormData.mottoDescription || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="New rental cars. No lines. Let's go!"
-                    />
-                  </div>
-
-                  {/* Texts JSONB field */}
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
-                      {t('admin.textsData')}
-                    </h4>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.texts')}
-                      <span className="text-xs text-gray-500 ml-2">(JSON format)</span>
-                    </label>
-                    <textarea
-                      name="texts"
-                      value={companyFormData.texts || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      rows="4"
-                      placeholder='{"key1": "value1", "key2": "value2"}'
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {t('admin.textsHelp')}
-                    </p>
                   </div>
 
                   {/* Additional Content Fields */}
@@ -3051,77 +3236,75 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.marketingContent')}</p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.invitation')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.invitation || '-'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.motto')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.motto || '-'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.mottoDescription')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.mottoDescription || '-'}</p>
-                </div>
-
-                <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.textsData')}</p>
-                </div>
-
-                <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.texts')}</p>
-                  <pre className="text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 overflow-x-auto">
-                    {actualCompanyData?.texts ? (() => {
-                      try {
-                        return JSON.stringify(JSON.parse(actualCompanyData.texts), null, 2);
-                      } catch (e) {
-                        return actualCompanyData.texts;
-                      }
-                    })() : '-'}
-                  </pre>
-                </div>
-
-                <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">{t('admin.mediaLinks')}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.logoLink')}</p>
-                  <p className="text-base text-gray-900">
-                    {actualCompanyData?.logoLink ? (
-                      <a href={actualCompanyData.logoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {t('admin.viewLogo')}
-                      </a>
-                    ) : '-'}
+                  <p className="text-sm font-semibold text-gray-700 mb-3">
+                    {t('admin.financialSettings', 'Financial Settings')}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.bannerLink')}</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    {t('admin.currency', 'Currency')}
+                  </p>
                   <p className="text-base text-gray-900">
-                    {actualCompanyData?.bannerLink ? (
-                      <a href={actualCompanyData.bannerLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {t('admin.viewBanner')}
-                      </a>
-                    ) : '-'}
+                    {(actualCompanyData?.currency || 'USD').toUpperCase()}
                   </p>
                 </div>
 
-                <div className="md:col-span-2">
-                  <p className="text-sm font-medium text-gray-600">{t('admin.videoLink')}</p>
-                  <p className="text-base text-gray-900">
-                    {actualCompanyData?.videoLink ? (
-                      <a href={actualCompanyData.videoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {t('admin.viewVideo')}
-                      </a>
-                    ) : '-'}
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    {t('admin.securityDeposit', 'Security Deposit')}
                   </p>
+                  {isEditingDeposit ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={securityDepositDraft}
+                        onChange={(e) => setSecurityDepositDraft(e.target.value)}
+                        className="input-field h-10"
+                        disabled={isSavingDeposit}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSecurityDepositSave}
+                        disabled={isSavingDeposit}
+                        className="btn-primary px-3 py-2 text-sm"
+                      >
+                        {isSavingDeposit ? t('common.saving') || 'Saving…' : t('common.save')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelSecurityDepositEdit}
+                        disabled={isSavingDeposit}
+                        className="btn-outline px-3 py-2 text-sm"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-base text-gray-900">
+                        {actualCompanyData?.securityDeposit != null
+                          ? new Intl.NumberFormat(undefined, {
+                              style: 'currency',
+                              currency: (actualCompanyData?.currency || 'USD').toUpperCase(),
+                              minimumFractionDigits: 0,
+                            }).format(actualCompanyData.securityDeposit)
+                          : '-'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={beginSecurityDepositEdit}
+                        disabled={isEditingCompany}
+                        className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                      >
+                        {t('common.edit')}
+                      </button>
+                    </div>
+                  )}
                 </div>
+
               </div>
           )}
         </div>
@@ -3492,8 +3675,210 @@ const AdminDashboard = () => {
 
           {/* Reservations Section */}
           {activeSection === 'reservations' && (
-            <Card title={t('admin.reservations')}>
-              <p className="text-gray-500 text-center py-4">{t('admin.reservationsComingSoon')}</p>
+            <Card title={t('admin.bookings', 'Bookings')}>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <input
+                      type="date"
+                      className="input-field border border-gray-300"
+                      value={bookingDateFrom}
+                      onChange={(e) => setBookingDateFrom(e.target.value)}
+                    />
+                    <input
+                      type="date"
+                      className="input-field border border-gray-300"
+                      value={bookingDateTo}
+                      onChange={(e) => setBookingDateTo(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <select
+                      value={bookingStatusFilter}
+                      onChange={(e) => setBookingStatusFilter(e.target.value)}
+                      className="input-field border border-gray-300"
+                    >
+                      <option value="">{t('admin.allStatuses', 'All statuses')}</option>
+                      <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
+                      <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
+                      <option value="Active">{t('booking.statusActive', 'Active')}</option>
+                      <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
+                      <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
+                    </select>
+                    <input
+                      type="text"
+                      className="input-field border border-gray-300"
+                      placeholder={t('admin.customerSearch', 'Customer name or email')}
+                      value={bookingCustomerFilter}
+                      onChange={(e) => setBookingCustomerFilter(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm text-gray-600">
+                    {t('admin.bookingCount', { count: totalBookings })}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => {
+                      setBookingStatusFilter('');
+                      setBookingCustomerFilter('');
+                      setBookingDateFrom('');
+                      setBookingDateTo('');
+                    }}
+                  >
+                    {t('admin.resetFilters', 'Reset Filters')}
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingBookings ? (
+                <div className="py-8 text-center text-gray-500">
+                  {t('common.loading')}
+                </div>
+              ) : bookingsError ? (
+                <div className="py-8 text-center text-red-500">
+                  {t('admin.bookingsLoadError', 'Unable to load bookings.')}
+                </div>
+              ) : !filteredBookings.length ? (
+                <div className="py-8 text-center text-gray-500">
+                  {t('admin.noBookingsFound', 'No bookings found for the selected filters.')}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.bookingNumber', 'Booking #')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.customer', 'Customer')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.vehicle', 'Vehicle')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.pickupDate', 'Pickup Date')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.returnDate', 'Return Date')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.totalAmount', 'Total')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.securityDeposit', 'Security Deposit')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.status', 'Status')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredBookings.map((booking) => (
+                        <tr key={booking.id}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{booking.bookingNumber}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {booking.customerName}
+                            <div className="text-xs text-gray-500">{booking.customerEmail}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{booking.vehicleName}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDate(booking.pickupDate)}
+                            <div className="text-xs text-gray-500">{booking.pickupLocation}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDate(booking.returnDate)}
+                            <div className="text-xs text-gray-500">{booking.returnLocation}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatPrice(booking.totalAmount)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatPrice(booking.securityDeposit)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingStatusColor(
+                                booking.status || ''
+                              )}`}
+                            >
+                              {formatBookingStatus(booking.status)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
+                    <div className="text-sm text-gray-600">
+                      {totalBookings > 0
+                        ? t('admin.showingRange', {
+                            start: (bookingPage - 1) * bookingPageSize + 1,
+                            end: Math.min(bookingPage * bookingPageSize, totalBookings),
+                            total: totalBookings,
+                          })
+                        : t('admin.showingRangeEmpty', 'No bookings to display.')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
+                      <select
+                        value={bookingPageSize}
+                        onChange={(e) => {
+                          setBookingPageSize(Number(e.target.value) || 10);
+                          setBookingPage(1);
+                        }}
+                        className="input-field w-24"
+                      >
+                        {[10, 25, 50].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBookingPage(1)}
+                        disabled={bookingPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBookingPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={bookingPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        {bookingPage} / {totalBookingPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setBookingPage((prev) => Math.min(prev + 1, totalBookingPages))}
+                        disabled={bookingPage >= totalBookingPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBookingPage(totalBookingPages)}
+                        disabled={bookingPage >= totalBookingPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 

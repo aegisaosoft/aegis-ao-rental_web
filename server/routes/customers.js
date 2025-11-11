@@ -60,7 +60,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.getCustomer(id);
+    const response = await apiService.getCustomer(token, id);
     res.json(response.data);
   } catch (error) {
     console.error('Customer fetch error:', error);
@@ -71,7 +71,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new customer
 router.post('/', async (req, res) => {
   try {
-    const response = await apiService.createCustomer(req.body);
+    const response = await apiService.createCustomer(null, req.body);
     res.status(201).json(response.data);
   } catch (error) {
     console.error('Customer creation error:', error);
@@ -84,7 +84,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.updateCustomer(id, req.body);
+    const response = await apiService.updateCustomer(token, id, req.body);
     res.json(response.data);
   } catch (error) {
     console.error('Customer update error:', error);

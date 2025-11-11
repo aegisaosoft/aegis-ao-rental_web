@@ -53,6 +53,24 @@ const normalizeVehiclePayload = (vehicle) => {
   };
 };
 
+const sanitizeForDebug = (value) => {
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForDebug);
+  }
+
+  return Object.entries(value).reduce((acc, [key, val]) => {
+    if (key === 'key' || key === 'account') {
+      return acc;
+    }
+    acc[key] = sanitizeForDebug(val);
+    return acc;
+  }, {});
+};
+
 const AICarAssistant = ({ availableVehicles = [], onSelectVehicle }) => {
   const { t, i18n } = useTranslation();
   const { formatPrice, aiIntegration } = useCompany();
@@ -164,11 +182,11 @@ const AICarAssistant = ({ availableVehicles = [], onSelectVehicle }) => {
       }
 
       const data = await response.json();
-      console.log('✅ Full response data:', data);
+      console.log('✅ Full response data:', sanitizeForDebug(data));
 
       const actualData = data.result || data;
       console.log('📝 Summary:', actualData.summary);
-      console.log('🚗 Recommendations:', actualData.recommendations);
+      console.log('🚗 Recommendations:', sanitizeForDebug(actualData.recommendations));
 
       setSummary(actualData.summary || '');
       setRecommendations(Array.isArray(actualData.recommendations) ? actualData.recommendations : []);

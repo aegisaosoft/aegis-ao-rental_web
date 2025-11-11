@@ -15,6 +15,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import { clearStoredFilterDates } from '../utils/rentalSearchFilters';
 
 const AuthContext = createContext();
 
@@ -45,6 +46,7 @@ export const AuthProvider = ({ children }) => {
           }
           // Clear invalid/expired token for both 401 and 403
           localStorage.removeItem('token');
+          clearStoredFilterDates();
           setToken(null);
           setUser(null);
         }
@@ -105,6 +107,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    clearStoredFilterDates();
     setToken(null);
     setUser(null);
     

@@ -222,7 +222,7 @@ app.get('/api/session/company', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/reservations', reservationRoutes);
+app.use('/api/booking', reservationRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
@@ -332,7 +332,7 @@ app.use('/api/*', upload.any(), async (req, res) => {
   
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
-    const skipPaths = ['/api/auth', '/api/vehicles', '/api/reservations', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
+    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
     // Only skip /api/companies (not /api/RentalCompanies)
     // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
     if (req.originalUrl.startsWith('/api/companies') || 

@@ -19,11 +19,11 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all reservations (with optional filters)
-router.get('/', authenticateToken, async (req, res) => {
+// Get all bookings with optional filters
+router.get('/bookings', authenticateToken, async (req, res) => {
   try {
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.getReservations(req.query);
+    const response = await apiService.getBookings(token, req.query);
     res.json(response.data);
   } catch (error) {
     console.error('Reservations fetch error:', error);
@@ -33,12 +33,12 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get reservation by ID
-router.get('/:id', authenticateToken, async (req, res) => {
+// Get booking by ID
+router.get('/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.getReservation(id);
+    const response = await apiService.getBooking(token, id);
     res.json(response.data);
   } catch (error) {
     console.error('Reservation fetch error:', error);
@@ -48,11 +48,26 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Create new reservation
-router.post('/', authenticateToken, async (req, res) => {
+// Get bookings for a company with pagination/filters
+router.get('/companies/:companyId/bookings', authenticateToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    const response = await apiService.getCompanyBookings(token, companyId, req.query);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Company bookings fetch error:', error);
+    res.status(error.response?.status || 500).json({ 
+      message: error.response?.data?.message || 'Server error' 
+    });
+  }
+});
+
+// Create new booking
+router.post('/bookings', authenticateToken, async (req, res) => {
   try {
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.createReservation(req.body);
+    const response = await apiService.createBooking(token, req.body);
     res.status(201).json(response.data);
   } catch (error) {
     console.error('Reservation creation error:', error);
@@ -62,12 +77,12 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Update reservation
-router.put('/:id', authenticateToken, async (req, res) => {
+// Update booking
+router.put('/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.updateReservation(id, req.body);
+    const response = await apiService.updateBooking(token, id, req.body);
     res.json(response.data);
   } catch (error) {
     console.error('Reservation update error:', error);
@@ -77,12 +92,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Cancel reservation
-router.delete('/:id', authenticateToken, async (req, res) => {
+// Cancel booking
+router.post('/bookings/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.cancelReservation(id);
+    const response = await apiService.cancelBooking(token, id);
     res.json(response.data);
   } catch (error) {
     console.error('Reservation cancellation error:', error);

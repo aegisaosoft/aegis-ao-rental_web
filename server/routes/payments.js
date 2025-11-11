@@ -23,11 +23,26 @@ const router = express.Router();
 router.post('/intent', authenticateToken, async (req, res) => {
   try {
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.createPaymentIntent(req.body);
+    const response = await apiService.createPaymentIntent(token, req.body);
     res.json(response.data);
   } catch (error) {
     console.error('Payment intent creation error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create checkout session
+router.post('/checkout-session', authenticateToken, async (req, res) => {
+  try {
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    console.log('[Payments] Forwarding checkout session request:', req.body);
+    const response = await apiService.createCheckoutSession(token, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Checkout session creation error:', error.response?.data || error.message || error);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Server error'
+    });
   }
 });
 
@@ -36,7 +51,7 @@ router.post('/confirm/:paymentIntentId', authenticateToken, async (req, res) => 
   try {
     const { paymentIntentId } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.confirmPayment(paymentIntentId);
+    const response = await apiService.confirmPayment(token, paymentIntentId);
     res.json(response.data);
   } catch (error) {
     console.error('Payment confirmation error:', error);
@@ -49,7 +64,7 @@ router.get('/methods/:customerId', authenticateToken, async (req, res) => {
   try {
     const { customerId } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.getPaymentMethods(customerId);
+    const response = await apiService.getPaymentMethods(token, customerId);
     res.json(response.data);
   } catch (error) {
     console.error('Payment methods fetch error:', error);

@@ -21,6 +21,7 @@ import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 import AICarAssistant from '../components/AICarAssistant';
+import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
 
 const SEARCH_FILTERS_STORAGE_KEY = 'rentalSearchFilters';
 
@@ -138,11 +139,21 @@ const Home = () => {
         filtersLoadedRef.current = true;
         return;
       }
-      const saved = JSON.parse(savedRaw);
-      if (saved.startDate) setStartDate(saved.startDate);
-      if (saved.endDate) setEndDate(saved.endDate);
-      if (saved.category) setCategory(saved.category);
-      if (saved.locationId) setSelectedLocationId(saved.locationId);
+      const parsed = JSON.parse(savedRaw);
+      const { sanitized, changed } = sanitizeFilterDates(parsed);
+
+      if (changed) {
+        if (Object.keys(sanitized).length === 0) {
+          localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
+        } else {
+          localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(sanitized));
+        }
+      }
+
+      if (sanitized.startDate) setStartDate(sanitized.startDate);
+      if (sanitized.endDate) setEndDate(sanitized.endDate);
+      if (sanitized.category) setCategory(sanitized.category);
+      if (sanitized.locationId) setSelectedLocationId(sanitized.locationId);
     } catch (error) {
       console.warn('[Home] Failed to load saved search filters:', error);
     } finally {
@@ -238,14 +249,11 @@ const Home = () => {
     let totalAvailable = 0;
     
     if (modelsGrouped && Array.isArray(modelsGrouped)) {
-      console.log('DEBUG Home: modelsGrouped structure:', modelsGrouped.length, 'categories');
-      modelsGrouped.forEach(categoryGroup => {
+      modelsGrouped.forEach((categoryGroup) => {
         if (categoryGroup.models && Array.isArray(categoryGroup.models)) {
-          console.log('DEBUG Home: category', categoryGroup.categoryName, 'has', categoryGroup.models.length, 'models');
-          categoryGroup.models.forEach(model => {
-            const vCount = (model.vehicleCount || model.VehicleCount || 0);
-            const aCount = (model.availableCount || model.AvailableCount || 0);
-            console.log('DEBUG Home: Model', model.make, model.modelName, model.year, '- vehicles:', vCount, 'available:', aCount);
+          categoryGroup.models.forEach((model) => {
+            const vCount = model.vehicleCount || model.VehicleCount || 0;
+            const aCount = model.availableCount || model.AvailableCount || 0;
             totalVehicles += vCount;
             totalAvailable += aCount;
           });
@@ -253,7 +261,6 @@ const Home = () => {
       });
     }
     
-    console.log('DEBUG Home: Total calculated - vehicles:', totalVehicles, 'available:', totalAvailable);
     return { fleetCount: totalVehicles, availableCount: totalAvailable };
   }, [modelsGrouped]);
 

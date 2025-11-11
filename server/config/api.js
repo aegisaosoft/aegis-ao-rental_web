@@ -129,19 +129,87 @@ const apiService = {
     return apiClient.get('/api/Models/grouped-by-category', { params });
   },
   getModels: (params = {}) => apiClient.get('/api/Models', { params }),
+  bulkUpdateModelDailyRate: (token, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.put('/api/Models/bulk-update-daily-rate', data, config);
+  },
 
   // Reservations
-  getReservations: (params = {}) => apiClient.get('/api/reservations', { params }),
-  getReservation: (id) => apiClient.get(`/api/reservations/${id}`),
-  createReservation: (data) => apiClient.post('/api/reservations', data),
-  updateReservation: (id, data) => apiClient.put(`/api/reservations/${id}`, data),
-  cancelReservation: (id) => apiClient.delete(`/api/reservations/${id}`),
+  getBookings: (token, params = {}) => {
+    const config = { params };
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get('/api/booking/bookings', config);
+  },
+  getBooking: (token, id) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get(`/api/booking/bookings/${id}`, config);
+  },
+  getCompanyBookings: (token, companyId, params = {}) => {
+    const config = { params };
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get(`/api/booking/companies/${companyId}/bookings`, config);
+  },
+  createBooking: (token, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post('/api/booking/bookings', data, config);
+  },
+  updateBooking: (token, id, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.put(`/api/booking/bookings/${id}`, data, config);
+  },
+  cancelBooking: (token, id) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post(`/api/booking/bookings/${id}/cancel`, {}, config);
+  },
 
   // Customers
-  getCustomers: (params = {}) => apiClient.get('/api/customers', { params }),
-  getCustomer: (id) => apiClient.get(`/api/customers/${id}`),
-  createCustomer: (data) => apiClient.post('/api/customers', data),
-  updateCustomer: (id, data) => apiClient.put(`/api/customers/${id}`, data),
+  getCustomers: (token, params = {}) => {
+    const config = { params };
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get('/api/customers', config);
+  },
+  getCustomer: (token, id) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get(`/api/customers/${id}`, config);
+  },
+  createCustomer: (token, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post('/api/customers', data, config);
+  },
+  updateCustomer: (token, id, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.put(`/api/customers/${id}`, data, config);
+  },
   getCustomerByEmail: (email) => apiClient.get(`/api/customers/email/${encodeURIComponent(email)}`),
 
   // Authentication
@@ -152,9 +220,34 @@ const apiService = {
   }),
 
   // Payments
-  createPaymentIntent: (data) => apiClient.post('/api/payments/intent', data),
-  confirmPayment: (paymentIntentId) => apiClient.post(`/api/payments/confirm/${paymentIntentId}`),
-  getPaymentMethods: (customerId) => apiClient.get(`/api/payments/methods/${customerId}`),
+  createPaymentIntent: (token, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post('/api/payments/intent', data, config);
+  },
+  confirmPayment: (token, paymentIntentId) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post(`/api/payments/confirm/${paymentIntentId}`, null, config);
+  },
+  getPaymentMethods: (token, customerId) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.get(`/api/payments/methods/${customerId}`, config);
+  },
+  createCheckoutSession: (token, data) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post('/api/payments/checkout-session', data, config);
+  },
 
   // Companies
   getRentalCompanies: (params = {}) => apiClient.get('/api/RentalCompanies', { params }),

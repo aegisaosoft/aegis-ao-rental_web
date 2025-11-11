@@ -406,12 +406,6 @@ const VehicleList = () => {
               
               const defaultImage = getDefaultImage(categoryName);
               
-              // Debug log for first vehicle
-              if (index === 0) {
-                console.log('First vehicle:', vehicle);
-                console.log('Vehicle ID:', vehicleId);
-              }
-              
               // Skip if no vehicle ID
               if (!vehicleId) {
                 console.error('Vehicle missing ID:', vehicle);

@@ -217,11 +217,11 @@ router.get('/vehicles/locations/list', (req, res) => {
 });
 
 // Mock reservations
-router.get('/reservations', (req, res) => {
+router.get('/bookings', (req, res) => {
   res.json([]);
 });
 
-router.post('/reservations', (req, res) => {
+router.post('/bookings', (req, res) => {
   const reservation = {
     reservation_id: 'res_' + Date.now(),
     reservation_number: 'RES' + Math.random().toString(36).substr(2, 9).toUpperCase(),

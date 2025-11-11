@@ -23,6 +23,10 @@ import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon }
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { countryToLanguage } from '../utils/countryLanguage';
+import { apiService as rawApiService } from '../services/api';
+import { currencyFormatter } from '../utils/currency';
+import { imageUtils } from '../utils/imageUtils';
+import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
 
 const INITIAL_AUTH_FORM = {
   email: '',
@@ -86,7 +90,19 @@ const BookPage = () => {
   const savedSearchFilters = useMemo(() => {
     try {
       const raw = localStorage.getItem(SEARCH_FILTERS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const { sanitized, changed } = sanitizeFilterDates(parsed);
+
+      if (changed) {
+        if (Object.keys(sanitized).length === 0) {
+          localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
+        } else {
+          localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(sanitized));
+        }
+      }
+
+      return sanitized;
     } catch (error) {
       console.warn('[BookPage] Failed to load saved search filters:', error);
       return null;
@@ -108,24 +124,36 @@ const BookPage = () => {
     [companyConfig]
   );
 
+  const supportsIntlRegions = useMemo(() => {
+    if (typeof Intl?.supportedValuesOf !== 'function') {
+      return false;
+    }
+
+    try {
+      const supported = Intl.supportedValuesOf('region');
+      return Array.isArray(supported) && supported.length > 0;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const countryOptions = useMemo(() => {
-    if (typeof Intl?.supportedValuesOf === 'function') {
+    if (supportsIntlRegions) {
       try {
-        const regionCodes = Intl.supportedValuesOf('region').filter((code) =>
-          /^[A-Z]{2}$/.test(code)
-        );
-        const displayNames = new Intl.DisplayNames(
-          [i18n.language || 'en'],
-          { type: 'region' }
-        );
-        return regionCodes
-          .map((code) => ({
-            code,
-            name: displayNames.of(code) || code,
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-      } catch (error) {
-        console.warn('[BookPage] Failed to generate country list from Intl API:', error);
+        const regionCodes = Intl.supportedValuesOf('region').filter((code) => /^[A-Z]{2}$/.test(code));
+
+        if (regionCodes.length > 0) {
+          const displayNames = new Intl.DisplayNames([i18n.language || 'en'], { type: 'region' });
+
+          return regionCodes
+            .map((code) => ({
+              code,
+              name: displayNames.of(code) || code,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } catch {
+        // Fall through to static list if DisplayNames is not available or fails
       }
     }
 
@@ -192,7 +220,7 @@ const BookPage = () => {
       code: name,
       name,
     }));
-  }, [i18n.language]);
+  }, [i18n.language, supportsIntlRegions]);
   const [formData, setFormData] = useState(() => ({
     pickupDate: initialPickupDate,
     returnDate: initialReturnDate,
@@ -487,18 +515,32 @@ const BookPage = () => {
   );
 
   // Ensure vehicles is always an array
-  const vehiclesData = vehiclesResponse?.data || vehiclesResponse;
-  const vehicles = Array.isArray(vehiclesData?.items) 
-    ? vehiclesData.items 
-    : Array.isArray(vehiclesData) 
-      ? vehiclesData 
-      : Array.isArray(vehiclesResponse)
-        ? vehiclesResponse
-        : [];
+  const vehiclesPayload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
+  const vehicles = Array.isArray(vehiclesPayload?.items)
+    ? vehiclesPayload.items
+    : Array.isArray(vehiclesPayload?.data)
+      ? vehiclesPayload.data
+      : Array.isArray(vehiclesPayload?.vehicles)
+        ? vehiclesPayload.vehicles
+        : Array.isArray(vehiclesPayload)
+          ? vehiclesPayload
+          : Array.isArray(vehiclesResponse)
+            ? vehiclesResponse
+            : [];
   
   const selectedVehicle = Array.isArray(vehicles) ? vehicles.find(v => 
     (v.vehicle_id || v.vehicleId || v.id) === selectedVehicleId
   ) : null;
+
+  React.useEffect(() => {
+    if (!selectedVehicleId && vehicles.length > 0) {
+      const first = vehicles[0];
+      const id = first?.vehicle_id || first?.vehicleId || first?.id;
+      if (id) {
+        setSelectedVehicleId(id);
+      }
+    }
+  }, [vehicles, selectedVehicleId]);
 
   const handleChange = (e) => {
     setFormData({
@@ -660,7 +702,7 @@ const BookPage = () => {
           pageSize: 1
         });
 
-        const data = response?.data || response;
+        const data = response?.data?.result || response?.data || response;
         let list = [];
 
         if (Array.isArray(data?.items)) list = data.items;
@@ -765,15 +807,22 @@ const BookPage = () => {
         taxAmount: 0,
         insuranceAmount: 0,
         additionalFees,
-        additionalNotes: formData.additionalNotes || ''
+        additionalNotes: formData.additionalNotes || '',
+        securityDeposit: companyConfig?.securityDeposit ?? 1000
       };
 
-      const reservationResponse = await apiService.createReservation(bookingData);
-      const reservation = reservationResponse?.data || reservationResponse;
-      const reservationId = reservation?.id || reservation?.Id;
+      const bookingResponse = await apiService.createBooking(bookingData);
+      const reservation = bookingResponse?.data || bookingResponse;
+      const bookingId = reservation?.id || reservation?.Id;
+      const bookingNumber =
+        reservation?.bookingNumber ||
+        reservation?.BookingNumber ||
+        reservation?.booking_number ||
+        reservation?.bookingNo ||
+        '';
 
-      if (!reservationId) {
-        toast.error(t('bookPage.bookingFailed') || 'Unable to create reservation.');
+      if (!bookingId) {
+        toast.error(t('bookPage.bookingFailed') || 'Unable to create booking.');
         return;
       }
 
@@ -786,11 +835,12 @@ const BookPage = () => {
       const checkoutResponse = await apiService.createCheckoutSession({
         customerId: user.id || user.customer_id || user.customerId,
         companyId: vehicle.company_id || vehicle.companyId || companyId,
-        reservationId,
+        bookingId,
+        bookingNumber,
         amount,
         currency: (companyConfig?.currency || 'USD').toLowerCase(),
         description: `${make || ''} ${model || ''}`.trim() || 'Vehicle Booking',
-        successUrl: `${window.location.origin}/my-bookings?reservation=${reservationId ?? ''}`,
+        successUrl: `${window.location.origin}/my-bookings?booking=${bookingId ?? ''}`,
         cancelUrl: `${window.location.origin}${window.location.pathname}${window.location.search}`
       });
 

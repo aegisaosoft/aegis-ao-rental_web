@@ -175,28 +175,33 @@ export const translatedApiService = {
   },
 
   // Reservations
-  getReservations: async (params = {}) => {
-    const response = await apiService.getReservations(params);
+  getBookings: async (params = {}) => {
+    const response = await apiService.getBookings(params);
     return translateResponse(response);
   },
   
-  getReservation: async (id) => {
-    const response = await apiService.getReservation(id);
+  getBooking: async (id, params = {}) => {
+    const response = await apiService.getBooking(id, params);
+    return translateResponse(response);
+  },
+
+  getCompanyBookings: async (companyId, params = {}) => {
+    const response = await apiService.getCompanyBookings(companyId, params);
     return translateResponse(response);
   },
   
-  createReservation: async (data) => {
-    const response = await apiService.createReservation(data);
+  createBooking: async (data) => {
+    const response = await apiService.createBooking(data);
     return translateResponse(response);
   },
   
-  updateReservation: async (id, data) => {
-    const response = await apiService.updateReservation(id, data);
+  updateBooking: async (id, data) => {
+    const response = await apiService.updateBooking(id, data);
     return translateResponse(response);
   },
   
-  cancelReservation: async (id) => {
-    const response = await apiService.cancelReservation(id);
+  cancelBooking: async (id) => {
+    const response = await apiService.cancelBooking(id);
     return translateResponse(response);
   },
   

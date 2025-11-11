@@ -163,11 +163,13 @@ export const apiService = {
   bulkUpdateModelDailyRate: (data) => api.put('/Models/bulk-update-daily-rate', data),
 
   // Reservations
-  getReservations: (params = {}) => api.get('/reservations', { params }),
-  getReservation: (id) => api.get(`/reservations/${id}`),
-  createReservation: (data) => api.post('/reservations', data),
-  updateReservation: (id, data) => api.put(`/reservations/${id}`, data),
-  cancelReservation: (id) => api.delete(`/reservations/${id}`),
+  getBookings: (params = {}) => api.get('/booking/bookings', { params }),
+  getBooking: (id, params = {}) => api.get(`/booking/bookings/${id}`, { params }),
+  getCompanyBookings: (companyId, params = {}) =>
+    api.get(`/booking/companies/${companyId}/bookings`, { params }),
+  createBooking: (data) => api.post('/booking/bookings', data),
+  updateBooking: (id, data) => api.put(`/booking/bookings/${id}`, data),
+  cancelBooking: (id) => api.post(`/booking/bookings/${id}/cancel`),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),

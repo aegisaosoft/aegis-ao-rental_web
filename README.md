@@ -138,7 +138,7 @@ The application integrates with the existing Aegis-AO API at:
 
 - **Authentication**: `/api/auth/*`
 - **Vehicles**: `/api/vehicles/*`
-- **Reservations**: `/api/reservations/*`
+- **Booking**: `/api/booking/*`
 - **Customers**: `/api/customers/*`
 - **Payments**: `/api/payments/*`
 - **Admin**: `/api/admin/*`

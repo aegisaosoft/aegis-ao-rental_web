@@ -11,12 +11,18 @@ const MobileMyBookings = () => {
   const companyId = companyConfig?.id || null;
   const { data, refetch } = useQuery(
     ['m-my-bookings', companyId], 
-    () => apiService.getReservations({ companyId, pageSize: 100 }), 
+    () => apiService.getBookings({ companyId, pageSize: 100 }), 
     { enabled: isAuthenticated && !!companyId }
   );
-  const cancelMutation = useMutation((id) => apiService.cancelReservation(id));
+  const cancelMutation = useMutation((id) => apiService.cancelBooking(id));
 
-  const items = Array.isArray(data?.data?.items) ? data.data.items : (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));
+  const items = Array.isArray(data?.data?.items)
+    ? data.data.items
+    : (Array.isArray(data?.data)
+        ? data.data
+        : (Array.isArray(data?.bookings)
+            ? data.bookings
+            : (Array.isArray(data) ? data : [])));
 
   const cancel = async (id) => {
     try {

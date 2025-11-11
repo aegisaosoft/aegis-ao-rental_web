@@ -15,6 +15,7 @@
 
 const express = require('express');
 const apiService = require('../config/api');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -48,6 +49,23 @@ router.get('/', async (req, res) => {
     console.error('Models fetch error:', error);
     res.status(error.response?.status || 500).json({ 
       message: error.response?.data?.message || 'Server error' 
+    });
+  }
+});
+
+// Bulk update daily rates for models
+router.put('/bulk-update-daily-rate', authenticateToken, async (req, res) => {
+  try {
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    const response = await apiService.bulkUpdateModelDailyRate(token, req.body);
+
+    // The .NET API returns { count, message }
+    const data = response.data?.result || response.data;
+    res.json(data);
+  } catch (error) {
+    console.error('Bulk update models error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to update model daily rates'
     });
   }
 });

@@ -28,13 +28,47 @@ const MyBookings = () => {
   const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
 
-  const { data: bookings, isLoading, error } = useQuery(
-    ['myBookings', companyId],
-    () => apiService.getReservations({ companyId }),
+  const [searchParams] = React.useState(() => new URLSearchParams(window.location.search));
+  const [bookingParam, setBookingParam] = React.useState(() => searchParams.get('booking'));
+
+  const bookingQuery = useQuery(
+    ['bookingDetail', bookingParam, companyId],
+    () => (bookingParam ? apiService.getBooking(bookingParam, { companyId }) : null),
     {
-      enabled: isAuthenticated && !!companyId
+      enabled: isAuthenticated && !!companyId && !!bookingParam,
+      retry: 1,
     }
   );
+
+  const listQuery = useQuery(
+    ['myBookings', companyId],
+    () => apiService.getBookings({ companyId }),
+    {
+      enabled: isAuthenticated && !!companyId && !bookingParam,
+    }
+  );
+
+  const isLoading = listQuery.isLoading || bookingQuery.isLoading;
+  const error = listQuery.error || bookingQuery.error;
+  const bookings = bookingParam ? bookingQuery.data : listQuery.data;
+
+  const bookingList = React.useMemo(() => {
+    if (bookingParam) {
+      const detail = bookingQuery.data?.data || bookingQuery.data;
+      if (!detail) return [];
+      return [detail];
+    }
+
+    let list = [];
+    if (Array.isArray(bookings?.Bookings)) list = bookings.Bookings;
+    else if (Array.isArray(bookings?.bookings)) list = bookings.bookings;
+    else if (Array.isArray(bookings?.data)) list = bookings.data;
+    else if (Array.isArray(bookings?.items)) list = bookings.items;
+    else if (Array.isArray(bookings?.result)) list = bookings.result;
+    else if (Array.isArray(bookings)) list = bookings;
+
+    return list;
+  }, [bookings, bookingParam, bookingQuery.data]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -97,7 +131,7 @@ const MyBookings = () => {
         icon={<Calendar className="h-8 w-8" />}
       />
 
-      {!bookings || bookings.length === 0 ? (
+      {!bookingList.length ? (
         <Card>
           <EmptyState
             icon={<Car className="h-16 w-16" />}
@@ -109,20 +143,20 @@ const MyBookings = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {bookings.map((booking) => (
-            <Card key={booking.reservation_id}>
+          {bookingList.map((booking) => (
+            <Card key={booking.id || booking.bookingId || booking.booking_id}>
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-4">
                       <img
                         src={booking.vehicle?.make && booking.vehicle?.model 
                               ? `/models/${(booking.vehicle.make || '').toUpperCase()}_${(booking.vehicle.model || '').toUpperCase().replace(/\s+/g, '_')}.png`
-                          : booking.vehicle?.image_url || '/economy.jpg'}
+                          : booking.vehicle?.imageUrl || booking.vehicle?.image_url || '/economy.jpg'}
                         alt={booking.vehicle?.make}
                         className="w-20 h-15 object-cover rounded"
                         onError={(e) => {
                           // Fallback to vehicle image_url or economy.jpg
-                          const fallback = booking.vehicle?.image_url || '/economy.jpg';
+                          const fallback = booking.vehicle?.imageUrl || booking.vehicle?.image_url || '/economy.jpg';
                           if (!e.target.src.includes(fallback.replace('/', ''))) {
                             e.target.src = fallback;
                           }
@@ -132,7 +166,9 @@ const MyBookings = () => {
                         <h3 className="text-lg font-semibold text-gray-900">
                           {booking.vehicle?.year} {booking.vehicle?.make} {booking.vehicle?.model}
                         </h3>
-                        <p className="text-gray-600">{t('myBookings.reservationNumber', { number: booking.reservation_number })}</p>
+                        <p className="text-gray-600">
+                          {t('myBookings.reservationNumber', { number: booking.bookingNumber || booking.reservation_number })}
+                        </p>
                       </div>
                     </div>
 
@@ -140,23 +176,32 @@ const MyBookings = () => {
                       <div className="flex items-center text-gray-600">
                         <Calendar className="h-4 w-4 mr-2" />
                         <div>
-                          <p className="text-sm">{t('myBookings.pickupDate')}: {new Date(booking.pickup_date).toLocaleDateString()}</p>
-                          <p className="text-sm">{t('myBookings.returnDate')}: {new Date(booking.return_date).toLocaleDateString()}</p>
+                          <p className="text-sm">
+                            {t('myBookings.pickupDate')}: {new Date(booking.pickupDate || booking.pickup_date).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm">
+                            {t('myBookings.returnDate')}: {new Date(booking.returnDate || booking.return_date).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center text-gray-600">
                         <MapPin className="h-4 w-4 mr-2" />
                         <div>
-                          <p className="text-sm">{t('booking.pickupLocation')}: {booking.pickup_location}</p>
-                          <p className="text-sm">{t('booking.returnLocation')}: {booking.return_location}</p>
+                          <p className="text-sm">{t('booking.pickupLocation')}: {booking.pickupLocation || booking.pickup_location}</p>
+                          <p className="text-sm">{t('booking.returnLocation')}: {booking.returnLocation || booking.return_location}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div className="text-lg font-semibold text-blue-600">
-                        {t('myBookings.totalCost')}: {formatPrice(booking.total_amount)}
+                        {t('myBookings.totalCost')}: {formatPrice(booking.totalAmount ?? booking.total_amount)}
                       </div>
+                      {booking.securityDeposit ?? booking.security_deposit ? (
+                        <div className="text-sm text-gray-700">
+                          {t('myBookings.securityDeposit')}: {formatPrice(booking.securityDeposit ?? booking.security_deposit)}
+                        </div>
+                      ) : null}
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                         {getStatusIcon(booking.status)}
                         <span className="ml-1 capitalize">{booking.status}</span>

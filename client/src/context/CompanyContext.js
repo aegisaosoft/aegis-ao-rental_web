@@ -46,11 +46,6 @@ export const CompanyProvider = ({ children }) => {
         setLoading(true);
         setError(null);
 
-        const apiBaseUrl = '/api';
-        const endpoint = '/companies/config';
-        console.log('[CompanyContext] Loading company config from:', `${apiBaseUrl}${endpoint}`);
-        console.log('[CompanyContext] Current hostname:', window.location.hostname);
-
         let response;
         try {
           response = await apiService.getCurrentCompanyConfig();
@@ -67,7 +62,6 @@ export const CompanyProvider = ({ children }) => {
         let config = response.data?.result || response.data;
 
         if (!config || !config.id) {
-          console.warn('[CompanyContext] Config empty, attempting fallback company.');
           const fallbackResponse = await loadFallbackCompany();
           if (fallbackResponse?.data) {
             config = fallbackResponse.data;
@@ -78,9 +72,9 @@ export const CompanyProvider = ({ children }) => {
           const normalizedConfig = {
             ...config,
             currency: normalizeCurrencyCode(config.currency || config.Currency || 'USD'),
-            aiIntegration: normalizeAiIntegration(config.aiIntegration || config.AiIntegration)
+            aiIntegration: normalizeAiIntegration(config.aiIntegration || config.AiIntegration),
+            securityDeposit: Number(config.securityDeposit ?? config.SecurityDeposit ?? 1000)
           };
-          console.log('[CompanyContext] Loaded company config:', normalizedConfig.companyName, normalizedConfig.id, 'currency', normalizedConfig.currency);
           setCompanyConfig(normalizedConfig);
 
           applyCompanyStyles(normalizedConfig);
@@ -95,7 +89,6 @@ export const CompanyProvider = ({ children }) => {
 
           setCompanyLanguage(normalizedConfig);
         } else {
-          console.warn('[CompanyContext] No company config returned or invalid response:', config);
           setError('Company configuration not available');
         }
       } catch (err) {
@@ -119,14 +112,10 @@ export const CompanyProvider = ({ children }) => {
           : null;
 
         if (fallbackCompany) {
-          console.log('[CompanyContext] Using fallback company configuration from API:', fallbackCompany.companyName || fallbackCompany.CompanyName);
           return { data: fallbackCompany };
         }
-
-        console.warn('[CompanyContext] Fallback company not found in company list, using static default.');
       } catch (fallbackErr) {
         console.error('[CompanyContext] Fallback company load failed:', fallbackErr);
-        console.warn('[CompanyContext] Using static fallback company data.');
       }
 
       return {
@@ -165,7 +154,8 @@ export const CompanyProvider = ({ children }) => {
           language: 'en',
           blinkKey: 'sRwCAB5taWFtaWxpZmVjYXJzLmFlZ2lzLXJlbnRhbC5jb20GbGV5SkRjbVZoZEdWa1QyNGlPakUzTmpJME1EZzRNVFl3TVRBc0lrTnlaV0YwWldSR2IzSWlPaUppTlRrMFpUazFZUzB6T0RFMkxUUXdNV1V0WW1JM055MHpaR1JsT0RRME1qQTBNVEVpZlE9Pbv1rgG/yLgd0nzSiRWxJK8kMSb26of5X9/vmuLBdCMHr4jrBzFRHprgqfnMf37yoaPzE+DXFL9zyGiDM9NRQTnWyY7xgNtACwQSOXA4bM6WdteuYOCVYPg0eAvwH7k=',
           currency: 'USD',
-          aiIntegration: 'claude'
+          aiIntegration: 'claude',
+          securityDeposit: 1000
         }
       };
     };
@@ -235,7 +225,6 @@ export const CompanyProvider = ({ children }) => {
 
     // If user manually set language, don't override
     if (hasManualLanguagePreference) {
-      console.log('[CompanyContext] User has manual language preference, keeping current language');
       return;
     }
 
@@ -244,13 +233,12 @@ export const CompanyProvider = ({ children }) => {
     // Priority 1: Use company's language field if set
     if (config.language) {
       targetLanguage = config.language;
-      console.log('[CompanyContext] Using company language:', targetLanguage);
     }
     // Priority 2: Fallback to country-based language
     else if (config.country) {
-      targetLanguage = getLanguageForCountry(config.country);
-      if (targetLanguage) {
-        console.log('[CompanyContext] Using country-based language:', targetLanguage, 'for country:', config.country);
+      const derivedLanguage = getLanguageForCountry(config.country);
+      if (derivedLanguage) {
+        targetLanguage = derivedLanguage;
       }
     }
 
@@ -260,18 +248,12 @@ export const CompanyProvider = ({ children }) => {
 
       // Special handling for Canada - don't change if already French or English
       if (config.country === 'Canada' && (currentLanguage === 'fr' || currentLanguage === 'en')) {
-        console.log('[CompanyContext] Canada detected, keeping current language:', currentLanguage);
         return;
       }
 
       if (currentLanguage !== targetLanguage) {
-        console.log('[CompanyContext] Changing language from', currentLanguage, 'to', targetLanguage);
         i18n.changeLanguage(targetLanguage);
-      } else {
-        console.log('[CompanyContext] Language already set to:', targetLanguage);
       }
-    } else {
-      console.log('[CompanyContext] No language determined from company config');
     }
   };
 
@@ -294,6 +276,7 @@ export const CompanyProvider = ({ children }) => {
     currencySymbol,
     formatPrice,
     aiIntegration: normalizeAiIntegration(companyConfig?.aiIntegration),
+    securityDeposit: companyConfig?.securityDeposit ?? 1000,
     // Helper to check if company has booking integration
     hasBookingIntegration: companyConfig?.bookingIntegrated === true,
     // Helper to get company language

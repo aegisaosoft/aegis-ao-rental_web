@@ -20,7 +20,7 @@ const MobileBooking = () => {
   const { data } = useQuery(['m-vehicle', vehicleId], () => apiService.getVehicle(vehicleId), { enabled: !!vehicleId });
   const vehicle = useMemo(()=> (data?.data || data || null), [data]);
 
-  const createMutation = useMutation((payload) => apiService.createReservation(payload));
+  const createMutation = useMutation((payload) => apiService.createBooking(payload));
 
   const confirm = async () => {
     // Prohibit booking if no company
@@ -47,7 +47,8 @@ const MobileBooking = () => {
         taxAmount: 0,
         insuranceAmount: 0,
         additionalFees: 0,
-        additionalNotes: ''
+        additionalNotes: '',
+        securityDeposit: companyConfig?.securityDeposit ?? 1000
       });
       toast.success('Booking created');
       navigate('/m/my-bookings');
