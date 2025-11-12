@@ -73,6 +73,18 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
       }
       
+      // Fetch full user profile to ensure complete authentication
+      try {
+        const profileResponse = await apiService.getProfile();
+        if (profileResponse.data) {
+          setUser(profileResponse.data);
+        }
+      } catch (profileError) {
+        // If profile fetch fails, continue with user data from login response
+        // This is not critical - user is still authenticated with token
+        console.warn('Failed to fetch user profile after login:', profileError);
+      }
+      
       // Company selection persists through login
       
       return response.data;
@@ -95,6 +107,18 @@ export const AuthProvider = ({ children }) => {
       } else if (response.data.user) {
         // Fallback for old format
         setUser(response.data.user);
+      }
+      
+      // Fetch full user profile to ensure complete authentication
+      try {
+        const profileResponse = await apiService.getProfile();
+        if (profileResponse.data) {
+          setUser(profileResponse.data);
+        }
+      } catch (profileError) {
+        // If profile fetch fails, continue with user data from register response
+        // This is not critical - user is still authenticated with token
+        console.warn('Failed to fetch user profile after registration:', profileError);
       }
       
       // Company selection persists through register

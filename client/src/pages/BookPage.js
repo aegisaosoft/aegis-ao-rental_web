@@ -222,8 +222,7 @@ const BookPage = () => {
     pickupDate: initialPickupDate,
     returnDate: initialReturnDate,
     pickupLocation: savedSearchFilters?.pickupLocation || '',
-    returnLocation: savedSearchFilters?.returnLocation || '',
-    additionalNotes: ''
+    returnLocation: savedSearchFilters?.returnLocation || ''
   }));
 
   // Driver License form data
@@ -801,7 +800,6 @@ const BookPage = () => {
         taxAmount: 0,
         insuranceAmount: 0,
         additionalFees,
-        additionalNotes: formData.additionalNotes || '',
         securityDeposit: companyConfig?.securityDeposit ?? 1000
       };
 
@@ -1088,6 +1086,7 @@ const BookPage = () => {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   {t('bookPage.bookingDetails')}
                 </h2>
+                
                 <div className="mb-6 pb-6 border-b border-gray-200">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -1160,23 +1159,56 @@ const BookPage = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('bookPage.additionalNotes')}
-                      </label>
-                      <textarea
-                        name="additionalNotes"
-                        value={formData.additionalNotes}
-                        onChange={handleChange}
-                        rows="3"
-                        placeholder={t('bookPage.specialRequests')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
+                    {modelDailyRate > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">
+                          {formatPrice(modelDailyRate)} / {t('vehicles.day')}
+                        </p>
+                        <h3 className="text-md font-semibold text-gray-900 mb-1">
+                          {t('bookPage.ratePerDayTitle', 'Rate per Day')}
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-3">
+                          {t('bookPage.additionalOptions')}
+                        </p>
+
+                        {additionalOptions.length > 0 ? (
+                          <div className="space-y-2">
+                            {additionalOptions.map((service) => {
+                              const serviceId = service.additionalServiceId || service.AdditionalServiceId;
+                              const isSelected = selectedServices.some(s => s.id === serviceId);
+                              const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory;
+
+                              return (
+                                <label
+                                  key={serviceId}
+                                  className="flex items-center gap-3 text-gray-700"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected || isMandatory}
+                                    onChange={() => !isMandatory && handleServiceToggle(service)}
+                                    disabled={isMandatory}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span>
+                                    {service.serviceName || service.ServiceName}:{' '}
+                                    {formatPrice(service.servicePrice || service.ServicePrice || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / {t('vehicles.day') || 'day'}.
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">
+                            {t('bookPage.noAdditionalOptions')}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {formData.pickupDate && formData.returnDate && (
                       <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="flex justify-between items-center">
                           <span className="text-gray-600">
                             {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} {t('bookPage.days')}
                           </span>
@@ -1187,6 +1219,17 @@ const BookPage = () => {
                       </div>
                     )}
 
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {t('bookPage.totalLabel', 'Total')}
+                        </span>
+                        <span className="text-xl font-bold text-blue-600">
+                          {formatPrice(calculateGrandTotal())}
+                        </span>
+                      </div>
+                    </div>
+
                     <button
                       type="submit"
                       className="w-full btn-primary py-3 text-lg"
@@ -1196,85 +1239,17 @@ const BookPage = () => {
                         ? t('bookPage.processingPayment', 'Processing...')
                         : t('bookPage.completeBooking')}
                     </button>
+
+                    {!isAuthenticated && (
+                      <p className="text-sm text-center text-gray-600 mt-2">
+                        <Link to="/login" className="text-blue-600 hover:underline">
+                          {t('bookPage.login')}
+                        </Link>{' '}
+                        {t('bookPage.signInToComplete')}
+                      </p>
+                    )}
                   </form>
                 ) : null}
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                {modelDailyRate > 0 && (
-                  <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">
-                    {formatPrice(modelDailyRate)} / {t('vehicles.day')}
-                  </p>
-                )}
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  {t('bookPage.ratePerDayTitle', 'Rate per Day')}
-                </h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  {t('bookPage.additionalOptions')}
-                </p>
-
-                {additionalOptions.length > 0 ? (
-                  <div className="space-y-2">
-                    {additionalOptions.map((service) => {
-                      const serviceId = service.additionalServiceId || service.AdditionalServiceId;
-                      const isSelected = selectedServices.some(s => s.id === serviceId);
-                      const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory;
-
-                      return (
-                        <label
-                          key={serviceId}
-                          className="flex items-center gap-3 text-gray-700"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected || isMandatory}
-                            onChange={() => !isMandatory && handleServiceToggle(service)}
-                            disabled={isMandatory}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span>
-                            {service.serviceName || service.ServiceName}:{' '}
-                            {formatPrice(service.servicePrice || service.ServicePrice || 0, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / {t('vehicles.day') || 'day'}.
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">
-                    {t('bookPage.noAdditionalOptions')}
-                  </p>
-                )}
-
-                <div className="mt-6 border-t border-gray-200 pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {t('bookPage.totalLabel', 'Total')}
-                    </span>
-                    <span className="text-xl font-bold text-blue-600">
-                      {formatPrice(calculateGrandTotal())}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleRentCar}
-                  className="w-full btn-primary py-3 text-lg mt-4"
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading
-                    ? t('bookPage.processingPayment', 'Processing...')
-                    : t('bookPage.rentTheCar')}
-                </button>
-
-                {!isAuthenticated && (
-                  <p className="text-sm text-center text-gray-600 mt-2">
-                    <Link to="/login" className="text-blue-600 hover:underline">
-                      {t('bookPage.login')}
-                    </Link>{' '}
-                    {t('bookPage.signInToComplete')}
-                  </p>
-                )}
               </div>
             </div>
           </div>

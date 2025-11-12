@@ -179,6 +179,14 @@ const AdminDashboard = () => {
   const [bookingDateTo, setBookingDateTo] = useState('');
   const [bookingPage, setBookingPage] = useState(1);
   const [bookingPageSize, setBookingPageSize] = useState(10);
+  
+  // State for customers/clients
+  const [customerPage, setCustomerPage] = useState(1);
+  const [customerPageSize, setCustomerPageSize] = useState(20);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customersWithBookingsPage, setCustomersWithBookingsPage] = useState(1);
+  const [customersWithBookingsPageSize, setCustomersWithBookingsPageSize] = useState(20);
+  const [customersWithBookingsSearch, setCustomersWithBookingsSearch] = useState('');
 
   useEffect(() => {
     setBookingPage(1);
@@ -1199,6 +1207,84 @@ const AdminDashboard = () => {
     const raw = companyServicesResponse?.data || companyServicesResponse || [];
     return Array.isArray(raw) ? raw : [];
   }, [companyServicesResponse]);
+
+  // Fetch customers/clients
+  const { data: customersResponse, isLoading: isLoadingCustomers, error: customersError } = useQuery(
+    ['customers', currentCompanyId, customerPage, customerPageSize, customerSearch],
+    () =>
+      apiService.getCustomers({
+        search: customerSearch || undefined,
+        page: customerPage,
+        pageSize: customerPageSize,
+      }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'customers',
+      keepPreviousData: true,
+      onError: (error) => {
+        console.error('Error loading customers:', error);
+      },
+    }
+  );
+
+  const customersData = useMemo(() => {
+    const payload = customersResponse?.data || customersResponse;
+    if (!payload) {
+      return { items: [], totalCount: 0, page: customerPage, pageSize: customerPageSize };
+    }
+
+    const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
+    const totalCount = payload?.totalCount || payload?.total || items.length;
+    
+    return {
+      items,
+      totalCount,
+      page: customerPage,
+      pageSize: customerPageSize,
+    };
+  }, [customersResponse, customerPage, customerPageSize]);
+
+  const customers = customersData.items || [];
+  const totalCustomers = customersData.totalCount || 0;
+  const totalCustomerPages = Math.ceil(totalCustomers / customerPageSize) || 1;
+
+  // Fetch customers with bookings
+  const { data: customersWithBookingsResponse, isLoading: isLoadingCustomersWithBookings, error: customersWithBookingsError } = useQuery(
+    ['customersWithBookings', currentCompanyId, customersWithBookingsPage, customersWithBookingsPageSize, customersWithBookingsSearch],
+    () =>
+      apiService.getCustomersWithBookings(currentCompanyId, {
+        search: customersWithBookingsSearch || undefined,
+        page: customersWithBookingsPage,
+        pageSize: customersWithBookingsPageSize,
+      }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'customersWithBookings',
+      keepPreviousData: true,
+      onError: (error) => {
+        console.error('Error loading customers with bookings:', error);
+      },
+    }
+  );
+
+  const customersWithBookingsData = useMemo(() => {
+    const payload = customersWithBookingsResponse?.data || customersWithBookingsResponse;
+    if (!payload) {
+      return { items: [], totalCount: 0, page: customersWithBookingsPage, pageSize: customersWithBookingsPageSize };
+    }
+
+    const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
+    const totalCount = payload?.totalCount || payload?.total || items.length;
+    
+    return {
+      items,
+      totalCount,
+      page: customersWithBookingsPage,
+      pageSize: customersWithBookingsPageSize,
+    };
+  }, [customersWithBookingsResponse, customersWithBookingsPage, customersWithBookingsPageSize]);
+
+  const customersWithBookings = customersWithBookingsData.items || [];
+  const totalCustomersWithBookings = customersWithBookingsData.totalCount || 0;
+  const totalCustomersWithBookingsPages = Math.ceil(totalCustomersWithBookings / customersWithBookingsPageSize) || 1;
 
   const bookingsData = useMemo(() => {
     const payload = companyBookingsResponse?.data || companyBookingsResponse;
@@ -2470,6 +2556,20 @@ const AdminDashboard = () => {
               >
                 <Users className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs text-center">{t('admin.customers')}</span>
+              </button>
+              <button
+                onClick={() => setActiveSection('customersWithBookings')}
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                  activeSection === 'customersWithBookings'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+                title={t('admin.customersWithBookings', 'Customers with Bookings')}
+                aria-label={t('admin.customersWithBookings', 'Customers with Bookings')}
+              >
+                <Users className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.customersWithBookings', 'With Bookings')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('bookingSettings')}
@@ -4043,8 +4143,355 @@ const AdminDashboard = () => {
 
           {/* Customers Section */}
           {activeSection === 'customers' && (
-            <Card title={t('admin.customers')}>
-              <p className="text-gray-500 text-center py-4">{t('admin.customersComingSoon')}</p>
+            <Card title={t('admin.customers', 'Clients')}>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <input
+                    type="text"
+                    className="input-field border border-gray-300"
+                    placeholder={t('admin.customerSearch', 'Search by name or email')}
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setCustomerPage(1);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => {
+                      setCustomerSearch('');
+                      setCustomerPage(1);
+                    }}
+                    disabled={!customerSearch}
+                  >
+                    {t('admin.resetFilters', 'Reset Filters')}
+                  </button>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {t('admin.customerCount', { count: totalCustomers }) || `${totalCustomers} ${totalCustomers === 1 ? 'customer' : 'customers'}`}
+                </div>
+              </div>
+
+              {isLoadingCustomers ? (
+                <div className="py-8 text-center text-gray-500">
+                  <LoadingSpinner />
+                </div>
+              ) : customersError ? (
+                <div className="py-8 text-center text-red-500">
+                  {t('admin.customersLoadError', 'Unable to load customers.')}
+                </div>
+              ) : !customers.length ? (
+                <div className="py-8 text-center text-gray-500">
+                  {t('admin.noCustomersFound', 'No customers found.')}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.name', 'Name')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.email', 'Email')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.phone', 'Phone')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.location', 'Location')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.verified', 'Verified')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.createdAt', 'Created')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {customers.map((customer) => (
+                        <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.email || customer.Email}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.phone || customer.Phone || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.city || customer.City || '-'}
+                            {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                customer.isVerified || customer.IsVerified
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {customer.isVerified || customer.IsVerified
+                                ? t('admin.verified', 'Verified')
+                                : t('admin.notVerified', 'Not Verified')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.createdAt || customer.CreatedAt
+                              ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
+                    <div className="text-sm text-gray-600">
+                      {totalCustomers > 0
+                        ? t('admin.showingRange', {
+                            start: (customerPage - 1) * customerPageSize + 1,
+                            end: Math.min(customerPage * customerPageSize, totalCustomers),
+                            total: totalCustomers,
+                          }) || `Showing ${(customerPage - 1) * customerPageSize + 1}-${Math.min(customerPage * customerPageSize, totalCustomers)} of ${totalCustomers}`
+                        : t('admin.showingRangeEmpty', 'No customers to display.')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
+                      <select
+                        value={customerPageSize}
+                        onChange={(e) => {
+                          setCustomerPageSize(Number(e.target.value) || 20);
+                          setCustomerPage(1);
+                        }}
+                        className="input-field w-24"
+                      >
+                        {[10, 20, 50, 100].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPage(1)}
+                        disabled={customerPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={customerPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        {customerPage} / {totalCustomerPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPage((prev) => Math.min(prev + 1, totalCustomerPages))}
+                        disabled={customerPage >= totalCustomerPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPage(totalCustomerPages)}
+                        disabled={customerPage >= totalCustomerPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Customers with Bookings Section */}
+          {activeSection === 'customersWithBookings' && (
+            <Card title={t('admin.customersWithBookings', 'Customers with Bookings')}>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <input
+                    type="text"
+                    className="input-field border border-gray-300"
+                    placeholder={t('admin.customerSearch', 'Search by name or email')}
+                    value={customersWithBookingsSearch}
+                    onChange={(e) => {
+                      setCustomersWithBookingsSearch(e.target.value);
+                      setCustomersWithBookingsPage(1);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => {
+                      setCustomersWithBookingsSearch('');
+                      setCustomersWithBookingsPage(1);
+                    }}
+                    disabled={!customersWithBookingsSearch}
+                  >
+                    {t('admin.resetFilters', 'Reset Filters')}
+                  </button>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {t('admin.customerCount', { count: totalCustomersWithBookings }) || `${totalCustomersWithBookings} ${totalCustomersWithBookings === 1 ? 'customer' : 'customers'}`}
+                </div>
+              </div>
+
+              {isLoadingCustomersWithBookings ? (
+                <div className="py-8 text-center text-gray-500">
+                  <LoadingSpinner />
+                </div>
+              ) : customersWithBookingsError ? (
+                <div className="py-8 text-center text-red-500">
+                  {t('admin.customersLoadError', 'Unable to load customers.')}
+                </div>
+              ) : !customersWithBookings.length ? (
+                <div className="py-8 text-center text-gray-500">
+                  {t('admin.noCustomersFound', 'No customers found.')}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.name', 'Name')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.email', 'Email')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.phone', 'Phone')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.location', 'Location')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.verified', 'Verified')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.createdAt', 'Created')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {customersWithBookings.map((customer) => (
+                        <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.email || customer.Email}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.phone || customer.Phone || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.city || customer.City || '-'}
+                            {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                customer.isVerified || customer.IsVerified
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {customer.isVerified || customer.IsVerified
+                                ? t('admin.verified', 'Verified')
+                                : t('admin.notVerified', 'Not Verified')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {customer.createdAt || customer.CreatedAt
+                              ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
+                    <div className="text-sm text-gray-600">
+                      {totalCustomersWithBookings > 0
+                        ? t('admin.showingRange', {
+                            start: (customersWithBookingsPage - 1) * customersWithBookingsPageSize + 1,
+                            end: Math.min(customersWithBookingsPage * customersWithBookingsPageSize, totalCustomersWithBookings),
+                            total: totalCustomersWithBookings,
+                          }) || `Showing ${(customersWithBookingsPage - 1) * customersWithBookingsPageSize + 1}-${Math.min(customersWithBookingsPage * customersWithBookingsPageSize, totalCustomersWithBookings)} of ${totalCustomersWithBookings}`
+                        : t('admin.showingRangeEmpty', 'No customers to display.')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
+                      <select
+                        value={customersWithBookingsPageSize}
+                        onChange={(e) => {
+                          setCustomersWithBookingsPageSize(Number(e.target.value) || 20);
+                          setCustomersWithBookingsPage(1);
+                        }}
+                        className="input-field w-24"
+                      >
+                        {[10, 20, 50, 100].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCustomersWithBookingsPage(1)}
+                        disabled={customersWithBookingsPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomersWithBookingsPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={customersWithBookingsPage <= 1}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        {customersWithBookingsPage} / {totalCustomersWithBookingsPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomersWithBookingsPage((prev) => Math.min(prev + 1, totalCustomersWithBookingsPages))}
+                        disabled={customersWithBookingsPage >= totalCustomersWithBookingsPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomersWithBookingsPage(totalCustomersWithBookingsPages)}
+                        disabled={customersWithBookingsPage >= totalCustomersWithBookingsPages}
+                        className="btn-outline px-2 py-1 disabled:opacity-50"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 
@@ -4522,7 +4969,7 @@ const AdminDashboard = () => {
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">{t('all') || 'All Makes'}</option>
+                        <option value="">{t('vehicles.allMakes') || 'All Makes'}</option>
                         {uniqueMakes.map((make) => (
                           <option key={make} value={make}>
                             {make}
@@ -4544,7 +4991,7 @@ const AdminDashboard = () => {
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">{t('all') || 'All Models'}</option>
+                        <option value="">{t('vehicles.allModels') || 'All Models'}</option>
                         {uniqueModels.map((model) => (
                           <option key={model} value={model}>
                             {model}
@@ -4556,11 +5003,11 @@ const AdminDashboard = () => {
                     {/* Year Filter - Editable Input Field */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('year') || 'Year'}
+                        {t('vehicles.year') || 'Year'}
                       </label>
                       <input
                         type="text"
-                        placeholder={t('year') || 'Year (e.g. 2025)'}
+                        placeholder={t('vehicles.yearPlaceholder') || 'Year (e.g. 2025)'}
                         value={vehicleYearFilter}
                         onChange={(e) => {
                           // Allow only numbers
@@ -4850,7 +5297,7 @@ const AdminDashboard = () => {
                   {/* Year */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('year') || 'Year'}
+                      {t('vehicles.year') || 'Year'}
                     </label>
                     <input
                       type="number"
@@ -4859,7 +5306,7 @@ const AdminDashboard = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="1900"
                       max="2100"
-                      placeholder={t('year') || 'Year'}
+                      placeholder={t('vehicles.yearPlaceholder') || 'Year'}
                     />
                   </div>
                 </div>
@@ -5133,7 +5580,7 @@ const AdminDashboard = () => {
                   {/* Year */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('year') || 'Year'} <span className="text-red-500">*</span>
+                      {t('vehicles.year') || 'Year'} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -5142,7 +5589,7 @@ const AdminDashboard = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="1900"
                       max="2100"
-                      placeholder={t('year') || 'Year'}
+                      placeholder={t('vehicles.yearPlaceholder') || 'Year'}
                       required
                     />
                   </div>

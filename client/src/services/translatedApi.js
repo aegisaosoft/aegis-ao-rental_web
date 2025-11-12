@@ -216,6 +216,10 @@ export const translatedApiService = {
   // Customers
   getCustomers: async (params = {}) => {
     const response = await apiService.getCustomers(params);
+    return response;
+  },
+  getCustomersWithBookings: async (companyId, params = {}) => {
+    const response = await apiService.getCustomersWithBookings(companyId, params);
     return translateResponse(response);
   },
   

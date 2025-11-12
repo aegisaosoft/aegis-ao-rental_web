@@ -174,6 +174,8 @@ export const apiService = {
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),
+  getCustomersWithBookings: (companyId, params = {}) => 
+    api.get(`/customers/with-bookings/${companyId}`, { params }),
   getCustomer: (id) => api.get(`/customers/${id}`),
   getCustomerByEmail: (email) => api.get(`/customers/email/${encodeURIComponent(email)}`),
   createCustomer: (data) => api.post('/customers', data),

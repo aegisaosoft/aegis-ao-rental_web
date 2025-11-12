@@ -99,7 +99,9 @@
     "errorLoading": "Error Loading Vehicles",
     "tryAgainLater": "Please try again later.",
     "licensePlate": "License Plate",
-    "status": "Status"
+    "status": "Status",
+    "year": "Year",
+    "yearPlaceholder": "Year (e.g. 2025)"
   },
   "vehicleDetail": {
     "bookThisVehicle": "Book This Vehicle",
@@ -352,6 +354,9 @@
     "forgotPassword": "Forgot your password?",
     "signIn": "Sign in",
     "signingIn": "Signing in...",
+    "continueWith": "Or continue with",
+    "signInWithGoogle": "Sign in with Google",
+    "signInWithFacebook": "Sign in with Facebook",
     "success": "Login successful!",
     "failed": "Login failed"
   },
@@ -502,6 +507,14 @@
          "showingRange": "Showing {{start}}-{{end}} of {{total}} bookings",
          "showingRangeEmpty": "No bookings to display.",
          "pageSize": "Page Size",
+         "customerSearch": "Search by name or email",
+         "customerCount": "{{count}} {{count, plural, one {customer} other {customers}}}",
+         "customersLoadError": "Unable to load customers.",
+         "noCustomersFound": "No customers found.",
+         "name": "Name",
+         "verified": "Verified",
+         "notVerified": "Not Verified",
+         "createdAt": "Created",
           "servicePriceModalTitle": "Customize Service Price",
           "servicePriceModalDescription": "Set a company-specific price for {{serviceName}}. Leave blank to use the base price.",
           "servicePriceModalLabel": "Company Price",
@@ -561,6 +574,7 @@
            "companyName": "Company Name",
            "email": "Email",
            "phone": "Phone",
+           "location": "Location",
            "website": "Website",
            "address": "Address",
            "city": "City",
