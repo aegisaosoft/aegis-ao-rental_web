@@ -936,7 +936,16 @@ const AdminDashboard = () => {
       event.target.value = ''; // Reset file input
     } catch (error) {
       console.error('Error importing vehicles:', error);
-      toast.error(error.response?.data?.message || t('vehicles.importError') || 'Failed to import vehicles');
+      console.error('Full error response:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Error status:', error.response?.status);
+      console.error('Error message:', error.response?.data?.message);
+      console.error('Error object:', error.response?.data?.error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error?.message || 
+                          error.message || 
+                          t('vehicles.importError') || 
+                          'Failed to import vehicles';
+      toast.error(errorMessage);
     } finally {
       setIsImportingVehicles(false);
       event.target.value = ''; // Reset file input
@@ -4450,9 +4459,18 @@ const AdminDashboard = () => {
           {activeSection === 'vehicleManagement' && (
             <Card title={t('admin.vehicles')} headerActions={
               <div className="flex gap-2">
-                <label className="btn-secondary text-sm cursor-pointer" style={{ margin: 0 }}>
-                  <Upload className="h-4 w-4 mr-2 inline" />
-                  {isImportingVehicles ? (t('vehicles.importing') || 'Importing...') : t('admin.importVehicles', 'Import Vehicles')}
+                <label className={`btn-secondary text-sm ${isImportingVehicles ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`} style={{ margin: 0 }}>
+                  {isImportingVehicles ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2 inline-block"></div>
+                      {t('vehicles.importing') || 'Importing...'}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 inline" />
+                      {t('admin.importVehicles', 'Import Vehicles')}
+                    </>
+                  )}
                   <input
                     type="file"
                     accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

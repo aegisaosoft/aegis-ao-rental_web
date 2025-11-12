@@ -195,4 +195,77 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Import vehicles from CSV (requires authentication and admin)
+// Authenticate first, then process file upload
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Create a wrapper to handle multer after authentication
+const handleFileUpload = (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('[Vehicle Import] Multer error:', err);
+      return res.status(400).json({ message: 'File upload error: ' + err.message });
+    }
+    next();
+  });
+};
+
+router.post('/import', authenticateToken, requireAdmin, handleFileUpload, async (req, res) => {
+  try {
+    console.log('[Vehicle Import] Request received, user:', req.user);
+    console.log('[Vehicle Import] Is admin:', req.user?.isAdmin, 'Role:', req.user?.role);
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    const companyId = req.body.companyId;
+    
+    console.log('[Vehicle Import] Token present:', !!token, 'CompanyId:', companyId);
+
+    // Forward the file to the backend API
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype
+    });
+    if (companyId) {
+      formData.append('companyId', companyId);
+    }
+
+    const axios = require('axios');
+    const https = require('https');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+    
+    try {
+      const response = await axios.post(`${apiBaseUrl}/api/vehicles/import`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+          'Authorization': `Bearer ${token}`
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false // Allow self-signed certificates in development
+        })
+      });
+      res.json(response.data);
+    } catch (apiError) {
+      console.error('[Vehicle Import] Backend API error:', apiError.response?.data || apiError.message);
+      console.error('[Vehicle Import] Full error:', JSON.stringify(apiError.response?.data, null, 2));
+      const status = apiError.response?.status || 500;
+      const errorData = apiError.response?.data || { message: apiError.message || 'Server error' };
+      res.status(status).json(errorData);
+    }
+  } catch (error) {
+    console.error('Vehicle import error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Server error' 
+    });
+  }
+});
+
 module.exports = router;

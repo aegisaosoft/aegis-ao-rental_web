@@ -161,6 +161,11 @@ export const translatedApiService = {
     return translateResponse(response);
   },
 
+  importVehicles: async (formData) => {
+    const response = await apiService.importVehicles(formData);
+    return translateResponse(response);
+  },
+
   // Models
   getModelsGroupedByCategory: async (companyId) => {
     const response = await apiService.getModelsGroupedByCategory(companyId);

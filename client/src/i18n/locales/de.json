@@ -320,8 +320,9 @@
     "results": "Ergebnisse"
   },
   "categories": {
-    "economy": "Economy",
+    "economy": "Wirtschaftlich",
     "compact": "Kompakt",
+    "intermediate": "Mittelklasse",
     "mid-size": "Mittelklasse",
     "full-size": "Oberklasse",
     "suv": "SUV",
