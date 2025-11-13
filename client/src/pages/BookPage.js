@@ -44,8 +44,6 @@ import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon }
 
 import { translatedApiService as apiService } from '../services/translatedApi';
 
-import api from '../services/api';
-
 import { useTranslation } from 'react-i18next';
 
 import { countryToLanguage } from '../utils/countryLanguage';
