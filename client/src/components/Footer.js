@@ -14,14 +14,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Car, Phone, Mail, MapPin, QrCode } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 
 const Footer = () => {
   const { t, i18n } = useTranslation();
   const { companyConfig } = useCompany();
+  const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('All Rentals');
   
   // Get language-specific privacy/terms links
@@ -47,7 +48,19 @@ const Footer = () => {
   }, [companyConfig]);
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="bg-gray-900 text-white relative">
+      {/* QR Code Icon - Left side of footer */}
+      <div className="absolute left-4 bottom-4 md:left-8 md:bottom-8">
+        <button
+          onClick={() => navigate('/qrcode')}
+          className="flex items-center justify-center w-12 h-12 md:w-14 md:h-14 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl cursor-pointer group"
+          title={t('footer.scanQRCode') || 'Scan QR Code'}
+          aria-label={t('footer.scanQRCode') || 'Scan QR Code'}
+        >
+          <QrCode className="h-6 w-6 md:h-7 md:w-7 text-gray-900 group-hover:text-blue-600 transition-colors" />
+        </button>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}

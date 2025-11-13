@@ -428,6 +428,16 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  // Set token in session (for QR code scan)
+  setSessionToken: async (token, companyId, userId) => {
+    return await apiService.setSessionToken(token, companyId, userId);
+  },
+  
+  // Get current session token (for QR code generation)
+  getSessionToken: async () => {
+    return await apiService.getSessionToken();
+  },
+  
   // Admin
   getAdminDashboard: async () => {
     const response = await apiService.getAdminDashboard();

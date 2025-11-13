@@ -28,13 +28,11 @@ const api = axios.create({
   withCredentials: true, // Send cookies with requests for session management
 });
 
-// Request interceptor to add auth token
+// Request interceptor - sessions are handled via cookies automatically
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Sessions are managed server-side via HTTP-only cookies
+    // No need to add Authorization headers - the session cookie is sent automatically
     // Disable SSL verification for development (localhost with self-signed cert)
     if (config.baseURL?.includes('localhost')) {
       config.httpsAgent = false;
@@ -73,20 +71,19 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401 || error.response?.status === 403) {
-      // Handle both 401 (Unauthorized) and 403 (Forbidden) - both mean invalid/expired token or wrong token type
+      // Handle both 401 (Unauthorized) and 403 (Forbidden) - session expired or invalid
       // Only redirect to login if not already on login/register pages or public pages
       const currentPath = window.location.pathname;
       const publicPaths = ['/login', '/register', '/', '/home'];
       const isPublicPath = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
       
-      // CRITICAL: Preserve companyId and userId even when token is cleared
-      // Store them temporarily before clearing token
+      // Preserve companyId and userId (they persist through auth errors)
       const preservedCompanyId = localStorage.getItem('companyId');
       const preservedUserId = localStorage.getItem('userId');
       
       if (!isPublicPath) {
-        localStorage.removeItem('token');
-        // Restore companyId and userId if they existed (they should persist through auth errors)
+        // Session is invalid - redirect to login
+        // CompanyId and userId will be restored if they existed
         if (preservedCompanyId) {
           localStorage.setItem('companyId', preservedCompanyId);
         }
@@ -94,17 +91,6 @@ api.interceptors.response.use(
           localStorage.setItem('userId', preservedUserId);
         }
         window.location.href = '/login';
-      }
-      // For public paths, just remove invalid token but don't redirect
-      else if (localStorage.getItem('token')) {
-        localStorage.removeItem('token');
-        // Restore companyId and userId if they existed
-        if (preservedCompanyId) {
-          localStorage.setItem('companyId', preservedCompanyId);
-        }
-        if (preservedUserId) {
-          localStorage.setItem('userId', preservedUserId);
-        }
       }
     }
     return Promise.reject(error);
@@ -116,6 +102,7 @@ export const apiService = {
   // Authentication
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
 
@@ -232,6 +219,15 @@ export const apiService = {
   // Session
   setSessionCompany: (companyId) => api.post('/session/company', { companyId }),
   getSessionCompany: () => api.get('/session/company'),
+  // Set token in session (for QR code scan)
+  setSessionToken: (token, companyId, userId) => api.post('/auth/session-token', { token, companyId, userId }),
+  // Get current session token (for QR code generation)
+  // Use a shorter timeout for this specific call
+  getSessionToken: () => {
+    return api.get('/auth/session-token', {
+      timeout: 5000 // 5 second timeout instead of 30
+    });
+  },
 
   // Admin
   getAdminDashboard: () => api.get('/admin/dashboard'),

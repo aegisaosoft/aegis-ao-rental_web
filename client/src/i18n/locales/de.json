@@ -10,7 +10,67 @@
     "login": "Anmelden",
     "signUp": "Registrieren",
     "selectCompany": "Unternehmen Auswählen",
-    "allRentals": "Alle Vermietungen"
+    "allRentals": "Alle Vermietungen",
+    "about": "Über uns",
+    "terms": "Bedingungen",
+    "contact": "Kontakt"
+  },
+  "about": {
+    "title": "Über {{companyName}}",
+    "description": "Willkommen bei {{companyName}}, Ihrem vertrauenswürdigen Partner für Premium-Autovermietung. Wir sind bestrebt, außergewöhnliche Transportlösungen mit Fokus auf Qualität, Zuverlässigkeit und Kundenzufriedenheit anzubieten.",
+    "ourMission": "Unsere Mission",
+    "missionDescription": "Unsere Mission ist es, sichere, zuverlässige und erschwingliche Autovermietungsdienste anzubieten, die die Erwartungen unserer Kunden übertreffen. Wir bemühen uns, jede Reise unvergesslich zu machen, indem wir hochwertige Fahrzeuge und herausragenden Kundenservice anbieten.",
+    "ourValues": "Unsere Werte",
+    "value1": "Kunde zuerst - Ihre Zufriedenheit ist unsere oberste Priorität",
+    "value2": "Qualitätssicherung - Wir halten die höchsten Standards für unsere Flotte aufrecht",
+    "value3": "Transparenz - Klare Preise und ehrliche Kommunikation",
+    "value4": "Innovation - Kontinuierliche Verbesserung unserer Dienstleistungen und Technologie",
+    "whyChooseUs": "Warum Uns Wählen",
+    "whyChooseUsDescription": "Bei {{companyName}} verstehen wir, dass jede Reise wichtig ist. Ob Sie geschäftlich oder zum Vergnügen reisen, wir bieten das perfekte Fahrzeug, um Ihre Bedürfnisse zu erfüllen. Unsere umfangreiche Flotte, wettbewerbsfähige Preise und engagierter Kundensupport machen uns zur idealen Wahl für Ihre Autovermietungsbedürfnisse."
+  },
+  "terms": {
+    "title": "Allgemeine Geschäftsbedingungen",
+    "lastUpdated": "Zuletzt aktualisiert: Januar 2025",
+    "section1": {
+      "title": "1. Vereinbarung zu den Bedingungen",
+      "content": "Durch den Zugriff auf und die Nutzung der Autovermietungsdienste von {{companyName}} stimmen Sie zu, an diese Allgemeinen Geschäftsbedingungen gebunden zu sein. Wenn Sie mit einem Teil dieser Bedingungen nicht einverstanden sind, dürfen Sie unsere Dienste nicht nutzen."
+    },
+    "section2": {
+      "title": "2. Mietanforderungen",
+      "content": "Um ein Fahrzeug von {{companyName}} zu mieten, müssen Sie die folgenden Anforderungen erfüllen:",
+      "item1": "Mindestens 21 Jahre alt sein (25 für bestimmte Fahrzeugkategorien)",
+      "item2": "Einen gültigen Führerschein seit mindestens einem Jahr besitzen",
+      "item3": "Eine gültige Kreditkarte für die Kaution bereitstellen",
+      "item4": "Einen sauberen Fahrzeugführerschein haben"
+    },
+    "section3": {
+      "title": "3. Mietzeitraum und Gebühren",
+      "content": "Der Mietzeitraum beginnt, wenn Sie das Fahrzeug in Besitz nehmen, und endet, wenn Sie es zurückgeben. Die Gebühren umfassen:",
+      "item1": "Tagesmietpreis basierend auf der Fahrzeugkategorie",
+      "item2": "Kaution (erstattungsfähig bei Rückgabe des Fahrzeugs in gutem Zustand)",
+      "item3": "Zusätzliche Gebühren für optionale Dienstleistungen (GPS, Kindersitze, etc.)",
+      "item4": "Verspätungsgebühren, wenn das Fahrzeug nach der vereinbarten Zeit zurückgegeben wird"
+    },
+    "section4": {
+      "title": "4. Fahrzeugnutzung und Einschränkungen",
+      "content": "Sie stimmen zu, das Fahrzeug nur für rechtmäßige Zwecke und gemäß diesen Bedingungen zu verwenden:",
+      "item1": "Nur auf befestigten Straßen und in autorisierten Bereichen fahren",
+      "item2": "Das Fahrzeug nicht ohne Genehmigung für kommerzielle Zwecke nutzen",
+      "item3": "Nicht autorisierten Fahrern nicht erlauben, das Fahrzeug zu bedienen",
+      "item4": "Alle Verkehrsgesetze und -vorschriften einhalten"
+    },
+    "section5": {
+      "title": "5. Schäden und Haftung",
+      "content": "Sie sind für Schäden am Fahrzeug während der Mietzeit verantwortlich, außer normaler Abnutzung. {{companyName}} bietet umfassenden Versicherungsschutz, aber Sie können für den Selbstbehalt im Falle eines Unfalls haftbar sein."
+    },
+    "section6": {
+      "title": "6. Stornierung und Rückerstattungen",
+      "content": "Stornierungen, die mindestens 24 Stunden vor der Mietstartzeit vorgenommen werden, erhalten eine vollständige Rückerstattung. Stornierungen, die weniger als 24 Stunden vorher vorgenommen werden, können einer Stornierungsgebühr unterliegen. Keine Rückerstattungen werden für Nichterscheinen gewährt."
+    },
+    "section7": {
+      "title": "7. Kontaktinformationen",
+      "content": "Wenn Sie Fragen zu diesen Allgemeinen Geschäftsbedingungen haben, kontaktieren Sie bitte den Kundenservice von {{companyName}}. Wir behalten uns das Recht vor, diese Bedingungen jederzeit zu ändern, und die fortgesetzte Nutzung unserer Dienste stellt die Annahme von Änderungen dar."
+    }
   },
   "home": {
     "title": "Premium Autovermietung",
@@ -294,7 +354,12 @@
     "phone": "Telefon",
     "email": "E-Mail",
     "address": "Adresse",
-    "allRightsReserved": "Alle Rechte vorbehalten."
+    "allRightsReserved": "Alle Rechte vorbehalten.",
+    "scanQRCode": "QR-Code scannen"
+  },
+  "qrCode": {
+    "download": "Herunterladen",
+    "description": "Entdecken Sie unsere Dienstleistungen - Scannen Sie den QR-Code"
   },
   "common": {
     "loading": "Wird Geladen...",
@@ -396,6 +461,26 @@
     "passwordTooShort": "Passwort muss mindestens 6 Zeichen lang sein",
     "success": "Registrierung erfolgreich!",
     "failed": "Registrierung fehlgeschlagen"
+  },
+  "modal": {
+    "enterEmail": "Geben Sie Ihre E-Mail-Adresse ein, um fortzufahren",
+    "enterPassword": "Geben Sie Ihr Passwort ein",
+    "createAccount": "Erstellen Sie Ihr Konto",
+    "emailSubtitle": "Wir werden prüfen, ob Sie bereits ein Konto haben.",
+    "passwordSubtitle": "Melden Sie sich an, um mit der Zahlung fortzufahren.",
+    "signupSubtitle": "Erstellen Sie schnell ein Konto, um Ihre Buchung abzuschließen.",
+    "email": "E-Mail",
+    "checking": "Wird überprüft...",
+    "signingInAs": "Anmelden als",
+    "passwordPlaceholder": "Geben Sie Ihr Passwort ein",
+    "signingIn": "Wird angemeldet...",
+    "continueToPayment": "Zur Zahlung fortfahren",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "creatingForEmail": "Konto erstellen für",
+    "confirmPasswordPlaceholder": "Passwort bestätigen",
+    "creatingAccount": "Konto wird erstellt...",
+    "signUpAndPay": "Registrieren und fortfahren"
   },
   "notFound": {
     "title": "Seite nicht gefunden",

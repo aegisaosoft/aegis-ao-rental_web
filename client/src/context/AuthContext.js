@@ -30,49 +30,54 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
 
+  // Initialize authentication by checking session
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
-        try {
-          const response = await apiService.getProfile();
-          setUser(response.data);
-        } catch (error) {
-          // 401/403 during initialization just means token is invalid/expired - not an error
-          // Only log other errors (401 = Unauthorized, 403 = Forbidden - both mean invalid token)
-          if (error.response?.status !== 401 && error.response?.status !== 403) {
-            console.error('Auth initialization error:', error);
-          }
-          // Clear invalid/expired token for both 401 and 403
-          localStorage.removeItem('token');
-          clearStoredFilterDates();
-          setToken(null);
+      try {
+        console.log('[AuthContext] Checking session status...');
+        const response = await apiService.getProfile();
+        console.log('[AuthContext] ✅ Session is valid, user authenticated');
+        console.log('[AuthContext] User data:', response.data);
+        setUser(response.data);
+      } catch (error) {
+        // 401/403 means no valid session - this is normal for unauthenticated users
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log('[AuthContext] ⚠️ No valid session found (401/403)');
+          console.log('[AuthContext] Error response:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+          });
+          setUser(null);
+        } else {
+          console.error('[AuthContext] ❌ Error checking session:', error);
+          console.error('[AuthContext] Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+          });
           setUser(null);
         }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    initAuth();
-  }, [token]);
+    // Add a small delay on mount to ensure session cookies are available
+    // This is especially important after a page reload following QR code scan
+    const timer = setTimeout(() => {
+      initAuth();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      const token = response.data.result?.token || response.data.token;
       
-      localStorage.setItem('token', token);
-      setToken(token);
-      
-      // Set user data from login response (new format includes user in result)
-      if (response.data.result?.user) {
-        setUser(response.data.result.user);
-      } else if (response.data.user) {
-        // Fallback for old format
-        setUser(response.data.user);
-      }
-      
+      // Token is stored in session on the server - no need to store in localStorage
       // Fetch full user profile to ensure complete authentication
       try {
         const profileResponse = await apiService.getProfile();
@@ -80,12 +85,16 @@ export const AuthProvider = ({ children }) => {
           setUser(profileResponse.data);
         }
       } catch (profileError) {
-        // If profile fetch fails, continue with user data from login response
-        // This is not critical - user is still authenticated with token
-        console.warn('Failed to fetch user profile after login:', profileError);
+        // If profile fetch fails, try to use user data from login response
+        if (response.data.result?.user) {
+          setUser(response.data.result.user);
+        } else if (response.data.user) {
+          setUser(response.data.user);
+        } else {
+          throw profileError;
+        }
+        console.warn('Failed to fetch user profile after login, using login response data:', profileError);
       }
-      
-      // Company selection persists through login
       
       return response.data;
     } catch (error) {
@@ -96,19 +105,8 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await apiService.register(userData);
-      const token = response.data.result?.token || response.data.token;
       
-      localStorage.setItem('token', token);
-      setToken(token);
-      
-      // Set user data from register response (new format includes user in result)
-      if (response.data.result?.user) {
-        setUser(response.data.result.user);
-      } else if (response.data.user) {
-        // Fallback for old format
-        setUser(response.data.user);
-      }
-      
+      // Token is stored in session on the server - no need to store in localStorage
       // Fetch full user profile to ensure complete authentication
       try {
         const profileResponse = await apiService.getProfile();
@@ -116,12 +114,16 @@ export const AuthProvider = ({ children }) => {
           setUser(profileResponse.data);
         }
       } catch (profileError) {
-        // If profile fetch fails, continue with user data from register response
-        // This is not critical - user is still authenticated with token
-        console.warn('Failed to fetch user profile after registration:', profileError);
+        // If profile fetch fails, try to use user data from register response
+        if (response.data.result?.user) {
+          setUser(response.data.result.user);
+        } else if (response.data.user) {
+          setUser(response.data.user);
+        } else {
+          throw profileError;
+        }
+        console.warn('Failed to fetch user profile after registration, using register response data:', profileError);
       }
-      
-      // Company selection persists through register
       
       return response.data;
     } catch (error) {
@@ -129,10 +131,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      // Call logout endpoint to destroy session on server
+      await apiService.logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Continue with logout even if API call fails
+    }
+    
     clearStoredFilterDates();
-    setToken(null);
     setUser(null);
     
     // Company selection persists through logout
@@ -151,7 +159,6 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    token,
     loading,
     login,
     register,

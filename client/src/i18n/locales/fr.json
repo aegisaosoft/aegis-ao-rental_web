@@ -10,7 +10,67 @@
     "login": "Connexion",
     "signUp": "S'inscrire",
     "selectCompany": "Sélectionner une Entreprise",
-    "allRentals": "Toutes les Locations"
+    "allRentals": "Toutes les Locations",
+    "about": "À propos",
+    "terms": "Conditions",
+    "contact": "Contact"
+  },
+  "about": {
+    "title": "À propos de {{companyName}}",
+    "description": "Bienvenue chez {{companyName}}, votre partenaire de confiance pour les services premium de location de voitures. Nous nous engageons à fournir des solutions de transport exceptionnelles axées sur la qualité, la fiabilité et la satisfaction client.",
+    "ourMission": "Notre Mission",
+    "missionDescription": "Notre mission est de fournir des services de location de voitures sûrs, fiables et abordables qui dépassent les attentes de nos clients. Nous nous efforçons de rendre chaque voyage mémorable en offrant des véhicules de qualité supérieure et un service client exceptionnel.",
+    "ourValues": "Nos Valeurs",
+    "value1": "Client d'abord - Votre satisfaction est notre priorité absolue",
+    "value2": "Assurance Qualité - Nous maintenons les normes les plus élevées pour notre flotte",
+    "value3": "Transparence - Tarification claire et communication honnête",
+    "value4": "Innovation - Amélioration continue de nos services et de notre technologie",
+    "whyChooseUs": "Pourquoi Nous Choisir",
+    "whyChooseUsDescription": "Chez {{companyName}}, nous comprenons que chaque voyage compte. Que vous voyagiez pour affaires ou pour le plaisir, nous fournissons le véhicule parfait pour répondre à vos besoins. Notre vaste flotte, nos tarifs compétitifs et notre support client dévoué font de nous le choix idéal pour vos besoins de location de voitures."
+  },
+  "terms": {
+    "title": "Termes et Conditions",
+    "lastUpdated": "Dernière mise à jour : Janvier 2025",
+    "section1": {
+      "title": "1. Accord aux Termes",
+      "content": "En accédant et en utilisant les services de location de voitures de {{companyName}}, vous acceptez d'être lié par ces Termes et Conditions. Si vous n'êtes pas d'accord avec une partie de ces termes, vous ne devez pas utiliser nos services."
+    },
+    "section2": {
+      "title": "2. Exigences de Location",
+      "content": "Pour louer un véhicule auprès de {{companyName}}, vous devez répondre aux exigences suivantes :",
+      "item1": "Avoir au moins 21 ans (25 pour certaines catégories de véhicules)",
+      "item2": "Détenir un permis de conduire valide depuis au moins un an",
+      "item3": "Fournir une carte de crédit valide pour le dépôt de garantie",
+      "item4": "Avoir un casier judiciaire de conduite propre"
+    },
+    "section3": {
+      "title": "3. Période de Location et Frais",
+      "content": "La période de location commence lorsque vous prenez possession du véhicule et se termine lorsque vous le retournez. Les frais comprennent :",
+      "item1": "Tarif de location quotidien basé sur la catégorie du véhicule",
+      "item2": "Dépôt de garantie (remboursable lors du retour du véhicule en bon état)",
+      "item3": "Frais supplémentaires pour services optionnels (GPS, sièges enfants, etc.)",
+      "item4": "Frais de retour tardif si le véhicule est retourné après l'heure convenue"
+    },
+    "section4": {
+      "title": "4. Utilisation du Véhicule et Restrictions",
+      "content": "Vous acceptez d'utiliser le véhicule uniquement à des fins légales et conformément à ces termes :",
+      "item1": "Conduire uniquement sur routes pavées et dans des zones autorisées",
+      "item2": "Ne pas utiliser le véhicule à des fins commerciales sans autorisation",
+      "item3": "Ne pas permettre à des conducteurs non autorisés d'utiliser le véhicule",
+      "item4": "Respecter toutes les lois et réglementations de la circulation"
+    },
+    "section5": {
+      "title": "5. Dommages et Responsabilité",
+      "content": "Vous êtes responsable de tout dommage au véhicule pendant la période de location, sauf usure normale. {{companyName}} fournit une couverture d'assurance complète, mais vous pouvez être responsable du montant de la franchise en cas d'accident."
+    },
+    "section6": {
+      "title": "6. Annulation et Remboursements",
+      "content": "Les annulations effectuées au moins 24 heures avant l'heure de début de location recevront un remboursement complet. Les annulations effectuées moins de 24 heures avant peuvent être soumises à des frais d'annulation. Aucun remboursement ne sera fourni pour les absences."
+    },
+    "section7": {
+      "title": "7. Informations de Contact",
+      "content": "Si vous avez des questions concernant ces Termes et Conditions, veuillez contacter le service client de {{companyName}}. Nous nous réservons le droit de modifier ces termes à tout moment, et l'utilisation continue de nos services constitue l'acceptation de tout changement."
+    }
   },
   "home": {
     "title": "Services Premium de Location de Voitures",
@@ -285,7 +345,12 @@
     "phone": "Téléphone",
     "email": "E-mail",
     "address": "Adresse",
-    "allRightsReserved": "Tous droits réservés."
+    "allRightsReserved": "Tous droits réservés.",
+    "scanQRCode": "Scanner le Code QR"
+  },
+  "qrCode": {
+    "download": "Télécharger",
+    "description": "Découvrez nos services - Scannez le code QR"
   },
   "common": {
     "loading": "Chargement...",
@@ -387,6 +452,26 @@
     "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
     "success": "Inscription réussie !",
     "failed": "Échec de l'inscription"
+  },
+  "modal": {
+    "enterEmail": "Entrez votre e-mail pour continuer",
+    "enterPassword": "Entrez votre mot de passe",
+    "createAccount": "Créez votre compte",
+    "emailSubtitle": "Nous vérifierons si vous avez déjà un compte.",
+    "passwordSubtitle": "Connectez-vous pour continuer le paiement.",
+    "signupSubtitle": "Créez rapidement un compte pour terminer votre réservation.",
+    "email": "E-mail",
+    "checking": "Vérification...",
+    "signingInAs": "Connexion en tant que",
+    "passwordPlaceholder": "Entrez votre mot de passe",
+    "signingIn": "Connexion...",
+    "continueToPayment": "Continuer vers le paiement",
+    "firstName": "Prénom",
+    "lastName": "Nom de famille",
+    "creatingForEmail": "Création du compte pour",
+    "confirmPasswordPlaceholder": "Confirmer le mot de passe",
+    "creatingAccount": "Création du compte...",
+    "signUpAndPay": "S'inscrire et continuer"
   },
   "notFound": {
     "title": "Page non trouvée",

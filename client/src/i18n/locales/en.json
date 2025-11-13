@@ -10,7 +10,67 @@
     "login": "Login",
     "signUp": "Sign Up",
     "selectCompany": "Select Company",
-    "allRentals": "All Rentals"
+    "allRentals": "All Rentals",
+    "about": "About",
+    "terms": "Terms",
+    "contact": "Contact"
+  },
+  "about": {
+    "title": "About {{companyName}}",
+    "description": "Welcome to {{companyName}}, your trusted partner for premium car rental services. We are committed to providing exceptional transportation solutions with a focus on quality, reliability, and customer satisfaction.",
+    "ourMission": "Our Mission",
+    "missionDescription": "Our mission is to provide safe, reliable, and affordable car rental services that exceed our customers' expectations. We strive to make every journey memorable by offering top-quality vehicles and outstanding customer service.",
+    "ourValues": "Our Values",
+    "value1": "Customer First - Your satisfaction is our top priority",
+    "value2": "Quality Assurance - We maintain the highest standards for our fleet",
+    "value3": "Transparency - Clear pricing and honest communication",
+    "value4": "Innovation - Continuously improving our services and technology",
+    "whyChooseUs": "Why Choose Us",
+    "whyChooseUsDescription": "At {{companyName}}, we understand that every journey matters. Whether you're traveling for business or pleasure, we provide the perfect vehicle to meet your needs. Our extensive fleet, competitive rates, and dedicated customer support make us the ideal choice for your car rental needs."
+  },
+  "terms": {
+    "title": "Terms and Conditions",
+    "lastUpdated": "Last updated: January 2025",
+    "section1": {
+      "title": "1. Agreement to Terms",
+      "content": "By accessing and using {{companyName}}'s car rental services, you agree to be bound by these Terms and Conditions. If you do not agree with any part of these terms, you must not use our services."
+    },
+    "section2": {
+      "title": "2. Rental Requirements",
+      "content": "To rent a vehicle from {{companyName}}, you must meet the following requirements:",
+      "item1": "Be at least 21 years of age (25 for certain vehicle categories)",
+      "item2": "Hold a valid driver's license for at least one year",
+      "item3": "Provide a valid credit card for security deposit",
+      "item4": "Have a clean driving record"
+    },
+    "section3": {
+      "title": "3. Rental Period and Fees",
+      "content": "The rental period begins when you take possession of the vehicle and ends when you return it. Fees include:",
+      "item1": "Daily rental rate based on vehicle category",
+      "item2": "Security deposit (refundable upon vehicle return in good condition)",
+      "item3": "Additional fees for optional services (GPS, child seats, etc.)",
+      "item4": "Late return fees if vehicle is returned after the agreed time"
+    },
+    "section4": {
+      "title": "4. Vehicle Use and Restrictions",
+      "content": "You agree to use the vehicle only for lawful purposes and in accordance with these terms:",
+      "item1": "Drive only on paved roads and in authorized areas",
+      "item2": "Do not use the vehicle for commercial purposes without authorization",
+      "item3": "Do not allow unauthorized drivers to operate the vehicle",
+      "item4": "Comply with all traffic laws and regulations"
+    },
+    "section5": {
+      "title": "5. Damage and Liability",
+      "content": "You are responsible for any damage to the vehicle during the rental period, except for normal wear and tear. {{companyName}} provides comprehensive insurance coverage, but you may be liable for the deductible amount in case of an accident."
+    },
+    "section6": {
+      "title": "6. Cancellation and Refunds",
+      "content": "Cancellations made at least 24 hours before the rental start time will receive a full refund. Cancellations made less than 24 hours before may be subject to a cancellation fee. No refunds will be provided for no-shows."
+    },
+    "section7": {
+      "title": "7. Contact Information",
+      "content": "If you have any questions about these Terms and Conditions, please contact {{companyName}} customer service. We reserve the right to modify these terms at any time, and continued use of our services constitutes acceptance of any changes."
+    }
   },
   "home": {
     "title": "Premium Car Rental Services",
@@ -280,7 +340,12 @@
     "phone": "Phone",
     "email": "Email",
     "address": "Address",
-    "allRightsReserved": "All rights reserved."
+    "allRightsReserved": "All rights reserved.",
+    "scanQRCode": "Scan QR Code"
+  },
+  "qrCode": {
+    "download": "Download",
+    "description": "Discover our services - Scan the QR code"
   },
     "common": {
       "loading": "Loading...",
@@ -382,6 +447,26 @@
     "passwordTooShort": "Password must be at least 6 characters",
     "success": "Registration successful!",
     "failed": "Registration failed"
+  },
+  "modal": {
+    "enterEmail": "Enter your email to continue",
+    "enterPassword": "Enter your password",
+    "createAccount": "Create your account",
+    "emailSubtitle": "We will check if you already have an account.",
+    "passwordSubtitle": "Sign in to continue to payment.",
+    "signupSubtitle": "Quickly create an account to finish your booking.",
+    "email": "Email",
+    "checking": "Checking...",
+    "signingInAs": "Signing in as",
+    "passwordPlaceholder": "Enter your password",
+    "signingIn": "Signing in...",
+    "continueToPayment": "Continue to payment",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "creatingForEmail": "Creating account for",
+    "confirmPasswordPlaceholder": "Confirm password",
+    "creatingAccount": "Creating account...",
+    "signUpAndPay": "Sign up & continue"
   },
   "notFound": {
     "title": "Page not found",

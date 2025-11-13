@@ -10,7 +10,67 @@
     "login": "Entrar",
     "signUp": "Cadastrar",
     "selectCompany": "Selecionar Empresa",
-    "allRentals": "Todas as Locadoras"
+    "allRentals": "Todas as Locadoras",
+    "about": "Sobre",
+    "terms": "Termos",
+    "contact": "Contato"
+  },
+  "about": {
+    "title": "Sobre {{companyName}}",
+    "description": "Bem-vindo à {{companyName}}, seu parceiro confiável para serviços premium de aluguel de carros. Estamos comprometidos em fornecer soluções de transporte excepcionais com foco em qualidade, confiabilidade e satisfação do cliente.",
+    "ourMission": "Nossa Missão",
+    "missionDescription": "Nossa missão é fornecer serviços de aluguel de carros seguros, confiáveis e acessíveis que superem as expectativas de nossos clientes. Nos esforçamos para tornar cada viagem memorável oferecendo veículos de alta qualidade e um atendimento ao cliente excepcional.",
+    "ourValues": "Nossos Valores",
+    "value1": "Cliente em Primeiro Lugar - Sua satisfação é nossa prioridade máxima",
+    "value2": "Garantia de Qualidade - Mantemos os mais altos padrões para nossa frota",
+    "value3": "Transparência - Preços claros e comunicação honesta",
+    "value4": "Inovação - Melhorando continuamente nossos serviços e tecnologia",
+    "whyChooseUs": "Por Que Nos Escolher",
+    "whyChooseUsDescription": "Na {{companyName}}, entendemos que cada viagem importa. Seja viajando a negócios ou lazer, fornecemos o veículo perfeito para atender às suas necessidades. Nossa extensa frota, tarifas competitivas e suporte dedicado ao cliente nos tornam a escolha ideal para suas necessidades de aluguel de carros."
+  },
+  "terms": {
+    "title": "Termos e Condições",
+    "lastUpdated": "Última atualização: Janeiro 2025",
+    "section1": {
+      "title": "1. Concordância com os Termos",
+      "content": "Ao acessar e usar os serviços de aluguel de carros da {{companyName}}, você concorda em estar vinculado a estes Termos e Condições. Se você não concordar com qualquer parte destes termos, não deve usar nossos serviços."
+    },
+    "section2": {
+      "title": "2. Requisitos de Aluguel",
+      "content": "Para alugar um veículo da {{companyName}}, você deve atender aos seguintes requisitos:",
+      "item1": "Ter pelo menos 21 anos de idade (25 para certas categorias de veículos)",
+      "item2": "Possuir uma carteira de motorista válida há pelo menos um ano",
+      "item3": "Fornecer um cartão de crédito válido para depósito de segurança",
+      "item4": "Ter um histórico de direção limpo"
+    },
+    "section3": {
+      "title": "3. Período de Aluguel e Taxas",
+      "content": "O período de aluguel começa quando você toma posse do veículo e termina quando você o devolve. As taxas incluem:",
+      "item1": "Taxa diária de aluguel baseada na categoria do veículo",
+      "item2": "Depósito de segurança (reembolsável ao devolver o veículo em boas condições)",
+      "item3": "Taxas adicionais para serviços opcionais (GPS, assentos infantis, etc.)",
+      "item4": "Taxas por devolução tardia se o veículo for devolvido após o horário acordado"
+    },
+    "section4": {
+      "title": "4. Uso do Veículo e Restrições",
+      "content": "Você concorda em usar o veículo apenas para fins legais e de acordo com estes termos:",
+      "item1": "Dirigir apenas em estradas pavimentadas e em áreas autorizadas",
+      "item2": "Não usar o veículo para fins comerciais sem autorização",
+      "item3": "Não permitir que motoristas não autorizados operem o veículo",
+      "item4": "Cumprir todas as leis e regulamentos de trânsito"
+    },
+    "section5": {
+      "title": "5. Danos e Responsabilidade",
+      "content": "Você é responsável por quaisquer danos ao veículo durante o período de aluguel, exceto por desgaste normal. A {{companyName}} fornece cobertura de seguro abrangente, mas você pode ser responsável pelo valor da franquia em caso de acidente."
+    },
+    "section6": {
+      "title": "6. Cancelamento e Reembolsos",
+      "content": "Cancelamentos feitos pelo menos 24 horas antes da hora de início do aluguel receberão reembolso total. Cancelamentos feitos menos de 24 horas antes podem estar sujeitos a uma taxa de cancelamento. Nenhum reembolso será fornecido para não comparecimentos."
+    },
+    "section7": {
+      "title": "7. Informações de Contato",
+      "content": "Se você tiver alguma dúvida sobre estes Termos e Condições, entre em contato com o atendimento ao cliente da {{companyName}}. Reservamo-nos o direito de modificar estes termos a qualquer momento, e o uso contínuo de nossos serviços constitui aceitação de quaisquer alterações."
+    }
   },
   "home": {
     "title": "Serviços Premium de Aluguel de Carros",
@@ -280,7 +340,12 @@
     "phone": "Telefone",
     "email": "E-mail",
     "address": "Endereço",
-    "allRightsReserved": "Todos os direitos reservados."
+    "allRightsReserved": "Todos os direitos reservados.",
+    "scanQRCode": "Escanear Código QR"
+  },
+  "qrCode": {
+    "download": "Baixar",
+    "description": "Descubra nossos serviços - Escaneie o código QR"
   },
     "common": {
       "loading": "Carregando...",
@@ -382,6 +447,26 @@
     "passwordTooShort": "A senha deve ter pelo menos 6 caracteres",
     "success": "Registro bem-sucedido!",
     "failed": "Falha no registro"
+  },
+  "modal": {
+    "enterEmail": "Digite seu e-mail para continuar",
+    "enterPassword": "Digite sua senha",
+    "createAccount": "Crie sua conta",
+    "emailSubtitle": "Verificaremos se você já tem uma conta.",
+    "passwordSubtitle": "Faça login para continuar com o pagamento.",
+    "signupSubtitle": "Crie rapidamente uma conta para finalizar sua reserva.",
+    "email": "E-mail",
+    "checking": "Verificando...",
+    "signingInAs": "Entrando como",
+    "passwordPlaceholder": "Digite sua senha",
+    "signingIn": "Entrando...",
+    "continueToPayment": "Continuar para o pagamento",
+    "firstName": "Nome",
+    "lastName": "Sobrenome",
+    "creatingForEmail": "Criando conta para",
+    "confirmPasswordPlaceholder": "Confirmar senha",
+    "creatingAccount": "Criando conta...",
+    "signUpAndPay": "Inscrever-se e continuar"
   },
   "notFound": {
     "title": "Página não encontrada",

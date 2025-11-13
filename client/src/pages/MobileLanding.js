@@ -49,17 +49,16 @@ const MobileLanding = () => {
 
   // Check if user has saved credentials on device
   useEffect(() => {
-    const hasToken = localStorage.getItem('token');
     const hasRememberMe = localStorage.getItem('rememberMe') === 'true';
     
     // If user is authenticated, redirect to mobile home
-    if (isAuthenticated || (hasToken && hasRememberMe)) {
+    if (isAuthenticated) {
       navigate('/m');
       return;
     }
     
-    // If no token and no remember me, show login dialog
-    if (!hasToken && !hasRememberMe) {
+    // If not authenticated and no remember me, show login dialog
+    if (!isAuthenticated && !hasRememberMe) {
       setShowLoginDialog(true);
     }
   }, [isAuthenticated, navigate]);

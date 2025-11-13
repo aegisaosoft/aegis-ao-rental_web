@@ -24,11 +24,15 @@ const MobileScan = () => {
   // Initialize state from localStorage immediately
   const [companyId, setCompanyId] = useState(() => localStorage.getItem('companyId') || null);
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || null);
+  const [tokenFromUrl, setTokenFromUrl] = useState(null);
   
   // Use refs to persist values across renders (won't be lost on re-render)
   // Initialize refs with current localStorage values
   const companyIdRef = useRef(localStorage.getItem('companyId') || null);
   const userIdRef = useRef(localStorage.getItem('userId') || null);
+  
+  // Track if we've already processed the token to prevent infinite loops
+  const tokenProcessedRef = useRef(false);
   
   // Update refs when state changes
   useEffect(() => {
@@ -75,15 +79,112 @@ const MobileScan = () => {
   
   // Extract auth token, companyId, and userId from URL and store them
   useEffect(() => {
-    const tokenFromUrl = searchParams.get('token');
+    console.log('[MobileScan] ========== EXTRACTING URL PARAMETERS ==========');
+    console.log('[MobileScan] Full URL:', window.location.href);
+    console.log('[MobileScan] Search params:', window.location.search);
+    
+    const tokenParam = searchParams.get('token');
     const companyIdFromUrl = searchParams.get('companyId');
     const userIdFromUrl = searchParams.get('userId');
     
-    if (tokenFromUrl) {
+    console.log('[MobileScan] Extracted parameters:');
+    console.log('[MobileScan] - token:', tokenParam ? tokenParam.substring(0, 20) + '...' : 'NOT FOUND');
+    console.log('[MobileScan] - companyId:', companyIdFromUrl || 'NOT FOUND');
+    console.log('[MobileScan] - userId:', userIdFromUrl || 'NOT FOUND');
+    
+    // Store token in state so it's available throughout the component
+    if (tokenParam) {
+      setTokenFromUrl(tokenParam);
+    }
+    
+    // Prevent infinite loop: if we've already processed this token, skip processing
+    if (tokenParam && tokenProcessedRef.current) {
+      console.log('[MobileScan] ⚠️ Token already processed, skipping to prevent infinite loop');
+      // Still update companyId and userId from URL if needed, but don't process token again
+    } else if (tokenParam) {
+      // Mark as processing to prevent re-processing
+      tokenProcessedRef.current = true;
+      
+      console.log('[MobileScan] ========== TOKEN FOUND IN URL ==========');
+      console.log('[MobileScan] Raw token param:', tokenParam.substring(0, 50) + '...');
+      console.log('[MobileScan] Token param length:', tokenParam.length);
+      
       // Store the token from the QR code URL
-      localStorage.setItem('token', tokenFromUrl);
-      console.log('Auth token imported from QR code URL');
-      toast.success('Authentication imported from QR code');
+      // Decode URL encoding and trim any whitespace
+      let cleanToken = tokenParam.trim();
+      
+      // Decode URL encoding (in case token was URL-encoded in the QR code)
+      try {
+        cleanToken = decodeURIComponent(cleanToken);
+        console.log('[MobileScan] Token decoded successfully');
+      } catch (e) {
+        // If decode fails, use original (might not be encoded)
+        console.warn('[MobileScan] Token URL decode failed, using original:', e);
+      }
+      
+      // Final trim after decoding
+      cleanToken = cleanToken.trim();
+      
+      console.log('[MobileScan] Clean token preview (first 50 chars):', cleanToken.substring(0, 50));
+      console.log('[MobileScan] Clean token length:', cleanToken.length);
+      
+      // Store token in server session instead of localStorage
+      const storeTokenInSession = async () => {
+        console.log('[MobileScan] ========== STORING TOKEN IN SESSION ==========');
+        console.log('[MobileScan] Token length:', cleanToken.length);
+        console.log('[MobileScan] Company ID:', companyIdFromUrl);
+        console.log('[MobileScan] User ID:', userIdFromUrl);
+        
+        try {
+          console.log('[MobileScan] Calling apiService.setSessionToken...');
+          const response = await apiService.setSessionToken(cleanToken, companyIdFromUrl, userIdFromUrl);
+          console.log('[MobileScan] setSessionToken response:', response);
+          console.log('[MobileScan] ✅ Token stored in server session successfully');
+          
+          // Verify the session was set by immediately checking profile
+          console.log('[MobileScan] Verifying session by checking profile...');
+          try {
+            // Wait a brief moment for session cookie to be set
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            const profileResponse = await apiService.getProfile();
+            console.log('[MobileScan] ✅ Session verified - profile retrieved:', profileResponse.data);
+            toast.success('Authentication imported from QR code');
+            
+            // Token is now stored in session, so we don't need to reload
+            // The tokenProcessedRef flag prevents reprocessing if the component re-renders
+            // Token can stay in URL - it won't be processed again due to the ref flag
+            console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
+          } catch (profileError) {
+            console.warn('[MobileScan] ⚠️ Session stored but profile check failed:', profileError);
+            console.warn('[MobileScan] This might be a timing issue - token is still stored in session');
+            toast.success('Authentication imported - token stored in session');
+            
+            // Token is now stored in session, so we don't need to reload
+            // The tokenProcessedRef flag prevents reprocessing if the component re-renders
+            // Token can stay in URL - it won't be processed again due to the ref flag
+            console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
+          }
+        } catch (error) {
+          console.error('[MobileScan] ❌ Failed to store token in session:', error);
+          console.error('[MobileScan] Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            config: {
+              url: error.config?.url,
+              method: error.config?.method,
+              data: error.config?.data
+            }
+          });
+          toast.error('Failed to import authentication: ' + (error.response?.data?.message || error.message));
+        }
+      };
+      
+      storeTokenInSession();
+    } else {
+      console.log('[MobileScan] ⚠️ No token found in URL parameters');
     }
     
     // Store companyId and userId from URL in state, refs, and localStorage
@@ -101,9 +202,9 @@ const MobileScan = () => {
       console.log('User ID imported from QR code URL:', userIdFromUrl);
     }
     
-    // If not in URL, try to get from localStorage or token
+    // If not in URL, try to get from localStorage
+    // Token is now managed via sessions, but we can still get it from URL for QR code scans
     if (!companyIdFromUrl || !userIdFromUrl) {
-      const token = tokenFromUrl || localStorage.getItem('token');
       const storedCompanyId = localStorage.getItem('companyId');
       const storedUserId = localStorage.getItem('userId');
       
@@ -118,9 +219,9 @@ const MobileScan = () => {
       }
       
       // Try to extract from token if still missing
-      if (token && (!companyIdFromUrl || !userIdFromUrl)) {
+      if (tokenParam && (!companyIdFromUrl || !userIdFromUrl)) {
         try {
-          const tokenParts = token.split('.');
+          const tokenParts = tokenParam.split('.');
           if (tokenParts.length >= 2) {
             const payload = JSON.parse(atob(tokenParts[1]));
             
@@ -165,7 +266,7 @@ const MobileScan = () => {
           }
         } catch (e) {
           console.error('[Mount] Could not extract userId/companyId from token:', e);
-          console.error('[Mount] Token (first 50 chars):', token.substring(0, 50));
+          console.error('[Mount] Token (first 50 chars):', tokenParam?.substring(0, 50) || 'N/A');
         }
       }
     }
@@ -245,9 +346,11 @@ const MobileScan = () => {
   };
 
   const handleUpload = async () => {
-    // Check authentication first
-    const token = localStorage.getItem('token');
-    if (!token) {
+    // Check authentication - token can come from URL (QR code) or session
+    // If token is in URL, it will be stored in session by the useEffect above
+    // For now, we'll check if we have a token from URL or if user is authenticated via session
+    const hasTokenFromUrl = !!tokenFromUrl;
+    if (!hasTokenFromUrl) {
       const errorMsg = 'You must be logged in to upload a driver license. Please log in and try again.';
       setError(errorMsg);
       toast.error(errorMsg);
@@ -326,6 +429,7 @@ const MobileScan = () => {
       let extractedCompanyId = finalCompanyId;
       let extractedUserId = finalUserId;
       
+      const token = tokenFromUrl || searchParams.get('token');
       if (token) {
         try {
           const tokenParts = token.split('.');
@@ -379,7 +483,9 @@ const MobileScan = () => {
           }
         } catch (e) {
           console.error('[Upload] Could not extract userId/companyId from token:', e);
-          console.error('[Upload] Token (first 50 chars):', token.substring(0, 50));
+          if (token) {
+            console.error('[Upload] Token (first 50 chars):', token.substring(0, 50));
+          }
         }
       } else {
         console.warn('[Upload] No token available for extraction');
@@ -503,7 +609,8 @@ const MobileScan = () => {
   const handleStartBlinkIDScan = () => {
     // Redirect to ScanLicense page with ALL parameters preserved
     const returnTo = searchParams.get('returnTo') || window.location.pathname;
-    const token = searchParams.get('token') || localStorage.getItem('token');
+    // Token from URL (QR code) takes priority, otherwise check session
+    const token = searchParams.get('token') || tokenFromUrl;
     const companyId = searchParams.get('companyId') || localStorage.getItem('companyId');
     const userId = searchParams.get('userId') || localStorage.getItem('userId');
     

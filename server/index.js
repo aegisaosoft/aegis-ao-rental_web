@@ -145,11 +145,13 @@ app.use(session({
   secret: process.env.JWT_SECRET || 'development-secret-key-that-should-be-at-least-32-characters-long',
   resave: false,
   saveUninitialized: false,
+  name: 'connect.sid', // Explicit session cookie name
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 'none' for cross-site cookies on Azure
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-site cookies on Azure
+    path: '/' // Ensure cookie is available for all paths
   }
 }));
 
@@ -237,6 +239,12 @@ app.use('/api/mock', mockRoutes);
 // Middleware to detect company from domain and add X-Company-Id header
 // This helps the backend middleware identify the company
 app.use('/api/*', async (req, res, next) => {
+  // Skip company detection for session-token endpoint (it's fast and doesn't need it)
+  if (req.originalUrl === '/api/auth/session-token' || req.path === '/auth/session-token') {
+    console.log('[Company Detection] Skipping for /session-token endpoint');
+    return next();
+  }
+  
   try {
     // Extract hostname from request - check forwarded headers first (for Azure/proxies)
     const hostname = req.get('x-forwarded-host') || req.get('host') || req.hostname || '';
@@ -833,10 +841,10 @@ if (fs.existsSync(modelsStaticPath)) {
 
 
 // Serve BlinkID resources - must come BEFORE the catch-all route
-// Serve from node_modules/@microblink/blinkid/resources
+// Serve from node_modules/@microblink/blinkid/dist/resources
 // Check both server/node_modules and root node_modules
-const serverNodeModules = path.join(__dirname, 'node_modules/@microblink/blinkid/resources');
-const rootNodeModules = path.join(__dirname, '../node_modules/@microblink/blinkid/resources');
+const serverNodeModules = path.join(__dirname, 'node_modules/@microblink/blinkid/dist/resources');
+const rootNodeModules = path.join(__dirname, '../node_modules/@microblink/blinkid/dist/resources');
 const blinkidResourcesPath = fs.existsSync(serverNodeModules) ? serverNodeModules : 
                               fs.existsSync(rootNodeModules) ? rootNodeModules : null;
 

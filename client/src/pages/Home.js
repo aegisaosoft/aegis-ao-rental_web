@@ -294,6 +294,11 @@ const Home = () => {
         categoryGroup?.CategoryName ||
         categoryGroup?.category ||
         '';
+      const categoryId =
+        categoryGroup?.categoryId ||
+        categoryGroup?.category_id ||
+        categoryGroup?.id ||
+        null;
 
       (categoryGroup?.models || []).forEach((model) => {
         const modelMake = model.make || model.Make || '';
@@ -341,6 +346,7 @@ const Home = () => {
               null,
             seats: vehicleSource.seats || vehicleSource.Seats || model.seats || model.Seats || null,
             type: vehicleSource.type || vehicleSource.Type || model.type || categoryName || '',
+            categoryId: categoryId || vehicleSource.categoryId || vehicleSource.category_id || model.categoryId || model.category_id || null,
             transmission:
               vehicleSource.transmission ||
               vehicleSource.Transmission ||
@@ -383,12 +389,40 @@ const Home = () => {
   const handleSelectVehicle = useCallback(
     (vehicle) => {
       if (!vehicle) return;
-      const targetId = vehicle.vehicle_id || vehicle.id;
-      if (targetId) {
-        navigate(`/vehicle/${targetId}`);
+      
+      // Build URL parameters
+      const params = new URLSearchParams();
+      
+      // Add category
+      const categoryId = vehicle.categoryId || vehicle.category_id;
+      if (categoryId) {
+        params.set('category', categoryId);
       }
+      
+      // Add make and model
+      const make = vehicle.make || vehicle.Make || '';
+      const model = vehicle.model || vehicle.Model || '';
+      if (make) params.set('make', make);
+      if (model) params.set('model', model);
+      
+      // Add companyId
+      const companyId = companyConfig?.id;
+      if (companyId) {
+        params.set('companyId', companyId);
+      }
+      
+      // Add dates if they are selected
+      if (startDate) {
+        params.set('startDate', startDate);
+      }
+      if (endDate) {
+        params.set('endDate', endDate);
+      }
+      
+      // Navigate to book page with all parameters
+      navigate(`/book?${params.toString()}`);
     },
-    [navigate]
+    [navigate, companyConfig?.id, startDate, endDate]
   );
 
   const companySections = useMemo(() => {

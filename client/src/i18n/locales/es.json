@@ -10,7 +10,67 @@
     "login": "Iniciar Sesión",
     "signUp": "Registrarse",
     "selectCompany": "Seleccionar Compañía",
-    "allRentals": "Todos los Alquileres"
+    "allRentals": "Todos los Alquileres",
+    "about": "Acerca de",
+    "terms": "Términos",
+    "contact": "Contacto"
+  },
+  "about": {
+    "title": "Acerca de {{companyName}}",
+    "description": "Bienvenido a {{companyName}}, su socio de confianza para servicios premium de alquiler de autos. Estamos comprometidos a proporcionar soluciones de transporte excepcionales con un enfoque en calidad, confiabilidad y satisfacción del cliente.",
+    "ourMission": "Nuestra Misión",
+    "missionDescription": "Nuestra misión es proporcionar servicios de alquiler de autos seguros, confiables y asequibles que superen las expectativas de nuestros clientes. Nos esforzamos por hacer cada viaje memorable ofreciendo vehículos de primera calidad y un servicio al cliente excepcional.",
+    "ourValues": "Nuestros Valores",
+    "value1": "Cliente Primero - Su satisfacción es nuestra máxima prioridad",
+    "value2": "Garantía de Calidad - Mantenemos los más altos estándares para nuestra flota",
+    "value3": "Transparencia - Precios claros y comunicación honesta",
+    "value4": "Innovación - Mejorando continuamente nuestros servicios y tecnología",
+    "whyChooseUs": "Por Qué Elegirnos",
+    "whyChooseUsDescription": "En {{companyName}}, entendemos que cada viaje importa. Ya sea que viaje por negocios o placer, proporcionamos el vehículo perfecto para satisfacer sus necesidades. Nuestra extensa flota, tarifas competitivas y soporte al cliente dedicado nos convierten en la elección ideal para sus necesidades de alquiler de autos."
+  },
+  "terms": {
+    "title": "Términos y Condiciones",
+    "lastUpdated": "Última actualización: Enero 2025",
+    "section1": {
+      "title": "1. Acuerdo de Términos",
+      "content": "Al acceder y utilizar los servicios de alquiler de autos de {{companyName}}, usted acepta estar sujeto a estos Términos y Condiciones. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar nuestros servicios."
+    },
+    "section2": {
+      "title": "2. Requisitos de Alquiler",
+      "content": "Para alquilar un vehículo de {{companyName}}, debe cumplir con los siguientes requisitos:",
+      "item1": "Tener al menos 21 años de edad (25 para ciertas categorías de vehículos)",
+      "item2": "Tener una licencia de conducir válida por al menos un año",
+      "item3": "Proporcionar una tarjeta de crédito válida para el depósito de seguridad",
+      "item4": "Tener un historial de conducción limpio"
+    },
+    "section3": {
+      "title": "3. Período de Alquiler y Tarifas",
+      "content": "El período de alquiler comienza cuando toma posesión del vehículo y termina cuando lo devuelve. Las tarifas incluyen:",
+      "item1": "Tarifa diaria de alquiler basada en la categoría del vehículo",
+      "item2": "Depósito de seguridad (reembolsable al devolver el vehículo en buen estado)",
+      "item3": "Tarifas adicionales por servicios opcionales (GPS, asientos para niños, etc.)",
+      "item4": "Tarifas por devolución tardía si el vehículo se devuelve después de la hora acordada"
+    },
+    "section4": {
+      "title": "4. Uso del Vehículo y Restricciones",
+      "content": "Usted acepta usar el vehículo solo para fines legales y de acuerdo con estos términos:",
+      "item1": "Conducir solo en carreteras pavimentadas y en áreas autorizadas",
+      "item2": "No usar el vehículo para fines comerciales sin autorización",
+      "item3": "No permitir que conductores no autorizados operen el vehículo",
+      "item4": "Cumplir con todas las leyes y regulaciones de tráfico"
+    },
+    "section5": {
+      "title": "5. Daños y Responsabilidad",
+      "content": "Usted es responsable de cualquier daño al vehículo durante el período de alquiler, excepto por el desgaste normal. {{companyName}} proporciona cobertura de seguro integral, pero usted puede ser responsable del monto del deducible en caso de un accidente."
+    },
+    "section6": {
+      "title": "6. Cancelación y Reembolsos",
+      "content": "Las cancelaciones realizadas al menos 24 horas antes de la hora de inicio del alquiler recibirán un reembolso completo. Las cancelaciones realizadas menos de 24 horas antes pueden estar sujetas a una tarifa de cancelación. No se proporcionarán reembolsos por no presentarse."
+    },
+    "section7": {
+      "title": "7. Información de Contacto",
+      "content": "Si tiene alguna pregunta sobre estos Términos y Condiciones, por favor contacte al servicio al cliente de {{companyName}}. Nos reservamos el derecho de modificar estos términos en cualquier momento, y el uso continuo de nuestros servicios constituye la aceptación de cualquier cambio."
+    }
   },
   "home": {
     "title": "Servicios Premium de Alquiler de Autos",
@@ -280,7 +340,12 @@
     "phone": "Teléfono",
     "email": "Correo Electrónico",
     "address": "Dirección",
-    "allRightsReserved": "Todos los derechos reservados."
+    "allRightsReserved": "Todos los derechos reservados.",
+    "scanQRCode": "Escanear Código QR"
+  },
+  "qrCode": {
+    "download": "Descargar",
+    "description": "Descubre nuestros servicios - Escanea el código QR"
   },
     "common": {
       "loading": "Cargando...",
@@ -382,6 +447,26 @@
     "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
     "success": "¡Registro exitoso!",
     "failed": "Error en el registro"
+  },
+  "modal": {
+    "enterEmail": "Ingrese su correo electrónico para continuar",
+    "enterPassword": "Ingrese su contraseña",
+    "createAccount": "Cree su cuenta",
+    "emailSubtitle": "Verificaremos si ya tiene una cuenta.",
+    "passwordSubtitle": "Inicie sesión para continuar con el pago.",
+    "signupSubtitle": "Cree rápidamente una cuenta para finalizar su reserva.",
+    "email": "Correo electrónico",
+    "checking": "Verificando...",
+    "signingInAs": "Iniciando sesión como",
+    "passwordPlaceholder": "Ingrese su contraseña",
+    "signingIn": "Iniciando sesión...",
+    "continueToPayment": "Continuar al pago",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "creatingForEmail": "Creando cuenta para",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "creatingAccount": "Creando cuenta...",
+    "signUpAndPay": "Registrarse y continuar"
   },
   "notFound": {
     "title": "Página no encontrada",
