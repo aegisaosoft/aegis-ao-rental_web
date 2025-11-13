@@ -871,7 +871,6 @@ const BookPage = () => {
     companyConfig?.securityDeposit,
     companyId,
     ensureVehicleSelection,
-    formData.additionalNotes,
     formData.pickupDate,
     formData.returnDate,
     formData.pickupLocation,
@@ -968,23 +967,6 @@ const BookPage = () => {
     } finally {
       setAuthLoading(false);
     }
-  };
- 
-  const handleRentCar = async () => {
-    if (checkoutLoading) return;
-
-    if (!companyId) {
-      toast.error('Booking is not available. Please access via a company subdomain.');
-      navigate('/');
-      return;
-    }
-
-    if (!isAuthenticated) {
-      openAuthModal();
-      return;
-    }
-
-    await proceedToCheckout();
   };
 
   const handleSubmit = async (e) => {
