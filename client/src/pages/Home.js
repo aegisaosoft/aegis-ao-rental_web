@@ -135,10 +135,22 @@ const Home = () => {
   useEffect(() => {
     try {
       const savedRaw = localStorage.getItem(SEARCH_FILTERS_STORAGE_KEY);
+      
+      // Calculate default dates (today and one week later)
+      const today = new Date();
+      const oneWeekLater = new Date(today);
+      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+      const defaultStartDate = today.toISOString().split('T')[0];
+      const defaultEndDate = oneWeekLater.toISOString().split('T')[0];
+      
       if (!savedRaw) {
+        // No saved filters - set default dates
+        setStartDate(defaultStartDate);
+        setEndDate(defaultEndDate);
         filtersLoadedRef.current = true;
         return;
       }
+      
       const parsed = JSON.parse(savedRaw);
       const { sanitized, changed } = sanitizeFilterDates(parsed);
 
@@ -150,12 +162,19 @@ const Home = () => {
         }
       }
 
-      if (sanitized.startDate) setStartDate(sanitized.startDate);
-      if (sanitized.endDate) setEndDate(sanitized.endDate);
+      // Use saved filters if available, otherwise use defaults
+      setStartDate(sanitized.startDate || defaultStartDate);
+      setEndDate(sanitized.endDate || defaultEndDate);
       if (sanitized.category) setCategory(sanitized.category);
       if (sanitized.locationId) setSelectedLocationId(sanitized.locationId);
     } catch (error) {
       console.warn('[Home] Failed to load saved search filters:', error);
+      // On error, set default dates
+      const today = new Date();
+      const oneWeekLater = new Date(today);
+      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+      setStartDate(today.toISOString().split('T')[0]);
+      setEndDate(oneWeekLater.toISOString().split('T')[0]);
     } finally {
       filtersLoadedRef.current = true;
     }
@@ -541,6 +560,7 @@ const Home = () => {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                     />
                   </div>

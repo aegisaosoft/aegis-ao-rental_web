@@ -360,6 +360,12 @@
     "success": "Login successful!",
     "failed": "Login failed"
   },
+  "mobileLanding": {
+    "welcome": "Welcome",
+    "subtitle": "Start your rental journey with us",
+    "getStarted": "Get Started",
+    "skipForNow": "Continue without signing in"
+  },
   "register": {
     "title": "Create your account",
     "subtitle": "Or",

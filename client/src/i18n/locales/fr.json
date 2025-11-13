@@ -365,6 +365,12 @@
     "success": "Connexion réussie !",
     "failed": "Échec de la connexion"
   },
+  "mobileLanding": {
+    "welcome": "Bienvenue",
+    "subtitle": "Commencez votre voyage de location avec nous",
+    "getStarted": "Commencer",
+    "skipForNow": "Continuer sans se connecter"
+  },
   "register": {
     "title": "Créez votre compte",
     "subtitle": "Ou",

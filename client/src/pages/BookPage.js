@@ -112,8 +112,15 @@ const BookPage = () => {
   const searchLocationParam =
     searchParams.get('locationId') || savedSearchFilters?.locationId || '';
 
-  const initialPickupDate = searchStartDate || savedSearchFilters?.startDate || '';
-  const initialReturnDate = searchEndDate || savedSearchFilters?.endDate || '';
+  // Calculate today and tomorrow for default dates
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  const initialPickupDate = searchStartDate || savedSearchFilters?.startDate || todayStr;
+  const initialReturnDate = searchEndDate || savedSearchFilters?.endDate || tomorrowStr;
   const initialSearchCategory = searchCategoryParam || savedSearchFilters?.category || '';
 
   const companyCountryName = useMemo(
@@ -1014,8 +1021,6 @@ const BookPage = () => {
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <>
       <div className="min-h-screen bg-gray-50 py-8">
@@ -1100,7 +1105,7 @@ const BookPage = () => {
                           name="pickupDate"
                           value={formData.pickupDate}
                           onChange={handleChange}
-                          min={today}
+                          min={todayStr}
                           required
                           placeholder="mm/dd/yyyy"
                           className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
@@ -1119,7 +1124,7 @@ const BookPage = () => {
                           name="returnDate"
                           value={formData.returnDate}
                           onChange={handleChange}
-                          min={formData.pickupDate || today}
+                          min={formData.pickupDate || todayStr}
                           required
                           placeholder="mm/dd/yyyy"
                           className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"

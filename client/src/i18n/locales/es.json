@@ -360,6 +360,12 @@
     "success": "¡Inicio de sesión exitoso!",
     "failed": "Error al iniciar sesión"
   },
+  "mobileLanding": {
+    "welcome": "Bienvenido",
+    "subtitle": "Comienza tu viaje de alquiler con nosotros",
+    "getStarted": "Comenzar",
+    "skipForNow": "Continuar sin iniciar sesión"
+  },
   "register": {
     "title": "Crea tu cuenta",
     "subtitle": "O",

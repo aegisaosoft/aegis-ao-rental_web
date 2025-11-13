@@ -40,6 +40,7 @@ import NotFound from './pages/NotFound';
 import ScanLicense from './pages/ScanLicense';
 import MobileScan from './pages/MobileScan';
 import MobileHome from './pages/MobileHome';
+import MobileLanding from './pages/MobileLanding';
 import MobileVehicles from './pages/MobileVehicles';
 import MobileBooking from './pages/MobileBooking';
 import MobileMyBookings from './pages/MobileMyBookings';
@@ -115,6 +116,7 @@ const AppLayout = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/scan" element={<ScanLicense />} />
           <Route path="/scan-mobile" element={<MobileScan />} />
+          <Route path="/mobile" element={<MobileLanding />} />
           <Route path="/m" element={<MobileHome />} />
           <Route path="/m/vehicles" element={<MobileVehicles />} />
           <Route path="/m/booking" element={<MobileBooking />} />

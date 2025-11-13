@@ -360,6 +360,12 @@
     "success": "Login bem-sucedido!",
     "failed": "Falha no login"
   },
+  "mobileLanding": {
+    "welcome": "Bem-vindo",
+    "subtitle": "Comece sua jornada de aluguel conosco",
+    "getStarted": "Começar",
+    "skipForNow": "Continuar sem fazer login"
+  },
   "register": {
     "title": "Crie sua conta",
     "subtitle": "Ou",

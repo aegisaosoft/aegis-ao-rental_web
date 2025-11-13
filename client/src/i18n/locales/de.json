@@ -374,6 +374,12 @@
     "success": "Anmeldung erfolgreich!",
     "failed": "Anmeldung fehlgeschlagen"
   },
+  "mobileLanding": {
+    "welcome": "Willkommen",
+    "subtitle": "Beginnen Sie Ihre Mietreise mit uns",
+    "getStarted": "Loslegen",
+    "skipForNow": "Ohne Anmeldung fortfahren"
+  },
   "register": {
     "title": "Ihr Konto erstellen",
     "subtitle": "Oder",
