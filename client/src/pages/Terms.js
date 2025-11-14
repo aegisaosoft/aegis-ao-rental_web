@@ -22,18 +22,44 @@ const Terms = () => {
   const { companyConfig } = useCompany();
   
   const companyName = companyConfig?.companyName || 'Our Company';
+  const bannerLink = companyConfig?.bannerLink || companyConfig?.BannerLink;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Big Caption - Terms and Conditions */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-4">
-            {t('terms.title', { companyName })}
-          </h1>
+      {/* Banner Image with Overlay Text - Full Page Width */}
+      {bannerLink ? (
+        <div 
+          className="relative w-full h-64 md:h-80 lg:h-96 overflow-hidden"
+          style={{
+            backgroundImage: `url(${bannerLink})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          }}
+        >
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+          
+          {/* Terms and Conditions Text Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white text-center px-4 drop-shadow-2xl">
+              {t('terms.title', { companyName })}
+            </h1>
+          </div>
         </div>
+      ) : null}
 
-        {/* Content Section */}
+      {/* Content Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Big Caption - Terms and Conditions (fallback when no banner) */}
+        {!bannerLink && (
+          <div className="text-center mb-16">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-4">
+              {t('terms.title', { companyName })}
+            </h1>
+          </div>
+        )}
+
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8 md:p-12">
             <div className="prose prose-lg max-w-none">

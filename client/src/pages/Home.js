@@ -563,16 +563,33 @@ const Home = () => {
     }
   }, [companyConfig]);
 
+  const bannerLink = companyConfig?.bannerLink || companyConfig?.BannerLink;
+
   return (
-    <div className="min-h-screen">
-      {/* Hero Section with Booking Form */}
-      <section className="relative min-h-[600px] bg-black">
-        {/* Background with gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black">
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(255, 152, 0, 0.2) 50%, transparent 100%)'
-          }}></div>
-        </div>
+    <>
+      {/* Hero Section with Booking Form and Video - With banner if exists, otherwise original style */}
+      <section 
+        className="relative min-h-[400px] bg-black w-full"
+        style={bannerLink ? {
+          backgroundImage: `url(${bannerLink})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        } : {}}
+      >
+        {/* Dark overlay for better content readability when banner exists */}
+        {bannerLink && (
+          <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+        )}
+        
+        {/* Fallback gradient overlay when no banner - original style */}
+        {!bannerLink && (
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black">
+            <div className="absolute inset-0 opacity-20" style={{
+              backgroundImage: 'linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(255, 152, 0, 0.2) 50%, transparent 100%)'
+            }}></div>
+          </div>
+        )}
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
@@ -737,7 +754,7 @@ const Home = () => {
       </section>
 
       {/* Available Models by Category Section */}
-      <section ref={modelsSectionRef} className="py-20 bg-gray-50">
+      <section ref={modelsSectionRef} className="py-20 bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center gap-3 mb-4">
@@ -1040,58 +1057,61 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Company Sections */}
+      {/* Company Sections - Page Wide */}
       {sectionsAfterModels.length > 0 && (
-        <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-            {sectionsAfterModels.map((section, index) => {
-              const sectionNumber = sectionsStartIndex + index + 1;
-              const title = translate(section.title) || '';
-              const description = translate(section.description) || '';
-              const alignment = (section.alignment || 'left').toLowerCase();
-              const notesLayout = (section.notesLayout || 'vertical').toLowerCase();
-              const backgroundImage =
-                typeof section.backgroundImage === 'string'
-                  ? section.backgroundImage
-                  : section.backgroundImage?.url || '';
-              const cardStyle = section.backColor
-                ? { backgroundColor: section.backColor }
-                : undefined;
-              const headingClass =
-                alignment === 'center'
-                  ? 'text-center mx-auto'
-                  : alignment === 'right'
-                  ? 'text-right ml-auto'
-                  : 'text-left';
-              const descriptionClass =
-                alignment === 'center'
-                  ? 'mx-auto text-center'
-                  : alignment === 'right'
-                  ? 'ml-auto text-right'
-                  : 'text-left';
-              const hasNotes = Array.isArray(section.notes) && section.notes.length > 0;
-              const notesWrapperClass =
-                notesLayout === 'horizontal'
-                  ? 'grid gap-6 md:grid-cols-2 xl:grid-cols-3'
-                  : 'space-y-6';
+        <div className="space-y-0">
+          {sectionsAfterModels.map((section, index) => {
+            const sectionNumber = sectionsStartIndex + index + 1;
+            const title = translate(section.title) || '';
+            const description = translate(section.description) || '';
+            const alignment = (section.alignment || 'left').toLowerCase();
+            const notesLayout = (section.notesLayout || 'vertical').toLowerCase();
+            const backgroundImage =
+              typeof section.backgroundImage === 'string'
+                ? section.backgroundImage
+                : section.backgroundImage?.url || '';
+            const cardStyle = section.backColor
+              ? { backgroundColor: section.backColor }
+              : { backgroundColor: '#ffffff' };
+            const headingClass =
+              alignment === 'center'
+                ? 'text-center mx-auto'
+                : alignment === 'right'
+                ? 'text-right ml-auto'
+                : 'text-left';
+            const descriptionClass =
+              alignment === 'center'
+                ? 'mx-auto text-center'
+                : alignment === 'right'
+                ? 'ml-auto text-right'
+                : 'text-left';
+            const hasNotes = Array.isArray(section.notes) && section.notes.length > 0;
+            const notesWrapperClass =
+              notesLayout === 'horizontal'
+                ? 'grid gap-6 md:grid-cols-2 xl:grid-cols-3'
+                : 'space-y-6';
 
-              return (
-                <div
-                  key={`company-section-${sectionNumber}`}
-                  className="relative rounded-3xl overflow-hidden shadow-xl border border-gray-100"
-                  style={cardStyle}
-                >
-                  {backgroundImage && (
-                    <div className="absolute inset-0">
-                      <img
-                        src={backgroundImage}
-                        alt={`Section ${sectionNumber} background`}
-                        className="w-full h-full object-cover opacity-35"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  <div className="relative backdrop-blur-sm bg-white/90 dark:bg-gray-900/80 p-10 md:p-16 space-y-8">
+            const sectionStyle = {
+              ...cardStyle,
+              ...(backgroundImage && {
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                minHeight: '100%',
+              }),
+            };
+
+            return (
+              <section
+                key={`company-section-${sectionNumber}`}
+                className="relative w-full py-20 min-h-full"
+                style={sectionStyle}
+              >
+                {backgroundImage && (
+                  <div className="absolute inset-0 bg-white opacity-65" />
+                )}
+                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
                     <div className="space-y-4">
                       {title && (
                         <h2
@@ -1135,15 +1155,26 @@ const Home = () => {
                             return null;
                           }
 
-                          const noteContent =
-                            notesLayout === 'vertical' ? (
-                              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                          if (notesLayout === 'vertical') {
+                            return (
+                              <div
+                                key={`section-${sectionNumber}-note-${noteIndex}`}
+                                className="flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-lg"
+                                style={{ backgroundColor: noteBackground }}
+                              >
                                 <div className="flex-shrink-0 flex flex-col items-start gap-3 min-w-[56px]">
                                   {notePicture && (
                                     <img
                                       src={notePicture}
                                       alt={noteTitle || `Section ${sectionNumber} note ${noteIndex + 1}`}
-                                      className="w-14 h-14 rounded-md object-cover"
+                                      className="rounded-md object-contain"
+                                      style={{ maxHeight: '100px', width: 'auto', height: 'auto' }}
+                                      onLoad={(e) => {
+                                        const img = e.target;
+                                        if (img.naturalHeight <= 160) {
+                                          img.style.maxHeight = 'none';
+                                        }
+                                      }}
                                       loading="lazy"
                                     />
                                   )}
@@ -1191,79 +1222,82 @@ const Home = () => {
                                   )}
                                 </div>
                               </div>
-                            ) : (
-                              <>
-                                {notePicture && (
-                                  <img
-                                    src={notePicture}
-                                    alt={noteTitle || `Section ${sectionNumber} note ${noteIndex + 1}`}
-                                    className="w-full h-40 object-cover rounded-md mb-4"
-                                    loading="lazy"
-                                  />
-                                )}
-                                <div className="flex items-center gap-3 mb-4">
-                                  <div
-                                    className="h-12 w-12 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: note.backColor || 'rgba(0,0,0,0.08)', color: symbolColor }}
-                                  >
-                                    {symbolSvg ? (
-                                      <span
-                                        className="h-6 w-6"
-                                        aria-hidden="true"
-                                        dangerouslySetInnerHTML={{ __html: symbolSvg }}
-                                      />
-                                    ) : (
-                                      <Car className="h-6 w-6" />
-                                    )}
-                                  </div>
-                                  <div>
-                                    {noteTitle && (
-                                      <h3
-                                        className="text-lg font-semibold"
-                                        style={noteForeground ? { color: noteForeground } : undefined}
-                                      >
-                                        {noteTitle}
-                                      </h3>
-                                    )}
-                                    {noteCaption && (
-                                      <p
-                                        className="text-sm opacity-80"
-                                        style={noteForeground ? { color: noteForeground } : undefined}
-                                      >
-                                        {noteCaption}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                {noteText && (
-                                  <p
-                                    className="text-base leading-relaxed"
-                                    style={noteForeground ? { color: noteForeground } : undefined}
-                                  >
-                                    {noteText}
-                                  </p>
-                                )}
-                              </>
                             );
+                          }
 
                           return (
                             <div
                               key={`section-${sectionNumber}-note-${noteIndex}`}
-                              className="rounded-2xl p-6 shadow-md border border-gray-100"
-                              style={{ backgroundColor: noteBackground, color: noteForeground }}
+                              className="rounded-lg p-6"
+                              style={{ backgroundColor: noteBackground }}
                             >
-                              {noteContent}
+                              {notePicture && (
+                                <img
+                                  src={notePicture}
+                                  alt={noteTitle || `Section ${sectionNumber} note ${noteIndex + 1}`}
+                                  className="object-contain rounded-md mb-4"
+                                  style={{ maxHeight: '100px', width: 'auto', height: 'auto' }}
+                                  onLoad={(e) => {
+                                    const img = e.target;
+                                    if (img.naturalHeight <= 160) {
+                                      img.style.maxHeight = 'none';
+                                    }
+                                  }}
+                                  loading="lazy"
+                                />
+                              )}
+                              <div className="flex items-center gap-3 mb-4">
+                                <div
+                                  className="h-12 w-12 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: note.backColor || 'rgba(0,0,0,0.08)', color: symbolColor }}
+                                >
+                                  {symbolSvg ? (
+                                    <span
+                                      className="h-6 w-6"
+                                      aria-hidden="true"
+                                      dangerouslySetInnerHTML={{ __html: symbolSvg }}
+                                    />
+                                  ) : (
+                                    <Car className="h-6 w-6" />
+                                  )}
+                                </div>
+                                <div>
+                                  {noteTitle && (
+                                    <h3
+                                      className="text-lg font-semibold"
+                                      style={noteForeground ? { color: noteForeground } : undefined}
+                                    >
+                                      {noteTitle}
+                                    </h3>
+                                  )}
+                                  {noteCaption && (
+                                    <p
+                                      className="text-sm font-medium uppercase tracking-wide opacity-80"
+                                      style={noteForeground ? { color: noteForeground } : undefined}
+                                    >
+                                      {noteCaption}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              {noteText && (
+                                <p
+                                  className="text-base leading-relaxed"
+                                  style={noteForeground ? { color: noteForeground } : undefined}
+                                >
+                                  {noteText}
+                                </p>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     )}
-                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       {/* CTA Section */}
@@ -1291,7 +1325,7 @@ const Home = () => {
           availableVehicles={vehicles}
         />
       )}
-    </div>
+    </>
   );
 };
 
