@@ -672,11 +672,15 @@ const Home = () => {
                     className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   >
                     <option value="">{t('home.selectLocation')}</option>
-                    {companyLocations.map((location) => (
-                      <option key={location.id || location.Id} value={location.id || location.Id}>
-                        {location.locationName || location.location_name || location.LocationName}
-                      </option>
-                    ))}
+                    {companyLocations.map((location) => {
+                      const locationId = location.locationId || location.LocationId || location.id || location.Id;
+                      const locationName = location.locationName || location.location_name || location.LocationName || '';
+                      return (
+                        <option key={locationId} value={locationId}>
+                          {locationName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}

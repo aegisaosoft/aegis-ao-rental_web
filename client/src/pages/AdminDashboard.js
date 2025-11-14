@@ -161,6 +161,10 @@ const AdminDashboard = () => {
   // State for vehicle management pagination
   const [vehiclePage, setVehiclePage] = useState(0);
   const [vehiclePageSize, setVehiclePageSize] = useState(10);
+  
+  // State for locations pagination
+  const [locationPage, setLocationPage] = useState(0);
+  const [locationPageSize, setLocationPageSize] = useState(10);
   const [vehicleSearchTerm, setVehicleSearchTerm] = useState('');
   const [vehicleMakeFilter, setVehicleMakeFilter] = useState('');
   const [vehicleModelFilter, setVehicleModelFilter] = useState('');
@@ -1987,8 +1991,15 @@ const AdminDashboard = () => {
   };
 
   const handleEditLocation = (location) => {
+    // Prohibit editing locations with CompanyId in pickup locations tab
+    const hasCompanyId = !!(location.companyId || location.CompanyId);
+    if (activeLocationSubTab === 'pickup' && hasCompanyId) {
+      toast.error(t('admin.locationManagedByCompany', 'This location is managed via Company Locations tab. Please edit it from the Company Locations tab.'));
+      return;
+    }
+    
     setIsEditingLocation(true);
-    const locationId = location.locationId || location.id || location.Id;
+    const locationId = location.locationId || location.id || location.Id || location.LocationId;
     setEditingLocationId(locationId);
     setLocationFormData({
       locationName: location.locationName || location.LocationName || '',
@@ -2115,6 +2126,18 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteLocation = (locationId) => {
+    // Find the location in the current list to check if it has a CompanyId
+    const location = locations.find(l => 
+      (l.locationId || l.id || l.Id || l.LocationId) === locationId
+    );
+    
+    // Prohibit deleting locations with CompanyId in pickup locations tab
+    const hasCompanyId = location && !!(location.companyId || location.CompanyId);
+    if (activeLocationSubTab === 'pickup' && hasCompanyId) {
+      toast.error(t('admin.locationManagedByCompany', 'This location is managed via Company Locations tab. Please delete it from the Company Locations tab.'));
+      return;
+    }
+    
     if (window.confirm(t('admin.confirmDeleteLocation'))) {
       if (activeLocationSubTab === 'company') {
         deleteCompanyLocationMutation.mutate(locationId);
@@ -2779,6 +2802,156 @@ const AdminDashboard = () => {
     },
   });
 
+  // Location table columns
+  const locationColumns = useMemo(() => [
+    {
+      id: 'locationName',
+      header: t('admin.locationName', 'Location Name'),
+      accessorFn: row => row.LocationName || row.locationName || '',
+      cell: info => info.getValue(),
+    },
+    {
+      id: 'address',
+      header: t('admin.address', 'Address'),
+      accessorFn: row => row.Address || row.address || '-',
+      cell: info => info.getValue() || '-',
+    },
+    {
+      id: 'city',
+      header: t('admin.city', 'City'),
+      accessorFn: row => row.City || row.city || '-',
+      cell: info => info.getValue() || '-',
+    },
+    {
+      id: 'state',
+      header: t('admin.state', 'State'),
+      accessorFn: row => row.State || row.state || '-',
+      cell: info => info.getValue() || '-',
+    },
+    {
+      id: 'phone',
+      header: t('admin.phone', 'Phone'),
+      accessorFn: row => row.Phone || row.phone || '-',
+      cell: info => info.getValue() || '-',
+    },
+    {
+      id: 'status',
+      header: t('admin.status', 'Status'),
+      accessorFn: row => {
+        const isActive = row.isActive !== false && row.IsActive !== false;
+        return isActive ? 'active' : 'inactive';
+      },
+      cell: ({ row }) => {
+        const isActive = row.original.isActive !== false && row.original.IsActive !== false;
+        return isActive ? (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            {t('status.active', 'Active')}
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            {t('status.inactive', 'Inactive')}
+          </span>
+        );
+      },
+    },
+    ...(activeLocationSubTab === 'company' ? [{
+      id: 'type',
+      header: t('admin.type', 'Type'),
+      cell: ({ row }) => {
+        const location = row.original;
+        const isPickup = location.isPickupLocation || location.IsPickupLocation;
+        const isReturn = location.isReturnLocation || location.IsReturnLocation;
+        const isOffice = location.isOffice || location.IsOffice;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {isPickup && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {t('admin.pickup', 'Pickup')}
+              </span>
+            )}
+            {isReturn && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {t('admin.return', 'Return')}
+              </span>
+            )}
+            {isOffice && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                {t('admin.office', 'Office')}
+              </span>
+            )}
+          </div>
+        );
+      },
+    }] : []),
+    {
+      header: t('common.actions', 'Actions'),
+      id: 'actions',
+      cell: ({ row }) => {
+        const location = row.original;
+        const locationId = location.locationId || location.id || location.Id || location.LocationId;
+        // Check if location has a CompanyId - these cannot be edited/deleted via pickup locations tab
+        const hasCompanyId = !!(location.companyId || location.CompanyId);
+        const isDisabled = activeLocationSubTab === 'pickup' && hasCompanyId;
+        const disabledTitle = isDisabled 
+          ? t('admin.locationManagedByCompany', 'This location is managed via Company Locations tab')
+          : '';
+        return (
+          <div className="flex justify-end items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleEditLocation(location)}
+              disabled={isDisabled}
+              className={`transition-colors ${
+                isDisabled 
+                  ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                  : 'text-blue-600 hover:text-blue-900'
+              }`}
+              title={disabledTitle || t('common.edit', 'Edit')}
+            >
+              <Pencil className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteLocation(locationId)}
+              disabled={isDisabled}
+              className={`transition-colors ${
+                isDisabled 
+                  ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                  : 'text-red-600 hover:text-red-900'
+              }`}
+              title={disabledTitle || t('common.delete', 'Delete')}
+            >
+              <Trash className="h-5 w-5" />
+            </button>
+          </div>
+        );
+      },
+    },
+  ], [t, activeLocationSubTab, handleEditLocation, handleDeleteLocation]);
+
+  // Location table configuration
+  const locationTable = useReactTable({
+    data: locations,
+    columns: locationColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: false, // Client-side pagination
+    pageCount: Math.ceil(locations.length / locationPageSize),
+    state: {
+      pagination: {
+        pageIndex: locationPage,
+        pageSize: locationPageSize,
+      },
+    },
+    onPaginationChange: (updater) => {
+      const newState = typeof updater === 'function' 
+        ? updater({ pageIndex: locationPage, pageSize: locationPageSize })
+        : updater;
+      setLocationPage(newState.pageIndex);
+      setLocationPageSize(newState.pageSize);
+    },
+  });
+
   if (!isAuthenticated) {
     return (
       <PageContainer>
@@ -3314,124 +3487,106 @@ const AdminDashboard = () => {
                         <p className="text-gray-600">{t('admin.noLocations')}</p>
                       </div>
                     ) : (
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.locationName', 'Location Name')}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.address', 'Address')}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.city', 'City')}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.state', 'State')}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.phone', 'Phone')}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('admin.status', 'Status')}
-                            </th>
-                            {activeLocationSubTab === 'company' && (
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.type', 'Type')}
-                              </th>
-                            )}
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {t('common.actions', 'Actions')}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {locations.map((location) => {
-                            const locationId = location.locationId || location.id || location.Id;
-                            const locationName = location.locationName || location.LocationName;
-                            const address = location.address || location.Address || '';
-                            const city = location.city || location.City || '';
-                            const state = location.state || location.State || '';
-                            const phone = location.phone || location.Phone || '-';
-                            const isActive = location.isActive !== false && location.IsActive !== false;
-                            const isPickup = location.isPickupLocation || location.IsPickupLocation;
-                            const isReturn = location.isReturnLocation || location.IsReturnLocation;
-                            const isOffice = location.isOffice || location.IsOffice;
-                            
-                            return (
-                              <tr key={locationId} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">{locationName}</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-900">{address || '-'}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">{city || '-'}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">{state || '-'}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">{phone}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {isActive ? (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      {t('status.active', 'Active')}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                      {t('status.inactive', 'Inactive')}
-                                    </span>
-                                  )}
-                                </td>
-                                {activeLocationSubTab === 'company' && (
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex flex-wrap gap-1">
-                                      {isPickup && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                          {t('admin.pickup', 'Pickup')}
-                                        </span>
-                                      )}
-                                      {isReturn && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                          {t('admin.return', 'Return')}
-                                        </span>
-                                      )}
-                                      {isOffice && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                          {t('admin.office', 'Office')}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                )}
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <div className="flex justify-end items-center gap-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditLocation(location)}
-                                      className="text-blue-600 hover:text-blue-900 transition-colors"
-                                      title={t('common.edit', 'Edit')}
-                                    >
-                                      <Pencil className="h-5 w-5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteLocation(locationId)}
-                                      className="text-red-600 hover:text-red-900 transition-colors"
-                                      title={t('common.delete', 'Delete')}
-                                    >
-                                      <Trash className="h-5 w-5" />
-                                    </button>
-                                  </div>
-                                </td>
+                      <>
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            {locationTable.getHeaderGroups().map(headerGroup => (
+                              <tr key={headerGroup.id}>
+                                {headerGroup.headers.map(header => (
+                                  <th
+                                    key={header.id}
+                                    className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                                      header.id === 'actions' ? 'text-right' : ''
+                                    }`}
+                                  >
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext()
+                                        )}
+                                  </th>
+                                ))}
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            ))}
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {locationTable.getRowModel().rows.map(row => (
+                              <tr key={row.id} className="hover:bg-gray-50">
+                                {row.getVisibleCells().map(cell => (
+                                  <td
+                                    key={cell.id}
+                                    className={`px-6 py-4 whitespace-nowrap ${
+                                      cell.column.id === 'actions' ? 'text-right text-sm font-medium' : ''
+                                    }`}
+                                  >
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
+                          <div className="flex flex-1 justify-between sm:hidden">
+                            <button
+                              onClick={() => locationTable.previousPage()}
+                              disabled={!locationTable.getCanPreviousPage()}
+                              className="btn-secondary"
+                            >
+                              {t('previous')}
+                            </button>
+                            <button
+                              onClick={() => locationTable.nextPage()}
+                              disabled={!locationTable.getCanNextPage()}
+                              className="btn-secondary ml-3"
+                            >
+                              {t('next')}
+                            </button>
+                          </div>
+                          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm text-gray-700">
+                                {t('admin.showing')} <span className="font-medium">{locationPage * locationPageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((locationPage + 1) * locationPageSize, locations.length)}</span> {t('admin.of')} <span className="font-medium">{locations.length}</span> {t('results')}
+                              </p>
+                            </div>
+                            <div>
+                              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                <button
+                                  onClick={() => locationTable.setPageIndex(0)}
+                                  disabled={!locationTable.getCanPreviousPage()}
+                                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                                >
+                                  <ChevronsLeft className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => locationTable.previousPage()}
+                                  disabled={!locationTable.getCanPreviousPage()}
+                                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                                >
+                                  <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => locationTable.nextPage()}
+                                  disabled={!locationTable.getCanNextPage()}
+                                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                                >
+                                  <ChevronRightIcon className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => locationTable.setPageIndex(locationTable.getPageCount() - 1)}
+                                  disabled={!locationTable.getCanNextPage()}
+                                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                                >
+                                  <ChevronsRight className="h-5 w-5" />
+                                </button>
+                              </nav>
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
