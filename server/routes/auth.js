@@ -119,7 +119,9 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
     
     console.log('[Profile] Fetching profile with token (length:', token.length + ')');
-    const response = await apiService.getProfile(token);
+    // Forward cookies from frontend request to backend API
+    const cookies = req.headers.cookie;
+    const response = await apiService.getProfile(token, cookies);
     
     // Include token in response if requested (for QR code generation)
     // This allows frontend to get token without making a separate request

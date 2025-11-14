@@ -57,6 +57,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
+  withCredentials: true, // Forward credentials (cookies) to backend
   httpsAgent: new https.Agent({
     rejectUnauthorized: false // Allow self-signed certificates in development
   })
@@ -215,9 +216,18 @@ const apiService = {
   // Authentication
   login: (credentials) => apiClient.post('/api/auth/login', credentials),
   register: (userData) => apiClient.post('/api/auth/register', userData),
-  getProfile: (token) => apiClient.get('/api/auth/profile', {
-    headers: { Authorization: `Bearer ${token}` }
-  }),
+  getProfile: (token, cookies) => {
+    const config = {
+      headers: {}
+    };
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (cookies) {
+      config.headers.Cookie = cookies;
+    }
+    return apiClient.get('/api/auth/profile', config);
+  },
 
   // Payments
   createPaymentIntent: (token, data) => {

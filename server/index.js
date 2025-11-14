@@ -366,8 +366,10 @@ app.use('/api/*', upload.any(), async (req, res) => {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }) // Forward X-Company-Id header
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }), // Forward X-Company-Id header
+      ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies from frontend request
     },
+    withCredentials: true, // Forward credentials (cookies) to backend
     httpsAgent: new (require('https')).Agent({
       rejectUnauthorized: false
     }),
@@ -407,7 +409,8 @@ app.use('/api/*', upload.any(), async (req, res) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-          ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] })
+          ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
+          ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
         };
         
         const response = await apiClient({
@@ -478,7 +481,8 @@ app.use('/api/*', upload.any(), async (req, res) => {
       'Accept': 'application/json',
       ...(req.headers.authorization && { Authorization: req.headers.authorization }),
       ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
-      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] })
+      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] }),
+      ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
     };
     
     // Only set Content-Type for non-file uploads

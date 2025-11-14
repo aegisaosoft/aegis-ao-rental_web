@@ -325,10 +325,17 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
   // Update language content when content prop changes from external source
   // Use a ref to track the last content to avoid unnecessary updates
   const lastContentRef = useRef(content);
+  const isInternalUpdateRef = useRef(false);
   
   useEffect(() => {
     // Only update if content changed from external source (not from our own onChange)
     if (content === lastContentRef.current) {
+      return;
+    }
+    
+    // If this is an internal update, don't update state (we already did)
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
       return;
     }
     
@@ -380,21 +387,26 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
     }
   }, [content]);
 
+  // Call onChange when languageContent changes (but only for user-initiated changes)
+  useEffect(() => {
+    if (isInternalUpdateRef.current) {
+      const jsonString = JSON.stringify(languageContent);
+      lastContentRef.current = jsonString;
+      onChange(jsonString);
+      isInternalUpdateRef.current = false;
+    }
+  }, [languageContent, onChange]);
+
   const handleLanguageChange = useCallback((langCode, html) => {
+    isInternalUpdateRef.current = true;
     setLanguageContent(prev => {
       const newContent = {
         ...prev,
         [langCode]: html
       };
-      
-      // Convert to JSON string and call onChange
-      const jsonString = JSON.stringify(newContent);
-      lastContentRef.current = jsonString; // Update ref to prevent unnecessary re-renders
-      onChange(jsonString);
-      
       return newContent;
     });
-  }, [onChange]);
+  }, []);
 
   const handleTranslate = useCallback(async () => {
     // Don't translate if source and target are the same
@@ -447,12 +459,8 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
         [activeLanguage]: translatedHtml
       };
       
+      isInternalUpdateRef.current = true;
       setLanguageContent(updatedContent);
-      
-      // Convert to JSON string and call onChange to save
-      const jsonString = JSON.stringify(updatedContent);
-      lastContentRef.current = jsonString;
-      onChange(jsonString);
       
       alert(`Translation completed! ${LANGUAGES.find(l => l.code === activeLanguage)?.name || activeLanguage} content has been updated.`);
     } catch (error) {
