@@ -316,32 +316,110 @@ export const translatedApiService = {
 
   getPickupLocations: async (companyId = null) => {
     const response = await apiService.getPickupLocations(companyId);
-    return translateResponse(response);
+    const translated = translateResponse(response);
+    // Return the data directly, not the axios response object
+    // Handle both cases: response object with Result property (standardized response), or data directly
+    if (Array.isArray(translated)) {
+      return translated;
+    }
+    // Handle standardized response format: { Result: [...], Reason: 0, ... }
+    if (translated && typeof translated === 'object' && 'Result' in translated) {
+      return Array.isArray(translated.Result) ? translated.Result : [];
+    }
+    // Handle axios response with data property
+    if (translated && typeof translated === 'object' && 'data' in translated) {
+      // If data has Result property (standardized response)
+      if (translated.data && typeof translated.data === 'object' && 'Result' in translated.data) {
+        return Array.isArray(translated.data.Result) ? translated.data.Result : [];
+      }
+      return Array.isArray(translated.data) ? translated.data : [];
+    }
+    return [];
   },
 
   getReturnLocations: async (companyId = null) => {
     const response = await apiService.getReturnLocations(companyId);
-    return translateResponse(response);
+    const translated = translateResponse(response);
+    // Return the data directly, not the axios response object
+    // Handle both cases: response object with Result property (standardized response), or data directly
+    if (Array.isArray(translated)) {
+      return translated;
+    }
+    // Handle standardized response format: { Result: [...], Reason: 0, ... }
+    if (translated && typeof translated === 'object' && 'Result' in translated) {
+      return Array.isArray(translated.Result) ? translated.Result : [];
+    }
+    // Handle axios response with data property
+    if (translated && typeof translated === 'object' && 'data' in translated) {
+      // If data has Result property (standardized response)
+      if (translated.data && typeof translated.data === 'object' && 'Result' in translated.data) {
+        return Array.isArray(translated.data.Result) ? translated.data.Result : [];
+      }
+      return Array.isArray(translated.data) ? translated.data : [];
+    }
+    return [];
   },
 
   getLocationStates: async (companyId = null) => {
     const response = await apiService.getLocationStates(companyId);
-    return translateResponse(response);
+    const translated = translateResponse(response);
+    // Return the data directly, not the axios response object
+    // Handle both cases: response object with data property, or data directly
+    if (Array.isArray(translated)) {
+      return translated;
+    }
+    if (translated && typeof translated === 'object' && 'data' in translated) {
+      return Array.isArray(translated.data) ? translated.data : [];
+    }
+    return [];
   },
 
   getLocationCities: async (params = {}) => {
     const response = await apiService.getLocationCities(params);
-    return translateResponse(response);
+    const translated = translateResponse(response);
+    // Return the data directly, not the axios response object
+    // Handle both cases: response object with data property, or data directly
+    if (Array.isArray(translated)) {
+      return translated;
+    }
+    if (translated && typeof translated === 'object' && 'data' in translated) {
+      return Array.isArray(translated.data) ? translated.data : [];
+    }
+    return [];
   },
   
   // Company Locations
   getCompanyLocations: async (params = {}) => {
     const response = await apiService.getCompanyLocations(params);
-    return translateResponse(response);
+    const translated = translateResponse(response);
+    // Return the data directly, not the axios response object
+    // Handle both cases: response object with data property, or data directly
+    if (Array.isArray(translated)) {
+      return translated;
+    }
+    if (translated && typeof translated === 'object' && 'data' in translated) {
+      return Array.isArray(translated.data) ? translated.data : [];
+    }
+    return [];
   },
   
   getCompanyLocation: async (id) => {
     const response = await apiService.getCompanyLocation(id);
+    return translateResponse(response);
+  },
+  
+  createCompanyLocation: async (data) => {
+    const response = await apiService.createCompanyLocation(data);
+    return translateResponse(response);
+  },
+  
+  updateCompanyLocation: async (id, data) => {
+    const response = await apiService.updateCompanyLocation(id, data);
+    return translateResponse(response);
+  },
+  
+  deleteCompanyLocation: async (id) => {
+    const response = await apiService.deleteCompanyLocation(id);
     return translateResponse(response);
   },
   

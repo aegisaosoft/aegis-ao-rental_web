@@ -17,7 +17,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -91,6 +91,7 @@ const AdminDashboard = () => {
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
+  const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company' or 'pickup'
   const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
@@ -148,6 +149,7 @@ const AdminDashboard = () => {
     longitude: '',
     isPickupLocation: true,
     isReturnLocation: true,
+    isOffice: false,
     openingHours: '',
     isActive: true
   });
@@ -431,13 +433,13 @@ const AdminDashboard = () => {
   );
 
   // Fetch company locations
-  const { data: locationsData, isLoading: isLoadingLocations } = useQuery(
-    ['locations', currentCompanyId],
-    () => apiService.getLocationsByCompany(currentCompanyId),
+  const { data: companyLocationsData, isLoading: isLoadingCompanyLocations } = useQuery(
+    ['companyLocations', currentCompanyId],
+    () => apiService.getCompanyLocations({ companyId: currentCompanyId }),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeTab === 'locations',
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'company',
       onError: (error) => {
-        console.error('Error loading locations:', error);
+        console.error('Error loading company locations:', error);
         toast.error(t('admin.locationsLoadFailed'), {
           position: 'top-center',
           autoClose: 3000,
@@ -446,7 +448,28 @@ const AdminDashboard = () => {
     }
   );
 
-  const locations = locationsData?.data || locationsData || [];
+  // Fetch pickup locations
+  const { data: pickupLocationsData, isLoading: isLoadingPickupLocations } = useQuery(
+    ['pickupLocations', currentCompanyId],
+    () => apiService.getPickupLocations(currentCompanyId),
+    {
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'pickup',
+      onError: (error) => {
+        console.error('Error loading pickup locations:', error);
+        toast.error(t('admin.locationsLoadFailed'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      }
+    }
+  );
+
+  // Ensure locations are always arrays
+  // translatedApiService methods now return data directly, not axios response
+  const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
+  const pickupLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  const locations = activeLocationSubTab === 'company' ? companyLocations : pickupLocations;
+  const isLoadingLocations = activeLocationSubTab === 'company' ? isLoadingCompanyLocations : isLoadingPickupLocations;
 
   // Vehicle update mutation
   const updateVehicleMutation = useMutation(
@@ -1225,16 +1248,14 @@ const AdminDashboard = () => {
     }
   };
 
-  // Location mutations
+  // Location mutations - for pickup locations (regular locations)
   const createLocationMutation = useMutation(
-    (data) => apiService.createLocation({ ...data, companyId: currentCompanyId }),
+    (data) => apiService.createLocation(data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['locations', currentCompanyId]);
-        toast.success(t('admin.locationCreated'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        queryClient.invalidateQueries(['pickupLocations', currentCompanyId]);
         setIsEditingLocation(false);
         setEditingLocationId(null);
         setLocationFormData({
@@ -1250,29 +1271,26 @@ const AdminDashboard = () => {
           longitude: '',
           isPickupLocation: true,
           isReturnLocation: true,
+          isOffice: false,
           openingHours: '',
           isActive: true
         });
+        toast.success(t('admin.locationCreated') || 'Location created successfully');
       },
       onError: (error) => {
         console.error('Error creating location:', error);
-        toast.error(t('admin.locationCreateFailed'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        toast.error(error.response?.data?.message || t('admin.locationCreateFailed') || 'Failed to create location');
       }
     }
   );
 
   const updateLocationMutation = useMutation(
-    (data) => apiService.updateLocation(editingLocationId, data),
+    ({ locationId, data }) => apiService.updateLocation(locationId, data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['locations', currentCompanyId]);
-        toast.success(t('admin.locationUpdated'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        queryClient.invalidateQueries(['pickupLocations', currentCompanyId]);
         setIsEditingLocation(false);
         setEditingLocationId(null);
         setLocationFormData({
@@ -1288,16 +1306,15 @@ const AdminDashboard = () => {
           longitude: '',
           isPickupLocation: true,
           isReturnLocation: true,
+          isOffice: false,
           openingHours: '',
           isActive: true
         });
+        toast.success(t('admin.locationUpdated') || 'Location updated successfully');
       },
       onError: (error) => {
         console.error('Error updating location:', error);
-        toast.error(t('admin.locationUpdateFailed'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        toast.error(error.response?.data?.message || t('admin.locationUpdateFailed') || 'Failed to update location');
       }
     }
   );
@@ -1307,6 +1324,8 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['locations', currentCompanyId]);
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        queryClient.invalidateQueries(['pickupLocations', currentCompanyId]);
         toast.success(t('admin.locationDeleted'), {
           position: 'top-center',
           autoClose: 3000,
@@ -1318,6 +1337,87 @@ const AdminDashboard = () => {
           position: 'top-center',
           autoClose: 3000,
         });
+      }
+    }
+  );
+
+  // Company Location mutations (same pattern as vehicles)
+  const createCompanyLocationMutation = useMutation(
+    (data) => apiService.createCompanyLocation(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        setIsEditingLocation(false);
+        setEditingLocationId(null);
+        setLocationFormData({
+          locationName: '',
+          address: '',
+          city: '',
+          state: '',
+          country: '',
+          postalCode: '',
+          phone: '',
+          email: '',
+          latitude: '',
+          longitude: '',
+          isPickupLocation: true,
+          isReturnLocation: true,
+          isOffice: false,
+          openingHours: '',
+          isActive: true
+        });
+        toast.success(t('admin.locationCreated') || 'Location created successfully');
+      },
+      onError: (error) => {
+        console.error('Error creating company location:', error);
+        toast.error(error.response?.data?.message || t('admin.locationCreateFailed') || 'Failed to create location');
+      }
+    }
+  );
+
+  const updateCompanyLocationMutation = useMutation(
+    ({ locationId, data }) => apiService.updateCompanyLocation(locationId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        setIsEditingLocation(false);
+        setEditingLocationId(null);
+        setLocationFormData({
+          locationName: '',
+          address: '',
+          city: '',
+          state: '',
+          country: '',
+          postalCode: '',
+          phone: '',
+          email: '',
+          latitude: '',
+          longitude: '',
+          isPickupLocation: true,
+          isReturnLocation: true,
+          isOffice: false,
+          openingHours: '',
+          isActive: true
+        });
+        toast.success(t('admin.locationUpdated') || 'Location updated successfully');
+      },
+      onError: (error) => {
+        console.error('Error updating company location:', error);
+        toast.error(error.response?.data?.message || t('admin.locationUpdateFailed') || 'Failed to update location');
+      }
+    }
+  );
+
+  const deleteCompanyLocationMutation = useMutation(
+    (locationId) => apiService.deleteCompanyLocation(locationId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
+        toast.success(t('admin.locationDeleted') || 'Location deleted successfully');
+      },
+      onError: (error) => {
+        console.error('Error deleting company location:', error);
+        toast.error(error.response?.data?.message || t('admin.locationDeleteFailed') || 'Failed to delete location');
       }
     }
   );
@@ -1880,7 +1980,7 @@ const AdminDashboard = () => {
       latitude: '',
       longitude: '',
       isPickupLocation: true,
-      isReturnLocation: true,
+      isReturnLocation: activeLocationSubTab === 'company',
       openingHours: '',
       isActive: true
     });
@@ -1888,49 +1988,107 @@ const AdminDashboard = () => {
 
   const handleEditLocation = (location) => {
     setIsEditingLocation(true);
-    setEditingLocationId(location.locationId);
+    const locationId = location.locationId || location.id || location.Id;
+    setEditingLocationId(locationId);
     setLocationFormData({
-      locationName: location.locationName || '',
-      address: location.address || '',
-      city: location.city || '',
-      state: location.state || '',
-      country: location.country || '',
-      postalCode: location.postalCode || '',
-      phone: location.phone || '',
-      email: location.email || '',
-      latitude: location.latitude || '',
-      longitude: location.longitude || '',
-      isPickupLocation: location.isPickupLocation,
-      isReturnLocation: location.isReturnLocation,
-      openingHours: location.openingHours || '',
-      isActive: location.isActive
+      locationName: location.locationName || location.LocationName || '',
+      address: location.address || location.Address || '',
+      city: location.city || location.City || '',
+      state: location.state || location.State || '',
+      country: location.country || location.Country || '',
+      postalCode: location.postalCode || location.PostalCode || '',
+      phone: location.phone || location.Phone || '',
+      email: location.email || location.Email || '',
+      latitude: location.latitude || location.Latitude || '',
+      longitude: location.longitude || location.Longitude || '',
+      isPickupLocation: location.isPickupLocation !== undefined ? location.isPickupLocation : (location.IsPickupLocation !== undefined ? location.IsPickupLocation : true),
+      isReturnLocation: location.isReturnLocation !== undefined ? location.isReturnLocation : (location.IsReturnLocation !== undefined ? location.IsReturnLocation : true),
+      isOffice: location.isOffice !== undefined ? location.isOffice : (location.IsOffice !== undefined ? location.IsOffice : false),
+      openingHours: location.openingHours || location.OpeningHours || '',
+      isActive: location.isActive !== undefined ? location.isActive : (location.IsActive !== undefined ? location.IsActive : true)
     });
   };
 
   const handleSaveLocation = (e) => {
     e.preventDefault();
     
-    const locationData = {
-      locationName: locationFormData.locationName,
-      address: locationFormData.address || null,
-      city: locationFormData.city || null,
-      state: locationFormData.state || null,
-      country: locationFormData.country || null,
-      postalCode: locationFormData.postalCode || null,
-      phone: locationFormData.phone || null,
-      email: locationFormData.email || null,
-      latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : null,
-      longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : null,
-      isPickupLocation: locationFormData.isPickupLocation,
-      isReturnLocation: locationFormData.isReturnLocation,
-      openingHours: locationFormData.openingHours || null,
-      isActive: locationFormData.isActive
-    };
+    if (activeLocationSubTab === 'company') {
+      // Use company location endpoints (same pattern as vehicles)
+      if (!currentCompanyId) {
+        toast.error(t('admin.noCompanySelected') || 'Please select a company first');
+        return;
+      }
 
-    if (editingLocationId) {
-      updateLocationMutation.mutate(locationData);
+      // Validate required fields
+      if (!locationFormData.locationName || !locationFormData.locationName.trim()) {
+        toast.error(t('admin.locationNameRequired') || 'Location name is required');
+        return;
+      }
+
+      // Prepare location data (same pattern as vehicles)
+      const locationData = {
+        companyId: currentCompanyId,
+        locationName: locationFormData.locationName.trim(),
+        address: locationFormData.address || null,
+        city: locationFormData.city || null,
+        state: locationFormData.state || null,
+        country: locationFormData.country || 'USA',
+        postalCode: locationFormData.postalCode || null,
+        phone: locationFormData.phone || null,
+        email: locationFormData.email || null,
+        latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : null,
+        longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : null,
+        isPickupLocation: locationFormData.isPickupLocation !== undefined ? locationFormData.isPickupLocation : true,
+        isReturnLocation: locationFormData.isReturnLocation !== undefined ? locationFormData.isReturnLocation : true,
+        isOffice: locationFormData.isOffice !== undefined ? locationFormData.isOffice : false,
+        openingHours: locationFormData.openingHours || null,
+        isActive: locationFormData.isActive !== undefined ? locationFormData.isActive : true
+      };
+
+      if (editingLocationId) {
+        updateCompanyLocationMutation.mutate({ locationId: editingLocationId, data: locationData });
+      } else {
+        createCompanyLocationMutation.mutate(locationData);
+      }
     } else {
-      createLocationMutation.mutate(locationData);
+      // Use regular location endpoints (same pattern as vehicles)
+      if (!currentCompanyId) {
+        toast.error(t('admin.noCompanySelected') || 'Please select a company first');
+        return;
+      }
+
+      // Validate required fields
+      if (!locationFormData.locationName || !locationFormData.locationName.trim()) {
+        toast.error(t('admin.locationNameRequired') || 'Location name is required');
+        return;
+      }
+
+      // Prepare location data (same pattern as vehicles)
+      // Note: Regular locations don't have isOffice field, only company locations do
+      const locationData = {
+        companyId: currentCompanyId,
+        locationName: locationFormData.locationName.trim(),
+        address: locationFormData.address || null,
+        city: locationFormData.city || null,
+        state: locationFormData.state || null,
+        country: locationFormData.country || 'USA',
+        postalCode: locationFormData.postalCode || null,
+        phone: locationFormData.phone || null,
+        email: locationFormData.email || null,
+        latitude: locationFormData.latitude ? parseFloat(locationFormData.latitude) : null,
+        longitude: locationFormData.longitude ? parseFloat(locationFormData.longitude) : null,
+        isPickupLocation: locationFormData.isPickupLocation !== undefined ? locationFormData.isPickupLocation : true,
+        isReturnLocation: locationFormData.isReturnLocation !== undefined ? locationFormData.isReturnLocation : true,
+        // isOffice is NOT included for regular locations - only for company locations
+        openingHours: locationFormData.openingHours || null,
+        isActive: locationFormData.isActive !== undefined ? locationFormData.isActive : true
+      };
+
+      if (editingLocationId) {
+        updateLocationMutation.mutate({ locationId: editingLocationId, data: locationData });
+      } else {
+        createLocationMutation.mutate(locationData);
+      }
     }
   };
 
@@ -1950,6 +2108,7 @@ const AdminDashboard = () => {
       longitude: '',
       isPickupLocation: true,
       isReturnLocation: true,
+      isOffice: false,
       openingHours: '',
       isActive: true
     });
@@ -1957,7 +2116,11 @@ const AdminDashboard = () => {
 
   const handleDeleteLocation = (locationId) => {
     if (window.confirm(t('admin.confirmDeleteLocation'))) {
-      deleteLocationMutation.mutate(locationId);
+      if (activeLocationSubTab === 'company') {
+        deleteCompanyLocationMutation.mutate(locationId);
+      } else {
+        deleteLocationMutation.mutate(locationId);
+      }
     }
   };
 
@@ -2693,9 +2856,12 @@ const AdminDashboard = () => {
           <Card title={t('admin.navigation')} className="sticky top-4">
             <div className="space-y-2">
               <button
-                onClick={() => setActiveSection('company')}
+                onClick={() => {
+                  setActiveSection('company');
+                  setActiveTab('info');
+                }}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'company'
+                  activeSection === 'company' && activeTab !== 'locations'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -2704,6 +2870,23 @@ const AdminDashboard = () => {
               >
                 <Building2 className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs">{t('admin.companyProfile')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveSection('company');
+                  setActiveTab('locations');
+                }}
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                  activeSection === 'company' && activeTab === 'locations'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+                title={t('admin.locations', 'Locations')}
+                aria-label={t('admin.locations', 'Locations')}
+              >
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.locations', 'Locations')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('vehicles')}
@@ -2800,13 +2983,22 @@ const AdminDashboard = () => {
             <Card
               title={
               <div className="flex items-center">
-                  <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                  <span>
-                    {!currentCompanyId && isEditingCompany 
-                      ? t('admin.createCompany') || 'Create Company'
-                      : t('admin.companyProfile')
-                    }
-                  </span>
+                  {activeTab === 'locations' ? (
+                    <>
+                      <MapPin className="h-6 w-6 text-blue-600 mr-2" />
+                      <span>{t('admin.locations', 'Locations')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="h-6 w-6 text-blue-600 mr-2" />
+                      <span>
+                        {!currentCompanyId && isEditingCompany 
+                          ? t('admin.createCompany') || 'Create Company'
+                          : t('admin.companyProfile')
+                        }
+                      </span>
+                    </>
+                  )}
                 </div>
               }
             >
@@ -2821,6 +3013,428 @@ const AdminDashboard = () => {
           ) : (!companyData && currentCompanyId) ? (
             <div className="text-center py-8">
               <p className="text-gray-600">{t('admin.noCompanyData')}</p>
+              </div>
+          ) : activeTab === 'locations' ? (
+              // Locations Tab - Always show locations content
+              <div className="space-y-6">
+                {/* Sub-tab Navigation */}
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8" aria-label="Sub-tabs">
+                    <button
+                      type="button"
+                      onClick={() => setActiveLocationSubTab('company')}
+                      className={`
+                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
+                        ${activeLocationSubTab === 'company'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.companyLocations', 'Company Locations')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveLocationSubTab('pickup')}
+                      className={`
+                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
+                        ${activeLocationSubTab === 'pickup'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.pickupLocations', 'Pickup Locations')}
+                    </button>
+                  </nav>
+                </div>
+
+                {/* Add Location Button */}
+                {!isEditingLocation && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddLocation}
+                      className="btn-primary"
+                    >
+                      + {t('admin.addLocation')}
+                    </button>
+                  </div>
+                )}
+
+                {/* Location Form */}
+                {isEditingLocation ? (
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-4">
+                      {editingLocationId ? t('admin.editLocation') : t('admin.addLocation')}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.locationName')} *
+                        </label>
+                        <input
+                          type="text"
+                          name="locationName"
+                          value={locationFormData.locationName}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.address')}
+                        </label>
+                        <input
+                          type="text"
+                          name="address"
+                          value={locationFormData.address}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.city')}
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={locationFormData.city}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.state')}
+                        </label>
+                        <input
+                          type="text"
+                          name="state"
+                          value={locationFormData.state}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.country')}
+                        </label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={locationFormData.country}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.postalCode')}
+                        </label>
+                        <input
+                          type="text"
+                          name="postalCode"
+                          value={locationFormData.postalCode}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.phone')}
+                        </label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={locationFormData.phone}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.email')}
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={locationFormData.email}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.latitude')}
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          name="latitude"
+                          value={locationFormData.latitude}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                          placeholder="40.7128"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.longitude')}
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          name="longitude"
+                          value={locationFormData.longitude}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                          placeholder="-74.0060"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {t('admin.openingHours')}
+                        </label>
+                        <textarea
+                          name="openingHours"
+                          value={locationFormData.openingHours}
+                          onChange={handleLocationInputChange}
+                          className="input-field"
+                          rows="3"
+                          placeholder='{"Mon": "9-5", "Tue": "9-5"}'
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          JSON format optional
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2 flex items-center space-x-6">
+                        {activeLocationSubTab === 'pickup' && (
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              name="isPickupLocation"
+                              checked={locationFormData.isPickupLocation}
+                              onChange={handleLocationInputChange}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">{t('admin.isPickupLocation')}</span>
+                          </label>
+                        )}
+
+                        {activeLocationSubTab === 'company' && (
+                          <>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                name="isPickupLocation"
+                                checked={locationFormData.isPickupLocation}
+                                onChange={handleLocationInputChange}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{t('admin.isPickupLocation')}</span>
+                            </label>
+
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                name="isReturnLocation"
+                                checked={locationFormData.isReturnLocation}
+                                onChange={handleLocationInputChange}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{t('admin.isReturnLocation')}</span>
+                            </label>
+
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                name="isOffice"
+                                checked={locationFormData.isOffice}
+                                onChange={handleLocationInputChange}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{t('admin.isOffice') || 'Is Office'}</span>
+                            </label>
+                          </>
+                        )}
+
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="isActive"
+                            checked={locationFormData.isActive}
+                            onChange={handleLocationInputChange}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">{t('admin.isActive')}</span>
+                        </label>
+                      </div>
+
+                      <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
+                        <button
+                          type="button"
+                          onClick={handleCancelLocationEdit}
+                          className="btn-outline"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveLocation}
+                          className="btn-primary"
+                        >
+                          {t('common.save')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Locations Table */
+                  <div className="overflow-x-auto">
+                    {isLoadingLocations ? (
+                      <div className="text-center py-8">
+                        <LoadingSpinner />
+                      </div>
+                    ) : locations.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-gray-600">{t('admin.noLocations')}</p>
+                      </div>
+                    ) : (
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.locationName', 'Location Name')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.address', 'Address')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.city', 'City')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.state', 'State')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.phone', 'Phone')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('admin.status', 'Status')}
+                            </th>
+                            {activeLocationSubTab === 'company' && (
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {t('admin.type', 'Type')}
+                              </th>
+                            )}
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('common.actions', 'Actions')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {locations.map((location) => {
+                            const locationId = location.locationId || location.id || location.Id;
+                            const locationName = location.locationName || location.LocationName;
+                            const address = location.address || location.Address || '';
+                            const city = location.city || location.City || '';
+                            const state = location.state || location.State || '';
+                            const phone = location.phone || location.Phone || '-';
+                            const isActive = location.isActive !== false && location.IsActive !== false;
+                            const isPickup = location.isPickupLocation || location.IsPickupLocation;
+                            const isReturn = location.isReturnLocation || location.IsReturnLocation;
+                            const isOffice = location.isOffice || location.IsOffice;
+                            
+                            return (
+                              <tr key={locationId} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium text-gray-900">{locationName}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-sm text-gray-900">{address || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{city || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{state || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{phone}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {isActive ? (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      {t('status.active', 'Active')}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                      {t('status.inactive', 'Inactive')}
+                                    </span>
+                                  )}
+                                </td>
+                                {activeLocationSubTab === 'company' && (
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex flex-wrap gap-1">
+                                      {isPickup && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          {t('admin.pickup', 'Pickup')}
+                                        </span>
+                                      )}
+                                      {isReturn && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                          {t('admin.return', 'Return')}
+                                        </span>
+                                      )}
+                                      {isOffice && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                          {t('admin.office', 'Office')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                )}
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <div className="flex justify-end items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditLocation(location)}
+                                      className="text-blue-600 hover:text-blue-900 transition-colors"
+                                      title={t('common.edit', 'Edit')}
+                                    >
+                                      <Pencil className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteLocation(locationId)}
+                                      className="text-red-600 hover:text-red-900 transition-colors"
+                                      title={t('common.delete', 'Delete')}
+                                    >
+                                      <Trash className="h-5 w-5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </div>
           ) : isEditingCompany || (!currentCompanyId && isMainAdmin) ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
@@ -3356,312 +3970,7 @@ const AdminDashboard = () => {
                 </div>
                 )}
 
-                {/* Locations Tab */}
-                {activeTab === 'locations' && (
-                <div className="space-y-6">
-                  {/* Add Location Button */}
-                  {!isEditingLocation && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleAddLocation}
-                        className="btn-primary"
-                      >
-                        + {t('admin.addLocation')}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Location Form */}
-                  {isEditingLocation ? (
-                    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                      <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                        {editingLocationId ? t('admin.editLocation') : t('admin.addLocation')}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.locationName')} *
-                          </label>
-                          <input
-                            type="text"
-                            name="locationName"
-                            value={locationFormData.locationName}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                            required
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.address')}
-                          </label>
-                          <input
-                            type="text"
-                            name="address"
-                            value={locationFormData.address}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.city')}
-                          </label>
-                          <input
-                            type="text"
-                            name="city"
-                            value={locationFormData.city}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.state')}
-                          </label>
-                          <input
-                            type="text"
-                            name="state"
-                            value={locationFormData.state}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.country')}
-                          </label>
-                          <input
-                            type="text"
-                            name="country"
-                            value={locationFormData.country}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.postalCode')}
-                          </label>
-                          <input
-                            type="text"
-                            name="postalCode"
-                            value={locationFormData.postalCode}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.phone')}
-                          </label>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={locationFormData.phone}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.email')}
-                          </label>
-                          <input
-                            type="email"
-                            name="email"
-                            value={locationFormData.email}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.latitude')}
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            name="latitude"
-                            value={locationFormData.latitude}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                            placeholder="40.7128"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.longitude')}
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            name="longitude"
-                            value={locationFormData.longitude}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                            placeholder="-74.0060"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('admin.openingHours')}
-                          </label>
-                          <textarea
-                            name="openingHours"
-                            value={locationFormData.openingHours}
-                            onChange={handleLocationInputChange}
-                            className="input-field"
-                            rows="3"
-                            placeholder='{"Mon": "9-5", "Tue": "9-5"}'
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            JSON format optional
-                          </p>
-                        </div>
-
-                        <div className="md:col-span-2 flex items-center space-x-6">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="isPickupLocation"
-                              checked={locationFormData.isPickupLocation}
-                              onChange={handleLocationInputChange}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-700">{t('admin.isPickupLocation')}</span>
-                          </label>
-
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="isReturnLocation"
-                              checked={locationFormData.isReturnLocation}
-                              onChange={handleLocationInputChange}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-700">{t('admin.isReturnLocation')}</span>
-                          </label>
-
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="isActive"
-                              checked={locationFormData.isActive}
-                              onChange={handleLocationInputChange}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-700">{t('admin.isActive')}</span>
-                          </label>
-                        </div>
-
-                        <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
-                          <button
-                            type="button"
-                            onClick={handleCancelLocationEdit}
-                            className="btn-outline"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSaveLocation}
-                            className="btn-primary"
-                          >
-                            {t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Locations List */
-                    <div className="space-y-4">
-                      {isLoadingLocations ? (
-                        <div className="text-center py-8">
-                          <LoadingSpinner />
-                        </div>
-                      ) : locations.length === 0 ? (
-                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                          <p className="text-gray-600">{t('admin.noLocations')}</p>
-                        </div>
-                      ) : (
-                        locations.map((location) => (
-                          <div key={location.locationId} className="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <h4 className="text-lg font-semibold text-gray-900">{location.locationName}</h4>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  {[location.address, location.city, location.state, location.postalCode, location.country]
-                                    .filter(Boolean)
-                                    .join(', ') || '-'}
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {location.isPickupLocation && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                      {t('admin.pickup')}
-                                    </span>
-                                  )}
-                                  {location.isReturnLocation && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      {t('admin.return')}
-                                    </span>
-                                  )}
-                                  {location.isActive ? (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      {t('status.active')}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                      {t('status.inactive')}
-                                    </span>
-                                  )}
-                                </div>
-                                {location.phone && (
-                                  <p className="text-sm text-gray-600 mt-2">
-                                    {t('admin.phone')}: {location.phone}
-                                  </p>
-                                )}
-                                {location.email && (
-                                  <p className="text-sm text-gray-600">
-                                    {t('admin.email')}: {location.email}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex space-x-2 ml-4">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditLocation(location)}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                >
-                                  {t('common.edit')}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteLocation(location.locationId)}
-                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                >
-                                  {t('common.delete')}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                )}
+                {/* Locations Tab - Removed duplicate, now handled at top level */}
 
                 {/* Action Buttons */}
                 {activeTab !== 'locations' && (

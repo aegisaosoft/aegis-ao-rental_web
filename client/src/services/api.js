@@ -214,7 +214,17 @@ export const apiService = {
   // Company Locations
   getCompanyLocations: (params = {}) => api.get('/CompanyLocations', { params }),
   getCompanyLocation: (id) => api.get(`/CompanyLocations/${id}`),
-  getPickupLocations: (companyId = null) => api.get('/Locations/pickup', { params: { companyId } }),
+  createCompanyLocation: (data) => api.post('/CompanyLocations', data),
+  updateCompanyLocation: (id, data) => api.put(`/CompanyLocations/${id}`, data),
+  deleteCompanyLocation: (id) => api.delete(`/CompanyLocations/${id}`),
+  getPickupLocations: (companyId = null) => {
+    // Don't include companyId param if it's null/undefined - this will return locations where companyId is null
+    if (companyId != null && companyId !== undefined) {
+      return api.get('/Locations/pickup', { params: { companyId } });
+    }
+    // No companyId parameter - returns locations where companyId is null
+    return api.get('/Locations/pickup');
+  },
   getReturnLocations: (companyId = null) => api.get('/Locations/return', { params: { companyId } }),
   getLocationStates: (companyId = null) => api.get('/Locations/states', { params: { companyId } }),
   getLocationCities: (params = {}) => api.get('/Locations/cities', { params }),

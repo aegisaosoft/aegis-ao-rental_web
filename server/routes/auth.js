@@ -86,7 +86,7 @@ router.post('/login', [
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     // authenticateToken middleware already extracted token and set req.token
-    const token = req.token;
+    const token = req.token || req.session?.token;
     
     if (!token) {
       return res.status(401).json({ message: 'Token not found' });
@@ -121,7 +121,9 @@ router.get('/profile', authenticateToken, async (req, res) => {
     console.log('[Profile] Fetching profile with token (length:', token.length + ')');
     // Forward cookies from frontend request to backend API
     const cookies = req.headers.cookie;
-    const response = await apiService.getProfile(token, cookies);
+    // Ensure we use the token from session or req.token
+    const authToken = req.token || req.session?.token || token;
+    const response = await apiService.getProfile(authToken, cookies);
     
     // Include token in response if requested (for QR code generation)
     // This allows frontend to get token without making a separate request

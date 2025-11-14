@@ -116,19 +116,25 @@ const Home = () => {
   // Determine effective company ID (domain context only - no fallback)
   const effectiveCompanyId = companyConfig?.id || null;
   
-  // Fetch company locations (only if company exists)
-  const { data: companyLocationsResponse } = useQuery(
-    ['companyLocations', effectiveCompanyId],
-    () => apiService.getCompanyLocations({ companyId: effectiveCompanyId, isActive: true }),
+  // Fetch pickup locations (regular locations where companyId is null - no authentication required)
+  const { data: pickupLocationsResponse } = useQuery(
+    ['pickupLocations'],
+    () => apiService.getPickupLocations(undefined), // undefined means get locations where companyId is null (don't include companyId param)
     {
-      enabled: !!effectiveCompanyId,
+      enabled: true, // Always enabled - public locations don't require authentication
       retry: 1,
       refetchOnWindowFocus: false
     }
   );
   
-  const companyLocationsData = companyLocationsResponse?.data || companyLocationsResponse;
-  const companyLocations = Array.isArray(companyLocationsData) ? companyLocationsData : [];
+  const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
+  const companyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  
+  // Debug: Log locations to see what we're getting
+  if (companyLocations.length > 0) {
+    console.log('[Home] Pickup locations received:', companyLocations.length, companyLocations);
+  }
+  
   const showLocationDropdown = companyLocations.length > 1;
   const [selectedLocationId, setSelectedLocationId] = useState('');
 

@@ -43,6 +43,7 @@ const customerRoutes = require('./routes/customers');
 const paymentRoutes = require('./routes/payments');
 const adminRoutes = require('./routes/admin');
 const companiesRoutes = require('./routes/companies');
+const companyLocationsRoutes = require('./routes/companyLocations');
 const scanRoutes = require('./routes/scan');
 const licenseRoutes = require('./routes/license');
 const modelsRoutes = require('./routes/models');
@@ -229,6 +230,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/companies', companiesRoutes);
+app.use('/api/CompanyLocations', companyLocationsRoutes);
 app.use('/api/Models', modelsRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/license', licenseRoutes);
@@ -340,11 +342,9 @@ app.use('/api/*', upload.any(), async (req, res) => {
   
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
-    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
-    // Only skip /api/companies (not /api/RentalCompanies)
+    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
     // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
-    if (req.originalUrl.startsWith('/api/companies') || 
-        req.originalUrl.startsWith('/api/DriverLicense') ||
+    if (req.originalUrl.startsWith('/api/DriverLicense') ||
         skipPaths.some(path => req.originalUrl.startsWith(path))) {
       // Don't handle this request - let specific route handlers process it
       // Check if response was already sent by the specific route
@@ -359,16 +359,23 @@ app.use('/api/*', upload.any(), async (req, res) => {
     // Log that we're processing this route through catch-all
     console.log(`[Proxy Catch-All] Processing: ${req.method} ${req.originalUrl}`);
   
+  // Extract token from session or Authorization header (same way vehicles do it)
+  const sessionToken = req.session?.token;
+  const headerToken = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
+  const token = sessionToken || headerToken;
+  
+  console.log(`[Proxy Catch-All] Token extraction:`, {
+    hasSessionToken: !!sessionToken,
+    hasHeaderToken: !!headerToken,
+    hasToken: !!token,
+    tokenLength: token?.length || 0,
+    url: req.originalUrl
+  });
+  
+  // Create axios instance (don't set default headers with token - set it per request)
   const apiClient = axios.create({
     baseURL: apiBaseUrl,
     timeout: 30000,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }), // Forward X-Company-Id header
-      ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies from frontend request
-    },
     withCredentials: true, // Forward credentials (cookies) to backend
     httpsAgent: new (require('https')).Agent({
       rejectUnauthorized: false
@@ -405,24 +412,31 @@ app.use('/api/*', upload.any(), async (req, res) => {
     // For PUT requests to RentalCompanies, use a more robust approach to handle 204
     if (req.method === 'PUT' && proxyPath.includes('/api/RentalCompanies/')) {
       try {
-        const putHeaders = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(req.headers.authorization && { Authorization: req.headers.authorization }),
-          ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
-          ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
-        };
-        
-        const response = await apiClient({
-          method: req.method,
-          url: proxyPath,
-          params: req.query,
-          data: req.body,
-          headers: putHeaders,
-          validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity
-        });
+    // Use the token extracted at the top level
+    const putHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }), // Use session token or header token
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
+      ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
+    };
+    
+    console.log(`[Proxy] PUT request headers:`, {
+      hasAuth: !!putHeaders.Authorization,
+      hasToken: !!token,
+      url: proxyPath
+    });
+    
+    const response = await apiClient({
+      method: req.method,
+      url: proxyPath,
+      params: req.query,
+      data: req.body,
+      headers: putHeaders,
+      validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
         
         console.log(`[Proxy] Response status: ${response.status}`);
         
@@ -476,10 +490,11 @@ app.use('/api/*', upload.any(), async (req, res) => {
     
     console.log(`[Proxy] Request: ${req.method} ${proxyPath}, isFileUpload: ${isFileUpload}, files: ${req.files?.length || 0}`);
     
+    // Use the token extracted at the top level
     // Build headers - don't set Content-Type for file uploads (let axios set it with boundary)
     const headers = {
       'Accept': 'application/json',
-      ...(req.headers.authorization && { Authorization: req.headers.authorization }),
+      ...(token && { Authorization: `Bearer ${token}` }), // Use session token or header token
       ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
       ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] }),
       ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
@@ -489,6 +504,13 @@ app.use('/api/*', upload.any(), async (req, res) => {
     if (!isFileUpload) {
       headers['Content-Type'] = 'application/json';
     }
+    
+    console.log(`[Proxy] Request headers for ${req.method} ${proxyPath}:`, {
+      hasAuth: !!headers.Authorization,
+      hasToken: !!token,
+      isFileUpload,
+      contentType: headers['Content-Type']
+    });
     
     // Prepare request data
     let requestData = req.body;
@@ -574,14 +596,24 @@ app.use('/api/*', upload.any(), async (req, res) => {
         // For 401 errors, provide helpful message
         if (response.status === 401) {
           console.error(`[Proxy] 401 Unauthorized: ${req.method} ${proxyPath}`);
-          console.error(`[Proxy] Authorization header present: ${!!req.headers.authorization}`);
+          console.error(`[Proxy] Authorization header present: ${!!headers.Authorization}`);
+          console.error(`[Proxy] Token present: ${!!token}`);
+          console.error(`[Proxy] Session token present: ${!!req.session?.token}`);
+          console.error(`[Proxy] Header token present: ${!!req.headers.authorization}`);
+          console.error(`[Proxy] Request headers sent:`, {
+            Authorization: headers.Authorization ? 'Bearer ***' : 'missing',
+            'X-Company-Id': headers['X-Company-Id'] || 'missing',
+            Cookie: headers.Cookie ? 'present' : 'missing'
+          });
           return res.status(401).json({
             message: `Authentication required: ${req.method} ${proxyPath}`,
             backendUrl: `${apiBaseUrl}${proxyPath}`,
             status: 401,
             statusText: response.statusText,
             error: jsonData?.message || 'You are not authenticated or your token has expired. Please log in again.',
-            hasAuthHeader: !!req.headers.authorization
+            hasAuthHeader: !!headers.Authorization,
+            hasToken: !!token,
+            hasSession: !!req.session
           });
         }
         
