@@ -13,7 +13,7 @@
  *
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import { clearStoredFilterDates } from '../utils/rentalSearchFilters';
 
@@ -30,6 +30,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isFirstMount = useRef(true);
 
   // Initialize authentication by checking session
   useEffect(() => {
@@ -60,14 +61,15 @@ export const AuthProvider = ({ children }) => {
             status: error.response?.status,
             code: error.code
           });
-          // Don't clear user - keep them logged in if they were already authenticated
-          // Only clear if we don't have a user (first load)
-          if (!user) {
+          // On first mount, set user to null if there's an error
+          // After first mount, don't clear user - keep them logged in if they were already authenticated
+          if (isFirstMount.current) {
             setUser(null);
           }
         }
       } finally {
         setLoading(false);
+        isFirstMount.current = false;
       }
     };
 

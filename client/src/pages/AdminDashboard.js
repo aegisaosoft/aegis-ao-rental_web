@@ -52,7 +52,7 @@ const getServiceIdentifier = (service) =>
   null;
 
 const AdminDashboard = () => {
-  const { t: i18nT, i18n } = useTranslation();
+  const { t: i18nT } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
       if (!key) return fallback ?? '';
