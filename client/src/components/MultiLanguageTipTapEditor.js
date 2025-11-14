@@ -469,7 +469,7 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
     } finally {
       setIsTranslating(false);
     }
-  }, [activeLanguage, sourceLanguage, languageContent, onChange]);
+  }, [activeLanguage, sourceLanguage, languageContent]);
 
   return (
     <div className="w-full">
