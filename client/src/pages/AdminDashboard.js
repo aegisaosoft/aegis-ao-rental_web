@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
 import { getStatesForCountry } from '../utils/statesByCountry';
+import MultiLanguageTipTapEditor from '../components/MultiLanguageTipTapEditor';
 import {
   useReactTable,
   getCoreRowModel,
@@ -51,7 +52,7 @@ const getServiceIdentifier = (service) =>
   null;
 
 const AdminDashboard = () => {
-  const { t: i18nT } = useTranslation();
+  const { t: i18nT, i18n } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
       if (!key) return fallback ?? '';
@@ -81,13 +82,16 @@ const AdminDashboard = () => {
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [isEditingDeposit, setIsEditingDeposit] = useState(false);
+  const [termsOfUseDraft, setTermsOfUseDraft] = useState('');
+  const [isSavingTermsOfUse, setIsSavingTermsOfUse] = useState(false);
   const [securityDepositDraft, setSecurityDepositDraft] = useState('');
+  const [isSecurityDepositMandatoryDraft, setIsSecurityDepositMandatoryDraft] = useState(true);
   const [isSavingDeposit, setIsSavingDeposit] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
-  const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'customers', 'reports', etc.
+  const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
       info: t(
@@ -180,13 +184,20 @@ const AdminDashboard = () => {
   const [bookingPage, setBookingPage] = useState(1);
   const [bookingPageSize, setBookingPageSize] = useState(10);
   
-  // State for customers/clients
+  // State for employees
   const [customerPage, setCustomerPage] = useState(1);
   const [customerPageSize, setCustomerPageSize] = useState(20);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [customersWithBookingsPage, setCustomersWithBookingsPage] = useState(1);
-  const [customersWithBookingsPageSize, setCustomersWithBookingsPageSize] = useState(20);
-  const [customersWithBookingsSearch, setCustomersWithBookingsSearch] = useState('');
+  
+  // State for Add/Edit Employee modal
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+  const [employeeSearchEmail, setEmployeeSearchEmail] = useState('');
+  const [foundCustomers, setFoundCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('worker');
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+  const [isSettingEmployee, setIsSettingEmployee] = useState(false);
 
   useEffect(() => {
     setBookingPage(1);
@@ -405,6 +416,9 @@ const AdminDashboard = () => {
           companyInfo.securityDeposit = 1000;
         }
         setCompanyFormData(companyInfo);
+        // Initialize Terms of Use draft with current value
+        const termsOfUse = companyInfo?.termsOfUse || companyInfo?.TermsOfUse || '';
+        setTermsOfUseDraft(termsOfUse);
       },
       onError: (error) => {
         console.error('Error loading company:', error);
@@ -1031,7 +1045,7 @@ const AdminDashboard = () => {
           position: 'top-center',
           autoClose: 3000,
         });
-        setIsEditingCompany(false);
+        // Keep form in edit mode for admins/mainadmins
       },
       onError: (error) => {
         console.error('Error updating company:', error);
@@ -1050,6 +1064,166 @@ const AdminDashboard = () => {
       }
     }
   );
+
+  // Update customer mutation (for setting employee role and company)
+  const updateCustomerMutation = useMutation(
+    ({ customerId, data }) => apiService.updateCustomer(customerId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['customers', currentCompanyId]);
+        toast.success(t('admin.employeeUpdated', 'Employee updated successfully.'), {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+        setShowAddEmployeeModal(false);
+        setEditingEmployeeId(null);
+        setSelectedCustomer(null);
+        setEmployeeSearchEmail('');
+        setFoundCustomers([]);
+        setSelectedRole('worker');
+      },
+      onError: (error) => {
+        console.error('Error updating customer:', error);
+        toast.error(
+          error.response?.data?.message ||
+            error.response?.data?.error ||
+            t('admin.employeeUpdateFailed', 'Failed to update employee.'),
+          {
+            position: 'top-center',
+            autoClose: 5000,
+          }
+        );
+      },
+    }
+  );
+
+  // Find customers by email/name
+  const handleFindCustomers = async () => {
+    if (!employeeSearchEmail.trim()) {
+      toast.error(t('admin.enterEmailOrName', 'Please enter an email or name to search.'));
+      return;
+    }
+
+    setIsSearchingCustomers(true);
+    try {
+      const response = await apiService.getCustomers({
+        search: employeeSearchEmail.trim(),
+        page: 1,
+        pageSize: 50, // Get more results for selection
+      });
+      
+      const data = response?.data || response;
+      const customers = data?.items || data || [];
+      setFoundCustomers(customers);
+      
+      if (customers.length === 0) {
+        toast.info(t('admin.noCustomersFound', 'No customers found matching your search.'));
+      }
+    } catch (error) {
+      console.error('Error finding customers:', error);
+      toast.error(
+        error.response?.data?.message ||
+          t('admin.customerSearchFailed', 'Failed to search for customers.')
+      );
+      setFoundCustomers([]);
+    } finally {
+      setIsSearchingCustomers(false);
+    }
+  };
+
+  // Handle edit employee
+  const handleEditEmployee = (customer) => {
+    const customerId = customer.customerId || customer.id || customer.CustomerId;
+    let role = customer.role || customer.Role || 'worker';
+    // Normalize mainadmin and customer roles to worker (since they're not available in dropdown)
+    if (role === 'mainadmin' || role === 'customer') {
+      role = 'worker';
+    }
+    setEditingEmployeeId(customerId);
+    setSelectedCustomer(customer);
+    setSelectedRole(role);
+    setEmployeeSearchEmail('');
+    setFoundCustomers([]);
+    setShowAddEmployeeModal(true);
+  };
+
+  // Handle delete employee (sets role to customer and companyId to null)
+  const handleDeleteEmployee = async (customer) => {
+    const customerId = customer.customerId || customer.id || customer.CustomerId;
+    const customerName = `${customer.firstName || customer.FirstName} ${customer.lastName || customer.LastName}`;
+    
+    if (!window.confirm(t('admin.confirmDeleteEmployee', `Are you sure you want to remove ${customerName} as an employee? This will set their role to "customer" and set their company ID to null, removing them from this company.`))) {
+      return;
+    }
+
+    try {
+      // Set role to "customer" - backend will automatically set companyId to null when role is "customer"
+      await updateCustomerMutation.mutateAsync({
+        customerId,
+        data: {
+          role: 'customer',
+          // Note: We don't send companyId here. When role is set to "customer",
+          // the backend automatically sets companyId to null (see CustomersController.cs line 451-454)
+        },
+      });
+    } catch (error) {
+      console.error('Error removing employee:', error);
+      // Error is handled by mutation's onError
+    }
+  };
+
+  // Set employee (update role and companyId)
+  const handleSetEmployee = async () => {
+    if (!selectedCustomer) {
+      toast.error(t('admin.selectCustomer', 'Please select a customer.'));
+      return;
+    }
+
+    if (!selectedRole) {
+      toast.error(t('admin.selectRole', 'Please select a role.'));
+      return;
+    }
+
+    // Validate companyId for employee roles
+    if (selectedRole !== 'customer' && !currentCompanyId) {
+      toast.error(t('admin.companyIdRequired', 'Company ID is required for employee roles.'));
+      return;
+    }
+
+    setIsSettingEmployee(true);
+    try {
+      const customerId = editingEmployeeId || (selectedCustomer.customerId || selectedCustomer.id || selectedCustomer.CustomerId);
+      if (!customerId) {
+        toast.error(t('admin.invalidCustomerId', 'Invalid customer ID.'));
+        setIsSettingEmployee(false);
+        return;
+      }
+
+      const updateData = {
+        role: selectedRole,
+      };
+      
+      // Only include companyId if role is not customer
+      // The backend will automatically set companyId to null when role is "customer"
+      if (selectedRole !== 'customer') {
+        if (!currentCompanyId) {
+          toast.error(t('admin.companyIdRequired', 'Company ID is required for employee roles.'));
+          setIsSettingEmployee(false);
+          return;
+        }
+        updateData.companyId = currentCompanyId;
+      }
+      // Don't send companyId when role is "customer" - backend handles it automatically
+
+      console.log('[AdminDashboard] Updating customer:', customerId, 'with data:', updateData);
+      await updateCustomerMutation.mutateAsync({ customerId, data: updateData });
+    } catch (error) {
+      // Error is handled by mutation's onError
+      console.error('Error setting employee:', error);
+    } finally {
+      setIsSettingEmployee(false);
+    }
+  };
 
   // Location mutations
   const createLocationMutation = useMutation(
@@ -1208,20 +1382,22 @@ const AdminDashboard = () => {
     return Array.isArray(raw) ? raw : [];
   }, [companyServicesResponse]);
 
-  // Fetch customers/clients
+  // Fetch employees (customers with companyId and role != 'customer')
   const { data: customersResponse, isLoading: isLoadingCustomers, error: customersError } = useQuery(
     ['customers', currentCompanyId, customerPage, customerPageSize, customerSearch],
     () =>
       apiService.getCustomers({
         search: customerSearch || undefined,
+        companyId: currentCompanyId,
+        excludeRole: 'customer',
         page: customerPage,
         pageSize: customerPageSize,
       }),
     {
-      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'customers',
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'employees',
       keepPreviousData: true,
       onError: (error) => {
-        console.error('Error loading customers:', error);
+        console.error('Error loading employees:', error);
       },
     }
   );
@@ -1232,6 +1408,17 @@ const AdminDashboard = () => {
       return { items: [], totalCount: 0, page: customerPage, pageSize: customerPageSize };
     }
 
+    // Backend now returns { items, totalCount, page, pageSize, totalPages }
+    if (payload.items && typeof payload.totalCount === 'number') {
+      return {
+        items: payload.items,
+        totalCount: payload.totalCount,
+        page: payload.page || customerPage,
+        pageSize: payload.pageSize || customerPageSize,
+      };
+    }
+
+    // Fallback for old format
     const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
     const totalCount = payload?.totalCount || payload?.total || items.length;
     
@@ -1247,44 +1434,6 @@ const AdminDashboard = () => {
   const totalCustomers = customersData.totalCount || 0;
   const totalCustomerPages = Math.ceil(totalCustomers / customerPageSize) || 1;
 
-  // Fetch customers with bookings
-  const { data: customersWithBookingsResponse, isLoading: isLoadingCustomersWithBookings, error: customersWithBookingsError } = useQuery(
-    ['customersWithBookings', currentCompanyId, customersWithBookingsPage, customersWithBookingsPageSize, customersWithBookingsSearch],
-    () =>
-      apiService.getCustomersWithBookings(currentCompanyId, {
-        search: customersWithBookingsSearch || undefined,
-        page: customersWithBookingsPage,
-        pageSize: customersWithBookingsPageSize,
-      }),
-    {
-      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'customersWithBookings',
-      keepPreviousData: true,
-      onError: (error) => {
-        console.error('Error loading customers with bookings:', error);
-      },
-    }
-  );
-
-  const customersWithBookingsData = useMemo(() => {
-    const payload = customersWithBookingsResponse?.data || customersWithBookingsResponse;
-    if (!payload) {
-      return { items: [], totalCount: 0, page: customersWithBookingsPage, pageSize: customersWithBookingsPageSize };
-    }
-
-    const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : []);
-    const totalCount = payload?.totalCount || payload?.total || items.length;
-    
-    return {
-      items,
-      totalCount,
-      page: customersWithBookingsPage,
-      pageSize: customersWithBookingsPageSize,
-    };
-  }, [customersWithBookingsResponse, customersWithBookingsPage, customersWithBookingsPageSize]);
-
-  const customersWithBookings = customersWithBookingsData.items || [];
-  const totalCustomersWithBookings = customersWithBookingsData.totalCount || 0;
-  const totalCustomersWithBookingsPages = Math.ceil(totalCustomersWithBookings / customersWithBookingsPageSize) || 1;
 
   const bookingsData = useMemo(() => {
     const payload = companyBookingsResponse?.data || companyBookingsResponse;
@@ -1527,6 +1676,7 @@ const AdminDashboard = () => {
       videoLink: companyFormData.videoLink || null,
       backgroundLink: companyFormData.backgroundLink || null,
       about: companyFormData.about || null,
+      termsOfUse: companyFormData.termsOfUse || companyFormData.TermsOfUse || null,
       bookingIntegrated: companyFormData.bookingIntegrated || null,
       companyPath: companyFormData.companyPath || null,
       subdomain: companyFormData.subdomain || null,
@@ -1567,8 +1717,8 @@ const AdminDashboard = () => {
         const response = await apiService.createCompany(companyData);
         const newCompanyId = response?.data?.companyId || response?.data?.id;
         toast.success(t('admin.companyCreated') || 'Company created successfully');
-        setIsEditingCompany(false);
         setIsCreatingCompany(false);
+        // Keep form in edit mode for admins/mainadmins
         // Refresh companies list and set the new company as current
         queryClient.invalidateQueries('companies');
         if (newCompanyId) {
@@ -1595,12 +1745,18 @@ const AdminDashboard = () => {
     setSecurityDepositDraft(
       currentDeposit != null ? currentDeposit.toString() : ''
     );
+    const currentMandatory =
+      companyFormData.isSecurityDepositMandatory ??
+      actualCompanyData?.isSecurityDepositMandatory ??
+      true;
+    setIsSecurityDepositMandatoryDraft(currentMandatory);
     setIsEditingDeposit(true);
   };
 
   const cancelSecurityDepositEdit = () => {
     setIsEditingDeposit(false);
     setSecurityDepositDraft('');
+    setIsSecurityDepositMandatoryDraft(true);
     setIsSavingDeposit(false);
   };
 
@@ -1614,14 +1770,25 @@ const AdminDashboard = () => {
     }
     setIsSavingDeposit(true);
     updateCompanyMutation.mutate(
-      { securityDeposit: numericValue },
+      { 
+        securityDeposit: numericValue,
+        isSecurityDepositMandatory: isSecurityDepositMandatoryDraft
+      },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          // Update local form data immediately
           setCompanyFormData((prev) => ({
             ...prev,
             securityDeposit: numericValue,
+            isSecurityDepositMandatory: isSecurityDepositMandatoryDraft,
           }));
+          // Invalidate and refetch company data to ensure UI is updated
+          await queryClient.invalidateQueries(['company', currentCompanyId]);
+          await queryClient.refetchQueries(['company', currentCompanyId]);
           cancelSecurityDepositEdit();
+          toast.success(
+            t('admin.securityDepositUpdated', 'Security deposit updated successfully.')
+          );
         },
         onError: (error) => {
           console.error('Error updating security deposit:', error);
@@ -1650,6 +1817,43 @@ const AdminDashboard = () => {
       setIsEditingCompany(false);
     }
     cancelSecurityDepositEdit();
+  };
+
+
+  const handleTermsOfUseSave = () => {
+    if (!currentCompanyId) return;
+    setIsSavingTermsOfUse(true);
+    updateCompanyMutation.mutate(
+      { 
+        termsOfUse: termsOfUseDraft || null
+      },
+      {
+        onSuccess: async () => {
+          // Update local form data immediately
+          setCompanyFormData((prev) => ({
+            ...prev,
+            termsOfUse: termsOfUseDraft,
+            TermsOfUse: termsOfUseDraft,
+          }));
+          // Invalidate and refetch company data to ensure UI is updated
+          await queryClient.invalidateQueries(['company', currentCompanyId]);
+          await queryClient.refetchQueries(['company', currentCompanyId]);
+          toast.success(
+            t('admin.termsOfUseUpdated', 'Terms of Use updated successfully.')
+          );
+        },
+        onError: (error) => {
+          console.error('Error updating terms of use:', error);
+          toast.error(
+            error.response?.data?.message ||
+              t('admin.termsOfUseUpdateFailed', 'Failed to update Terms of Use.')
+          );
+        },
+        onSettled: () => {
+          setIsSavingTermsOfUse(false);
+        },
+      }
+    );
   };
 
   // Location handlers
@@ -2544,32 +2748,18 @@ const AdminDashboard = () => {
                 <span className="text-xs text-center">{t('admin.reservations')}</span>
               </button>
               <button
-                onClick={() => setActiveSection('customers')}
+                onClick={() => setActiveSection('employees')}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'customers'
+                  activeSection === 'employees'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
-                title={t('admin.customers')}
-                aria-label={t('admin.customers')}
+                title={t('admin.employees', 'Employees')}
+                aria-label={t('admin.employees', 'Employees')}
               >
                 <Users className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.customers')}</span>
-              </button>
-              <button
-                onClick={() => setActiveSection('customersWithBookings')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'customersWithBookings'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.customersWithBookings', 'Customers with Bookings')}
-                aria-label={t('admin.customersWithBookings', 'Customers with Bookings')}
-              >
-                <Users className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.customersWithBookings', 'With Bookings')}</span>
+                <span className="text-xs text-center">{t('admin.employees', 'Employees')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('bookingSettings')}
@@ -2974,6 +3164,26 @@ const AdminDashboard = () => {
                       rows="5"
                       placeholder="Tell us about your company..."
                     />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.termsOfUse', 'Terms of Use')}
+                    </label>
+                    <MultiLanguageTipTapEditor
+                      content={companyFormData.termsOfUse || companyFormData.TermsOfUse || ''}
+                      onChange={(jsonString) => {
+                        setCompanyFormData(prev => ({
+                          ...prev,
+                          termsOfUse: jsonString,
+                          TermsOfUse: jsonString
+                        }));
+                      }}
+                      placeholder="Enter terms of use. You can paste formatted text from clipboard..."
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      {t('admin.termsOfUseHelp', 'Use the editor to format your terms of use in 5 languages (English, Spanish, Portuguese, French, German). You can paste formatted text from your clipboard. Switch between language tabs to edit each version.')}
+                    </p>
                   </div>
 
                   <div>
@@ -3514,55 +3724,109 @@ const AdminDashboard = () => {
                     {t('admin.securityDeposit', 'Security Deposit')}
                   </p>
                   {isEditingDeposit ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={securityDepositDraft}
-                        onChange={(e) => setSecurityDepositDraft(e.target.value)}
-                        className="input-field h-10"
-                        disabled={isSavingDeposit}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSecurityDepositSave}
-                        disabled={isSavingDeposit}
-                        className="btn-primary px-3 py-2 text-sm"
-                      >
-                        {isSavingDeposit ? t('common.saving') || 'Saving…' : t('common.save')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelSecurityDepositEdit}
-                        disabled={isSavingDeposit}
-                        className="btn-outline px-3 py-2 text-sm"
-                      >
-                        {t('common.cancel')}
-                      </button>
+                    <div className="flex flex-col gap-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={securityDepositDraft}
+                          onChange={(e) => setSecurityDepositDraft(e.target.value)}
+                          className="input-field h-10"
+                          disabled={isSavingDeposit}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSecurityDepositSave}
+                          disabled={isSavingDeposit}
+                          className="btn-primary px-3 py-2 text-sm"
+                        >
+                          {isSavingDeposit ? t('common.saving') || 'Saving…' : t('common.save')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelSecurityDepositEdit}
+                          disabled={isSavingDeposit}
+                          className="btn-outline px-3 py-2 text-sm"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={isSecurityDepositMandatoryDraft}
+                          onChange={(e) => setIsSecurityDepositMandatoryDraft(e.target.checked)}
+                          disabled={isSavingDeposit}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span>{t('admin.isSecurityDepositMandatory', 'Security deposit is mandatory')}</span>
+                      </label>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-base text-gray-900">
-                        {actualCompanyData?.securityDeposit != null
-                          ? new Intl.NumberFormat(undefined, {
-                              style: 'currency',
-                              currency: (actualCompanyData?.currency || 'USD').toUpperCase(),
-                              minimumFractionDigits: 0,
-                            }).format(actualCompanyData.securityDeposit)
-                          : '-'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={beginSecurityDepositEdit}
-                        disabled={isEditingCompany}
-                        className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-                      >
-                        {t('common.edit')}
-                      </button>
+                    <div className="flex flex-col gap-2 mt-1">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base text-gray-900">
+                          {actualCompanyData?.securityDeposit != null
+                            ? new Intl.NumberFormat(undefined, {
+                                style: 'currency',
+                                currency: (actualCompanyData?.currency || 'USD').toUpperCase(),
+                                minimumFractionDigits: 0,
+                              }).format(actualCompanyData.securityDeposit)
+                            : '-'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={beginSecurityDepositEdit}
+                          disabled={isEditingCompany}
+                          className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                        >
+                          {t('common.edit')}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className={actualCompanyData?.isSecurityDepositMandatory ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                          {actualCompanyData?.isSecurityDepositMandatory 
+                            ? t('admin.mandatory', 'Mandatory') 
+                            : t('admin.optional', 'Optional')}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
+
+                {/* Terms of Use Section - Always Editable for Admins */}
+                {(isAdmin || isMainAdmin) && currentCompanyId && (
+                  <div className="md:col-span-2 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-gray-700">
+                        {t('admin.termsOfUse', 'Terms of Use')}
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <MultiLanguageTipTapEditor
+                        content={termsOfUseDraft || actualCompanyData?.termsOfUse || actualCompanyData?.TermsOfUse || companyFormData?.termsOfUse || companyFormData?.TermsOfUse || ''}
+                        onChange={(jsonString) => {
+                          setTermsOfUseDraft(jsonString);
+                        }}
+                        placeholder="Enter terms of use. You can paste formatted text from clipboard..."
+                      />
+                      <div className="flex justify-end space-x-4 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleTermsOfUseSave}
+                          disabled={isSavingTermsOfUse}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          {isSavingTermsOfUse 
+                            ? t('common.saving') || 'Saving…' 
+                            : t('common.save') || 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
           )}
@@ -3967,7 +4231,7 @@ const AdminDashboard = () => {
                     <input
                       type="text"
                       className="input-field border border-gray-300"
-                      placeholder={t('admin.customerSearch', 'Customer name or email')}
+                      placeholder={t('admin.employeeSearch', 'Employee name or email')}
                       value={bookingCustomerFilter}
                       onChange={(e) => setBookingCustomerFilter(e.target.value)}
                     />
@@ -4074,11 +4338,7 @@ const AdminDashboard = () => {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
                     <div className="text-sm text-gray-600">
                       {totalBookings > 0
-                        ? t('admin.showingRange', {
-                            start: (bookingPage - 1) * bookingPageSize + 1,
-                            end: Math.min(bookingPage * bookingPageSize, totalBookings),
-                            total: totalBookings,
-                          })
+                        ? `Showing ${(bookingPage - 1) * bookingPageSize + 1}-${Math.min(bookingPage * bookingPageSize, totalBookings)} of ${totalBookings}`
                         : t('admin.showingRangeEmpty', 'No bookings to display.')}
                     </div>
                     <div className="flex items-center gap-2">
@@ -4141,35 +4401,45 @@ const AdminDashboard = () => {
             </Card>
           )}
 
-          {/* Customers Section */}
-          {activeSection === 'customers' && (
-            <Card title={t('admin.customers', 'Clients')}>
+          {/* Employees Section */}
+          {activeSection === 'employees' && (
+            <Card title={t('admin.employees', 'Employees')}>
               <div className="flex flex-col gap-3 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <input
                     type="text"
                     className="input-field border border-gray-300"
-                    placeholder={t('admin.customerSearch', 'Search by name or email')}
+                    placeholder={t('admin.employeeSearch', 'Search by name or email')}
                     value={customerSearch}
                     onChange={(e) => {
                       setCustomerSearch(e.target.value);
                       setCustomerPage(1);
                     }}
                   />
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => {
-                      setCustomerSearch('');
-                      setCustomerPage(1);
-                    }}
-                    disabled={!customerSearch}
-                  >
-                    {t('admin.resetFilters', 'Reset Filters')}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-primary flex items-center gap-2"
+                      onClick={() => setShowAddEmployeeModal(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('admin.addEmployee', 'Add Employee')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => {
+                        setCustomerSearch('');
+                        setCustomerPage(1);
+                      }}
+                      disabled={!customerSearch}
+                    >
+                      {t('admin.resetFilters', 'Reset Filters')}
+                    </button>
+                  </div>
                 </div>
                 <div className="text-sm text-gray-600">
-                  {t('admin.customerCount', { count: totalCustomers }) || `${totalCustomers} ${totalCustomers === 1 ? 'customer' : 'customers'}`}
+                  {`${totalCustomers} ${totalCustomers === 1 ? 'employee' : 'employees'}`}
                 </div>
               </div>
 
@@ -4179,11 +4449,11 @@ const AdminDashboard = () => {
                 </div>
               ) : customersError ? (
                 <div className="py-8 text-center text-red-500">
-                  {t('admin.customersLoadError', 'Unable to load customers.')}
+                  {t('admin.employeesLoadError', 'Unable to load employees.')}
                 </div>
               ) : !customers.length ? (
                 <div className="py-8 text-center text-gray-500">
-                  {t('admin.noCustomersFound', 'No customers found.')}
+                  {t('admin.noEmployeesFound', 'No employees found.')}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -4206,57 +4476,95 @@ const AdminDashboard = () => {
                           {t('admin.verified', 'Verified')}
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.role', 'Role')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           {t('admin.createdAt', 'Created')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.actions', 'Actions')}
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {customers.map((customer) => (
-                        <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.email || customer.Email}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.phone || customer.Phone || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.city || customer.City || '-'}
-                            {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                customer.isVerified || customer.IsVerified
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {customer.isVerified || customer.IsVerified
-                                ? t('admin.verified', 'Verified')
-                                : t('admin.notVerified', 'Not Verified')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.createdAt || customer.CreatedAt
-                              ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {customers.map((customer) => {
+                        const role = customer.role || customer.Role || 'customer';
+                        return (
+                          <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {customer.email || customer.Email}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {customer.phone || customer.Phone || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {customer.city || customer.City || '-'}
+                              {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  customer.isVerified || customer.IsVerified
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {customer.isVerified || customer.IsVerified
+                                  ? t('admin.verified', 'Verified')
+                                  : t('admin.notVerified', 'Not Verified')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  role === 'admin' || role === 'mainadmin'
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : role === 'worker'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {customer.createdAt || customer.CreatedAt
+                                ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditEmployee(customer)}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                                  title={t('admin.editEmployee', 'Edit Employee')}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEmployee(customer)}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                                  title={t('admin.deleteEmployee', 'Remove Employee')}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
                     <div className="text-sm text-gray-600">
                       {totalCustomers > 0
-                        ? t('admin.showingRange', {
-                            start: (customerPage - 1) * customerPageSize + 1,
-                            end: Math.min(customerPage * customerPageSize, totalCustomers),
-                            total: totalCustomers,
-                          }) || `Showing ${(customerPage - 1) * customerPageSize + 1}-${Math.min(customerPage * customerPageSize, totalCustomers)} of ${totalCustomers}`
-                        : t('admin.showingRangeEmpty', 'No customers to display.')}
+                        ? `Showing ${(customerPage - 1) * customerPageSize + 1}-${Math.min(customerPage * customerPageSize, totalCustomers)} of ${totalCustomers}`
+                        : t('admin.showingRangeEmpty', 'No employees to display.')}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
@@ -4307,183 +4615,6 @@ const AdminDashboard = () => {
                         type="button"
                         onClick={() => setCustomerPage(totalCustomerPages)}
                         disabled={customerPage >= totalCustomerPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Customers with Bookings Section */}
-          {activeSection === 'customersWithBookings' && (
-            <Card title={t('admin.customersWithBookings', 'Customers with Bookings')}>
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <input
-                    type="text"
-                    className="input-field border border-gray-300"
-                    placeholder={t('admin.customerSearch', 'Search by name or email')}
-                    value={customersWithBookingsSearch}
-                    onChange={(e) => {
-                      setCustomersWithBookingsSearch(e.target.value);
-                      setCustomersWithBookingsPage(1);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => {
-                      setCustomersWithBookingsSearch('');
-                      setCustomersWithBookingsPage(1);
-                    }}
-                    disabled={!customersWithBookingsSearch}
-                  >
-                    {t('admin.resetFilters', 'Reset Filters')}
-                  </button>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {t('admin.customerCount', { count: totalCustomersWithBookings }) || `${totalCustomersWithBookings} ${totalCustomersWithBookings === 1 ? 'customer' : 'customers'}`}
-                </div>
-              </div>
-
-              {isLoadingCustomersWithBookings ? (
-                <div className="py-8 text-center text-gray-500">
-                  <LoadingSpinner />
-                </div>
-              ) : customersWithBookingsError ? (
-                <div className="py-8 text-center text-red-500">
-                  {t('admin.customersLoadError', 'Unable to load customers.')}
-                </div>
-              ) : !customersWithBookings.length ? (
-                <div className="py-8 text-center text-gray-500">
-                  {t('admin.noCustomersFound', 'No customers found.')}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.name', 'Name')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.email', 'Email')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.phone', 'Phone')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.location', 'Location')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.verified', 'Verified')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.createdAt', 'Created')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {customersWithBookings.map((customer) => (
-                        <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.email || customer.Email}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.phone || customer.Phone || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.city || customer.City || '-'}
-                            {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                customer.isVerified || customer.IsVerified
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {customer.isVerified || customer.IsVerified
-                                ? t('admin.verified', 'Verified')
-                                : t('admin.notVerified', 'Not Verified')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {customer.createdAt || customer.CreatedAt
-                              ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
-                    <div className="text-sm text-gray-600">
-                      {totalCustomersWithBookings > 0
-                        ? t('admin.showingRange', {
-                            start: (customersWithBookingsPage - 1) * customersWithBookingsPageSize + 1,
-                            end: Math.min(customersWithBookingsPage * customersWithBookingsPageSize, totalCustomersWithBookings),
-                            total: totalCustomersWithBookings,
-                          }) || `Showing ${(customersWithBookingsPage - 1) * customersWithBookingsPageSize + 1}-${Math.min(customersWithBookingsPage * customersWithBookingsPageSize, totalCustomersWithBookings)} of ${totalCustomersWithBookings}`
-                        : t('admin.showingRangeEmpty', 'No customers to display.')}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
-                      <select
-                        value={customersWithBookingsPageSize}
-                        onChange={(e) => {
-                          setCustomersWithBookingsPageSize(Number(e.target.value) || 20);
-                          setCustomersWithBookingsPage(1);
-                        }}
-                        className="input-field w-24"
-                      >
-                        {[10, 20, 50, 100].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCustomersWithBookingsPage(1)}
-                        disabled={customersWithBookingsPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomersWithBookingsPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={customersWithBookingsPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        {customersWithBookingsPage} / {totalCustomersWithBookingsPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomersWithBookingsPage((prev) => Math.min(prev + 1, totalCustomersWithBookingsPages))}
-                        disabled={customersWithBookingsPage >= totalCustomersWithBookingsPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronRightIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomersWithBookingsPage(totalCustomersWithBookingsPages)}
-                        disabled={customersWithBookingsPage >= totalCustomersWithBookingsPages}
                         className="btn-outline px-2 py-1 disabled:opacity-50"
                       >
                         <ChevronsRight className="h-4 w-4" />
@@ -5919,6 +6050,171 @@ const AdminDashboard = () => {
                   ? t('common.saving')
                   : t('common.save')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Employee Modal */}
+      {showAddEmployeeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {editingEmployeeId ? t('admin.editEmployee', 'Edit Employee') : t('admin.addEmployee', 'Add Employee')}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddEmployeeModal(false);
+                    setEditingEmployeeId(null);
+                    setSelectedCustomer(null);
+                    setEmployeeSearchEmail('');
+                    setFoundCustomers([]);
+                    setSelectedRole('worker');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Show current employee info when editing */}
+                {editingEmployeeId && selectedCustomer && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="font-medium text-gray-900 mb-1">
+                      {selectedCustomer.firstName || selectedCustomer.FirstName} {selectedCustomer.lastName || selectedCustomer.LastName}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {selectedCustomer.email || selectedCustomer.Email}
+                    </div>
+                    {selectedCustomer.phone || selectedCustomer.Phone ? (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {selectedCustomer.phone || selectedCustomer.Phone}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Search Section - only show when adding (not editing) */}
+                {!editingEmployeeId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.searchByEmailOrName', 'Search by Email or Name')}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input-field flex-1"
+                        placeholder={t('admin.enterEmailOrName', 'Enter email, first name, or last name')}
+                        value={employeeSearchEmail}
+                        onChange={(e) => setEmployeeSearchEmail(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleFindCustomers();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleFindCustomers}
+                        disabled={isSearchingCustomers || !employeeSearchEmail.trim()}
+                        className="btn-primary px-4 py-2 disabled:opacity-50"
+                      >
+                        {isSearchingCustomers ? t('common.searching') || 'Searching...' : t('common.find') || 'Find'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Found Customers List - only show when adding (not editing) */}
+                {!editingEmployeeId && foundCustomers.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.selectCustomer', 'Select Customer')}
+                    </label>
+                    <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+                      {foundCustomers.map((customer) => {
+                        const customerId = customer.customerId || customer.id || customer.CustomerId;
+                        const isSelected = selectedCustomer && (
+                          (selectedCustomer.customerId || selectedCustomer.id || selectedCustomer.CustomerId) === customerId
+                        );
+                        return (
+                          <div
+                            key={customerId}
+                            onClick={() => setSelectedCustomer(customer)}
+                            className={`p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${
+                              isSelected ? 'bg-blue-50 border-blue-300' : ''
+                            }`}
+                          >
+                            <div className="font-medium text-gray-900">
+                              {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {customer.email || customer.Email}
+                            </div>
+                            {customer.phone || customer.Phone ? (
+                              <div className="text-xs text-gray-500">
+                                {customer.phone || customer.Phone}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Role Selection */}
+                {selectedCustomer && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.role', 'Role')}
+                    </label>
+                    <select
+                      value={selectedRole === 'mainadmin' || selectedRole === 'customer' ? 'worker' : selectedRole}
+                      onChange={(e) => setSelectedRole(e.target.value)}
+                      className="input-field w-full"
+                    >
+                      <option value="worker">{t('admin.roleWorker', 'Worker')}</option>
+                      <option value="admin">{t('admin.roleAdmin', 'Admin')}</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddEmployeeModal(false);
+                      setEditingEmployeeId(null);
+                      setSelectedCustomer(null);
+                      setEmployeeSearchEmail('');
+                      setFoundCustomers([]);
+                      setSelectedRole('worker');
+                    }}
+                    className="btn-outline px-4 py-2"
+                    disabled={isSettingEmployee}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSetEmployee}
+                    disabled={!selectedCustomer || isSettingEmployee}
+                    className="btn-primary px-4 py-2 disabled:opacity-50"
+                  >
+                    {isSettingEmployee
+                      ? t('common.saving') || 'Saving...'
+                      : editingEmployeeId
+                      ? t('admin.updateEmployee', 'Update Employee')
+                      : t('admin.setEmployee', 'Set Employee')}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -46,12 +46,43 @@ router.get('/email/:email', async (req, res) => {
 // Get all customers (admin only)
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    const axios = require('axios');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.adminGetCustomers(token, req.query);
-    res.json(response.data);
+    
+    console.log('[Customers Route] GET /api/customers with query:', req.query);
+    console.log('[Customers Route] Token present:', !!token);
+    
+    // Call the backend API directly at /api/customers (not /api/admin/customers)
+    const response = await axios.get(`${apiBaseUrl}/api/customers`, {
+      params: req.query,
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : undefined,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      httpsAgent: new (require('https')).Agent({
+        rejectUnauthorized: false
+      }),
+      validateStatus: () => true // Don't throw on any status code
+    });
+    
+    console.log('[Customers Route] Backend response status:', response.status);
+    console.log('[Customers Route] Backend response data:', response.data);
+    
+    res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('Customers fetch error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[Customers Route] Customers fetch error:', error.message);
+    console.error('[Customers Route] Error response:', error.response?.data);
+    console.error('[Customers Route] Error status:', error.response?.status);
+    console.error('[Customers Route] Full error:', error);
+    
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.message || error.response?.data?.error || error.message || 'Server error';
+    res.status(status).json({ 
+      error: message,
+      details: error.response?.data 
+    });
   }
 });
 
@@ -81,14 +112,163 @@ router.post('/', async (req, res) => {
 
 // Update customer
 router.put('/:id', authenticateToken, async (req, res) => {
+  console.log('[Customers Route] ===== PUT /api/customers/:id ROUTE HIT =====');
+  console.log('[Customers Route] Request URL:', req.originalUrl);
+  console.log('[Customers Route] Request method:', req.method);
+  console.log('[Customers Route] Request params:', req.params);
+  
   try {
+    const axios = require('axios');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.updateCustomer(token, id, req.body);
-    res.json(response.data);
+    
+    console.log('[Customers Route] PUT /api/customers/' + id);
+    console.log('[Customers Route] API Base URL:', apiBaseUrl);
+    console.log('[Customers Route] Full backend URL:', `${apiBaseUrl}/api/customers/${id}`);
+    console.log('[Customers Route] Request body:', JSON.stringify(req.body, null, 2));
+    console.log('[Customers Route] Token present:', !!token);
+    console.log('[Customers Route] Token length:', token ? token.length : 0);
+    
+    // Call the backend API directly with timeout
+    let response;
+    try {
+      response = await axios.put(`${apiBaseUrl}/api/customers/${id}`, req.body, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : undefined,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        httpsAgent: new (require('https')).Agent({
+          rejectUnauthorized: false
+        }),
+        timeout: 30000, // 30 second timeout
+        validateStatus: (status) => {
+          // Accept all status codes, including 204
+          return status >= 200 && status < 600;
+        }
+      });
+    } catch (axiosError) {
+      // If axios throws an error even with validateStatus, handle it
+      console.error('[Customers Route] Axios error:', axiosError.message);
+      console.error('[Customers Route] Error code:', axiosError.code);
+      
+      // Handle timeout specifically
+      if (axiosError.code === 'ECONNABORTED' || axiosError.message.includes('timeout')) {
+        console.error('[Customers Route] Request timeout - backend may be slow or unreachable');
+        return res.status(504).json({ 
+          error: 'Gateway Timeout',
+          message: 'The request to the backend API timed out. Please try again.',
+          code: 'TIMEOUT'
+        });
+      }
+      
+      if (axiosError.response) {
+        response = axiosError.response;
+      } else {
+        // Network error or other axios error
+        console.error('[Customers Route] Network error or no response');
+        console.error('[Customers Route] Error code:', axiosError.code);
+        console.error('[Customers Route] Error message:', axiosError.message);
+        console.error('[Customers Route] Attempted URL:', `${apiBaseUrl}/api/customers/${id}`);
+        console.error('[Customers Route] Stack:', axiosError.stack);
+        
+        // Provide more helpful error message
+        let errorMessage = 'Failed to connect to backend API';
+        if (axiosError.code === 'ECONNREFUSED') {
+          errorMessage = `Cannot connect to backend API at ${apiBaseUrl}. Is the backend running?`;
+        } else if (axiosError.code === 'ENOTFOUND') {
+          errorMessage = `Backend API host not found: ${apiBaseUrl}`;
+        } else if (axiosError.code === 'CERT_HAS_EXPIRED' || axiosError.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
+          errorMessage = `SSL certificate error connecting to ${apiBaseUrl}. Check certificate or use http:// for local development.`;
+        }
+        
+        return res.status(502).json({ 
+          error: 'Bad Gateway',
+          message: errorMessage,
+          code: axiosError.code || 'NETWORK_ERROR',
+          attemptedUrl: `${apiBaseUrl}/api/customers/${id}`
+        });
+      }
+    }
+    
+    console.log('[Customers Route] Backend response status:', response.status);
+    console.log('[Customers Route] Backend response data type:', typeof response.data);
+    console.log('[Customers Route] Backend response data:', response.data);
+    
+    // Handle 204 No Content - backend returns this for successful updates
+    if (response.status === 204) {
+      console.log('[Customers Route] Returning 204 No Content');
+      return res.status(204).end();
+    }
+    
+    // Handle 200 OK with or without data
+    if (response.status === 200) {
+      if (response.data !== undefined && response.data !== null && response.data !== '') {
+        // Check if it's an object with properties
+        if (typeof response.data === 'object' && !Array.isArray(response.data) && Object.keys(response.data).length > 0) {
+          return res.status(200).json(response.data);
+        }
+        // If it's a non-empty non-object (string, number, etc.), return it
+        if (typeof response.data !== 'object' || Array.isArray(response.data)) {
+          return res.status(200).json(response.data);
+        }
+      }
+      // Empty 200 response, treat as 204
+      return res.status(204).end();
+    }
+    
+    // For error status codes, return the error response
+    if (response.status >= 400) {
+      const errorData = response.data || { error: 'Unknown error' };
+      return res.status(response.status).json(errorData);
+    }
+    
+    // For any other status code, return as-is
+    if (response.data !== undefined && response.data !== null && response.data !== '') {
+      return res.status(response.status).json(response.data);
+    }
+    return res.status(response.status).end();
   } catch (error) {
-    console.error('Customer update error:', error);
-    res.status(500).json({ message: 'Server error' });
+    // Safety net - ensure we always send a response
+    // This should rarely be hit since we handle errors above
+    if (res.headersSent) {
+      console.error('[Customers Route] Response already sent, cannot send error response');
+      return;
+    }
+    console.error('[Customers Route] Customer update error:', error.message);
+    console.error('[Customers Route] Error stack:', error.stack);
+    console.error('[Customers Route] Error response:', error.response?.data);
+    console.error('[Customers Route] Error status:', error.response?.status);
+    console.error('[Customers Route] Error headers:', error.response?.headers);
+    
+    // Handle 204 responses in error cases too (shouldn't happen, but just in case)
+    if (error.response?.status === 204) {
+      console.log('[Customers Route] Got 204 in error handler - returning 204');
+      return res.status(204).end();
+    }
+    
+    // If axios didn't get a response, it might be a network error
+    if (!error.response) {
+      console.error('[Customers Route] No response from backend - network error?');
+      console.error('[Customers Route] Error code:', error.code);
+      console.error('[Customers Route] Error message:', error.message);
+      return res.status(500).json({ 
+        error: 'Failed to connect to backend API',
+        message: error.message,
+        code: error.code
+      });
+    }
+    
+    // If we got a response, forward it
+    const status = error.response.status || 500;
+    const errorData = error.response.data || { 
+      error: error.message || 'Server error',
+      message: error.message || 'Server error'
+    };
+    
+    console.error('[Customers Route] Forwarding error response:', status, errorData);
+    return res.status(status).json(errorData);
   }
 });
 

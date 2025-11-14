@@ -346,7 +346,14 @@ app.use('/api/*', upload.any(), async (req, res) => {
     if (req.originalUrl.startsWith('/api/companies') || 
         req.originalUrl.startsWith('/api/DriverLicense') ||
         skipPaths.some(path => req.originalUrl.startsWith(path))) {
-      return; // Let specific route handlers process it (they should call next() or res.send())
+      // Don't handle this request - let specific route handlers process it
+      // Check if response was already sent by the specific route
+      if (!res.headersSent) {
+        // If no response was sent, the specific route didn't handle it
+        // This shouldn't happen, but log it for debugging
+        console.warn(`[Proxy Catch-All] Skipped ${req.method} ${req.originalUrl} but no response was sent by specific route`);
+      }
+      return; // Exit this middleware - specific route should have handled it
     }
     
     // Log that we're processing this route through catch-all

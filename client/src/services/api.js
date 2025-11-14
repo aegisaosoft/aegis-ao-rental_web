@@ -70,7 +70,12 @@ api.interceptors.response.use(
       };
     }
     
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // Only handle 401/403 for authentication-related endpoints
+    // Other endpoints (like /customers, /vehicles, etc.) may return 401/403 for other reasons
+    // and shouldn't trigger a logout/redirect
+    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    
+    if ((error.response?.status === 401 || error.response?.status === 403) && isAuthEndpoint) {
       // Handle both 401 (Unauthorized) and 403 (Forbidden) - session expired or invalid
       // Only redirect to login if not already on login/register pages or public pages
       const currentPath = window.location.pathname;
@@ -93,6 +98,8 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    // For 401/403 on non-auth endpoints, just reject the promise without redirecting
+    // This allows the calling code to handle the error appropriately
     return Promise.reject(error);
   }
 );
@@ -167,6 +174,7 @@ export const apiService = {
   getCustomerByEmail: (email) => api.get(`/customers/email/${encodeURIComponent(email)}`),
   createCustomer: (data) => api.post('/customers', data),
   updateCustomer: (id, data) => api.put(`/customers/${id}`, data),
+  deleteCustomer: (id) => api.delete(`/customers/${id}`),
   
   // Customer Licenses
   getCustomerLicense: (customerId) => api.get(`/customers/${customerId}/license`),
@@ -254,5 +262,8 @@ export const apiService = {
   },
   deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
 };
+
+// Export the axios instance for direct API calls (e.g., translation service)
+export { api };
 
 export default apiService;

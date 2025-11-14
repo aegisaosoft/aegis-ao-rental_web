@@ -41,7 +41,8 @@ export const AuthProvider = ({ children }) => {
         console.log('[AuthContext] User data:', response.data);
         setUser(response.data);
       } catch (error) {
-        // 401/403 means no valid session - this is normal for unauthenticated users
+        // Only clear user on 401/403 - these mean no valid session
+        // Other errors (500, 502, network errors) should NOT clear the session
         if (error.response?.status === 401 || error.response?.status === 403) {
           console.log('[AuthContext] ⚠️ No valid session found (401/403)');
           console.log('[AuthContext] Error response:', {
@@ -51,13 +52,19 @@ export const AuthProvider = ({ children }) => {
           });
           setUser(null);
         } else {
-          console.error('[AuthContext] ❌ Error checking session:', error);
-          console.error('[AuthContext] Error details:', {
+          // For other errors (500, 502, network, etc.), keep the user logged in
+          // These are likely temporary issues and shouldn't log the user out
+          console.warn('[AuthContext] ⚠️ Error checking session (non-auth error):', {
             message: error.message,
             response: error.response?.data,
-            status: error.response?.status
+            status: error.response?.status,
+            code: error.code
           });
-          setUser(null);
+          // Don't clear user - keep them logged in if they were already authenticated
+          // Only clear if we don't have a user (first load)
+          if (!user) {
+            setUser(null);
+          }
         }
       } finally {
         setLoading(false);
