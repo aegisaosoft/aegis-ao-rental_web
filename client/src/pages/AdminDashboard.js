@@ -1990,7 +1990,7 @@ const AdminDashboard = () => {
     });
   };
 
-  const handleEditLocation = (location) => {
+  const handleEditLocation = useCallback((location) => {
     // Prohibit editing locations with CompanyId in pickup locations tab
     const hasCompanyId = !!(location.companyId || location.CompanyId);
     if (activeLocationSubTab === 'pickup' && hasCompanyId) {
@@ -2018,7 +2018,7 @@ const AdminDashboard = () => {
       openingHours: location.openingHours || location.OpeningHours || '',
       isActive: location.isActive !== undefined ? location.isActive : (location.IsActive !== undefined ? location.IsActive : true)
     });
-  };
+  }, [activeLocationSubTab, t]);
 
   const handleSaveLocation = (e) => {
     e.preventDefault();
@@ -2125,7 +2125,7 @@ const AdminDashboard = () => {
     });
   };
 
-  const handleDeleteLocation = (locationId) => {
+  const handleDeleteLocation = useCallback((locationId) => {
     // Find the location in the current list to check if it has a CompanyId
     const location = locations.find(l => 
       (l.locationId || l.id || l.Id || l.LocationId) === locationId
@@ -2145,7 +2145,7 @@ const AdminDashboard = () => {
         deleteLocationMutation.mutate(locationId);
       }
     }
-  };
+  }, [activeLocationSubTab, locations, t, deleteCompanyLocationMutation, deleteLocationMutation]);
 
   // Additional Service handlers
   const handleServiceInputChange = (e) => {

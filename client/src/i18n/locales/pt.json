@@ -72,6 +72,66 @@
       "content": "Se você tiver alguma dúvida sobre estes Termos e Condições, entre em contato com o atendimento ao cliente da {{companyName}}. Reservamo-nos o direito de modificar estes termos a qualquer momento, e o uso contínuo de nossos serviços constitui aceitação de quaisquer alterações."
     }
   },
+  "privacy": {
+    "title": "Política de Privacidade",
+    "company": "Empresa",
+    "website": "Site",
+    "email": "E-mail",
+    "section1": {
+      "title": "1. Disposições Gerais",
+      "content1": "Esta Política de Privacidade rege a coleta, processamento, armazenamento e uso de dados do usuário para o software e serviços fornecidos por",
+      "content2": "(doravante — \"a Empresa\").",
+      "content3": "Ao instalar, acessar ou usar o software ou serviços da Empresa, o usuário confirma seu acordo com esta Política de Privacidade. Se o usuário não concordar, deve descontinuar o uso do software."
+    },
+    "section2": {
+      "title": "2. Direitos de Propriedade Intelectual",
+      "content1": "Todos os direitos exclusivos do software, incluindo mas não limitados ao código-fonte, design, elementos de interface, marcas comerciais e outras obras intelectuais pertencem completa e exclusivamente a",
+      "content2": "É concedida ao usuário uma licença não exclusiva e não transferível para usar o software apenas para sua funcionalidade pretendida.",
+      "prohibited": "O usuário está proibido de:",
+      "item1": "Copiar ou redistribuir o software sem permissão por escrito.",
+      "item2": "Modificar, fazer engenharia reversa, descompilar ou desmontar o software.",
+      "item3": "Vender, alugar, sublicenciar ou transferir o software para terceiros."
+    },
+    "section3": {
+      "title": "3. Coleta e Uso de Dados Pessoais",
+      "content1": "A Empresa pode coletar e processar os seguintes dados do usuário:",
+      "item1": "Nome do perfil ou conta",
+      "item2": "Informações de contato (por exemplo, endereço de e-mail)",
+      "item3": "Informações técnicas (identificadores de dispositivo, endereço IP, logs do sistema, dados de uso)",
+      "content2": "Os dados são coletados para:",
+      "item4": "Garantir o funcionamento adequado do software",
+      "item5": "Melhorar o desempenho e a experiência do usuário",
+      "item6": "Manter a segurança e prevenir abusos",
+      "content3": "A Empresa não transfere nem vende dados pessoais para terceiros, exceto conforme exigido por lei."
+    },
+    "section4": {
+      "title": "4. Isenção de Responsabilidade",
+      "content1": "O software é fornecido",
+      "asIs": "\"COMO ESTÁ\"",
+      "content2": "sem garantias de qualquer tipo, expressas ou implícitas.",
+      "notLiable": "não é responsável",
+      "content3": "por:",
+      "item1": "Bugs, erros, interrupções ou falhas do software",
+      "item2": "Perda de dados ou corrupção de dados",
+      "item3": "Danos financeiros ou perdas incorridas pelo usuário",
+      "item4": "Qualquer dano indireto ou consequencial resultante do uso ou incapacidade de usar o software"
+    },
+    "section5": {
+      "title": "5. Obrigações do Usuário",
+      "content": "O usuário concorda em não:",
+      "item1": "Usar o software para atividades ilegais ou prejudiciais",
+      "item2": "Tentar contornar sistemas de segurança ou restrições",
+      "item3": "Participar de atividades que possam causar danos à Empresa ou outros usuários"
+    },
+    "section6": {
+      "title": "6. Atualizações da Política",
+      "content": "A Empresa se reserva o direito de atualizar ou revisar esta Política a qualquer momento. O uso continuado do software indica aceitação dos termos atualizados."
+    },
+    "section7": {
+      "title": "7. Informações de Contato",
+      "content": "Para perguntas sobre esta Política de Privacidade, entre em contato:"
+    }
+  },
   "home": {
     "title": "Serviços Premium de Aluguel de Carros",
     "subtitle": "Encontre o veículo perfeito para sua viagem",

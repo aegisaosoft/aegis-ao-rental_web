@@ -72,6 +72,66 @@
       "content": "Si vous avez des questions concernant ces Termes et Conditions, veuillez contacter le service client de {{companyName}}. Nous nous réservons le droit de modifier ces termes à tout moment, et l'utilisation continue de nos services constitue l'acceptation de tout changement."
     }
   },
+  "privacy": {
+    "title": "Politique de Confidentialité",
+    "company": "Entreprise",
+    "website": "Site Web",
+    "email": "E-mail",
+    "section1": {
+      "title": "1. Dispositions Générales",
+      "content1": "Cette Politique de Confidentialité régit la collecte, le traitement, le stockage et l'utilisation des données utilisateur pour le logiciel et les services fournis par",
+      "content2": "(ci-après — \"l'Entreprise\").",
+      "content3": "En installant, accédant ou utilisant le logiciel ou les services de l'Entreprise, l'utilisateur confirme son accord avec cette Politique de Confidentialité. Si l'utilisateur n'est pas d'accord, il doit cesser d'utiliser le logiciel."
+    },
+    "section2": {
+      "title": "2. Droits de Propriété Intellectuelle",
+      "content1": "Tous les droits exclusifs sur le logiciel, y compris mais sans s'y limiter au code source, à la conception, aux éléments d'interface, aux marques de commerce et autres œuvres intellectuelles appartiennent pleinement et exclusivement à",
+      "content2": "L'utilisateur se voit accorder une licence non exclusive et non transférable pour utiliser le logiciel uniquement pour sa fonctionnalité prévue.",
+      "prohibited": "Il est interdit à l'utilisateur de:",
+      "item1": "Copier ou redistribuer le logiciel sans autorisation écrite.",
+      "item2": "Modifier, faire de la rétro-ingénierie, décompiler ou désassembler le logiciel.",
+      "item3": "Vendre, louer, sous-licencier ou transférer le logiciel à des tiers."
+    },
+    "section3": {
+      "title": "3. Collecte et Utilisation des Données Personnelles",
+      "content1": "L'Entreprise peut collecter et traiter les données utilisateur suivantes:",
+      "item1": "Nom de profil ou de compte",
+      "item2": "Informations de contact (par exemple, adresse e-mail)",
+      "item3": "Informations techniques (identifiants d'appareil, adresse IP, journaux système, données d'utilisation)",
+      "content2": "Les données sont collectées pour:",
+      "item4": "Assurer le bon fonctionnement du logiciel",
+      "item5": "Améliorer les performances et l'expérience utilisateur",
+      "item6": "Maintenir la sécurité et prévenir les abus",
+      "content3": "L'Entreprise ne transfère ni ne vend de données personnelles à des tiers, sauf si la loi l'exige."
+    },
+    "section4": {
+      "title": "4. Avertissement de Responsabilité",
+      "content1": "Le logiciel est fourni",
+      "asIs": "\"TEL QUEL\"",
+      "content2": "sans garantie d'aucune sorte, expresse ou implicite.",
+      "notLiable": "n'est pas responsable",
+      "content3": "pour:",
+      "item1": "Bugs, erreurs, interruptions ou défaillances du logiciel",
+      "item2": "Perte de données ou corruption de données",
+      "item3": "Dommages financiers ou pertes subis par l'utilisateur",
+      "item4": "Tout dommage indirect ou consécutif résultant de l'utilisation ou de l'impossibilité d'utiliser le logiciel"
+    },
+    "section5": {
+      "title": "5. Obligations de l'Utilisateur",
+      "content": "L'utilisateur s'engage à ne pas:",
+      "item1": "Utiliser le logiciel à des fins illégales ou nuisibles",
+      "item2": "Tenter de contourner les systèmes de sécurité ou les restrictions",
+      "item3": "Se livrer à des activités qui pourraient causer des dommages à l'Entreprise ou à d'autres utilisateurs"
+    },
+    "section6": {
+      "title": "6. Mises à Jour de la Politique",
+      "content": "L'Entreprise se réserve le droit de mettre à jour ou de réviser cette Politique à tout moment. L'utilisation continue du logiciel indique l'acceptation des termes mis à jour."
+    },
+    "section7": {
+      "title": "7. Informations de Contact",
+      "content": "Pour toute question concernant cette Politique de Confidentialité, veuillez contacter:"
+    }
+  },
   "home": {
     "title": "Services Premium de Location de Voitures",
     "subtitle": "Trouvez le véhicule parfait pour votre voyage",

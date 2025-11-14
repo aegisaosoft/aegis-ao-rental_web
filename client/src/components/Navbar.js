@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { label: 'home', to: '/' },
   { label: 'about', to: '/about' },
   { label: 'terms', to: '/terms' },
-  { label: 'contact', to: '/contact' },
+  { label: 'contact', to: '/locations' },
 ];
 
 const Navbar = () => {

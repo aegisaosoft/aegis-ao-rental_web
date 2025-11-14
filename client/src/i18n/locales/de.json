@@ -72,6 +72,66 @@
       "content": "Wenn Sie Fragen zu diesen Allgemeinen Geschäftsbedingungen haben, kontaktieren Sie bitte den Kundenservice von {{companyName}}. Wir behalten uns das Recht vor, diese Bedingungen jederzeit zu ändern, und die fortgesetzte Nutzung unserer Dienste stellt die Annahme von Änderungen dar."
     }
   },
+  "privacy": {
+    "title": "Datenschutzerklärung",
+    "company": "Unternehmen",
+    "website": "Website",
+    "email": "E-Mail",
+    "section1": {
+      "title": "1. Allgemeine Bestimmungen",
+      "content1": "Diese Datenschutzerklärung regelt die Sammlung, Verarbeitung, Speicherung und Nutzung von Benutzerdaten für die Software und Dienstleistungen, die von",
+      "content2": "(im Folgenden — \"das Unternehmen\").",
+      "content3": "Durch die Installation, den Zugriff oder die Nutzung der Software oder Dienstleistungen des Unternehmens bestätigt der Benutzer seine Vereinbarung mit dieser Datenschutzerklärung. Wenn der Benutzer nicht einverstanden ist, muss er die Nutzung der Software einstellen."
+    },
+    "section2": {
+      "title": "2. Geistige Eigentumsrechte",
+      "content1": "Alle ausschließlichen Rechte an der Software, einschließlich aber nicht beschränkt auf Quellcode, Design, Interface-Elemente, Marken und andere geistige Werke gehören vollständig und ausschließlich",
+      "content2": "Dem Benutzer wird eine nicht ausschließliche, nicht übertragbare Lizenz zur Nutzung der Software ausschließlich für ihre beabsichtigte Funktionalität gewährt.",
+      "prohibited": "Dem Benutzer ist es untersagt:",
+      "item1": "Die Software ohne schriftliche Genehmigung zu kopieren oder weiterzuverteilen.",
+      "item2": "Die Software zu modifizieren, Reverse Engineering durchzuführen, zu dekompilieren oder zu disassemblieren.",
+      "item3": "Die Software an Dritte zu verkaufen, zu vermieten, zu unterlizenzieren oder zu übertragen."
+    },
+    "section3": {
+      "title": "3. Sammlung und Verwendung personenbezogener Daten",
+      "content1": "Das Unternehmen kann die folgenden Benutzerdaten sammeln und verarbeiten:",
+      "item1": "Profil- oder Kontoname",
+      "item2": "Kontaktinformationen (z. B. E-Mail-Adresse)",
+      "item3": "Technische Informationen (Gerätekennungen, IP-Adresse, Systemprotokolle, Nutzungsdaten)",
+      "content2": "Daten werden gesammelt, um:",
+      "item4": "Die ordnungsgemäße Funktionalität der Software sicherzustellen",
+      "item5": "Leistung und Benutzererfahrung zu verbessern",
+      "item6": "Sicherheit aufrechtzuerhalten und Missbrauch zu verhindern",
+      "content3": "Das Unternehmen überträgt oder verkauft keine personenbezogenen Daten an Dritte, außer wie gesetzlich vorgeschrieben."
+    },
+    "section4": {
+      "title": "4. Haftungsausschluss",
+      "content1": "Die Software wird bereitgestellt",
+      "asIs": "\"WIE BESEHEN\"",
+      "content2": "ohne Gewährleistung jeglicher Art, ausdrücklich oder stillschweigend.",
+      "notLiable": "ist nicht haftbar",
+      "content3": "für:",
+      "item1": "Software-Fehler, Fehler, Unterbrechungen oder Ausfälle",
+      "item2": "Datenverlust oder Datenkorruption",
+      "item3": "Finanzielle Schäden oder Verluste, die dem Benutzer entstehen",
+      "item4": "Jegliche indirekten oder Folgeschäden, die aus der Nutzung oder Unfähigkeit zur Nutzung der Software resultieren"
+    },
+    "section5": {
+      "title": "5. Benutzerpflichten",
+      "content": "Der Benutzer verpflichtet sich, nicht:",
+      "item1": "Die Software für illegale oder schädliche Aktivitäten zu verwenden",
+      "item2": "Sicherheitssysteme oder Einschränkungen zu umgehen",
+      "item3": "Aktivitäten auszuüben, die dem Unternehmen oder anderen Benutzern Schaden zufügen könnten"
+    },
+    "section6": {
+      "title": "6. Richtlinienaktualisierungen",
+      "content": "Das Unternehmen behält sich das Recht vor, diese Richtlinie jederzeit zu aktualisieren oder zu überarbeiten. Die fortgesetzte Nutzung der Software bedeutet die Annahme der aktualisierten Bedingungen."
+    },
+    "section7": {
+      "title": "7. Kontaktinformationen",
+      "content": "Bei Fragen zu dieser Datenschutzerklärung kontaktieren Sie bitte:"
+    }
+  },
   "home": {
     "title": "Premium Autovermietung",
     "subtitle": "Finden Sie das perfekte Fahrzeug für Ihre Reise",

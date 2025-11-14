@@ -47,6 +47,8 @@ import MobileMyBookings from './pages/MobileMyBookings';
 import DriverLicenseScanner from './pages/DriverLicenseScanner';
 import About from './pages/About';
 import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Locations from './pages/Locations';
 import QRCodePage from './pages/QRCodePage';
 
 // Context
@@ -110,6 +112,8 @@ const AppLayout = () => {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/locations" element={<Locations />} />
           <Route path="/qrcode" element={<QRCodePage />} />
           <Route path="/vehicles/:id" element={<VehicleDetail />} />
           <Route path="/book" element={<BookPage />} />

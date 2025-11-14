@@ -15,7 +15,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin, QrCode } from 'lucide-react';
+import { Car, QrCode } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 
@@ -27,15 +27,11 @@ const Footer = () => {
   
   // Get language-specific privacy/terms links
   const getPrivacyLink = () => {
-    const lang = i18n.language || 'en';
-    if (lang === 'en') return '/privacy.html';
-    return `/privacy-${lang}.html`;
+    return '/privacy';
   };
   
   const getTermsLink = () => {
-    const lang = i18n.language || 'en';
-    if (lang === 'en') return '/terms.html';
-    return `/terms-${lang}.html`;
+    return '/terms';
   };
   
   // Get company name - show "Unknown" if no company
@@ -72,20 +68,6 @@ const Footer = () => {
             <p className="text-gray-300 mb-4 max-w-md">
               {t('footer.description')}
             </p>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-gray-300">
-                <Phone className="h-4 w-4" />
-                <span>+1 (555) 123-4567</span>
-              </div>
-              <div className="flex items-center space-x-2 text-gray-300">
-                <Mail className="h-4 w-4" />
-                <span>info@currentcompany.com</span>
-              </div>
-              <div className="flex items-center space-x-2 text-gray-300">
-                <MapPin className="h-4 w-4" />
-                <span>123 Main St, City, State 12345</span>
-              </div>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -103,7 +85,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">
+                <Link to="/locations" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.contact')}
                 </Link>
               </li>
@@ -136,12 +118,12 @@ const Footer = () => {
               © 2025 Aegis AP Soft. {t('footer.allRightsReserved')}
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href={getPrivacyLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
+              <Link to={getPrivacyLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.privacy')}
-              </a>
-              <a href={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
+              </Link>
+              <Link to={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.terms')}
-              </a>
+              </Link>
             </div>
           </div>
         </div>
