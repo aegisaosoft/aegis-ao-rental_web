@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
 
 const Footer = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { companyConfig } = useCompany();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('All Rentals');
