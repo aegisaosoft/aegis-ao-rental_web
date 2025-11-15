@@ -1224,11 +1224,19 @@ const BookPage = () => {
 
       
 
-      // Prefer configured public base URL for LAN/External access; fallback to current origin
+      // Prefer configured public base URL for LAN/External access; fallback to company's licensed domain
 
       const configuredBase = qrBase || '';
 
-      const origin = configuredBase || window.location.origin;
+      // Use company's domain for BlinkID compatibility (from companyConfig.domain or companyConfig.companyUrl)
+      const companyDomain = companyConfig?.domain || companyConfig?.companyUrl || companyConfig?.websiteUrl;
+      const licensedDomain = companyDomain ? `https://${companyDomain.replace(/^https?:\/\//, '')}` : window.location.origin.replace(/^http:/, 'https:');
+      
+      const origin = configuredBase ? 
+        configuredBase.replace(/^http:/, 'https:') : 
+        (window.location.hostname === 'localhost' || window.location.hostname.match(/^192\.168\./) || window.location.hostname.match(/^127\.0\./) ?
+          licensedDomain :
+          window.location.origin.replace(/^http:/, 'https:'));
 
       const returnTo = window.location.pathname + window.location.search;
 
@@ -1486,7 +1494,7 @@ const BookPage = () => {
 
       // Even on error, try to show QR code with basic URL
 
-      const origin = qrBase || window.location.origin;
+      const origin = (qrBase || window.location.origin).replace(/^http:/, 'https:');
 
       const returnTo = window.location.pathname + window.location.search;
 
@@ -4000,7 +4008,7 @@ const BookPage = () => {
 
                   onClick={async ()=>{
 
-                    const origin = (qrBase || window.location.origin).replace(/\/$/, '');
+                    const origin = (qrBase || window.location.origin).replace(/^http:/, 'https:').replace(/\/$/, '');
 
                     const returnTo = window.location.pathname + window.location.search;
 

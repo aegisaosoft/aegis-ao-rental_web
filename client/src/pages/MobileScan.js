@@ -621,8 +621,10 @@ const MobileScan = () => {
     if (companyId) params.set('companyId', companyId);
     if (userId) params.set('userId', userId);
     
-    console.log('[MobileScan] Redirecting to /scan with params:', params.toString());
-    navigate(`/scan?${params.toString()}`);
+    // Add cache buster to force reload
+    params.set('v', Date.now().toString());
+    console.log('[MobileScan] Redirecting to /scan-native (BlinkID video capture) with params:', params.toString());
+    navigate(`/scan-native?${params.toString()}`);
   };
 
   return (

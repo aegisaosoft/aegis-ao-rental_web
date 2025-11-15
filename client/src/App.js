@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -38,6 +38,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import ScanLicense from './pages/ScanLicense';
+import ScanLicenseNative from './pages/ScanLicenseNative';
 import MobileScan from './pages/MobileScan';
 import MobileHome from './pages/MobileHome';
 import MobileLanding from './pages/MobileLanding';
@@ -73,6 +74,11 @@ const TitleUpdater = () => {
 
 const AppLayout = () => {
   const { loading, error, companyConfig } = useCompany();
+  const location = useLocation();
+  
+  // Full-screen routes without navbar/footer
+  const fullScreenRoutes = ['/dl-scan'];
+  const isFullScreen = fullScreenRoutes.includes(location.pathname);
 
   if (loading && !companyConfig) {
     return (
@@ -85,7 +91,7 @@ const AppLayout = () => {
   if (error && !companyConfig) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4 text-center">
-        <h1 className="text-2xl font-semibold text-gray-900">We’re preparing this site</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">We're preparing this site</h1>
         <p className="mt-4 text-gray-600 max-w-md">
           {typeof error === 'string'
             ? error
@@ -106,7 +112,7 @@ const AppLayout = () => {
     <div className="min-h-screen bg-gray-50">
       <ScrollToTop />
       <TitleUpdater />
-      <Navbar />
+      {!isFullScreen && <Navbar />}
       <main className="min-h-screen">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -125,6 +131,7 @@ const AppLayout = () => {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/scan" element={<ScanLicense />} />
+          <Route path="/scan-native" element={<ScanLicenseNative />} />
           <Route path="/scan-mobile" element={<MobileScan />} />
           <Route path="/mobile" element={<MobileLanding />} />
           <Route path="/m" element={<MobileHome />} />
@@ -135,7 +142,7 @@ const AppLayout = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <Footer />
+      {!isFullScreen && <Footer />}
       <ToastContainer
         position="top-center"
         autoClose={3000}

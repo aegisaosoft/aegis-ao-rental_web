@@ -40,6 +40,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:https": "set HTTPS=true&& react-scripts start",
     "prebuild": "node -e \"console.log('Building...')\"",
     "build": "react-scripts build && copyfiles -u 3 \"node_modules/@microblink/blinkid/resources/**\" \"build\"",
     "test": "react-scripts test",

@@ -105,17 +105,17 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">{t('footer.quickLinks')}</h3>
             <ul className="space-y-2">
-              <li>
+              <li key="link-home">
                 <Link to="/" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.home')}
                 </Link>
               </li>
-              <li>
+              <li key="link-about">
                 <Link to="/about" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.about')}
                 </Link>
               </li>
-              <li>
+              <li key="link-locations">
                 <Link to="/locations" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.contact')}
                 </Link>
@@ -150,7 +150,7 @@ const Footer = () => {
               </ul>
             ) : (
               <ul className="space-y-2">
-                <li>
+                <li key="no-locations">
                   <span className="text-gray-300 text-sm">{t('footer.noLocations', 'No locations available')}</span>
                 </li>
               </ul>
