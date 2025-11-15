@@ -77,59 +77,109 @@
     "company": "Empresa",
     "website": "Site",
     "email": "E-mail",
+    "intro": "Agradecemos por usar",
+    "intro2": "e visitar nossos sites. Aqui explicamos o quê, como e por quê das informações que coletamos quando você visita um de nossos sites ou quando usa nossos Serviços. Também explica as formas específicas pelas quais usamos e divulgamos essas informações. Levamos sua privacidade extremamente a sério e nunca vendemos listas ou endereços de e-mail e/ou informações pessoais.",
+    "controller": {
+      "title": "Controlador de informações",
+      "content": "Qualquer informação pessoal fornecida a ou coletada por este site e fornecida e coletada em qualquer uma de nossas localizações é controlada principalmente por",
+      "content2": "cujo escritório registrado está em"
+    },
     "section1": {
-      "title": "1. Disposições Gerais",
-      "content1": "Esta Política de Privacidade rege a coleta, processamento, armazenamento e uso de dados do usuário para o software e serviços fornecidos por",
-      "content2": "(doravante — \"a Empresa\").",
-      "content3": "Ao instalar, acessar ou usar o software ou serviços da Empresa, o usuário confirma seu acordo com esta Política de Privacidade. Se o usuário não concordar, deve descontinuar o uso do software."
+      "title": "1. Definições",
+      "content1": "Essas definições devem ajudá-lo a entender esta política. Quando dizemos \"nós\", \"nos\", \"nosso\" e \"Aegis AO Soft\", nos referimos a",
+      "content2": "uma Companhia Limitada Registrada nos EUA e/ou qualquer uma de nossa rede.",
+      "content3": "Fornecemos plataformas online que você pode usar para fazer reservas de aluguel de carros. Também fornecemos a capacidade de alugar carros (os \"Serviços\").",
+      "content4": "Quando dizemos \"você\", nos referimos a uma pessoa que visita qualquer um de nossos Sites ou localizações.",
+      "content5": "\"Informação Pessoal\" significa qualquer informação que identifique ou possa ser usada para identificar você ou um Assinante, direta ou indiretamente, incluindo, mas não limitado a, nome e sobrenome, data de nascimento, endereço de e-mail, gênero, ocupação ou outras informações demográficas.",
+      "content6": "Oferecemos os Serviços em nossos sites e em nossas localizações de franquia. Esta Política de Privacidade se aplica a esses sites e localizações, bem como a quaisquer outros sites ou aplicativos móveis de nossa propriedade ou operados por nós (cada um um \"Site\" e juntos os \"Sites\"). Os \"Sites\" incluem os próprios Sites e quaisquer páginas da web, recursos interativos, aplicativos, widgets, blogs, redes sociais, \"abas\" de redes sociais ou outras ofertas online, móveis ou sem fio que publiquem um link para esta Política de Privacidade, seja acessado via computador, dispositivo móvel ou outra tecnologia, forma ou meio. Ao fornecer os Serviços, e conforme descrito com mais detalhes abaixo."
     },
     "section2": {
-      "title": "2. Direitos de Propriedade Intelectual",
-      "content1": "Todos os direitos exclusivos do software, incluindo mas não limitados ao código-fonte, design, elementos de interface, marcas comerciais e outras obras intelectuais pertencem completa e exclusivamente a",
-      "content2": "É concedida ao usuário uma licença não exclusiva e não transferível para usar o software apenas para sua funcionalidade pretendida.",
-      "prohibited": "O usuário está proibido de:",
-      "item1": "Copiar ou redistribuir o software sem permissão por escrito.",
-      "item2": "Modificar, fazer engenharia reversa, descompilar ou desmontar o software.",
-      "item3": "Vender, alugar, sublicenciar ou transferir o software para terceiros."
+      "title": "2. Variações",
+      "content": "Podemos alterar esta Política de Privacidade a qualquer momento e de tempos em tempos. Recomendamos que você revise esta Política de Privacidade com frequência para se manter informado sobre alterações que possam afetá-lo, pois seu uso continuado do Site significa seu consentimento continuado para estar sujeito a esta Política de Privacidade. Nossas cópias armazenadas eletronicamente ou de outra forma corretamente desta Política de Privacidade são consideradas cada uma a cópia verdadeira, completa, válida, autêntica e executável da versão desta Política de Privacidade que estava em vigor em cada data respectiva em que você visitou o Site."
     },
     "section3": {
-      "title": "3. Coleta e Uso de Dados Pessoais",
-      "content1": "A Empresa pode coletar e processar os seguintes dados do usuário:",
-      "item1": "Nome do perfil ou conta",
-      "item2": "Informações de contato (por exemplo, endereço de e-mail)",
-      "item3": "Informações técnicas (identificadores de dispositivo, endereço IP, logs do sistema, dados de uso)",
-      "content2": "Os dados são coletados para:",
-      "item4": "Garantir o funcionamento adequado do software",
-      "item5": "Melhorar o desempenho e a experiência do usuário",
-      "item6": "Manter a segurança e prevenir abusos",
-      "content3": "A Empresa não transfere nem vende dados pessoais para terceiros, exceto conforme exigido por lei."
+      "title": "3. Área",
+      "content": "Esta Política de Privacidade é eficaz com respeito a quaisquer dados que coletamos ou coletamos sobre e/ou de você."
     },
     "section4": {
-      "title": "4. Isenção de Responsabilidade",
-      "content1": "O software é fornecido",
-      "asIs": "\"COMO ESTÁ\"",
-      "content2": "sem garantias de qualquer tipo, expressas ou implícitas.",
-      "notLiable": "não é responsável",
-      "content3": "por:",
-      "item1": "Bugs, erros, interrupções ou falhas do software",
-      "item2": "Perda de dados ou corrupção de dados",
-      "item3": "Danos financeiros ou perdas incorridas pelo usuário",
-      "item4": "Qualquer dano indireto ou consequencial resultante do uso ou incapacidade de usar o software"
+      "title": "4. Perguntas e Preocupações",
+      "content": "Se você tiver alguma pergunta ou comentário, ou se quiser atualizar, excluir ou alterar qualquer Informação Pessoal que temos, ou se tiver uma preocupação sobre a forma como tratamos qualquer questão de privacidade, entre em contato conosco usando os detalhes abaixo.",
+      "contact": "correio postal ou e-mail em:",
+      "attn": "Atenção: Privacidade,"
     },
     "section5": {
-      "title": "5. Obrigações do Usuário",
-      "content": "O usuário concorda em não:",
-      "item1": "Usar o software para atividades ilegais ou prejudiciais",
-      "item2": "Tentar contornar sistemas de segurança ou restrições",
-      "item3": "Participar de atividades que possam causar danos à Empresa ou outros usuários"
+      "title": "5. Informações que Coletamos",
+      "subtitle1": "(a) Informações que você nos fornece voluntariamente:",
+      "content1": "Quando você faz uma reserva em nosso site e/ou aluga um veículo de uma de nossas localizações, consulta nossa equipe de atendimento ao cliente, nos envia um e-mail ou se comunica conosco de qualquer forma, você está nos dando voluntariamente informações que coletamos. Podemos exigir as seguintes informações",
+      "item1": "Nome e sobrenome",
+      "item2": "Data de nascimento",
+      "item3": "Informações de contato (empresa, e-mail, telefone, endereço físico)",
+      "item4": "Dados de identificação e carteira de motorista",
+      "content2": "Ao nos fornecer essas informações, você consente que essas informações sejam coletadas, usadas, divulgadas, transferidas e armazenadas por nós.",
+      "subtitle2": "(1) Informações que coletamos automaticamente:",
+      "content3": "Quando você usa um de nossos Sites, podemos coletar informações sobre sua visita aos nossos Sites, seu uso dos Serviços e sua navegação na web. Essas informações podem incluir seu endereço IP, seu sistema operacional, seu ID do navegador, sua atividade de navegação e outras informações sobre como você interagiu com nossos Sites ou outros sites. Podemos coletar essas informações como parte de arquivos de log, bem como através do uso de cookies ou outras tecnologias de rastreamento. Nosso uso de cookies e outras tecnologias de rastreamento é discutido mais abaixo e com mais detalhes em nossa Declaração de Cookies em nosso rodapé.",
+      "subtitle3": "(2) Informações do seu uso do Serviço:",
+      "content4": "Podemos receber informações sobre como e quando você usa os Serviços, armazená-las em arquivos de log ou outros tipos de arquivos associados à sua conta e vinculá-las a outras informações que coletamos sobre você. Essas informações podem incluir, por exemplo, seu endereço IP, hora, data, navegador usado e ações que você executou no aplicativo. Esse tipo de informação nos ajuda a melhorar nossos Serviços tanto para você quanto para todos os nossos usuários.",
+      "subtitle4": "(3) Cookies e rastreamento:",
+      "content5": "Nós e nossos provedores de serviços podemos usar várias tecnologias para coletar e armazenar informações quando você usa nossos Serviços, e isso pode incluir o uso de cookies e tecnologias de rastreamento semelhantes em nosso Site, como pixels e web beacons, para analisar tendências, administrar o site, rastrear movimentos dos usuários ao redor do site, veicular anúncios direcionados e coletar informações demográficas sobre nossa base de usuários como um todo. Os usuários podem controlar o uso de cookies no nível individual do navegador. Fazemos parceria com terceiros para exibir publicidade em nosso site ou para gerenciar e veicular nossa publicidade em outros sites. Nossos parceiros terceiros podem usar cookies ou tecnologias de rastreamento semelhantes para fornecer a você publicidade ou outro conteúdo com base em suas atividades de navegação e interesses. Para obter mais informações sobre nosso uso de cookies e outras tecnologias de rastreamento, bem como como optar por não usar cookies."
     },
     "section6": {
-      "title": "6. Atualizações da Política",
-      "content": "A Empresa se reserva o direito de atualizar ou revisar esta Política a qualquer momento. O uso continuado do software indica aceitação dos termos atualizados."
+      "title": "6. Adoção e Reconhecimento de Informação Pessoal",
+      "content": "Podemos usar e divulgar Informação Pessoal apenas para os seguintes propósitos:",
+      "subtitle1": "(a)",
+      "content1": "Para processar seu contrato ao alugar um veículo. Os detalhes completos de como podemos processar essas informações estão contidos nesta política de privacidade e em seu acordo de aluguel.",
+      "subtitle2": "(b)",
+      "content2": "Para cobrar e coletar o dinheiro que nos é devido. Isso inclui enviar a você e-mails, faturas, recibos, avisos de inadimplência e alertá-lo se precisarmos de informações de pagamento diferentes. Usamos terceiros para processamento seguro de transações de pagamento e enviamos informações de faturamento para esses terceiros para processar seus pedidos e pagamentos. Para saber mais sobre as medidas que tomamos para proteger esses dados, consulte a Seção 9 abaixo.",
+      "subtitle3": "(c)",
+      "content3": "Para enviar conteúdo informativo e promocional de acordo com suas preferências de marketing. Você pode parar de receber nossos e-mails promocionais seguindo as instruções de cancelamento de assinatura incluídas em cada e-mail.",
+      "subtitle4": "(d)",
+      "content4": "Para entrar em contato com você sobre seu aluguel. Isso inclui enviar e-mails pedindo que você avalie o serviço que recebeu. Com base em sua resposta, podemos entrar em contato para abordar isso.",
+      "subtitle5": "(e)",
+      "content5": "Para enviar mensagens de Alerta do Sistema. Por exemplo, podemos informá-lo sobre alterações temporárias ou permanentes em nossos Serviços, como interrupções planejadas, novos recursos, atualizações de versão, lançamentos, avisos de abuso e alterações em nossa Política de Privacidade.",
+      "subtitle6": "(f)",
+      "content6": "Para proteger os direitos e a segurança de você e terceiros, bem como os nossos.",
+      "subtitle7": "(g)",
+      "content7": "Para nos comunicarmos com você sobre sua conta e fornecer suporte ao cliente.",
+      "subtitle8": "(h)",
+      "content8": "Para atender requisitos legais, incluindo o cumprimento de ordens judiciais, solicitações válidas de descoberta, intimações válidas e outros mecanismos legais apropriados.",
+      "subtitle9": "(i)",
+      "content9": "Para fornecer informações a representantes e assessores, incluindo advogados e contadores, para nos ajudar a cumprir requisitos legais, contábeis ou de segurança.",
+      "subtitle10": "(j)",
+      "content10": "Para processar e defender um tribunal, arbitragem ou procedimento legal similar.",
+      "subtitle11": "(k)",
+      "content11": "Para responder a solicitações legítimas de autoridades públicas, incluindo para atender requisitos de segurança nacional ou aplicação da lei.",
+      "subtitle12": "(l)",
+      "content12": "Para fornecer, apoiar e melhorar os Serviços que oferecemos. Isso inclui nosso uso dos dados que você nos fornece para permitir que você use os serviços. Isso também inclui, por exemplo, agregar informações do seu uso dos Serviços ou visita aos nossos Sites e compartilhar essas informações com terceiros para melhorar nossos Serviços. Quando temos que compartilhar Informação Pessoal com terceiros, tomamos medidas para proteger suas informações exigindo que esses terceiros celebrem um contrato conosco que os obriga a usar a Informação Pessoal que transferimos a eles de maneira consistente com esta política.",
+      "subtitle13": "(m)",
+      "content13": "Para transferir suas informações no caso de venda, fusão, consolidação, liquidação, reorganização ou aquisição. Nesse caso, qualquer adquirente estará sujeito às nossas obrigações sob esta Política de Privacidade, incluindo seus direitos de acesso e escolha. Notificaremos você sobre a alteração enviando um e-mail ou publicando um aviso em nosso Site.",
+      "subtitle14": "(m) Informação Combinada:",
+      "content14": "Podemos combinar Informação Pessoal com outras informações que coletamos ou obtemos sobre você (como informações que obtemos de nossos parceiros terceiros), para atendê-lo especificamente, como entregar um produto ou serviço de acordo com suas preferências ou restrições, ou para fins publicitários ou de direcionamento de acordo com esta Política de Privacidade. Quando combinamos Informação Pessoal com outras informações dessa maneira, tratamos como, e aplicamos todas as salvaguardas nesta Política de Privacidade aplicáveis a, Informação Pessoal."
     },
     "section7": {
-      "title": "7. Informações de Contato",
-      "content": "Para perguntas sobre esta Política de Privacidade, entre em contato:"
+      "title": "7. Terceiros",
+      "content": "Podemos divulgar Informação Pessoal aos seguintes tipos de terceiros para os propósitos descritos nesta política:",
+      "subtitle1": "(a) Provedores de Serviços.",
+      "content1": "Às vezes, compartilhamos suas informações com nossos Provedores de Serviços terceiros, que nos ajudam a fornecer e apoiar nossos Serviços. Por exemplo, se enviarmos um e-mail ou mensagem de texto relacionada aos nossos serviços, podemos compartilhar sua Informação Pessoal com um Provedor de Serviços para esse propósito. Assim como com os outros terceiros com os quais trabalhamos, esses Provedores de Serviços terceiros celebram um contrato que os obriga a usar sua Informação Pessoal apenas para a prestação de serviços a nós e de maneira consistente com esta política. Exemplos de Provedores de Serviços incluem processadores de pagamento, serviços de hospedagem e serviços de entrega de conteúdo.",
+      "subtitle2": "(b) Parceiros de publicidade.",
+      "content2": "Podemos fazer parceria com redes e trocas de publicidade terceiras para exibir publicidade em nossos Sites ou para gerenciar e veicular nossa publicidade em outros sites e podemos compartilhar Informação Pessoal com eles para esse propósito. Todos os terceiros com os quais compartilhamos essas informações são obrigados a usar sua Informação Pessoal de maneira consistente com esta política. Nós e nossos parceiros terceiros podemos usar cookies e outras tecnologias de rastreamento, como pixels e web beacons, para coletar informações sobre suas atividades em nossos Sites e outros sites para fornecer publicidade direcionada com base em suas atividades de navegação e interesses. Para obter mais informações sobre cookies e outras tecnologias de rastreamento, consulte nossa Declaração de Cookies em nosso rodapé."
+    },
+    "section8": {
+      "title": "8. Aviso de Violação de Segurança",
+      "content1": "Se uma violação de segurança causar uma intrusão não autorizada em nosso sistema que o afete materialmente ou pessoas em suas Listas de Distribuição, então",
+      "content2": "o notificará o mais rápido possível e posteriormente relatará a ação que tomamos em resposta.",
+      "content3": "A segurança de suas informações pessoais é importante para nós. Quando você insere informações confidenciais (como suas informações de pagamento) durante qualquer processo de registro ou reserva, criptografamos essas informações usando tecnologia de camada de soquete segura (SSL).",
+      "content4": "Seguimos padrões da indústria geralmente aceitos para proteger as informações de identificação pessoal e dados pessoais enviados a nós, tanto durante a transmissão quanto depois que os recebemos. Nenhum método de transmissão pela Internet ou método de armazenamento eletrônico é 100% seguro; portanto, embora nos esforcemos para usar meios comercialmente aceitáveis para proteger suas informações pessoais, não podemos garantir sua segurança absoluta.",
+      "content5": "Com isso em mente, pediríamos que você não insira informações de pagamento em campos em nossos sites, a menos que esse campo esteja especificamente marcado para esse propósito."
+    },
+    "section9": {
+      "title": "9. Proteção de Suas Informações",
+      "content1": "Tomamos medidas razoáveis e apropriadas para proteger Informação Pessoal contra perda, uso indevido e acesso não autorizado, divulgação, alteração e destruição, levando em conta os riscos envolvidos no processamento e a natureza da Informação Pessoal.",
+      "content2": "Nosso fornecedor de processamento de pagamentos usa medidas de segurança para proteger suas informações tanto durante a transação quanto após sua conclusão. Nosso fornecedor é certificado como compatível com iniciativas de segurança de associações de cartões, incluindo a Segurança e Conformidade de Informações do Titular do Cartão Visa (CISP), MasterCard® (SDP) e Segurança e Conformidade de Informações da Discovery (DISC). Se você tiver alguma pergunta sobre a segurança de suas Informações Pessoais, pode entrar em contato conosco em"
+    },
+    "section10": {
+      "title": "10. Precisão e Retenção de Dados",
+      "content1": "Fazemos o nosso melhor para manter seus dados precisos e atualizados, na medida em que você nos fornece as informações necessárias para fazer isso. Se seus dados mudarem (por exemplo, se você tiver um novo endereço de e-mail), você é responsável por nos notificar sobre essas mudanças. Mediante solicitação, forneceremos informações sobre se mantemos ou processamos em nome de um terceiro, qualquer uma de suas Informações Pessoais. Manteremos suas informações enquanto sua conta estiver ativa ou pelo tempo necessário para fornecer nossos Serviços. Também podemos reter e usar suas informações para cumprir nossas obrigações legais, resolver disputas, prevenir abusos e fazer cumprir nossos Acordos.",
+      "content2": "Nosso fornecedor de processamento de pagamentos usa medidas de segurança para proteger suas informações tanto durante a transação quanto após sua conclusão. Nosso fornecedor é certificado como compatível com iniciativas de segurança de associações de cartões, incluindo a Segurança e Conformidade de Informações do Titular do Cartão Visa (CISP), MasterCard® (SDP) e Segurança e Conformidade de Informações da Discovery (DISC). Se você tiver alguma pergunta sobre a segurança de suas Informações Pessoais, pode entrar em contato conosco em"
     }
   },
   "home": {

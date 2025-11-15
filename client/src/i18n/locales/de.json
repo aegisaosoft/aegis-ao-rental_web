@@ -77,59 +77,109 @@
     "company": "Unternehmen",
     "website": "Website",
     "email": "E-Mail",
+    "intro": "Wir danken Ihnen für die Nutzung von",
+    "intro2": "und den Besuch unserer Websites. Hier erklären wir was, wie und warum der Informationen, die wir sammeln, wenn Sie eine unserer Websites besuchen oder unsere Dienste nutzen. Es erklärt auch die spezifischen Arten, wie wir diese Informationen verwenden und offenlegen. Wir nehmen Ihre Privatsphäre äußerst ernst und verkaufen niemals Listen oder E-Mail-Adressen und/oder persönliche Informationen.",
+    "controller": {
+      "title": "Verantwortlicher für Informationen",
+      "content": "Jede personenbezogene Information, die dieser Website zur Verfügung gestellt oder von ihr gesammelt wird und die an einem unserer Standorte bereitgestellt und gesammelt wird, wird hauptsächlich kontrolliert von",
+      "content2": "dessen eingetragenes Büro sich befindet in"
+    },
     "section1": {
-      "title": "1. Allgemeine Bestimmungen",
-      "content1": "Diese Datenschutzerklärung regelt die Sammlung, Verarbeitung, Speicherung und Nutzung von Benutzerdaten für die Software und Dienstleistungen, die von",
-      "content2": "(im Folgenden — \"das Unternehmen\").",
-      "content3": "Durch die Installation, den Zugriff oder die Nutzung der Software oder Dienstleistungen des Unternehmens bestätigt der Benutzer seine Vereinbarung mit dieser Datenschutzerklärung. Wenn der Benutzer nicht einverstanden ist, muss er die Nutzung der Software einstellen."
+      "title": "1. Definitionen",
+      "content1": "Diese Definitionen sollten Ihnen helfen, diese Richtlinie zu verstehen. Wenn wir \"wir\", \"uns\", \"unser\" und \"Aegis AO Soft\" sagen, beziehen wir uns auf",
+      "content2": "eine in den USA registrierte Gesellschaft mit beschränkter Haftung und/oder eines unserer Netzwerke.",
+      "content3": "Wir bieten Online-Plattformen an, die Sie zur Buchung von Autovermietungen verwenden können. Wir bieten Ihnen auch die Möglichkeit, Autos zu mieten (die \"Dienste\").",
+      "content4": "Wenn wir \"Sie\" sagen, beziehen wir uns auf eine Person, die eine unserer Websites oder Standorte besucht.",
+      "content5": "\"Personenbezogene Informationen\" bedeutet jede Information, die Sie oder einen Abonnenten identifiziert oder zur Identifizierung verwendet werden kann, direkt oder indirekt, einschließlich, aber nicht beschränkt auf Vor- und Nachname, Geburtsdatum, E-Mail-Adresse, Geschlecht, Beruf oder andere demografische Informationen.",
+      "content6": "Wir bieten die Dienste auf unseren Websites und an unseren Franchise-Standorten an. Diese Datenschutzerklärung gilt für diese Websites und Standorte sowie für alle anderen Websites oder mobilen Anwendungen, die uns gehören oder von uns betrieben werden (jeweils eine \"Website\" und zusammen die \"Websites\"). Die \"Websites\" umfassen die Websites selbst sowie alle Webseiten, interaktiven Funktionen, Anwendungen, Widgets, Blogs, soziale Netzwerke, \"Tabs\" sozialer Netzwerke oder andere Online-, mobile oder drahtlose Angebote, die einen Link zu dieser Datenschutzerklärung veröffentlichen, unabhängig davon, ob sie über Computer, mobile Geräte oder andere Technologie, Weise oder Mittel zugänglich sind. Beim Bereitstellen der Dienste und wie unten ausführlicher beschrieben."
     },
     "section2": {
-      "title": "2. Geistige Eigentumsrechte",
-      "content1": "Alle ausschließlichen Rechte an der Software, einschließlich aber nicht beschränkt auf Quellcode, Design, Interface-Elemente, Marken und andere geistige Werke gehören vollständig und ausschließlich",
-      "content2": "Dem Benutzer wird eine nicht ausschließliche, nicht übertragbare Lizenz zur Nutzung der Software ausschließlich für ihre beabsichtigte Funktionalität gewährt.",
-      "prohibited": "Dem Benutzer ist es untersagt:",
-      "item1": "Die Software ohne schriftliche Genehmigung zu kopieren oder weiterzuverteilen.",
-      "item2": "Die Software zu modifizieren, Reverse Engineering durchzuführen, zu dekompilieren oder zu disassemblieren.",
-      "item3": "Die Software an Dritte zu verkaufen, zu vermieten, zu unterlizenzieren oder zu übertragen."
+      "title": "2. Änderungen",
+      "content": "Wir können diese Datenschutzerklärung jederzeit und von Zeit zu Zeit ändern. Wir empfehlen Ihnen, diese Datenschutzerklärung häufig zu überprüfen, um über Änderungen informiert zu bleiben, die Sie betreffen können, da Ihre fortgesetzte Nutzung der Website Ihre fortgesetzte Zustimmung bedeutet, an diese Datenschutzerklärung gebunden zu sein. Unsere elektronisch oder anderweitig ordnungsgemäß gespeicherten Kopien dieser Datenschutzerklärung werden jeweils als die wahre, vollständige, gültige, authentische und durchsetzbare Kopie der Version dieser Datenschutzerklärung angesehen, die an jedem jeweiligen Datum, an dem Sie die Website besucht haben, in Kraft war."
     },
     "section3": {
-      "title": "3. Sammlung und Verwendung personenbezogener Daten",
-      "content1": "Das Unternehmen kann die folgenden Benutzerdaten sammeln und verarbeiten:",
-      "item1": "Profil- oder Kontoname",
-      "item2": "Kontaktinformationen (z. B. E-Mail-Adresse)",
-      "item3": "Technische Informationen (Gerätekennungen, IP-Adresse, Systemprotokolle, Nutzungsdaten)",
-      "content2": "Daten werden gesammelt, um:",
-      "item4": "Die ordnungsgemäße Funktionalität der Software sicherzustellen",
-      "item5": "Leistung und Benutzererfahrung zu verbessern",
-      "item6": "Sicherheit aufrechtzuerhalten und Missbrauch zu verhindern",
-      "content3": "Das Unternehmen überträgt oder verkauft keine personenbezogenen Daten an Dritte, außer wie gesetzlich vorgeschrieben."
+      "title": "3. Bereich",
+      "content": "Diese Datenschutzerklärung ist wirksam hinsichtlich aller Daten, die wir über Sie und/oder von Ihnen gesammelt haben oder sammeln."
     },
     "section4": {
-      "title": "4. Haftungsausschluss",
-      "content1": "Die Software wird bereitgestellt",
-      "asIs": "\"WIE BESEHEN\"",
-      "content2": "ohne Gewährleistung jeglicher Art, ausdrücklich oder stillschweigend.",
-      "notLiable": "ist nicht haftbar",
-      "content3": "für:",
-      "item1": "Software-Fehler, Fehler, Unterbrechungen oder Ausfälle",
-      "item2": "Datenverlust oder Datenkorruption",
-      "item3": "Finanzielle Schäden oder Verluste, die dem Benutzer entstehen",
-      "item4": "Jegliche indirekten oder Folgeschäden, die aus der Nutzung oder Unfähigkeit zur Nutzung der Software resultieren"
+      "title": "4. Fragen und Bedenken",
+      "content": "Wenn Sie Fragen oder Kommentare haben oder wenn Sie personenbezogene Informationen, die wir haben, aktualisieren, löschen oder ändern möchten, oder wenn Sie Bedenken bezüglich der Art und Weise haben, wie wir Datenschutzangelegenheiten behandelt haben, kontaktieren Sie uns bitte unter den unten angegebenen Angaben.",
+      "contact": "Post oder E-Mail an:",
+      "attn": "Betr.: Datenschutz,"
     },
     "section5": {
-      "title": "5. Benutzerpflichten",
-      "content": "Der Benutzer verpflichtet sich, nicht:",
-      "item1": "Die Software für illegale oder schädliche Aktivitäten zu verwenden",
-      "item2": "Sicherheitssysteme oder Einschränkungen zu umgehen",
-      "item3": "Aktivitäten auszuüben, die dem Unternehmen oder anderen Benutzern Schaden zufügen könnten"
+      "title": "5. Informationen, die Wir Sammeln",
+      "subtitle1": "(a) Informationen, die Sie uns freiwillig zur Verfügung stellen:",
+      "content1": "Wenn Sie auf unserer Website eine Buchung vornehmen und/oder ein Fahrzeug an einem unserer Standorte mieten, sich mit unserem Kundenservice-Team beraten, uns eine E-Mail senden oder auf andere Weise mit uns kommunizieren, geben Sie uns freiwillig Informationen, die wir sammeln. Wir könnten die folgenden Informationen benötigen",
+      "item1": "Vor- und Nachname",
+      "item2": "Geburtsdatum",
+      "item3": "Kontaktinformationen (Unternehmen, E-Mail, Telefon, physische Adresse)",
+      "item4": "Ausweis- und Führerscheindaten",
+      "content2": "Indem Sie uns diese Informationen geben, stimmen Sie zu, dass diese Informationen von uns gesammelt, verwendet, offengelegt, übertragen und gespeichert werden.",
+      "subtitle2": "(1) Informationen, die wir automatisch sammeln:",
+      "content3": "Wenn Sie eine unserer Websites verwenden, können wir Informationen über Ihren Besuch auf unseren Websites, Ihre Nutzung der Dienste und Ihr Web-Browsing sammeln. Diese Informationen können Ihre IP-Adresse, Ihr Betriebssystem, Ihre Browser-ID, Ihre Browsing-Aktivität und andere Informationen darüber enthalten, wie Sie mit unseren Websites oder anderen Websites interagiert haben. Wir können diese Informationen als Teil von Protokolldateien sowie durch die Verwendung von Cookies oder anderen Tracking-Technologien sammeln. Unsere Verwendung von Cookies und anderen Tracking-Technologien wird weiter unten und ausführlicher in unserer Cookie-Erklärung in unserer Fußzeile erörtert.",
+      "subtitle3": "(2) Informationen aus Ihrer Nutzung des Dienstes:",
+      "content4": "Wir können Informationen darüber erhalten, wie und wann Sie die Dienste nutzen, diese in Protokolldateien oder anderen Dateitypen speichern, die mit Ihrem Konto verknüpft sind, und sie mit anderen Informationen verknüpfen, die wir über Sie sammeln. Diese Informationen können beispielsweise Ihre IP-Adresse, Uhrzeit, Datum, verwendeten Browser und Aktionen enthalten, die Sie innerhalb der Anwendung durchgeführt haben. Diese Art von Informationen hilft uns, unsere Dienste sowohl für Sie als auch für alle unsere Benutzer zu verbessern.",
+      "subtitle4": "(3) Cookies und Tracking:",
+      "content5": "Wir und unsere Dienstleister können verschiedene Technologien verwenden, um Informationen zu sammeln und zu speichern, wenn Sie unsere Dienste nutzen, und dies kann die Verwendung von Cookies und ähnlichen Tracking-Technologien auf unserer Website umfassen, wie z. B. Pixel und Web-Beacons, um Trends zu analysieren, die Website zu verwalten, Bewegungen der Benutzer auf der Website zu verfolgen, gezielte Werbung bereitzustellen und demografische Informationen über unsere gesamte Benutzerbasis zu sammeln. Benutzer können die Verwendung von Cookies auf individueller Browserebene steuern. Wir arbeiten mit Dritten zusammen, um Werbung auf unserer Website anzuzeigen oder unsere Werbung auf anderen Websites zu verwalten und bereitzustellen. Unsere Drittpartner können Cookies oder ähnliche Tracking-Technologien verwenden, um Ihnen Werbung oder andere Inhalte basierend auf Ihren Browsing-Aktivitäten und Interessen bereitzustellen. Weitere Informationen über unsere Verwendung von Cookies und anderen Tracking-Technologien sowie darüber, wie Sie sich von der Verwendung von Cookies abmelden können."
     },
     "section6": {
-      "title": "6. Richtlinienaktualisierungen",
-      "content": "Das Unternehmen behält sich das Recht vor, diese Richtlinie jederzeit zu aktualisieren oder zu überarbeiten. Die fortgesetzte Nutzung der Software bedeutet die Annahme der aktualisierten Bedingungen."
+      "title": "6. Übernahme und Anerkennung Personenbezogener Informationen",
+      "content": "Wir können Personenbezogene Informationen nur zu den folgenden Zwecken verwenden und offenlegen:",
+      "subtitle1": "(a)",
+      "content1": "Um Ihren Vertrag bei der Anmietung eines Fahrzeugs zu bearbeiten. Vollständige Details darüber, wie wir diese Informationen verarbeiten können, sind in dieser Datenschutzerklärung und in Ihrem Mietvertrag enthalten.",
+      "subtitle2": "(b)",
+      "content2": "Um Rechnungen zu stellen und uns geschuldetes Geld einzuziehen. Dies umfasst das Senden von E-Mails, Rechnungen, Quittungen, Mahnungen und die Benachrichtigung, wenn wir andere Zahlungsinformationen benötigen. Wir verwenden Dritte für die sichere Bearbeitung von Zahlungstransaktionen und senden Rechnungsinformationen an diese Dritte, um Ihre Bestellungen und Zahlungen zu bearbeiten. Um mehr über die Schritte zu erfahren, die wir zum Schutz dieser Daten unternehmen, siehe Abschnitt 9 unten.",
+      "subtitle3": "(c)",
+      "content3": "Um Ihnen informative und werbliche Inhalte gemäß Ihren Marketing-Präferenzen zu senden. Sie können den Empfang unserer Werbe-E-Mails beenden, indem Sie den in jeder E-Mail enthaltenen Abmeldeanweisungen folgen.",
+      "subtitle4": "(d)",
+      "content4": "Um Sie bezüglich Ihrer Vermietung zu kontaktieren. Dies umfasst das Senden von E-Mails, in denen Sie gebeten werden, den erhaltenen Service zu bewerten. Basierend auf Ihrer Antwort können wir Sie kontaktieren, um dies zu behandeln.",
+      "subtitle5": "(e)",
+      "content5": "Um Ihnen System-Warnmeldungen zu senden. Beispielsweise können wir Sie über vorübergehende oder permanente Änderungen an unseren Diensten informieren, wie geplante Ausfälle, neue Funktionen, Versionsaktualisierungen, Veröffentlichungen, Missbrauchswarnungen und Änderungen an unserer Datenschutzerklärung.",
+      "subtitle6": "(f)",
+      "content6": "Um die Rechte und Sicherheit von Ihnen und Dritten sowie unsere eigenen zu schützen.",
+      "subtitle7": "(g)",
+      "content7": "Um mit Ihnen über Ihr Konto zu kommunizieren und Kundensupport zu bieten.",
+      "subtitle8": "(h)",
+      "content8": "Um rechtliche Anforderungen zu erfüllen, einschließlich der Einhaltung von Gerichtsbeschlüssen, gültigen Entdeckungsanträgen, gültigen Vorladungen und anderen geeigneten rechtlichen Mechanismen.",
+      "subtitle9": "(i)",
+      "content9": "Um Informationen an Vertreter und Berater, einschließlich Anwälte und Buchhalter, bereitzustellen, um uns bei der Einhaltung rechtlicher, buchhalterischer oder Sicherheitsanforderungen zu helfen.",
+      "subtitle10": "(j)",
+      "content10": "Um ein Gericht, eine Schiedsgerichtsbarkeit oder ein ähnliches Rechtsverfahren zu verfolgen und zu verteidigen.",
+      "subtitle11": "(k)",
+      "content11": "Um auf rechtmäßige Anfragen öffentlicher Behörden zu reagieren, einschließlich zur Erfüllung von Anforderungen der nationalen Sicherheit oder der Strafverfolgung.",
+      "subtitle12": "(l)",
+      "content12": "Um die von uns angebotenen Dienste bereitzustellen, zu unterstützen und zu verbessern. Dies umfasst unsere Verwendung der Daten, die Sie uns bereitstellen, um Ihnen die Nutzung der Dienste zu ermöglichen. Dies umfasst auch beispielsweise die Aggregation von Informationen aus Ihrer Nutzung der Dienste oder Ihrem Besuch auf unseren Websites und das Teilen dieser Informationen mit Dritten, um unsere Dienste zu verbessern. Wenn wir Personenbezogene Informationen mit Dritten teilen müssen, ergreifen wir Maßnahmen zum Schutz Ihrer Informationen, indem wir von diesen Dritten verlangen, einen Vertrag mit uns abzuschließen, der sie verpflichtet, die Personenbezogenen Informationen, die wir ihnen übertragen, in einer Weise zu verwenden, die mit dieser Richtlinie übereinstimmt.",
+      "subtitle13": "(m)",
+      "content13": "Um Ihre Informationen im Falle eines Verkaufs, einer Fusion, Konsolidierung, Liquidation, Reorganisation oder Übernahme zu übertragen. In diesem Fall wird jeder Erwerber unseren Verpflichtungen unter dieser Datenschutzerklärung unterliegen, einschließlich Ihrer Rechte auf Zugriff und Wahl. Wir werden Sie über die Änderung entweder per E-Mail benachrichtigen oder einen Hinweis auf unserer Website veröffentlichen.",
+      "subtitle14": "(m) Kombinierte Informationen:",
+      "content14": "Wir können Personenbezogene Informationen mit anderen Informationen kombinieren, die wir über Sie sammeln oder erhalten (wie Informationen, die wir von unseren Drittpartnern beziehen), um Sie speziell zu bedienen, z. B. um ein Produkt oder einen Dienst entsprechend Ihren Präferenzen oder Einschränkungen zu liefern oder für Werbe- oder Targeting-Zwecke gemäß dieser Datenschutzerklärung. Wenn wir Personenbezogene Informationen auf diese Weise mit anderen Informationen kombinieren, behandeln wir sie als und wenden alle in dieser Datenschutzerklärung geltenden Schutzmaßnahmen auf Personenbezogene Informationen an."
     },
     "section7": {
-      "title": "7. Kontaktinformationen",
-      "content": "Bei Fragen zu dieser Datenschutzerklärung kontaktieren Sie bitte:"
+      "title": "7. Dritte",
+      "content": "Wir können Personenbezogene Informationen an die folgenden Arten von Dritten zu den in dieser Richtlinie beschriebenen Zwecken offenlegen:",
+      "subtitle1": "(a) Dienstleister.",
+      "content1": "Manchmal teilen wir Ihre Informationen mit unseren Drittdienstleistern, die uns bei der Bereitstellung und Unterstützung unserer Dienste helfen. Wenn wir Ihnen beispielsweise eine E-Mail oder Textnachricht bezüglich unserer Dienste senden, können wir Ihre Personenbezogenen Informationen zu diesem Zweck mit einem Dienstleister teilen. Genau wie bei den anderen Dritten, mit denen wir zusammenarbeiten, schließen diese Drittdienstleister einen Vertrag ab, der sie verpflichtet, Ihre Personenbezogenen Informationen nur für die Erbringung von Dienstleistungen für uns und in einer Weise zu verwenden, die mit dieser Richtlinie übereinstimmt. Beispiele für Dienstleister sind Zahlungsabwickler, Hosting-Dienste und Content-Delivery-Dienste.",
+      "subtitle2": "(b) Werbepartner.",
+      "content2": "Wir können Partnerschaften mit Drittanbieter-Werbenetzwerken und -börsen eingehen, um Werbung auf unseren Websites anzuzeigen oder unsere Werbung auf anderen Websites zu verwalten und bereitzustellen, und können zu diesem Zweck Personenbezogene Informationen mit ihnen teilen. Alle Dritten, mit denen wir diese Informationen teilen, sind verpflichtet, Ihre Personenbezogenen Informationen in einer Weise zu verwenden, die mit dieser Richtlinie übereinstimmt. Wir und unsere Drittpartner können Cookies und andere Tracking-Technologien, wie z. B. Pixel und Web-Beacons, verwenden, um Informationen über Ihre Aktivitäten auf unseren Websites und anderen Websites zu sammeln, um Ihnen gezielte Werbung basierend auf Ihren Browsing-Aktivitäten und Interessen bereitzustellen. Weitere Informationen über Cookies und andere Tracking-Technologien finden Sie in unserer Cookie-Erklärung in unserer Fußzeile."
+    },
+    "section8": {
+      "title": "8. Hinweis auf Sicherheitsverletzung",
+      "content1": "Wenn eine Sicherheitsverletzung einen unbefugten Eindringling in unser System verursacht, der Sie oder Personen auf Ihren Verteilerlisten erheblich betrifft, dann",
+      "content2": "wird Sie so schnell wie möglich benachrichtigen und später über die von uns ergriffenen Maßnahmen berichten.",
+      "content3": "Die Sicherheit Ihrer persönlichen Informationen ist uns wichtig. Wenn Sie während eines Registrierungs- oder Buchungsprozesses sensible Informationen (wie Ihre Zahlungsinformationen) eingeben, verschlüsseln wir diese Informationen mit Secure Socket Layer-Technologie (SSL).",
+      "content4": "Wir folgen allgemein anerkannten Industriestandards, um die uns übermittelten persönlich identifizierbaren Informationen und personenbezogenen Daten sowohl während der Übertragung als auch nach dem Erhalt zu schützen. Keine Übertragungsmethode über das Internet oder elektronische Speichermethode ist zu 100% sicher; daher können wir zwar kommerziell akzeptable Mittel zum Schutz Ihrer persönlichen Informationen verwenden, können jedoch nicht deren absolute Sicherheit garantieren.",
+      "content5": "Vor diesem Hintergrund bitten wir Sie, keine Zahlungsinformationen in Felder auf unseren Websites einzugeben, es sei denn, dieses Feld ist speziell für diesen Zweck gekennzeichnet."
+    },
+    "section9": {
+      "title": "9. Schutz Ihrer Informationen",
+      "content1": "Wir ergreifen angemessene und geeignete Maßnahmen, um Personenbezogene Informationen vor Verlust, Missbrauch und unbefugtem Zugriff, Offenlegung, Änderung und Zerstörung zu schützen, unter Berücksichtigung der mit der Verarbeitung verbundenen Risiken und der Art der Personenbezogenen Informationen.",
+      "content2": "Unser Zahlungsabwicklungsanbieter verwendet Sicherheitsmaßnahmen, um Ihre Informationen sowohl während der Transaktion als auch nach deren Abschluss zu schützen. Unser Anbieter ist als konform mit Sicherheitsinitiativen von Kartenverbänden zertifiziert, einschließlich der Visa Cardholder Information Security and Compliance (CISP), MasterCard® (SDP) und Discovery Information Security and Compliance (DISC). Wenn Sie Fragen zur Sicherheit Ihrer Personenbezogenen Informationen haben, können Sie uns unter kontaktieren"
+    },
+    "section10": {
+      "title": "10. Genauigkeit und Aufbewahrung von Daten",
+      "content1": "Wir tun unser Bestes, um Ihre Daten genau und auf dem neuesten Stand zu halten, soweit Sie uns die dafür erforderlichen Informationen bereitstellen. Wenn sich Ihre Daten ändern (z. B. wenn Sie eine neue E-Mail-Adresse haben), sind Sie dafür verantwortlich, uns über diese Änderungen zu informieren. Auf Anfrage werden wir Ihnen Informationen darüber geben, ob wir Personenbezogene Informationen von Ihnen halten oder im Auftrag eines Dritten verarbeiten. Wir werden Ihre Informationen so lange aufbewahren, wie Ihr Konto aktiv ist oder so lange, wie es erforderlich ist, um Ihnen unsere Dienste bereitzustellen. Wir können Ihre Informationen auch aufbewahren und verwenden, um unseren rechtlichen Verpflichtungen nachzukommen, Streitigkeiten beizulegen, Missbrauch zu verhindern und unsere Vereinbarungen durchzusetzen.",
+      "content2": "Unser Zahlungsabwicklungsanbieter verwendet Sicherheitsmaßnahmen, um Ihre Informationen sowohl während der Transaktion als auch nach deren Abschluss zu schützen. Unser Anbieter ist als konform mit Sicherheitsinitiativen von Kartenverbänden zertifiziert, einschließlich der Visa Cardholder Information Security and Compliance (CISP), MasterCard® (SDP) und Discovery Information Security and Compliance (DISC). Wenn Sie Fragen zur Sicherheit Ihrer Personenbezogenen Informationen haben, können Sie uns unter kontaktieren"
     }
   },
   "home": {

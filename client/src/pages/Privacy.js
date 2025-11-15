@@ -70,7 +70,7 @@ const Privacy = () => {
               
               {/* Introduction */}
               <p className="text-gray-700 leading-relaxed mb-6">
-                {t('privacy.intro', 'We thank you for using Aegis AO Soft and visiting our websites. Here we explain what, how, and why of the information we collect when you visit one of our websites, or when you use our Services. It also explains the specific ways we use and disclose that information. We take your privacy extremely seriously, and we never sell lists or email addresses and/or Personal information.')}
+                {t('privacy.intro', 'We thank you for using')} <strong><a href={companyWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{companyName}</a></strong> {t('privacy.intro2', 'and visiting our websites. Here we explain what, how, and why of the information we collect when you visit one of our websites, or when you use our Services. It also explains the specific ways we use and disclose that information. We take your privacy extremely seriously, and we never sell lists or email addresses and/or Personal information.')}
               </p>
 
               {/* Controller of information */}
@@ -78,7 +78,7 @@ const Privacy = () => {
                 {t('privacy.controller.title', 'Controller of information')}
               </h2>
               <p className="text-gray-700 leading-relaxed mb-6">
-                {t('privacy.controller.content', 'Any personal information provided to or gathered by this website and provided and gathered at any one of our locations is controlled primarily by')} <strong>{companyName}</strong>, {t('privacy.controller.content2', 'whose registered office is at')} {companyAddress}.
+                {t('privacy.controller.content', 'Any personal information provided to or gathered by this website and provided and gathered at any one of our locations is controlled primarily by')} <strong><a href={companyWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{companyName}</a></strong>, {t('privacy.controller.content2', 'whose registered office is at')} {companyAddress}.
               </p>
 
               {/* Section 1: Definitions */}
@@ -86,7 +86,7 @@ const Privacy = () => {
                 {t('privacy.section1.title', '1. Definitions')}
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
-                {t('privacy.section1.content1', 'These definitions should help you understand this policy. When we say "we," "us," "our," and "Aegis AO Soft," we are referring to')} <strong>{companyName}</strong>, {t('privacy.section1.content2', 'a USA Registered Limited Company and/or any of our network.')}
+                {t('privacy.section1.content1', 'These definitions should help you understand this policy. When we say "we," "us," "our," and "Aegis AO Soft," we are referring to')} <strong><a href={companyWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{companyName}</a></strong>, {t('privacy.section1.content2', 'a USA Registered Limited Company and/or any of our network.')}
               </p>
               <p className="text-gray-700 leading-relaxed mb-4">
                 {t('privacy.section1.content3', 'We provide online platforms that you may use to make car rental reservations. We also provide you with the ability to rent cars (the "Services").')}
@@ -125,7 +125,7 @@ const Privacy = () => {
                 {t('privacy.section4.content', 'If you have any questions or comments, or if you want to update, delete, or change any Personal Information we hold, or you have a concern about the way in which we have handled any privacy matter, please contact us using the details below.')}
               </p>
               <p className="text-gray-700 leading-relaxed mb-6">
-                {t('privacy.section4.contact', 'postal mail or email at:')} <strong>{companyName}</strong>, {t('privacy.section4.attn', 'Attn. Privacy,')} <a href={`mailto:${companyEmail}`} className="text-blue-600 hover:text-blue-800">{companyEmail}</a>, {companyAddress}
+                {t('privacy.section4.contact', 'postal mail or email at:')} <strong><a href={companyWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{companyName}</a></strong>, {t('privacy.section4.attn', 'Attn. Privacy,')} <a href={`mailto:${companyEmail}`} className="text-blue-600 hover:text-blue-800">{companyEmail}</a>, {companyAddress}
               </p>
 
               {/* Section 5: Information We Gather */}
@@ -226,7 +226,7 @@ const Privacy = () => {
                 {t('privacy.section8.title', '8. Notice of Breach of Security')}
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
-                {t('privacy.section8.content1', 'If a security breach causes an unauthorized intrusion into our system that materially affects you or people on your Distribution Lists, then')} <strong>{companyName}</strong> {t('privacy.section8.content2', 'will notify you as soon as possible and later report the action we took in response.')}
+                {t('privacy.section8.content1', 'If a security breach causes an unauthorized intrusion into our system that materially affects you or people on your Distribution Lists, then')} <strong><a href={companyWebsite} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{companyName}</a></strong> {t('privacy.section8.content2', 'will notify you as soon as possible and later report the action we took in response.')}
               </p>
               <p className="text-gray-700 leading-relaxed mb-4">
                 {t('privacy.section8.content3', 'The security of your personal information is important to us. When you enter sensitive information (such as your payment information) during any registration or booking process, we encrypt that information using secure socket layer technology (SSL).')}

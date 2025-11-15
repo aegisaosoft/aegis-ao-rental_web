@@ -77,7 +77,8 @@
     "company": "Empresa",
     "website": "Sitio Web",
     "email": "Correo Electrónico",
-    "intro": "Le agradecemos por usar Aegis AO Soft y visitar nuestros sitios web. Aquí explicamos qué, cómo y por qué de la información que recopilamos cuando visita uno de nuestros sitios web o cuando usa nuestros Servicios. También explica las formas específicas en que usamos y divulgamos esa información. Nos tomamos su privacidad extremadamente en serio, y nunca vendemos listas o direcciones de correo electrónico y/o información personal.",
+    "intro": "Le agradecemos por usar",
+    "intro2": "y visitar nuestros sitios web. Aquí explicamos qué, cómo y por qué de la información que recopilamos cuando visita uno de nuestros sitios web o cuando usa nuestros Servicios. También explica las formas específicas en que usamos y divulgamos esa información. Nos tomamos su privacidad extremadamente en serio, y nunca vendemos listas o direcciones de correo electrónico y/o información personal.",
     "controller": {
       "title": "Controlador de información",
       "content": "Cualquier información personal proporcionada a o recopilada por este sitio web y proporcionada y recopilada en cualquiera de nuestras ubicaciones es controlada principalmente por",
