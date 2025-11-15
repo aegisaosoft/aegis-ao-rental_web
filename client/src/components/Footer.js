@@ -15,15 +15,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, QrCode } from 'lucide-react';
+import { Car, QrCode, MapPin, Phone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
+import axios from 'axios';
 
 const Footer = () => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('All Rentals');
+  const [locations, setLocations] = useState([]);
   
   // Get language-specific privacy/terms links
   const getPrivacyLink = () => {
@@ -42,6 +44,35 @@ const Footer = () => {
       setCompanyName('Unknown');
     }
   }, [companyConfig]);
+
+  // Fetch company locations (anonymous call - no auth required)
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        if (companyConfig?.id) {
+          // Direct anonymous API call - no authentication needed
+          const response = await axios.get('/api/CompanyLocations', {
+            params: { 
+              companyId: companyConfig.id,
+              isActive: true 
+            }
+          });
+          
+          // Handle standardized API response wrapper
+          const locationData = response.data?.result || response.data || [];
+          // Get only active locations, limit to 4 for footer display
+          const activeLocations = (Array.isArray(locationData) ? locationData : [])
+            .slice(0, 4);
+          setLocations(activeLocations);
+        }
+      } catch (error) {
+        console.error('Error fetching locations for footer:', error);
+        setLocations([]);
+      }
+    };
+    
+    fetchLocations();
+  }, [companyConfig?.id]);
 
   return (
     <footer className="bg-gray-900 text-white relative">
@@ -92,23 +123,38 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Services */}
+          {/* Locations */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t('footer.services')}</h3>
-            <ul className="space-y-2">
-              <li>
-                <span className="text-gray-300">{t('footer.economyCars')}</span>
-              </li>
-              <li>
-                <span className="text-gray-300">{t('footer.luxuryVehicles')}</span>
-              </li>
-              <li>
-                <span className="text-gray-300">{t('footer.suvRentals')}</span>
-              </li>
-              <li>
-                <span className="text-gray-300">{t('footer.longTermRentals')}</span>
-              </li>
-            </ul>
+            <h3 className="text-lg font-semibold mb-4">{t('footer.contactUs', 'Contact Us')}</h3>
+            {locations.length > 0 ? (
+              <ul className="space-y-3">
+                {locations.map((location) => (
+                  <li key={location.id} className="text-sm">
+                    <div className="text-gray-300 font-medium">{location.locationName}</div>
+                    {location.address && (
+                      <div className="text-gray-400 text-xs flex items-start mt-1">
+                        <MapPin className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
+                        <span>{location.address}{location.city ? `, ${location.city}` : ''}</span>
+                      </div>
+                    )}
+                    {location.phone && (
+                      <div className="text-gray-400 text-xs flex items-center mt-1">
+                        <Phone className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <a href={`tel:${location.phone}`} className="hover:text-white transition-colors">
+                          {location.phone}
+                        </a>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="space-y-2">
+                <li>
+                  <span className="text-gray-300 text-sm">{t('footer.noLocations', 'No locations available')}</span>
+                </li>
+              </ul>
+            )}
           </div>
         </div>
 

@@ -130,11 +130,6 @@ const Home = () => {
   const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
   const companyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
   
-  // Debug: Log locations to see what we're getting
-  if (companyLocations.length > 0) {
-    console.log('[Home] Pickup locations received:', companyLocations.length, companyLocations);
-  }
-  
   const showLocationDropdown = companyLocations.length > 1;
   const [selectedLocationId, setSelectedLocationId] = useState('');
 

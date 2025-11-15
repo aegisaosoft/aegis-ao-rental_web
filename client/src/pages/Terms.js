@@ -16,6 +16,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
+import TermsOfUseDisplay from '../components/TermsOfUseDisplay';
 
 const Terms = () => {
   const { t } = useTranslation();
@@ -23,6 +24,9 @@ const Terms = () => {
   
   const companyName = companyConfig?.companyName || 'Our Company';
   const bannerLink = companyConfig?.bannerLink || companyConfig?.BannerLink;
+  
+  // Check if company has custom terms of use in database
+  const hasCustomTerms = companyConfig?.termsOfUse || companyConfig?.TermsOfUse;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,78 +66,92 @@ const Terms = () => {
 
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8 md:p-12">
-            <div className="prose prose-lg max-w-none">
-              <p className="text-lg text-gray-600 mb-8">
-                {t('terms.lastUpdated')}
-              </p>
+            {/* If company has custom terms in database, show those */}
+            {hasCustomTerms ? (
+              <div className="prose prose-lg max-w-none">
+                <p className="text-lg text-gray-600 mb-8">
+                  {t('terms.lastUpdated')}
+                </p>
+                <TermsOfUseDisplay 
+                  termsOfUse={hasCustomTerms}
+                  className="text-gray-700"
+                />
+              </div>
+            ) : (
+              /* Otherwise, show default terms from translation files */
+              <div className="prose prose-lg max-w-none">
+                <p className="text-lg text-gray-600 mb-8">
+                  {t('terms.lastUpdated')}
+                </p>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section1.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-6">
-                {t('terms.section1.content', { companyName })}
-              </p>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section1.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-6">
+                  {t('terms.section1.content', { companyName })}
+                </p>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section2.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                {t('terms.section2.content', { companyName })}
-              </p>
-              <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
-                <li>{t('terms.section2.item1')}</li>
-                <li>{t('terms.section2.item2')}</li>
-                <li>{t('terms.section2.item3')}</li>
-                <li>{t('terms.section2.item4')}</li>
-              </ul>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section2.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  {t('terms.section2.content', { companyName })}
+                </p>
+                <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
+                  <li>{t('terms.section2.item1')}</li>
+                  <li>{t('terms.section2.item2')}</li>
+                  <li>{t('terms.section2.item3')}</li>
+                  <li>{t('terms.section2.item4')}</li>
+                </ul>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section3.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                {t('terms.section3.content', { companyName })}
-              </p>
-              <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
-                <li>{t('terms.section3.item1')}</li>
-                <li>{t('terms.section3.item2')}</li>
-                <li>{t('terms.section3.item3')}</li>
-                <li>{t('terms.section3.item4')}</li>
-              </ul>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section3.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  {t('terms.section3.content', { companyName })}
+                </p>
+                <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
+                  <li>{t('terms.section3.item1')}</li>
+                  <li>{t('terms.section3.item2')}</li>
+                  <li>{t('terms.section3.item3')}</li>
+                  <li>{t('terms.section3.item4')}</li>
+                </ul>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section4.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                {t('terms.section4.content', { companyName })}
-              </p>
-              <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
-                <li>{t('terms.section4.item1')}</li>
-                <li>{t('terms.section4.item2')}</li>
-                <li>{t('terms.section4.item3')}</li>
-                <li>{t('terms.section4.item4')}</li>
-              </ul>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section4.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  {t('terms.section4.content', { companyName })}
+                </p>
+                <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
+                  <li>{t('terms.section4.item1')}</li>
+                  <li>{t('terms.section4.item2')}</li>
+                  <li>{t('terms.section4.item3')}</li>
+                  <li>{t('terms.section4.item4')}</li>
+                </ul>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section5.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-6">
-                {t('terms.section5.content', { companyName })}
-              </p>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section5.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-6">
+                  {t('terms.section5.content', { companyName })}
+                </p>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section6.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed mb-6">
-                {t('terms.section6.content', { companyName })}
-              </p>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section6.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-6">
+                  {t('terms.section6.content', { companyName })}
+                </p>
 
-              <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
-                {t('terms.section7.title')}
-              </h2>
-              <p className="text-gray-700 leading-relaxed">
-                {t('terms.section7.content', { companyName })}
-              </p>
-            </div>
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section7.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed">
+                  {t('terms.section7.content', { companyName })}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

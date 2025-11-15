@@ -32,9 +32,16 @@ const Booking = () => {
   const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
   
+  // Set default dates (today and tomorrow)
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  
   const [formData, setFormData] = useState({
-    pickupDate: searchParams.get('pickup') || '',
-    returnDate: searchParams.get('return') || '',
+    pickupDate: searchParams.get('pickup') || todayStr,
+    returnDate: searchParams.get('return') || tomorrowStr,
     pickupLocation: '',
     returnLocation: '',
     additionalNotes: ''
@@ -49,9 +56,32 @@ const Booking = () => {
   );
 
   const handleChange = (e) => {
+    const name = e.target.name;
+    const value = e.target.value;
+    
+    // If pickup date is changing, check if return date needs adjustment
+    if (name === 'pickupDate' && value) {
+      const newPickupDate = new Date(value);
+      const currentReturnDate = formData.returnDate ? new Date(formData.returnDate) : null;
+      
+      // If return date exists and is less than or equal to new pickup date, set it to next day after pickup
+      if (currentReturnDate && currentReturnDate <= newPickupDate) {
+        const nextDay = new Date(newPickupDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split('T')[0];
+        
+        setFormData({
+          ...formData,
+          pickupDate: value,
+          returnDate: nextDayStr
+        });
+        return;
+      }
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
 

@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { translationService } from '../services/translationService';
 import { Sparkles } from 'lucide-react';
+import LoadingSpinner from './common/LoadingSpinner';
 
 const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -39,15 +40,11 @@ const TipTapEditor = ({ content, onChange, placeholder = 'Start typing...' }) =>
     }
   }, [content, editor]);
 
-  const handlePasteFromClipboard = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (editor && text) {
-        editor.commands.insertContent(text);
+  const handleClearContent = useCallback(() => {
+    if (editor) {
+      if (window.confirm('Are you sure you want to clear the content? This action cannot be undone.')) {
+        editor.commands.clearContent();
       }
-    } catch (err) {
-      console.error('Failed to read clipboard:', err);
-      alert('Please paste using Ctrl+V (Cmd+V on Mac)');
     }
   }, [editor]);
 
@@ -207,11 +204,11 @@ const TipTapEditor = ({ content, onChange, placeholder = 'Start typing...' }) =>
         <div className="flex-1"></div>
         <button
           type="button"
-          onClick={handlePasteFromClipboard}
-          className="px-3 py-1 text-sm rounded bg-white text-gray-700 hover:bg-gray-100"
-          title="Paste from Clipboard"
+          onClick={handleClearContent}
+          className="px-3 py-1 text-sm rounded bg-white text-red-600 hover:bg-red-50"
+          title="Clear Content"
         >
-          📋 Paste
+          🗑️ Clear
         </button>
       </div>
       
@@ -224,7 +221,9 @@ const TipTapEditor = ({ content, onChange, placeholder = 'Start typing...' }) =>
         .ProseMirror {
           outline: none;
           min-height: 300px;
+          max-height: 384px;
           padding: 1rem;
+          overflow-y: auto;
         }
         .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
@@ -472,7 +471,16 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
   }, [activeLanguage, sourceLanguage, languageContent]);
 
   return (
-    <div className="w-full">
+    <div className="w-full relative">
+      {/* Translation Loading Overlay */}
+      {isTranslating && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-8 shadow-xl">
+            <LoadingSpinner size="lg" text="Translating content..." />
+          </div>
+        </div>
+      )}
+      
       {/* Language Tabs */}
       <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-gray-300">
         {LANGUAGES.map((lang) => (

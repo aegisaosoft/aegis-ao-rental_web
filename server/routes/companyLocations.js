@@ -18,28 +18,30 @@ const router = express.Router();
 const apiService = require('../config/api');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
-// Get all company locations (same pattern as vehicles)
-router.get('/', authenticateToken, async (req, res) => {
+// Get all company locations (anonymous access allowed - public endpoint)
+router.get('/', async (req, res) => {
   try {
-    // Use token from authenticateToken middleware (same as vehicles)
-    const token = req.token || req.session.token || req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    // Token is optional for this endpoint (backend allows anonymous access)
+    const token = req.token || req.session?.token || req.headers.authorization?.split(' ')[1];
     
     const params = { ...req.query };
     
     const axios = require('axios');
     const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    
+    // Add authorization header only if token is available
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await axios.get(`${apiBaseUrl}/api/CompanyLocations`, {
       params,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers,
       httpsAgent: new (require('https')).Agent({
         rejectUnauthorized: false
       }),
@@ -105,13 +107,6 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     const axios = require('axios');
     const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     
-    console.log('[CompanyLocations] Creating location:', {
-      url: `${apiBaseUrl}/api/CompanyLocations`,
-      hasToken: !!token,
-      tokenLength: token?.length || 0,
-      body: req.body
-    });
-    
     const response = await axios.post(`${apiBaseUrl}/api/CompanyLocations`, req.body, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -123,12 +118,6 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       }),
       validateStatus: () => true
     });
-    
-    console.log('[CompanyLocations] Create response status:', response.status);
-    
-    if (response.status >= 400) {
-      console.error('[CompanyLocations] Create error:', response.data);
-    }
     
     res.status(response.status).json(response.data);
   } catch (error) {

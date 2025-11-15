@@ -413,9 +413,9 @@ app.use('/api/*', upload.any(), async (req, res) => {
     if (req.method === 'PUT' && proxyPath.includes('/api/RentalCompanies/')) {
       try {
     // Use the token extracted at the top level
-    const putHeaders = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+        const putHeaders = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }), // Use session token or header token
       ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
       ...(req.headers.cookie && { Cookie: req.headers.cookie }) // Forward cookies
@@ -426,17 +426,17 @@ app.use('/api/*', upload.any(), async (req, res) => {
       hasToken: !!token,
       url: proxyPath
     });
-    
-    const response = await apiClient({
-      method: req.method,
-      url: proxyPath,
-      params: req.query,
-      data: req.body,
-      headers: putHeaders,
-      validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
-    });
+        
+        const response = await apiClient({
+          method: req.method,
+          url: proxyPath,
+          params: req.query,
+          data: req.body,
+          headers: putHeaders,
+          validateStatus: (status) => status >= 200 && status < 600, // Accept all status codes
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
+        });
         
         console.log(`[Proxy] Response status: ${response.status}`);
         

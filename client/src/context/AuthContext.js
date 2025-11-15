@@ -36,21 +36,18 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        console.log('[AuthContext] Checking session status...');
         const response = await apiService.getProfile();
         console.log('[AuthContext] ✅ Session is valid, user authenticated');
-        console.log('[AuthContext] User data:', response.data);
         setUser(response.data);
       } catch (error) {
         // Only clear user on 401/403 - these mean no valid session
         // Other errors (500, 502, network errors) should NOT clear the session
         if (error.response?.status === 401 || error.response?.status === 403) {
-          console.log('[AuthContext] ⚠️ No valid session found (401/403)');
-          console.log('[AuthContext] Error response:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message
-          });
+          // Silent failure - 401/403 is expected when user is not logged in
+          // Only log in development mode for debugging
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[AuthContext] No active session (user not logged in)');
+          }
           setUser(null);
         } else {
           // For other errors (500, 502, network, etc.), keep the user logged in

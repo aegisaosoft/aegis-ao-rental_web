@@ -1097,15 +1097,33 @@ const BookPage = () => {
 
 
   const handleChange = (e) => {
-
+    const name = e.target.name;
+    const value = e.target.value;
+    
+    // If pickup date is changing, check if return date needs adjustment
+    if (name === 'pickupDate' && value) {
+      const newPickupDate = new Date(value);
+      const currentReturnDate = formData.returnDate ? new Date(formData.returnDate) : null;
+      
+      // If return date exists and is less than or equal to new pickup date, set it to next day after pickup
+      if (currentReturnDate && currentReturnDate <= newPickupDate) {
+        const nextDay = new Date(newPickupDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split('T')[0];
+        
+        setFormData({
+          ...formData,
+          pickupDate: value,
+          returnDate: nextDayStr
+        });
+        return;
+      }
+    }
+    
     setFormData({
-
       ...formData,
-
-      [e.target.name]: e.target.value
-
+      [name]: value
     });
-
   };
 
 

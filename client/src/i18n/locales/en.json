@@ -439,6 +439,7 @@
     "vehicles": "Vehicles",
     "about": "About Us",
     "contact": "Contact",
+    "contactUs": "Contact Us",
     "services": "Services",
     "economyCars": "Economy Cars",
     "luxuryVehicles": "Luxury Vehicles",
@@ -451,7 +452,8 @@
     "email": "Email",
     "address": "Address",
     "allRightsReserved": "All rights reserved.",
-    "scanQRCode": "Scan QR Code"
+    "scanQRCode": "Scan QR Code",
+    "noLocations": "No locations available"
   },
   "qrCode": {
     "download": "Download",

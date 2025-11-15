@@ -554,6 +554,12 @@ export const translatedApiService = {
     return await apiService.updateProfile(data);
   },
 
+  // Terms of Use
+  updateTermsOfUse: async (companyId, termsOfUse) => {
+    const response = await apiService.updateTermsOfUse(companyId, termsOfUse);
+    return translateResponse(response);
+  },
+
   // Media uploads (no translation needed for binary data)
   uploadCompanyVideo: async (companyId, file, onProgress) => {
     return await apiService.uploadCompanyVideo(companyId, file, onProgress);

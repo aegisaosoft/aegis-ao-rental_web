@@ -1924,40 +1924,39 @@ const AdminDashboard = () => {
   };
 
 
-  const handleTermsOfUseSave = () => {
+  const handleTermsOfUseSave = async () => {
     if (!currentCompanyId) return;
     setIsSavingTermsOfUse(true);
-    updateCompanyMutation.mutate(
-      { 
+    try {
+      // Use the separate API endpoint for updating terms of use
+      const response = await apiService.updateTermsOfUse(currentCompanyId, {
         termsOfUse: termsOfUseDraft || null
-      },
-      {
-        onSuccess: async () => {
-          // Update local form data immediately
-          setCompanyFormData((prev) => ({
-            ...prev,
-            termsOfUse: termsOfUseDraft,
-            TermsOfUse: termsOfUseDraft,
-          }));
-          // Invalidate and refetch company data to ensure UI is updated
-          await queryClient.invalidateQueries(['company', currentCompanyId]);
-          await queryClient.refetchQueries(['company', currentCompanyId]);
-          toast.success(
-            t('admin.termsOfUseUpdated', 'Terms of Use updated successfully.')
-          );
-        },
-        onError: (error) => {
-          console.error('Error updating terms of use:', error);
-          toast.error(
-            error.response?.data?.message ||
-              t('admin.termsOfUseUpdateFailed', 'Failed to update Terms of Use.')
-          );
-        },
-        onSettled: () => {
-          setIsSavingTermsOfUse(false);
-        },
-      }
-    );
+      });
+      
+      // Update local form data immediately
+      setCompanyFormData((prev) => ({
+        ...prev,
+        termsOfUse: termsOfUseDraft,
+        TermsOfUse: termsOfUseDraft,
+      }));
+      
+      
+      // Invalidate and refetch company data to ensure UI is updated
+      await queryClient.invalidateQueries(['company', currentCompanyId]);
+      await queryClient.refetchQueries(['company', currentCompanyId]);
+      
+      toast.success(
+        t('admin.termsOfUseUpdated', 'Terms of Use updated successfully.')
+      );
+    } catch (error) {
+      console.error('Error updating terms of use:', error);
+      toast.error(
+        error.response?.data?.message ||
+          t('admin.termsOfUseUpdateFailed', 'Failed to update Terms of Use.')
+      );
+    } finally {
+      setIsSavingTermsOfUse(false);
+    }
   };
 
   // Location handlers
@@ -4285,7 +4284,7 @@ const AdminDashboard = () => {
                         >
                           {isSavingTermsOfUse 
                             ? t('common.saving') || 'Saving…' 
-                            : t('common.save') || 'Save'}
+                            : t('common.save', 'Save Terms')}
                         </button>
                       </div>
                     </div>

@@ -192,6 +192,8 @@ export const apiService = {
   createCompany: (data) => api.post('/RentalCompanies', data),
   updateCompany: (id, data) => api.put(`/RentalCompanies/${id}`, data),
   deleteCompany: (id) => api.delete(`/RentalCompanies/${id}`),
+  updateTermsOfUse: (id, data) => api.put(`/RentalCompanies/${id}/terms-of-use`, data),
+  clearTermsOfUse: (id) => api.delete(`/RentalCompanies/${id}/terms-of-use`),
   // Get current company config based on domain (public endpoint)
   getCurrentCompanyConfig: () => api.get('/companies/config'),
 
