@@ -1929,7 +1929,7 @@ const AdminDashboard = () => {
     setIsSavingTermsOfUse(true);
     try {
       // Use the separate API endpoint for updating terms of use
-      const response = await apiService.updateTermsOfUse(currentCompanyId, {
+      await apiService.updateTermsOfUse(currentCompanyId, {
         termsOfUse: termsOfUseDraft || null
       });
       
