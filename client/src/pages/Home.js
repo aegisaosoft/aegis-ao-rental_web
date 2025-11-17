@@ -196,14 +196,19 @@ const Home = () => {
     }
   }, [startDate, endDate, category, selectedLocationId]);
   
-  // Fetch models grouped by category - filtered by company from domain and selected location
+  // Fetch models grouped by category - filtered by company from domain, selected location, and dates
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', effectiveCompanyId, selectedLocationId],
-    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null, selectedLocationId || null),
+    ['modelsGroupedByCategory', effectiveCompanyId, selectedLocationId, startDate, endDate],
+    () => apiService.getModelsGroupedByCategory(
+      effectiveCompanyId || null, 
+      selectedLocationId || null,
+      startDate || null,
+      endDate || null
+    ),
     {
       retry: 1,
       refetchOnWindowFocus: false,
-      enabled: true // Always fetch, but filter by company and location if available
+      enabled: true // Always fetch, but filter by company, location, and dates if available
     }
   );
 

@@ -148,15 +148,21 @@ export const apiService = {
   }),
 
   // Models
-  getModelsGroupedByCategory: (companyId, locationId) => {
-    // Only include companyId in params if it's a valid non-empty value
-    // This allows showing all models when companyId is null, undefined, or empty string
+  getModelsGroupedByCategory: (companyId, locationId, pickupDate, returnDate) => {
+    // Only include parameters if they have valid non-empty values
+    // If locationId is not provided, the API will search ALL locations for the company
     const params = {};
     if (companyId && String(companyId).trim() !== '') {
       params.companyId = companyId;
     }
     if (locationId && String(locationId).trim() !== '') {
       params.locationId = locationId;
+    }
+    if (pickupDate) {
+      params.pickupDate = pickupDate;
+    }
+    if (returnDate) {
+      params.returnDate = returnDate;
     }
     return api.get('/Models/grouped-by-category', { params });
   },
