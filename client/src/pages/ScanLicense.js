@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as BlinkIDSDK from '@microblink/blinkid-in-browser-sdk';
 import { useCompany } from '../context/CompanyContext';
-import { apiService } from '../services/api';
 import { toast } from 'react-toastify';
 
 const ScanLicense = () => {

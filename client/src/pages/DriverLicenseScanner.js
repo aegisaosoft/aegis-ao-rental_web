@@ -13,7 +13,6 @@ function DriverLicenseScanner() {
   const [currentSide, setCurrentSide] = useState('front'); // 'front' or 'back'
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedData, setExtractedData] = useState(null);
 
   const startCamera = async () => {
     try {

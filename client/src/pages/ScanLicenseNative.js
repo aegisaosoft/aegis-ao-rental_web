@@ -2,7 +2,7 @@
  * BlinkID Full-Screen Scanner with VideoRecognizer
  * Native BlinkID engine with horizontal frame for driver's license
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as BlinkIDSDK from '@microblink/blinkid-in-browser-sdk';
@@ -28,6 +28,51 @@ const ScanLicenseNative = () => {
   const recognizerRef = useRef(null);
   const wasmSDKRef = useRef(null);
   const recognizerRunnerRef = useRef(null);
+
+  const handleProcessResult = useCallback(async (result) => {
+    try {
+      setStatus('processing');
+      toast.success('✅ License scanned!');
+      
+      const extractValue = (obj) => {
+        if (!obj) return '';
+        if (typeof obj === 'string') return obj;
+        if (obj.latin) return obj.latin;
+        if (obj.originalString) return obj.originalString;
+        if (obj.description) return obj.description;
+        if (obj.value) return obj.value;
+        return String(obj);
+      };
+
+      const licenseData = {
+        firstName: extractValue(result.firstName),
+        lastName: extractValue(result.lastName),
+        dateOfBirth: extractValue(result.dateOfBirth),
+        licenseNumber: extractValue(result.documentNumber),
+        stateIssued: extractValue(result.issuingAuthority) || extractValue(result.jurisdiction),
+        expirationDate: extractValue(result.dateOfExpiry),
+        address: extractValue(result.address)
+      };
+
+      console.log('[FullScreenScanner] Extracted:', licenseData);
+
+      const userId = searchParams.get('userId');
+      if (userId) {
+        await apiService.upsertCustomerLicense(userId, licenseData);
+        toast.success('✅ Saved to database!');
+      }
+
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        setTimeout(() => navigate(returnTo), 2000);
+      }
+    } catch (err) {
+      console.error('[FullScreenScanner] Processing error:', err);
+      toast.error('Failed to save');
+      setStatus('error');
+      setError(err.message);
+    }
+  }, [navigate, searchParams]);
 
   useEffect(() => {
     if (!companyConfig) {
@@ -256,52 +301,7 @@ const ScanLicenseNative = () => {
       
       console.log('[FullScreenScanner] Cleanup complete');
     };
-  }, [companyConfig]);
-
-  const handleProcessResult = async (result) => {
-    try {
-      setStatus('processing');
-      toast.success('✅ License scanned!');
-      
-      const extractValue = (obj) => {
-        if (!obj) return '';
-        if (typeof obj === 'string') return obj;
-        if (obj.latin) return obj.latin;
-        if (obj.originalString) return obj.originalString;
-        if (obj.description) return obj.description;
-        if (obj.value) return obj.value;
-        return String(obj);
-      };
-
-      const licenseData = {
-        firstName: extractValue(result.firstName),
-        lastName: extractValue(result.lastName),
-        dateOfBirth: extractValue(result.dateOfBirth),
-        licenseNumber: extractValue(result.documentNumber),
-        stateIssued: extractValue(result.issuingAuthority) || extractValue(result.jurisdiction),
-        expirationDate: extractValue(result.dateOfExpiry),
-        address: extractValue(result.address)
-      };
-
-      console.log('[FullScreenScanner] Extracted:', licenseData);
-
-      const userId = searchParams.get('userId');
-      if (userId) {
-        await apiService.upsertCustomerLicense(userId, licenseData);
-        toast.success('✅ Saved to database!');
-      }
-
-      const returnTo = searchParams.get('returnTo');
-      if (returnTo) {
-        setTimeout(() => navigate(returnTo), 2000);
-      }
-    } catch (err) {
-      console.error('[FullScreenScanner] Processing error:', err);
-      toast.error('Failed to save');
-      setStatus('error');
-      setError(err.message);
-    }
-  };
+  }, [companyConfig, handleProcessResult]);
 
   return (
     <div className="fixed inset-0 bg-black">
