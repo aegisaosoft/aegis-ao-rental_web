@@ -116,12 +116,12 @@ const Home = () => {
   // Determine effective company ID (domain context only - no fallback)
   const effectiveCompanyId = companyConfig?.id || null;
   
-  // Fetch pickup locations (regular locations where companyId is null - no authentication required)
+  // Fetch locations from locations table filtered by companyId
   const { data: pickupLocationsResponse } = useQuery(
-    ['pickupLocations'],
-    () => apiService.getPickupLocations(undefined), // undefined means get locations where companyId is null (don't include companyId param)
+    ['pickupLocations', effectiveCompanyId],
+    () => apiService.getPickupLocations(effectiveCompanyId),
     {
-      enabled: true, // Always enabled - public locations don't require authentication
+      enabled: !!effectiveCompanyId, // Only fetch if we have a company ID
       retry: 1,
       refetchOnWindowFocus: false
     }

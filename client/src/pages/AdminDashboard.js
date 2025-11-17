@@ -170,6 +170,7 @@ const AdminDashboard = () => {
   const [vehicleModelFilter, setVehicleModelFilter] = useState('');
   const [vehicleYearFilter, setVehicleYearFilter] = useState('');
   const [vehicleLicensePlateFilter, setVehicleLicensePlateFilter] = useState('');
+  const [vehicleLocationFilter, setVehicleLocationFilter] = useState('');
   const [isImportingVehicles, setIsImportingVehicles] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [vehicleEditForm, setVehicleEditForm] = useState({});
@@ -452,12 +453,12 @@ const AdminDashboard = () => {
     }
   );
 
-  // Fetch pickup locations
+  // Fetch pickup locations (needed for both locations tab and vehicle edit form)
   const { data: pickupLocationsData, isLoading: isLoadingPickupLocations } = useQuery(
     ['pickupLocations', currentCompanyId],
     () => apiService.getPickupLocations(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'pickup',
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && (activeTab === 'locations' || activeTab === 'vehicles'),
       onError: (error) => {
         console.error('Error loading pickup locations:', error);
         toast.error(t('admin.locationsLoadFailed'), {
@@ -539,7 +540,8 @@ const AdminDashboard = () => {
       transmission: vehicle.Transmission || vehicle.transmission || '',
       seats: vehicle.Seats || vehicle.seats || '',
       status: vehicle.Status || vehicle.status || 'Available',
-      location: vehicle.Location || vehicle.location || ''
+      location: vehicle.Location || vehicle.location || '',
+      locationId: vehicle.LocationId || vehicle.locationId || vehicle.location_id || ''
     });
   }, []);
 
@@ -798,6 +800,7 @@ const AdminDashboard = () => {
     if (vehicleEditForm.seats !== undefined) updateData.seats = parseInt(vehicleEditForm.seats) || null;
     if (vehicleEditForm.status !== undefined) updateData.status = vehicleEditForm.status;
     if (vehicleEditForm.location !== undefined) updateData.location = vehicleEditForm.location || null;
+    if (vehicleEditForm.locationId !== undefined) updateData.locationId = vehicleEditForm.locationId || null;
 
     updateVehicleMutation.mutate({ vehicleId, data: updateData });
   };
@@ -838,9 +841,9 @@ const AdminDashboard = () => {
   }, [modelsGroupedData]);
 
   // Fetch vehicles list for vehicle management - load on dashboard open
-  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20&make=xxx&model=xxx&year=xxx&licensePlate=xxx
+  // Use query parameters: /vehicles?companyId=xxx&page=1&pageSize=20&make=xxx&model=xxx&year=xxx&licensePlate=xxx&locationId=xxx
   const { data: vehiclesListData, isLoading: isLoadingVehiclesList } = useQuery(
-    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize, vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter],
+    ['vehicles', currentCompanyId, vehiclePage, vehiclePageSize, vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter, vehicleLocationFilter],
     () => {
       const params = {
         companyId: currentCompanyId,  // Query parameter: ?companyId=xxx
@@ -866,6 +869,11 @@ const AdminDashboard = () => {
       // Add license plate filter if entered
       if (vehicleLicensePlateFilter) {
         params.licensePlate = vehicleLicensePlateFilter;
+      }
+      
+      // Add location filter if selected
+      if (vehicleLocationFilter) {
+        params.locationId = vehicleLocationFilter;
       }
       
       return apiService.getVehicles(params);
@@ -897,11 +905,12 @@ const AdminDashboard = () => {
     return Array.isArray(vehicles) ? vehicles : [];
   }, [vehiclesListData]);
 
-  // Extract unique makes and models from ALL models (not just current vehicles)
-  // Use modelsGrouped to get all available makes and models from the models table
-  const { uniqueMakes, uniqueModels } = useMemo(() => {
+  // Extract unique makes and models from both models table AND actual vehicles
+  // This ensures filter includes all makes/models that exist in vehicles, even if not in models table
+  const { uniqueMakes, uniqueModels, makeModelMap } = useMemo(() => {
     const makes = new Set();
     const models = new Set();
+    const makeToModels = new Map(); // Map of make -> Set of models
     
     // Extract from modelsGrouped (all models in database)
     if (modelsGrouped && Array.isArray(modelsGrouped)) {
@@ -913,6 +922,12 @@ const AdminDashboard = () => {
             
             if (make) {
               makes.add(make);
+              if (!makeToModels.has(make)) {
+                makeToModels.set(make, new Set());
+              }
+              if (modelName) {
+                makeToModels.get(make).add(modelName);
+              }
             }
             if (modelName) {
               models.add(modelName);
@@ -922,16 +937,49 @@ const AdminDashboard = () => {
       });
     }
     
+    // Also extract from actual vehicles list to catch any makes/models not in models table
+    if (vehiclesList && Array.isArray(vehiclesList)) {
+      vehiclesList.forEach(vehicle => {
+        const make = vehicle.Make || vehicle.make;
+        const modelName = vehicle.Model || vehicle.model;
+        
+        if (make) {
+          makes.add(make);
+          if (!makeToModels.has(make)) {
+            makeToModels.set(make, new Set());
+          }
+          if (modelName) {
+            makeToModels.get(make).add(modelName);
+          }
+        }
+        if (modelName) {
+          models.add(modelName);
+        }
+      });
+    }
+    
     return {
       uniqueMakes: Array.from(makes).sort(),
-      uniqueModels: Array.from(models).sort()
+      uniqueModels: Array.from(models).sort(),
+      makeModelMap: makeToModels
     };
-  }, [modelsGrouped]);
+  }, [modelsGrouped, vehiclesList]);
+
+  // Filter models based on selected make
+  const filteredModels = useMemo(() => {
+    if (!vehicleMakeFilter) {
+      return uniqueModels; // Show all models if no make is selected
+    }
+    
+    // Get models for the selected make
+    const modelsForMake = makeModelMap.get(vehicleMakeFilter);
+    return modelsForMake ? Array.from(modelsForMake).sort() : [];
+  }, [vehicleMakeFilter, uniqueModels, makeModelMap]);
 
   // Reset page when filters change
   useEffect(() => {
     setVehiclePage(0);
-  }, [vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter]);
+  }, [vehicleMakeFilter, vehicleModelFilter, vehicleYearFilter, vehicleLicensePlateFilter, vehicleLocationFilter]);
 
   // Reset model filter when make filter changes
   useEffect(() => {
@@ -5547,11 +5595,11 @@ const AdminDashboard = () => {
                 </button>
               </div>
             }>
-              {/* Filters: Make, Model, Year, and License Plate - Always visible */}
+              {/* Filters: Make, Model, Year, License Plate, and Location (if > 1) - Always visible */}
               <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {/* Make Filter */}
-                    <div>
+                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('vehicles.make') || 'Make'}
                       </label>
@@ -5573,7 +5621,7 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* Model Filter */}
-                    <div>
+                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('vehicles.model') || 'Model'}
                       </label>
@@ -5584,9 +5632,17 @@ const AdminDashboard = () => {
                           setVehiclePage(0);
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={vehicleMakeFilter && filteredModels.length === 0}
                       >
-                        <option value="">{t('vehicles.allModels') || 'All Models'}</option>
-                        {uniqueModels.map((model) => (
+                        <option value="">
+                          {vehicleMakeFilter 
+                            ? (filteredModels.length === 0 
+                                ? t('vehicles.noModelsForMake', `No models for ${vehicleMakeFilter}`)
+                                : t('vehicles.allModels', 'All Models'))
+                            : t('vehicles.allModels', 'All Models')
+                          }
+                        </option>
+                        {filteredModels.map((model) => (
                           <option key={model} value={model}>
                             {model}
                           </option>
@@ -5595,7 +5651,7 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* Year Filter - Editable Input Field */}
-                    <div>
+                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('vehicles.year') || 'Year'}
                       </label>
@@ -5623,7 +5679,7 @@ const AdminDashboard = () => {
                     </div>
 
                     {/* License Plate Filter - Text Input Field */}
-                    <div>
+                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {t('vehicles.licensePlate') || 'License Plate'}
                       </label>
@@ -5638,6 +5694,34 @@ const AdminDashboard = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+
+                    {/* Location Filter - Only show if company has more than 1 location */}
+                    {pickupLocations.length > 1 && (
+                      <div className="md:col-span-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('admin.location') || 'Location'}
+                        </label>
+                        <select
+                          value={vehicleLocationFilter}
+                          onChange={(e) => {
+                            setVehicleLocationFilter(e.target.value);
+                            setVehiclePage(0);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">{t('admin.allLocations') || 'All Locations'}</option>
+                          {pickupLocations.map((location) => {
+                            const locationId = location.locationId || location.LocationId || location.id || location.Id;
+                            const locationName = location.locationName || location.location_name || location.LocationName || '';
+                            return (
+                              <option key={locationId} value={locationId}>
+                                {locationName}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Clear Filters Button */}
@@ -5648,10 +5732,11 @@ const AdminDashboard = () => {
                         setVehicleModelFilter('');
                         setVehicleYearFilter('');
                         setVehicleLicensePlateFilter('');
+                        setVehicleLocationFilter('');
                         setVehicleSearchTerm('');
                         setVehiclePage(0);
                       }}
-                      disabled={!vehicleMakeFilter && !vehicleModelFilter && !vehicleYearFilter && !vehicleLicensePlateFilter && !vehicleSearchTerm}
+                      disabled={!vehicleMakeFilter && !vehicleModelFilter && !vehicleYearFilter && !vehicleLicensePlateFilter && !vehicleLocationFilter && !vehicleSearchTerm}
                       className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                     >
                       {t('clearFilters') || 'Clear Filters'}
@@ -6023,69 +6108,108 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* Transmission */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.transmission') || 'Transmission'}
-                </label>
-                <select
-                  value={vehicleEditForm.transmission || ''}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, transmission: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">{t('select') || 'Select'}</option>
-                  <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
-                  <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
-                  <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
-                </select>
-              </div>
+              {/* Transmission, Seats, Status, and Location in one row */}
+              <div className="grid grid-cols-12 gap-4">
+                {/* Transmission */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('vehicles.transmission') || 'Transmission'}
+                  </label>
+                  <select
+                    value={vehicleEditForm.transmission || ''}
+                    onChange={(e) => setVehicleEditForm(prev => ({ ...prev, transmission: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('select') || 'Select'}</option>
+                    <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
+                    <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
+                    <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
+                  </select>
+                </div>
 
-              {/* Seats */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.seats') || 'Seats'}
-                </label>
-                <input
-                  type="number"
-                  value={vehicleEditForm.seats || ''}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, seats: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="1"
-                  max="20"
-                />
-              </div>
+                {/* Seats */}
+                <div className="col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('vehicles.seats') || 'Seats'}
+                  </label>
+                  <input
+                    type="number"
+                    value={vehicleEditForm.seats || ''}
+                    onChange={(e) => setVehicleEditForm(prev => ({ ...prev, seats: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="1"
+                    max="20"
+                  />
+                </div>
 
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.status') || 'Status'}
-                </label>
-                <select
-                  value={vehicleEditForm.status || 'Available'}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
-                  <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
-                  <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
-                  <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
-                  <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
-                </select>
-              </div>
+                {/* Status */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('vehicles.status') || 'Status'}
+                  </label>
+                  <select
+                    value={vehicleEditForm.status || 'Available'}
+                    onChange={(e) => setVehicleEditForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
+                    <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
+                    <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
+                    <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
+                    <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
+                  </select>
+                </div>
 
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.location') || 'Location'}
-                </label>
-                <input
-                  type="text"
-                  value={vehicleEditForm.location || ''}
-                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, location: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  maxLength={255}
-                  placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
-                />
+                {/* Location - Show combobox if company has more than 1 location, otherwise show text input */}
+                {pickupLocations.length > 1 ? (
+                  <div className="col-span-7">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.location') || 'Location'}
+                    </label>
+                    <select
+                      value={vehicleEditForm.locationId || ''}
+                      onChange={(e) => {
+                        const selectedLocation = pickupLocations.find(loc => 
+                          (loc.locationId || loc.LocationId || loc.id || loc.Id) === e.target.value
+                        );
+                        const locationName = selectedLocation 
+                          ? (selectedLocation.locationName || selectedLocation.location_name || selectedLocation.LocationName || '')
+                          : '';
+                        setVehicleEditForm(prev => ({ 
+                          ...prev, 
+                          locationId: e.target.value,
+                          location: locationName
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">{t('vehicles.selectLocation') || 'Select Location'}</option>
+                      {pickupLocations.map((location) => {
+                        const locationId = location.locationId || location.LocationId || location.id || location.Id;
+                        const locationName = location.locationName || location.location_name || location.LocationName || '';
+                        return (
+                          <option key={locationId} value={locationId}>
+                            {locationName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="col-span-7">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('vehicles.location') || 'Location'}
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleEditForm.location || ''}
+                      onChange={(e) => setVehicleEditForm(prev => ({ ...prev, location: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      maxLength={255}
+                      placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

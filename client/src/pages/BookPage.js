@@ -2616,60 +2616,6 @@ const BookPage = () => {
 
                   <form onSubmit={handleSubmit} className="space-y-4">
 
-                    <div>
-
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-
-                        {t('bookPage.pickupLocationLabel')}
-
-                      </label>
-
-                      <input
-
-                        type="text"
-
-                        name="pickupLocation"
-
-                        value={formData.pickupLocation}
-
-                        onChange={handleChange}
-
-                        placeholder={selectedVehicle.location || 'Location'}
-
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-
-                      />
-
-                    </div>
-
-
-
-                    <div>
-
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-
-                        {t('bookPage.returnLocationLabel')}
-
-                      </label>
-
-                      <input
-
-                        type="text"
-
-                        name="returnLocation"
-
-                        value={formData.returnLocation}
-
-                        onChange={handleChange}
-
-                        placeholder={selectedVehicle.location || 'Location'}
-
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-
-                      />
-
-                    </div>
-
 
 
                     {modelDailyRate > 0 && (
