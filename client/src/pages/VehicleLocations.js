@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { toast } from 'react-toastify';
@@ -13,7 +13,7 @@ const VehicleLocations = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated, isAdmin, currentCompanyId: authCompanyId, loading: authLoading } = useAuth();
-  const { companyConfig, companyId: contextCompanyId, subdomain, loading: companyLoading } = useCompany();
+  const { companyConfig, companyId: contextCompanyId, loading: companyLoading } = useCompany();
   const queryClient = useQueryClient();
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [draggedVehicle, setDraggedVehicle] = useState(null);
@@ -75,7 +75,7 @@ const VehicleLocations = () => {
       navigate('/admin-dashboard');
       return;
     }
-  }, [isAuthenticated, isAdmin, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked]);
+  }, [isAuthenticated, isAdmin, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked, user, companyConfig]);
 
   // Fetch all locations - only after auth is ready
   const { data: locationsData, isLoading: locationsLoading } = useQuery(
@@ -372,25 +372,24 @@ const VehicleLocations = () => {
   const vehiclesWithoutLocation = applyFilters(vehiclesWithoutLocationAll);
   const vehiclesInLocation = applyFilters(vehiclesInLocationAll);
 
-  const selectedLocation = Array.isArray(locations) 
-    ? locations.find(l => l.locationId === selectedLocationId)
-    : null;
-
   // Extract unique makes and models for filters
   const uniqueMakes = Array.isArray(allVehicles)
     ? [...new Set(allVehicles.map(v => v.Make || v.make).filter(Boolean))].sort()
     : [];
 
-  const filteredModels = Array.isArray(allVehicles) && filterMake
-    ? [...new Set(
+  const filteredModels = useMemo(() => {
+    if (Array.isArray(allVehicles) && filterMake) {
+      return [...new Set(
         allVehicles
           .filter(v => (v.Make || v.make) === filterMake)
           .map(v => v.Model || v.model)
           .filter(Boolean)
-      )].sort()
-    : Array.isArray(allVehicles)
-    ? [...new Set(allVehicles.map(v => v.Model || v.model).filter(Boolean))].sort()
-    : [];
+      )].sort();
+    }
+    return Array.isArray(allVehicles)
+      ? [...new Set(allVehicles.map(v => v.Model || v.model).filter(Boolean))].sort()
+      : [];
+  }, [allVehicles, filterMake]);
 
   // Clear model filter if make changes and model is no longer valid
   useEffect(() => {
