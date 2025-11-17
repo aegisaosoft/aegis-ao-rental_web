@@ -148,10 +148,16 @@ export const apiService = {
   }),
 
   // Models
-  getModelsGroupedByCategory: (companyId) => {
+  getModelsGroupedByCategory: (companyId, locationId) => {
     // Only include companyId in params if it's a valid non-empty value
     // This allows showing all models when companyId is null, undefined, or empty string
-    const params = (companyId && String(companyId).trim() !== '') ? { companyId } : {};
+    const params = {};
+    if (companyId && String(companyId).trim() !== '') {
+      params.companyId = companyId;
+    }
+    if (locationId && String(locationId).trim() !== '') {
+      params.locationId = locationId;
+    }
     return api.get('/Models/grouped-by-category', { params });
   },
   getModels: (params = {}) => api.get('/Models', { params }),

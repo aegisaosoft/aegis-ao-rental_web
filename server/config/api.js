@@ -125,8 +125,10 @@ const apiService = {
   },
 
   // Models
-  getModelsGroupedByCategory: (companyId) => {
-    const params = companyId ? { companyId } : {};
+  getModelsGroupedByCategory: (companyId, locationId) => {
+    const params = {};
+    if (companyId) params.companyId = companyId;
+    if (locationId) params.locationId = locationId;
     return apiClient.get('/api/Models/grouped-by-category', { params });
   },
   getModels: (params = {}) => apiClient.get('/api/Models', { params }),

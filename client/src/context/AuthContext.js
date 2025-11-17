@@ -163,6 +163,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Get company ID from user object - this is a global parameter like subdomain
+  const currentCompanyId = user?.companyId || user?.CompanyId;
+
   const value = {
     user,
     loading,
@@ -173,7 +176,8 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin' || user?.role === 'mainadmin',
     isMainAdmin: user?.role === 'mainadmin',
-    isWorker: user?.role === 'worker'
+    isWorker: user?.role === 'worker',
+    currentCompanyId // Global company ID from authenticated user
   };
 
   return (

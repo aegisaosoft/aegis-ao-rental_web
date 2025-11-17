@@ -23,7 +23,8 @@ const router = express.Router();
 router.get('/grouped-by-category', async (req, res) => {
   try {
     const companyId = req.query.companyId || null;
-    const response = await apiService.getModelsGroupedByCategory(companyId);
+    const locationId = req.query.locationId || null;
+    const response = await apiService.getModelsGroupedByCategory(companyId, locationId);
     
     // Unwrap standardized response format if present
     let data = response.data;

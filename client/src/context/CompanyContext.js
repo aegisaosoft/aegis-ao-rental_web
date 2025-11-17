@@ -268,6 +268,9 @@ export const CompanyProvider = ({ children }) => {
     [currencyCode]
   );
 
+  // Get company ID as a global parameter
+  const companyId = companyConfig?.id || companyConfig?.companyId || companyConfig?.Id || companyConfig?.CompanyId;
+
   const value = {
     companyConfig,
     loading,
@@ -281,6 +284,9 @@ export const CompanyProvider = ({ children }) => {
     hasBookingIntegration: companyConfig?.bookingIntegrated === true,
     // Helper to get company language
     language: companyConfig?.language || 'en',
+    // Global company ID parameter (like subdomain)
+    companyId,
+    subdomain: companyConfig?.subdomain || companyConfig?.Subdomain,
   };
 
   return (

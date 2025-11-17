@@ -167,8 +167,8 @@ export const translatedApiService = {
   },
 
   // Models
-  getModelsGroupedByCategory: async (companyId) => {
-    const response = await apiService.getModelsGroupedByCategory(companyId);
+  getModelsGroupedByCategory: async (companyId, locationId) => {
+    const response = await apiService.getModelsGroupedByCategory(companyId, locationId);
     return translateResponse(response);
   },
   

@@ -51,6 +51,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Locations from './pages/Locations';
 import QRCodePage from './pages/QRCodePage';
+import VehicleLocations from './pages/VehicleLocations';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
@@ -129,6 +130,8 @@ const AppLayout = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-bookings" element={<MyBookings />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/vehicle-locations" element={<VehicleLocations />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/scan" element={<ScanLicense />} />
           <Route path="/scan-native" element={<ScanLicenseNative />} />

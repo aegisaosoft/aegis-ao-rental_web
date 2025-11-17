@@ -15,6 +15,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin } from 'lucide-react';
@@ -55,28 +56,49 @@ const AdminDashboard = () => {
   const { t: i18nT } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
-      if (!key) return fallback ?? '';
-      const normalizedKey = key.startsWith('vehicles.') ? key.slice('vehicles.'.length) : key;
+      if (!key) return String(fallback ?? '');
+      
+      try {
+        const normalizedKey = key.startsWith('vehicles.') ? key.slice('vehicles.'.length) : key;
 
-      let translation = i18nT(normalizedKey);
+        let translation = i18nT(normalizedKey);
 
-      if (!translation || translation === normalizedKey) {
-        translation = i18nT(key);
-      }
-
-      if (!translation || translation === key || translation === normalizedKey) {
-        if (fallback !== undefined) {
-          return fallback;
+        if (!translation || translation === normalizedKey) {
+          translation = i18nT(key);
         }
-        return '';
-      }
 
-      return translation;
+        // Check if translation is invalid
+        if (!translation || translation === key || translation === normalizedKey) {
+          return String(fallback ?? '');
+        }
+
+        // Ensure we always return a string, not an object
+        if (typeof translation === 'object' || translation === null) {
+          console.warn(`Translation for "${key}" returned an object instead of string. Using fallback.`);
+          return String(fallback ?? '');
+        }
+
+        // Force string conversion
+        const result = String(translation);
+        
+        // Validate the result is actually a string
+        if (typeof result !== 'string' || result === '[object Object]') {
+          console.warn(`Translation for "${key}" resulted in invalid string. Using fallback.`);
+          return String(fallback ?? '');
+        }
+
+        return result;
+      } catch (error) {
+        console.error(`Error translating "${key}":`, error);
+        return String(fallback ?? '');
+      }
     },
     [i18nT]
   );
 
   const t = translate;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated, isAdmin, isMainAdmin } = useAuth();
   const { companyConfig, formatPrice, currencySymbol, currencyCode } = useCompany();
   const queryClient = useQueryClient();
@@ -90,9 +112,12 @@ const AdminDashboard = () => {
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+  
+  // Get initial tab from URL parameter, default to 'company' for activeSection
+  const initialTab = searchParams.get('tab') || 'company';
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
   const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company' or 'pickup'
-  const [activeSection, setActiveSection] = useState('company'); // 'company', 'vehicles', 'reservations', 'bookingSettings', 'employees', 'reports', etc.
+  const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
       info: t(
@@ -800,7 +825,14 @@ const AdminDashboard = () => {
     if (vehicleEditForm.seats !== undefined) updateData.seats = parseInt(vehicleEditForm.seats) || null;
     if (vehicleEditForm.status !== undefined) updateData.status = vehicleEditForm.status;
     if (vehicleEditForm.location !== undefined) updateData.location = vehicleEditForm.location || null;
-    if (vehicleEditForm.locationId !== undefined) updateData.locationId = vehicleEditForm.locationId || null;
+    if (vehicleEditForm.locationId !== undefined) {
+      // Send locationId as-is if it's a valid value, or null if empty
+      updateData.locationId = vehicleEditForm.locationId && vehicleEditForm.locationId !== '' ? vehicleEditForm.locationId : null;
+    }
+
+    console.log('[AdminDashboard] Saving vehicle with updateData:', updateData);
+    console.log('[AdminDashboard] locationId value:', updateData.locationId);
+    console.log('[AdminDashboard] locationId type:', typeof updateData.locationId);
 
     updateVehicleMutation.mutate({ vehicleId, data: updateData });
   };
@@ -1479,7 +1511,7 @@ const AdminDashboard = () => {
     ['allAdditionalServices'],
     () => apiService.getAdditionalServices({}),
     {
-      enabled: isAuthenticated && isAdmin && activeSection === 'bookingSettings',
+      enabled: isAuthenticated && isAdmin && activeSection === 'additionalServices',
       onError: (error) => {
         console.error('Error loading all additional services:', error);
       }
@@ -1491,7 +1523,7 @@ const AdminDashboard = () => {
     ['companyServices', currentCompanyId],
     () => apiService.getCompanyServices(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'bookingSettings',
+      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'additionalServices',
       onError: (error) => {
         console.error('Error loading company services:', error);
       }
@@ -2776,7 +2808,7 @@ const AdminDashboard = () => {
     },
     {
       id: 'status',
-      header: t('vehicles.status', 'Status'),
+      header: t('admin.status', 'Status'),
       accessorFn: row => row.Status || row.status || '',
       cell: info => info.getValue(),
     },
@@ -3165,18 +3197,18 @@ const AdminDashboard = () => {
                 <span className="text-xs text-center">{t('admin.employees', 'Employees')}</span>
               </button>
               <button
-                onClick={() => setActiveSection('bookingSettings')}
+                onClick={() => setActiveSection('additionalServices')}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'bookingSettings'
+                  activeSection === 'additionalServices'
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
-                title={t('admin.bookingSettings')}
-                aria-label={t('admin.bookingSettings')}
+                title={t('admin.additionalServices')}
+                aria-label={t('admin.additionalServices')}
               >
                 <Calendar className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.bookingSettings')}</span>
+                <span className="text-xs text-center">{t('admin.additionalServices')}</span>
               </button>
               <button
                 onClick={() => setActiveSection('reports')}
@@ -5137,10 +5169,10 @@ const AdminDashboard = () => {
             </Card>
           )}
 
-          {/* Booking Settings Section */}
-          {activeSection === 'bookingSettings' && (
+          {/* Additional Services Section */}
+          {activeSection === 'additionalServices' && (
             <Card 
-              title={t('admin.bookingSettings')}
+              title={t('admin.additionalServices')}
               headerActions={
                 !isEditingService && (
                   <button
@@ -5593,6 +5625,13 @@ const AdminDashboard = () => {
                   <Plus className="h-4 w-4 mr-2 inline" />
                   {t('admin.addVehicle')}
                 </button>
+                <button
+                  onClick={() => navigate(`/vehicle-locations?companyId=${currentCompanyId}`)}
+                  className="btn-outline text-sm flex items-center gap-2"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {t('admin.manageLocations', 'Manage Locations')}
+                </button>
               </div>
             }>
               {/* Filters: Make, Model, Year, License Plate, and Location (if > 1) - Always visible */}
@@ -5704,6 +5743,7 @@ const AdminDashboard = () => {
                         <select
                           value={vehicleLocationFilter}
                           onChange={(e) => {
+                            console.log('[AdminDashboard] Location filter changed to:', e.target.value);
                             setVehicleLocationFilter(e.target.value);
                             setVehiclePage(0);
                           }}
@@ -5711,8 +5751,8 @@ const AdminDashboard = () => {
                         >
                           <option value="">{t('admin.allLocations') || 'All Locations'}</option>
                           {pickupLocations.map((location) => {
-                            const locationId = location.locationId || location.LocationId || location.id || location.Id;
-                            const locationName = location.locationName || location.location_name || location.LocationName || '';
+                            const locationId = location.LocationId || location.locationId || location.id || location.Id;
+                            const locationName = location.LocationName || location.locationName || location.location_name || '';
                             return (
                               <option key={locationId} value={locationId}>
                                 {locationName}
@@ -5925,7 +5965,7 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">
-                {t('vehicles.editVehicle', 'Edit Vehicle')}
+                {t('vehicleDetail.editVehicle', 'Edit Vehicle')}
               </h2>
               <button
                 onClick={() => {
@@ -5946,7 +5986,7 @@ const AdminDashboard = () => {
                   {/* Make */}
                   <div className="col-span-5">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.make') || 'Make'}
+                      {t('vehicles.make', 'Make')}
                     </label>
                     <input
                       type="text"
@@ -5954,14 +5994,14 @@ const AdminDashboard = () => {
                       onChange={(e) => setVehicleEditForm(prev => ({ ...prev, make: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       maxLength={100}
-                      placeholder={t('vehicles.make') || 'Vehicle Make'}
+                      placeholder={t('vehicles.make', 'Vehicle Make')}
                     />
                   </div>
 
                   {/* Model */}
                   <div className="col-span-5">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.model') || 'Model'}
+                      {t('vehicles.model', 'Model')}
                     </label>
                     <input
                       type="text"
@@ -5969,14 +6009,14 @@ const AdminDashboard = () => {
                       onChange={(e) => setVehicleEditForm(prev => ({ ...prev, model: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       maxLength={100}
-                      placeholder={t('vehicles.model') || 'Vehicle Model'}
+                      placeholder={t('vehicles.model', 'Vehicle Model')}
                     />
                   </div>
 
                   {/* Year */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.year') || 'Year'}
+                      {t('vehicles.year', 'Year')}
                     </label>
                     <input
                       type="number"
@@ -5985,7 +6025,7 @@ const AdminDashboard = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="1900"
                       max="2100"
-                      placeholder={t('vehicles.yearPlaceholder') || 'Year'}
+                      placeholder={t('vehicles.yearPlaceholder', 'Year')}
                     />
                   </div>
                 </div>
@@ -5995,7 +6035,7 @@ const AdminDashboard = () => {
                   {/* License Plate */}
                   <div className="col-span-9">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.licensePlate') || 'License Plate'}
+                      {t('vehicles.licensePlate', 'License Plate')}
                     </label>
                     <input
                       type="text"
@@ -6003,7 +6043,7 @@ const AdminDashboard = () => {
                       onChange={(e) => setVehicleEditForm(prev => ({ ...prev, licensePlate: e.target.value.toUpperCase() }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       maxLength={50}
-                      placeholder={t('vehicles.licensePlate') || 'License Plate'}
+                      placeholder={t('vehicles.licensePlate', 'License Plate')}
                       style={{ textTransform: 'uppercase' }}
                     />
                   </div>
@@ -6011,7 +6051,7 @@ const AdminDashboard = () => {
                   {/* State */}
                   <div className="col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State
+                      {t('vehicles.state', 'State')}
                     </label>
                     <select
                       value={vehicleEditForm.state || ''}
@@ -6021,10 +6061,10 @@ const AdminDashboard = () => {
                     >
                       <option value="">
                         {!companyCountry 
-                          ? 'Select State (No country set)' 
+                          ? t('vehicles.selectStateNoCountry', 'Select State (No country set)')
                           : statesForCompanyCountry.length === 0 
-                            ? `No states for ${companyCountry}`
-                            : 'Select State'
+                            ? t('vehicles.noStatesForCountry', `No states for ${companyCountry}`)
+                            : t('vehicles.selectState', 'Select State')
                         }
                       </option>
                       {companyCountry && statesForCompanyCountry.length > 0 && (
@@ -6044,7 +6084,7 @@ const AdminDashboard = () => {
               {/* Color */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.color') || 'Color'}
+                  {t('vehicles.color', 'Color')}
                 </label>
                 <input
                   type="text"
@@ -6058,7 +6098,7 @@ const AdminDashboard = () => {
               {/* VIN */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.vin') || 'VIN'}
+                  {t('vehicles.vin', 'VIN')}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -6067,7 +6107,7 @@ const AdminDashboard = () => {
                     onChange={(e) => setVehicleEditForm(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     maxLength={17}
-                    placeholder="17-character VIN"
+                    placeholder={t('vehicles.vinPlaceholder', '17-character VIN')}
                     style={{ textTransform: 'uppercase' }}
                   />
                   <button
@@ -6079,25 +6119,25 @@ const AdminDashboard = () => {
                     {isLookingUpVin ? (
                       <>
                         <LoadingSpinner />
-                        {t('vehicles.lookingUp') || 'Looking up...'}
+                        {t('vehicles.lookingUp', 'Looking up...')}
                       </>
                     ) : (
                       <>
                         <Search className="h-4 w-4" />
-                        {t('vehicles.lookupVin', 'Lookup Vin')}
+                        {t('vehicles.lookupVin', 'Lookup VIN')}
                       </>
                     )}
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {t('vehicles.vinLookupHint') || 'Enter 17-character VIN and click Lookup to auto-fill vehicle information'}
+                  {t('vehicles.vinLookupHint', 'Enter 17-character VIN and click Lookup to auto-fill vehicle information')}
                 </p>
               </div>
 
               {/* Mileage */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.mileage') || 'Mileage'}
+                  {t('vehicles.mileage', 'Mileage')}
                 </label>
                 <input
                   type="number"
@@ -6108,29 +6148,29 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* Transmission, Seats, Status, and Location in one row */}
-              <div className="grid grid-cols-12 gap-4">
+              {/* Transmission and Seats */}
+              <div className="grid grid-cols-2 gap-4">
                 {/* Transmission */}
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('vehicles.transmission') || 'Transmission'}
+                    {t('admin.transmission', 'Transmission')}
                   </label>
                   <select
                     value={vehicleEditForm.transmission || ''}
                     onChange={(e) => setVehicleEditForm(prev => ({ ...prev, transmission: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">{t('select') || 'Select'}</option>
-                    <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
-                    <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
-                    <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
+                    <option value="">{t('common.select', 'Select')}</option>
+                    <option value="Automatic">{t('transmission.automatic', 'Automatic')}</option>
+                    <option value="Manual">{t('transmission.manual', 'Manual')}</option>
+                    <option value="CVT">CVT</option>
                   </select>
                 </div>
 
                 {/* Seats */}
-                <div className="col-span-1">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('vehicles.seats') || 'Seats'}
+                    {t('vehicles.seats', 'Seats')}
                   </label>
                   <input
                     type="number"
@@ -6141,39 +6181,43 @@ const AdminDashboard = () => {
                     max="20"
                   />
                 </div>
+              </div>
 
-                {/* Status */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('vehicles.status') || 'Status'}
-                  </label>
-                  <select
-                    value={vehicleEditForm.status || 'Available'}
-                    onChange={(e) => setVehicleEditForm(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
-                    <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
-                    <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
-                    <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
-                    <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
-                  </select>
-                </div>
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('admin.status', 'Status')}
+                </label>
+                <select
+                  value={vehicleEditForm.status || 'Available'}
+                  onChange={(e) => setVehicleEditForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Available">{t('status.available', 'Available')}</option>
+                  <option value="Rented">{t('status.rented', 'Rented')}</option>
+                  <option value="Maintenance">{t('status.maintenance', 'Maintenance')}</option>
+                  <option value="OutOfService">{t('status.retired', 'Out of Service')}</option>
+                  <option value="Cleaning">{t('status.cleaning', 'Cleaning')}</option>
+                </select>
+              </div>
 
-                {/* Location - Show combobox if company has more than 1 location, otherwise show text input */}
-                {pickupLocations.length > 1 ? (
-                  <div className="col-span-7">
+              {/* Location - Show combobox if company has more than 1 location, otherwise show text input */}
+              {pickupLocations.length > 1 ? (
+                <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.location') || 'Location'}
+                      {t('admin.location', 'Location')}
                     </label>
                     <select
                       value={vehicleEditForm.locationId || ''}
                       onChange={(e) => {
+                        console.log('[AdminDashboard] Location selected:', e.target.value);
+                        console.log('[AdminDashboard] Available locations:', pickupLocations);
                         const selectedLocation = pickupLocations.find(loc => 
-                          (loc.locationId || loc.LocationId || loc.id || loc.Id) === e.target.value
+                          (loc.LocationId || loc.locationId || loc.id || loc.Id) === e.target.value
                         );
+                        console.log('[AdminDashboard] Found location:', selectedLocation);
                         const locationName = selectedLocation 
-                          ? (selectedLocation.locationName || selectedLocation.location_name || selectedLocation.LocationName || '')
+                          ? (selectedLocation.LocationName || selectedLocation.locationName || selectedLocation.location_name || '')
                           : '';
                         setVehicleEditForm(prev => ({ 
                           ...prev, 
@@ -6183,10 +6227,10 @@ const AdminDashboard = () => {
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="">{t('vehicles.selectLocation') || 'Select Location'}</option>
+                      <option value="">{t('home.selectLocation', 'Select Location')}</option>
                       {pickupLocations.map((location) => {
-                        const locationId = location.locationId || location.LocationId || location.id || location.Id;
-                        const locationName = location.locationName || location.location_name || location.LocationName || '';
+                        const locationId = location.LocationId || location.locationId || location.id || location.Id;
+                        const locationName = location.LocationName || location.locationName || location.location_name || '';
                         return (
                           <option key={locationId} value={locationId}>
                             {locationName}
@@ -6196,9 +6240,9 @@ const AdminDashboard = () => {
                     </select>
                   </div>
                 ) : (
-                  <div className="col-span-7">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('vehicles.location') || 'Location'}
+                      {t('admin.location', 'Location')}
                     </label>
                     <input
                       type="text"
@@ -6206,11 +6250,10 @@ const AdminDashboard = () => {
                       onChange={(e) => setVehicleEditForm(prev => ({ ...prev, location: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       maxLength={255}
-                      placeholder={t('vehicles.locationPlaceholder') || 'Enter vehicle location'}
+                      placeholder={t('vehicles.locationPlaceholder', 'Enter vehicle location')}
                     />
                   </div>
                 )}
-              </div>
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -6222,7 +6265,7 @@ const AdminDashboard = () => {
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   disabled={updateVehicleMutation.isLoading}
                 >
-                  {t('cancel') || 'Cancel'}
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   onClick={handleSaveVehicle}
@@ -6230,8 +6273,8 @@ const AdminDashboard = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >
                   {updateVehicleMutation.isLoading 
-                    ? (t('saving') || 'Saving...') 
-                    : (t('save') || 'Save')}
+                    ? t('common.saving', 'Saving...') 
+                    : t('common.save', 'Save')}
                 </button>
               </div>
             </div>
@@ -6452,17 +6495,17 @@ const AdminDashboard = () => {
               {/* Transmission */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.transmission') || 'Transmission'}
+                  {t('admin.transmission') || 'Transmission'}
                 </label>
                 <select
                   value={vehicleCreateForm.transmission || ''}
                   onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, transmission: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">{t('select') || 'Select'}</option>
-                  <option value="Automatic">{t('vehicles.automatic') || 'Automatic'}</option>
-                  <option value="Manual">{t('vehicles.manual') || 'Manual'}</option>
-                  <option value="CVT">{t('vehicles.cvt') || 'CVT'}</option>
+                  <option value="">{t('common.select') || 'Select'}</option>
+                  <option value="Automatic">{t('transmission.automatic') || 'Automatic'}</option>
+                  <option value="Manual">{t('transmission.manual') || 'Manual'}</option>
+                  <option value="CVT">CVT</option>
                 </select>
               </div>
 
@@ -6484,25 +6527,25 @@ const AdminDashboard = () => {
               {/* Status */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.status') || 'Status'}
+                  {t('admin.status') || 'Status'}
                 </label>
                 <select
                   value={vehicleCreateForm.status || 'Available'}
                   onChange={(e) => setVehicleCreateForm(prev => ({ ...prev, status: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="Available">{t('vehicles.statusAvailable') || 'Available'}</option>
-                  <option value="Rented">{t('vehicles.statusRented') || 'Rented'}</option>
-                  <option value="Maintenance">{t('vehicles.statusMaintenance') || 'Maintenance'}</option>
-                  <option value="OutOfService">{t('vehicles.statusOutOfService') || 'Out of Service'}</option>
-                  <option value="Cleaning">{t('vehicles.statusCleaning') || 'Cleaning'}</option>
+                  <option value="Available">{t('status.available') || 'Available'}</option>
+                  <option value="Rented">{t('status.rented') || 'Rented'}</option>
+                  <option value="Maintenance">{t('status.maintenance') || 'Maintenance'}</option>
+                  <option value="OutOfService">{t('status.retired') || 'Out of Service'}</option>
+                  <option value="Cleaning">{t('status.cleaning') || 'Cleaning'}</option>
                 </select>
               </div>
 
               {/* Location */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('vehicles.location') || 'Location'}
+                  {t('admin.location') || 'Location'}
                 </label>
                 <input
                   type="text"
@@ -6538,7 +6581,7 @@ const AdminDashboard = () => {
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   disabled={createVehicleMutation.isLoading}
                 >
-                  {t('cancel') || 'Cancel'}
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   onClick={handleCreateVehicle}
@@ -6546,8 +6589,8 @@ const AdminDashboard = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                 >
                   {createVehicleMutation.isLoading 
-                    ? (t('creating') || 'Creating...') 
-                    : (t('create') || 'Create')}
+                    ? t('vehicles.creating', 'Creating...') 
+                    : t('vehicles.create', 'Create')}
                 </button>
               </div>
             </div>

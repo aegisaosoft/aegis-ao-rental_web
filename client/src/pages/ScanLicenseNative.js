@@ -88,7 +88,7 @@ const ScanLicenseNative = () => {
 
     let mounted = true;
     isInitializing = true;
-
+    
     const initScanner = async () => {
       try {
         if (!mounted) return;
@@ -306,14 +306,14 @@ const ScanLicenseNative = () => {
   return (
     <div className="fixed inset-0 bg-black">
       {/* Full-screen video */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        muted 
         className="absolute inset-0 w-full h-full object-cover"
       />
-
+      
       {/* Full-screen scanning frame with corner indicators */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Green corner indicators only - no frame border */}
@@ -322,7 +322,7 @@ const ScanLicenseNative = () => {
         <div className="absolute bottom-24 left-8 w-24 h-24 border-b-8 border-l-8 border-green-400 rounded-bl-3xl animate-pulse"></div>
         <div className="absolute bottom-24 right-8 w-24 h-24 border-b-8 border-r-8 border-green-400 rounded-br-3xl animate-pulse"></div>
       </div>
-
+      
       {/* Top status bar */}
       <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black to-transparent text-white text-center py-6 px-4 z-10">
         <p className="text-2xl font-bold mb-2">{message}</p>
@@ -332,21 +332,21 @@ const ScanLicenseNative = () => {
           <div className="w-8 h-px bg-gray-500"></div>
           <div className={`w-3 h-3 rounded-full ${currentSide === 'back' ? 'bg-green-400' : 'bg-gray-500'}`}></div>
           <span className="text-sm">Back</span>
-        </div>
       </div>
-
+      </div>
+      
       {/* Bottom cancel button */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-6 z-10">
-        <button
+      <button 
           onClick={() => {
             const returnTo = searchParams.get('returnTo');
             if (returnTo) navigate(returnTo);
             else navigate(-1);
           }}
           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl text-lg"
-        >
-          Cancel
-        </button>
+      >
+        Cancel
+      </button>
       </div>
 
       {/* Loading overlay */}

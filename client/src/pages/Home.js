@@ -116,10 +116,10 @@ const Home = () => {
   // Determine effective company ID (domain context only - no fallback)
   const effectiveCompanyId = companyConfig?.id || null;
   
-  // Fetch locations from locations table filtered by companyId
+  // Fetch locations from company_location table filtered by companyId
   const { data: pickupLocationsResponse } = useQuery(
-    ['pickupLocations', effectiveCompanyId],
-    () => apiService.getPickupLocations(effectiveCompanyId),
+    ['companyLocations', effectiveCompanyId],
+    () => apiService.getCompanyLocations({ companyId: effectiveCompanyId, isActive: true, isPickupLocation: true }),
     {
       enabled: !!effectiveCompanyId, // Only fetch if we have a company ID
       retry: 1,
@@ -196,14 +196,14 @@ const Home = () => {
     }
   }, [startDate, endDate, category, selectedLocationId]);
   
-  // Fetch models grouped by category - filtered by company from domain
+  // Fetch models grouped by category - filtered by company from domain and selected location
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
-    ['modelsGroupedByCategory', effectiveCompanyId],
-    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null),
+    ['modelsGroupedByCategory', effectiveCompanyId, selectedLocationId],
+    () => apiService.getModelsGroupedByCategory(effectiveCompanyId || null, selectedLocationId || null),
     {
       retry: 1,
       refetchOnWindowFocus: false,
-      enabled: true // Always fetch, but filter by company if available
+      enabled: true // Always fetch, but filter by company and location if available
     }
   );
 
