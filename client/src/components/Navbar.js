@@ -31,10 +31,25 @@ const NAV_ITEMS = [
 const Navbar = () => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
-  const { isAuthenticated, canAccessDashboard, logout } = useAuth();
+  const { isAuthenticated, canAccessDashboard, isMainAdmin, user } = useAuth();
   const navigate = useNavigate();
 
   const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
+
+  // Check if user can see dashboard for current company
+  const canSeeDashboard = () => {
+    if (!canAccessDashboard) return false;
+    
+    // Main admin can see dashboard for all companies
+    if (isMainAdmin) return true;
+    
+    // Workers and admins can only see dashboard for their own company
+    const userCompanyId = user?.companyId || user?.CompanyId;
+    const currentCompanyId = companyConfig?.id || companyConfig?.Id;
+    
+    // Show dashboard icon only if viewing their own company
+    return userCompanyId && currentCompanyId && userCompanyId === currentCompanyId;
+  };
 
   const handleLogout = () => {
     logout();
@@ -62,7 +77,7 @@ const Navbar = () => {
           >
             <SettingsIcon className="h-4 w-4" />
           </Link>
-          {canAccessDashboard && (
+          {canSeeDashboard() && (
             <Link
               to="/admin"
               className="flex items-center gap-2 transition-colors duration-150 hover:text-blue-600"
