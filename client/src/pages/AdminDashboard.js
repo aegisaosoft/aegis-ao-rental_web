@@ -99,7 +99,7 @@ const AdminDashboard = () => {
   const t = translate;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard, isWorker } = useAuth();
+  const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard } = useAuth();
   const { companyConfig, formatPrice, currencySymbol, currencyCode, isSubdomainAccess } = useCompany();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);

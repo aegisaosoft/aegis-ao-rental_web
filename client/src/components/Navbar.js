@@ -31,7 +31,7 @@ const NAV_ITEMS = [
 const Navbar = () => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
-  const { isAuthenticated, isMainAdmin, canAccessDashboard, logout, user } = useAuth();
+  const { isAuthenticated, canAccessDashboard, logout } = useAuth();
   const navigate = useNavigate();
 
   const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
