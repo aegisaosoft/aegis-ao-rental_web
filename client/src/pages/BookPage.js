@@ -113,6 +113,8 @@ const BookPage = () => {
   const [qrBase, setQrBase] = useState(() => (process.env.REACT_APP_PUBLIC_BASE_URL || localStorage.getItem('qrPublicBaseUrl') || window.location.origin));
 
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  
+  const [selectedLocationId, setSelectedLocationId] = useState(searchParams.get('locationId') || '');
 
 
 
@@ -940,6 +942,37 @@ const BookPage = () => {
 
   }, [companyServicesData]);
 
+  // Fetch company locations for dropdown
+  const { data: pickupLocationsResponse } = useQuery(
+    ['companyLocations', companyId],
+    () => apiService.getCompanyLocations({ companyId: companyId, isActive: true, isPickupLocation: true }),
+    {
+      enabled: !!companyId,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+  
+  const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
+  const companyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  const showLocationDropdown = companyLocations.length > 1;
+
+  // Fetch accurate available count using the models API (which uses the stored procedure)
+  const { data: modelsGroupedResponse } = useQuery(
+    ['modelsGroupedByCategory', companyId, selectedLocationId, formData.pickupDate, formData.returnDate],
+    () => apiService.getModelsGroupedByCategory(
+      companyId || null, 
+      selectedLocationId || null,
+      formData.pickupDate || null,
+      formData.returnDate || null
+    ),
+    {
+      enabled: !!(companyId && formData.pickupDate && formData.returnDate),
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+
 
 
   // Fetch model data to get daily rate
@@ -1073,6 +1106,32 @@ const BookPage = () => {
     (v.vehicle_id || v.vehicleId || v.id) === selectedVehicleId
 
   ) : null;
+
+  // Get accurate available count from stored procedure (considers dates and location)
+  const availableVehiclesCount = React.useMemo(() => {
+    if (!modelsGroupedResponse || !make || !model) {
+      return 0;
+    }
+    
+    const modelsGroupedData = modelsGroupedResponse?.data || modelsGroupedResponse;
+    const categories = Array.isArray(modelsGroupedData) ? modelsGroupedData : [];
+    
+    // Find the model in the grouped response
+    for (const category of categories) {
+      if (category.models && Array.isArray(category.models)) {
+        const matchingModel = category.models.find(m => 
+          m.make?.toLowerCase() === make?.toLowerCase() && 
+          m.modelName?.toLowerCase() === model?.toLowerCase()
+        );
+        
+        if (matchingModel) {
+          return matchingModel.availableCount || 0;
+        }
+      }
+    }
+    
+    return 0;
+  }, [modelsGroupedResponse, make, model]);
 
 
 
@@ -1830,6 +1889,12 @@ const BookPage = () => {
 
     }
 
+    // Require location selection if multiple locations exist
+    if (showLocationDropdown && !selectedLocationId) {
+      toast.error(t('booking.selectLocationRequired') || 'Please select a location');
+      return;
+    }
+
 
 
     // Use overrideUser if provided (from login response), otherwise use user from state
@@ -1910,7 +1975,9 @@ const BookPage = () => {
 
         additionalFees,
 
-        securityDeposit: companyConfig?.securityDeposit ?? 1000
+        securityDeposit: companyConfig?.securityDeposit ?? 1000,
+
+        locationId: selectedLocationId || null
 
       };
 
@@ -2060,7 +2127,11 @@ const BookPage = () => {
 
     modelDailyRate,
 
-    openAuthModal
+    openAuthModal,
+
+    showLocationDropdown,
+
+    selectedLocationId
 
   ]);
 
@@ -2410,15 +2481,28 @@ const BookPage = () => {
 
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
 
-                <img
+                <div className="relative">
 
-                  src={modelImageSrc}
+                  <img
 
-                  alt={`${make} ${model}`}
+                    src={modelImageSrc}
 
-                  className="w-full h-64 object-cover"
+                    alt={`${make} ${model}`}
 
-                />
+                    className="w-full h-64 object-cover"
+
+                  />
+
+                  <div className={`absolute top-3 right-3 ${availableVehiclesCount === 0 ? 'bg-red-600' : 'bg-blue-600'} text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg`}>
+
+                    {availableVehiclesCount === 0 
+                      ? t('bookPage.unavailable') || 'Unavailable'
+                      : `${availableVehiclesCount} ${t('bookPage.availableCars') || 'available'}`
+                    }
+
+                  </div>
+
+                </div>
 
                 <div className="p-6 space-y-3">
 
@@ -2528,7 +2612,7 @@ const BookPage = () => {
 
                 
 
-                <div className="mb-6 pb-6 border-b border-gray-200">
+                <div className="mb-6">
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -2609,6 +2693,29 @@ const BookPage = () => {
                   </div>
 
                 </div>
+
+                {/* Location Dropdown - Show only if multiple locations */}
+                {showLocationDropdown && (
+                  <div className="mb-6">
+                    <select
+                      value={selectedLocationId}
+                      onChange={(e) => setSelectedLocationId(e.target.value)}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
+                      required
+                    >
+                      <option value="">{t('booking.chooseLocation') || 'Choose a location'}</option>
+                      {companyLocations.map((location) => {
+                        const locationId = location.locationId || location.LocationId || location.id || location.Id;
+                        const locationName = location.locationName || location.location_name || location.LocationName || '';
+                        return (
+                          <option key={locationId} value={locationId}>
+                            {locationName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
 
 
 

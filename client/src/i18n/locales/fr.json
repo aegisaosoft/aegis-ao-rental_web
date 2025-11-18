@@ -398,6 +398,8 @@
     "loginToSaveLicense": "Veuillez vous connecter pour enregistrer les informations de permis de conduire",
     "fillRequiredLicenseFields": "Veuillez remplir les champs obligatoires du permis (Numéro de Permis, État Émetteur, Date d'Expiration)",
     "bookingDetails": "Détails de la Réservation",
+    "availableCars": "disponibles",
+    "unavailable": "Indisponible",
     "returnDateLabel": "Date de Retour",
     "pickupLocationLabel": "Lieu de Récupération",
     "returnLocationLabel": "Lieu de Retour",

@@ -393,6 +393,8 @@
     "loginToSaveLicense": "Please login to save driver license information",
     "fillRequiredLicenseFields": "Please fill in required license fields (License Number, State Issued, Expiration Date)",
     "bookingDetails": "Booking Details",
+    "availableCars": "available",
+    "unavailable": "Unavailable",
     "returnDateLabel": "Return Date",
     "pickupLocationLabel": "Pickup Location",
     "returnLocationLabel": "Return Location",

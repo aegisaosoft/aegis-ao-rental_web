@@ -671,7 +671,7 @@ const Home = () => {
                     onChange={(e) => setSelectedLocationId(e.target.value)}
                     className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   >
-                    <option value="">{t('home.selectLocation')}</option>
+                    <option value="">All Locations</option>
                     {companyLocations.map((location) => {
                       const locationId = location.locationId || location.LocationId || location.id || location.Id;
                       const locationName = location.locationName || location.location_name || location.LocationName || '';

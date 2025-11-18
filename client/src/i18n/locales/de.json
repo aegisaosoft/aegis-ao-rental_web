@@ -407,6 +407,8 @@
     "loginToSaveLicense": "Bitte melden Sie sich an, um Führerscheininformationen zu speichern",
     "fillRequiredLicenseFields": "Bitte füllen Sie die erforderlichen Führerscheinfelder aus (Führerscheinnummer, Ausstellungsstaat, Ablaufdatum)",
     "bookingDetails": "Buchungsdetails",
+    "availableCars": "verfügbar",
+    "unavailable": "Nicht verfügbar",
     "returnDateLabel": "Rückgabedatum",
     "pickupLocationLabel": "Abholort",
     "returnLocationLabel": "Rückgabeort",

@@ -393,6 +393,8 @@
     "loginToSaveLicense": "Por favor inicia sesión para guardar la información de licencia de conducir",
     "fillRequiredLicenseFields": "Por favor completa los campos requeridos de licencia (Número de Licencia, Estado Emisor, Fecha de Vencimiento)",
     "bookingDetails": "Detalles de la Reserva",
+    "availableCars": "disponibles",
+    "unavailable": "No disponible",
     "returnDateLabel": "Fecha de Devolución",
     "pickupLocationLabel": "Lugar de Recogida",
     "returnLocationLabel": "Lugar de Devolución",
