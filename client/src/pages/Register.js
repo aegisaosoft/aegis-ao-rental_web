@@ -71,7 +71,6 @@ const Register = () => {
         phone: formData.phone,
         password: formData.password
       });
-      toast.success(t('register.success'));
       navigate(redirectTarget, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || t('register.failed'));

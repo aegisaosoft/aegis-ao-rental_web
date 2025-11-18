@@ -393,11 +393,6 @@ const AdminDashboard = () => {
         return prev;
       });
 
-      toast.success(t('admin.serviceAddedToCompany'), {
-        position: 'top-center',
-        autoClose: 2000,
-      });
-
       resetServicePricingModal();
       queryClient.invalidateQueries(['companyServices', currentCompanyId]);
       queryClient.invalidateQueries(['allAdditionalServices']);
@@ -517,7 +512,6 @@ const AdminDashboard = () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
         setEditingVehicle(null);
         setVehicleEditForm({});
-        toast.success(t('vehicles.updateSuccess') || 'Vehicle updated successfully');
       },
       onError: (error) => {
         console.error('Error updating vehicle:', error);
@@ -532,7 +526,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
-        toast.success(t('vehicles.deleteSuccess') || 'Vehicle deleted successfully');
       },
       onError: (error) => {
         console.error('Error deleting vehicle:', error);
@@ -549,7 +542,6 @@ const AdminDashboard = () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
         setIsCreatingVehicle(false);
         setVehicleCreateForm({});
-        toast.success(t('vehicles.createSuccess') || 'Vehicle created successfully');
       },
       onError: (error) => {
         console.error('Error creating vehicle:', error);
@@ -769,8 +761,6 @@ const AdminDashboard = () => {
         vin: normalizedVin,
         ...updates,
       }));
-
-      toast.success(t('vehicles.vinLookupSuccess') || 'Vehicle information retrieved successfully');
     } catch (error) {
       console.error('[AdminDashboard] VIN lookup error:', error);
       const message =
@@ -1067,7 +1057,6 @@ const AdminDashboard = () => {
       // Call vehicle import API endpoint
       const response = await apiService.importVehicles(formData);
       const importedCount = response.data?.count || response.data?.result?.count || 0;
-      toast.success(t('vehicles.importSuccess') || `Successfully imported ${importedCount} vehicles`);
       queryClient.invalidateQueries(['vehicles', currentCompanyId]);
       
       event.target.value = ''; // Reset file input
@@ -1156,10 +1145,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['company', currentCompanyId]);
-        toast.success(t('admin.companyUpdated'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
         // Keep form in edit mode for admins/mainadmins
       },
       onError: (error) => {
@@ -1186,10 +1171,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['customers', currentCompanyId]);
-        toast.success(t('admin.employeeUpdated', 'Employee updated successfully.'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
         setShowAddEmployeeModal(false);
         setEditingEmployeeId(null);
         setSelectedCustomer(null);
@@ -1367,7 +1348,6 @@ const AdminDashboard = () => {
           openingHours: '',
           isActive: true
         });
-        toast.success(t('admin.locationCreated') || 'Location created successfully');
       },
       onError: (error) => {
         console.error('Error creating location:', error);
@@ -1402,7 +1382,6 @@ const AdminDashboard = () => {
           openingHours: '',
           isActive: true
         });
-        toast.success(t('admin.locationUpdated') || 'Location updated successfully');
       },
       onError: (error) => {
         console.error('Error updating location:', error);
@@ -1418,10 +1397,6 @@ const AdminDashboard = () => {
         queryClient.invalidateQueries(['locations', currentCompanyId]);
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
         queryClient.invalidateQueries(['pickupLocations', currentCompanyId]);
-        toast.success(t('admin.locationDeleted'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
       },
       onError: (error) => {
         console.error('Error deleting location:', error);
@@ -1458,7 +1433,6 @@ const AdminDashboard = () => {
           openingHours: '',
           isActive: true
         });
-        toast.success(t('admin.locationCreated') || 'Location created successfully');
       },
       onError: (error) => {
         console.error('Error creating company location:', error);
@@ -1491,7 +1465,6 @@ const AdminDashboard = () => {
           openingHours: '',
           isActive: true
         });
-        toast.success(t('admin.locationUpdated') || 'Location updated successfully');
       },
       onError: (error) => {
         console.error('Error updating company location:', error);
@@ -1505,7 +1478,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
-        toast.success(t('admin.locationDeleted') || 'Location deleted successfully');
       },
       onError: (error) => {
         console.error('Error deleting company location:', error);
@@ -1709,10 +1681,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['allAdditionalServices']);
-        toast.success(t('admin.serviceCreated'), {
-          position: 'top-center',
-          autoClose: 2000,
-        });
         setIsEditingService(false);
         setEditingServiceId(null);
         setServiceFormData({
@@ -1755,10 +1723,6 @@ const AdminDashboard = () => {
           maxQuantity: 1,
           isActive: true
         });
-        toast.success(t('admin.serviceUpdated'), {
-          position: 'top-center',
-          autoClose: 2000,
-        });
       },
       onError: (error) => {
         console.error('Error updating additional service:', error);
@@ -1790,10 +1754,6 @@ const AdminDashboard = () => {
           maxQuantity: 1,
           isActive: true
         });
-        toast.success(t('admin.serviceUpdated'), {
-          position: 'top-center',
-          autoClose: 2000,
-        });
       },
       onError: (error) => {
         console.error('Error updating company service:', error);
@@ -1810,10 +1770,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['additionalServices', currentCompanyId]);
-        toast.success(t('admin.serviceDeleted'), {
-          position: 'top-center',
-          autoClose: 3000,
-        });
       },
       onError: (error) => {
         console.error('Error deleting service:', error);
@@ -1908,7 +1864,6 @@ const AdminDashboard = () => {
       try {
         const response = await apiService.createCompany(companyData);
         const newCompanyId = response?.data?.companyId || response?.data?.id;
-        toast.success(t('admin.companyCreated') || 'Company created successfully');
         setIsCreatingCompany(false);
         // Keep form in edit mode for admins/mainadmins
         // Refresh companies list and set the new company as current
@@ -1939,7 +1894,9 @@ const AdminDashboard = () => {
     );
     const currentMandatory =
       companyFormData.isSecurityDepositMandatory ??
+      companyFormData.IsSecurityDepositMandatory ??
       actualCompanyData?.isSecurityDepositMandatory ??
+      actualCompanyData?.IsSecurityDepositMandatory ??
       true;
     setIsSecurityDepositMandatoryDraft(currentMandatory);
     setIsEditingDeposit(true);
@@ -1961,26 +1918,30 @@ const AdminDashboard = () => {
       return;
     }
     setIsSavingDeposit(true);
+    
+    const updateData = { 
+      securityDeposit: numericValue,
+      isSecurityDepositMandatory: isSecurityDepositMandatoryDraft
+    };
+    
+    console.log('[AdminDashboard] Saving security deposit:', updateData);
+    
     updateCompanyMutation.mutate(
-      { 
-        securityDeposit: numericValue,
-        isSecurityDepositMandatory: isSecurityDepositMandatoryDraft
-      },
+      updateData,
       {
         onSuccess: async () => {
-          // Update local form data immediately
+          // Update local form data immediately (handle both casings)
           setCompanyFormData((prev) => ({
             ...prev,
             securityDeposit: numericValue,
+            SecurityDeposit: numericValue,
             isSecurityDepositMandatory: isSecurityDepositMandatoryDraft,
+            IsSecurityDepositMandatory: isSecurityDepositMandatoryDraft,
           }));
           // Invalidate and refetch company data to ensure UI is updated
           await queryClient.invalidateQueries(['company', currentCompanyId]);
           await queryClient.refetchQueries(['company', currentCompanyId]);
           cancelSecurityDepositEdit();
-          toast.success(
-            t('admin.securityDepositUpdated', 'Security deposit updated successfully.')
-          );
         },
         onError: (error) => {
           console.error('Error updating security deposit:', error);
@@ -2032,10 +1993,6 @@ const AdminDashboard = () => {
       // Invalidate and refetch company data to ensure UI is updated
       await queryClient.invalidateQueries(['company', currentCompanyId]);
       await queryClient.refetchQueries(['company', currentCompanyId]);
-      
-      toast.success(
-        t('admin.termsOfUseUpdated', 'Terms of Use updated successfully.')
-      );
     } catch (error) {
       console.error('Error updating terms of use:', error);
       toast.error(
@@ -2449,10 +2406,6 @@ const AdminDashboard = () => {
       
       queryClient.invalidateQueries(['additionalServices', currentCompanyId]);
       queryClient.invalidateQueries(['allAdditionalServices']);
-      toast.success(t('admin.serviceUpdated'), {
-        position: 'top-center',
-        autoClose: 2000,
-      });
     } catch (error) {
       console.error(`Error updating service ${field}:`, error);
       toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed'), {
@@ -2515,11 +2468,6 @@ const AdminDashboard = () => {
           }
 
           return prev;
-        });
-
-        toast.success(t('admin.serviceRemovedFromCompany'), {
-          position: 'top-center',
-          autoClose: 2000,
         });
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
         queryClient.invalidateQueries(['allAdditionalServices']);
@@ -2596,7 +2544,6 @@ const AdminDashboard = () => {
       }));
 
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Video uploaded successfully!');
     } catch (error) {
       console.error('Error uploading video:', error);
       toast.error(error.response?.data?.message || 'Failed to upload video');
@@ -2623,7 +2570,6 @@ const AdminDashboard = () => {
       }));
 
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Video deleted successfully!');
     } catch (error) {
       console.error('Error deleting video:', error);
       toast.error('Failed to delete video');
@@ -2662,7 +2608,6 @@ const AdminDashboard = () => {
       }));
 
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Banner uploaded successfully!');
     } catch (error) {
       console.error('Error uploading banner:', error);
       toast.error(error.response?.data?.message || 'Failed to upload banner');
@@ -2682,7 +2627,6 @@ const AdminDashboard = () => {
       await apiService.deleteCompanyBanner(currentCompanyId);
       setCompanyFormData(prev => ({ ...prev, bannerLink: null }));
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Banner deleted successfully!');
     } catch (error) {
       console.error('Error deleting banner:', error);
       toast.error('Failed to delete banner');
@@ -2721,7 +2665,6 @@ const AdminDashboard = () => {
       }));
 
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Logo uploaded successfully!');
     } catch (error) {
       console.error('Error uploading logo:', error);
       toast.error(error.response?.data?.message || 'Failed to upload logo');
@@ -2741,7 +2684,6 @@ const AdminDashboard = () => {
       await apiService.deleteCompanyLogo(currentCompanyId);
       setCompanyFormData(prev => ({ ...prev, logoLink: null }));
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success('Logo deleted successfully!');
     } catch (error) {
       console.error('Error deleting logo:', error);
       toast.error('Failed to delete logo');
@@ -3105,7 +3047,7 @@ const AdminDashboard = () => {
   return (
     <PageContainer>
       <PageHeader
-        title={t('admin.title')}
+        title={`${companyConfig?.companyName || 'Company'} Dashboard`}
         subtitle={
           isEditing 
             ? t('admin.editingMode') 
@@ -3149,7 +3091,7 @@ const AdminDashboard = () => {
                     setActiveTab('info');
                   }}
                   className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                    activeSection === 'company' && activeTab !== 'locations'
+                    activeSection === 'company' && (activeTab === 'info' || activeTab === 'design')
                       ? 'bg-blue-100 text-blue-700 font-semibold'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
@@ -4387,8 +4329,8 @@ const AdminDashboard = () => {
                         </button>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <span className={actualCompanyData?.isSecurityDepositMandatory ? 'text-green-600 font-medium' : 'text-gray-500'}>
-                          {actualCompanyData?.isSecurityDepositMandatory 
+                        <span className={(actualCompanyData?.isSecurityDepositMandatory ?? actualCompanyData?.IsSecurityDepositMandatory ?? true) ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                          {(actualCompanyData?.isSecurityDepositMandatory ?? actualCompanyData?.IsSecurityDepositMandatory ?? true)
                             ? t('admin.mandatory', 'Mandatory') 
                             : t('admin.optional', 'Optional')}
                         </span>
@@ -4550,8 +4492,6 @@ const AdminDashboard = () => {
                                       categoryId: categoryId,
                                       companyId: currentCompanyId
                                     });
-                                    
-                                    toast.success(`Updated ${response.data?.Count || 0} models in category`);
                                     queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
                                     setDailyRateInputs(prev => ({ ...prev, [`category_${categoryId}`]: '' }));
                                   } catch (error) {
@@ -4641,8 +4581,6 @@ const AdminDashboard = () => {
                                                 make: group.make,
                                                 companyId: currentCompanyId
                                               });
-                                              
-                                              toast.success(`Updated ${response.data?.Count || 0} models for ${group.make}`);
                                               queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
                                               setDailyRateInputs(prev => ({ ...prev, [`make_${makeExpandedKey}`]: '' }));
                                             } catch (error) {
@@ -4698,8 +4636,6 @@ const AdminDashboard = () => {
                                                       modelName: group.modelName,
                                                       companyId: currentCompanyId
                                                     });
-                                                    
-                                                    toast.success(`Updated ${response.data?.Count || 0} models for ${group.make} ${group.modelName}`);
                                                     queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
                                                     setDailyRateInputs(prev => ({ ...prev, [`model_${makeExpandedKey}`]: '' }));
                                                   } catch (error) {
@@ -4760,8 +4696,6 @@ const AdminDashboard = () => {
                                                           year: year,
                                                           companyId: currentCompanyId
                                                         });
-                                                        
-                                                        toast.success(`Updated ${response.data?.Count || 0} models for ${group.make} ${group.modelName} ${year}`);
                                                         queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
                                                         setDailyRateInputs(prev => ({ ...prev, [`year_${year}_${makeExpandedKey}`]: '' }));
                                                       } catch (error) {

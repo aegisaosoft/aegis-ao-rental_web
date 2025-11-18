@@ -27,7 +27,6 @@ const MobileMyBookings = () => {
   const cancel = async (id) => {
     try {
       await cancelMutation.mutateAsync(id);
-      toast.success('Cancelled');
       refetch();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed');

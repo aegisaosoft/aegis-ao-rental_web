@@ -572,8 +572,6 @@ const BookPage = () => {
 
         localStorage.removeItem('scannedLicense');
 
-        toast.success('License data imported from scan');
-
         return true;
 
       }
@@ -885,8 +883,6 @@ const BookPage = () => {
     {
 
       onSuccess: () => {
-
-        toast.success(t('bookPage.licenseSaved'));
 
         queryClient.invalidateQueries(['customerLicense', user?.id]);
 
@@ -4055,7 +4051,7 @@ const BookPage = () => {
 
                 <button
 
-                  onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); toast.success(t('common.saved')); }}
+                  onClick={()=>{ localStorage.setItem('qrPublicBaseUrl', qrBase); }}
 
                   className="flex-1 bg-blue-600 text-white py-1 rounded text-sm"
 

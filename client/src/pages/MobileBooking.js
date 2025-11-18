@@ -50,7 +50,6 @@ const MobileBooking = () => {
         additionalNotes: '',
         securityDeposit: companyConfig?.securityDeposit ?? 1000
       });
-      toast.success('Booking created');
       navigate('/m/my-bookings');
     } catch (e) {
       toast.error(e.response?.data?.message || 'Failed');

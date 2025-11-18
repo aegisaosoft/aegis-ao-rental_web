@@ -92,7 +92,6 @@ const MobileLanding = () => {
       }
       
       setShowLoginDialog(false);
-      toast.success(t('login.success') || 'Successfully signed in!');
       navigate('/m');
     } catch (error) {
       toast.error(error.response?.data?.message || t('login.failed') || 'Failed to sign in');

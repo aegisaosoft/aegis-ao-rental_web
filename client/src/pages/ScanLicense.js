@@ -471,7 +471,6 @@ const ScanLicense = () => {
         toast.warning('License scanned but data extraction failed. Please enter details manually.');
       } else {
         console.log('[ScanLicense] ✅ License data successfully extracted:', extractedData);
-        toast.success('Driver license scanned successfully!');
       }
 
       // Cleanup

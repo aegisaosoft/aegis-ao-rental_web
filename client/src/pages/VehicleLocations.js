@@ -233,7 +233,6 @@ const VehicleLocations = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehicles']);
-        toast.success(t('admin.vehicleLocationUpdated', 'Vehicle location updated successfully!'));
       },
       onError: (error) => {
         console.error('Error updating vehicle location:', error);
@@ -297,7 +296,6 @@ const VehicleLocations = () => {
     try {
       await Promise.all(promises);
       queryClient.invalidateQueries(['vehicles']);
-      toast.success(t('admin.vehiclesMoved', { count: vehiclesToMove.length, defaultValue: `${vehiclesToMove.length} vehicle(s) moved successfully` }));
       clearSelection();
     } catch (error) {
       console.error('Error moving vehicles:', error);

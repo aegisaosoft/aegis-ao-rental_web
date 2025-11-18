@@ -32,7 +32,6 @@ const ScanLicenseNative = () => {
   const handleProcessResult = useCallback(async (result) => {
     try {
       setStatus('processing');
-      toast.success('✅ License scanned!');
       
       const extractValue = (obj) => {
         if (!obj) return '';
@@ -59,7 +58,6 @@ const ScanLicenseNative = () => {
       const userId = searchParams.get('userId');
       if (userId) {
         await apiService.upsertCustomerLicense(userId, licenseData);
-        toast.success('✅ Saved to database!');
       }
 
       const returnTo = searchParams.get('returnTo');
@@ -210,7 +208,6 @@ const ScanLicenseNative = () => {
                 console.log('[FullScreenScanner] Front side captured');
                 setCurrentSide('back');
                 setMessage('🎉 Front done! Now scan BACK');
-                toast.success('Front captured! Flip to back', { autoClose: 2000 });
                 
                 await new Promise(resolve => setTimeout(resolve, 2500));
                 
@@ -221,7 +218,6 @@ const ScanLicenseNative = () => {
               } else {
                 console.log('[FullScreenScanner] ✅ Both sides complete!');
                 setMessage('✅ Complete! Processing...');
-                toast.success('Both sides captured!');
                 await handleProcessResult(result);
               }
             }

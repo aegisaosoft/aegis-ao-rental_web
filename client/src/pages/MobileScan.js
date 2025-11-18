@@ -149,7 +149,6 @@ const MobileScan = () => {
             
             const profileResponse = await apiService.getProfile();
             console.log('[MobileScan] ✅ Session verified - profile retrieved:', profileResponse.data);
-            toast.success('Authentication imported from QR code');
             
             // Token is now stored in session, so we don't need to reload
             // The tokenProcessedRef flag prevents reprocessing if the component re-renders
@@ -158,7 +157,6 @@ const MobileScan = () => {
           } catch (profileError) {
             console.warn('[MobileScan] ⚠️ Session stored but profile check failed:', profileError);
             console.warn('[MobileScan] This might be a timing issue - token is still stored in session');
-            toast.success('Authentication imported - token stored in session');
             
             // Token is now stored in session, so we don't need to reload
             // The tokenProcessedRef flag prevents reprocessing if the component re-renders
@@ -514,7 +512,6 @@ const MobileScan = () => {
         console.log('Upload response:', response);
         console.log('Upload successful!', response.data);
         
-        toast.success('Driver license uploaded successfully!');
         setStatus('success');
       } catch (uploadError) {
         console.error('Upload error details:', uploadError);

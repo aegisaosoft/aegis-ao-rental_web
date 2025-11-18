@@ -84,10 +84,8 @@ const Settings = () => {
         };
         
         await updateProfile(profileData);
-        toast.success(t('settings.saved'));
       } else {
-        // For other tabs, just show success (they're not persisted yet)
-        toast.success(t('settings.savedLocally'));
+        // For other tabs, settings saved locally (no notification needed)
       }
     } catch (error) {
       console.error('Error saving settings:', error);

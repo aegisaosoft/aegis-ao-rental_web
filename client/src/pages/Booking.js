@@ -129,7 +129,6 @@ const Booking = () => {
       };
 
     await apiService.createBooking(bookingData);
-      toast.success(t('booking.success'));
       navigate('/my-bookings');
     } catch (error) {
       toast.error(error.response?.data?.message || t('booking.error'));
