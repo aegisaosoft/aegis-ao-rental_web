@@ -479,6 +479,7 @@
   },
   "common": {
     "loading": "Chargement...",
+    "loadingExperience": "Chargement de votre expérience de location...",
     "error": "Erreur",
     "success": "Succès",
     "cancel": "Annuler",
@@ -514,7 +515,8 @@
       "loadingCompany": "Chargement des informations de l'entreprise...",
       "loadingData": "Chargement des emplacements et véhicules...",
       "loadingLocations": "Chargement des emplacements...",
-      "loadingVehicles": "Chargement des véhicules..."
+      "loadingVehicles": "Chargement des véhicules...",
+      "viewOnly": "Lecture Seule"
   },
   "auth": {
     "loginRequired": "Veuillez vous connecter pour accéder à cette page",
@@ -881,6 +883,7 @@
     "editingNotice": "Les autres actions du tableau de bord sont temporairement désactivées. Veuillez enregistrer ou annuler vos modifications pour continuer.",
     "noCompany": "Aucune Entreprise Sélectionnée",
     "noCompanyMessage": "Veuillez sélectionner une entreprise dans le menu déroulant pour voir le tableau de bord.",
+    "canOnlyAccessOwnCompany": "Vous ne pouvez accéder qu'au tableau de bord de votre propre entreprise.",
     "companyLoadFailed": "Échec du chargement des données de l'entreprise",
     "noCompanyData": "Aucune donnée d'entreprise disponible",
     "companyUpdated": "Profil de l'entreprise mis à jour avec succès !",

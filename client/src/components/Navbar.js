@@ -31,7 +31,7 @@ const NAV_ITEMS = [
 const Navbar = () => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
-  const { isAuthenticated, isMainAdmin, logout, user } = useAuth();
+  const { isAuthenticated, isMainAdmin, canAccessDashboard, logout, user } = useAuth();
   const navigate = useNavigate();
 
   const logoUrl = companyConfig?.logoUrl || companyConfig?.logo || '';
@@ -62,7 +62,7 @@ const Navbar = () => {
           >
             <SettingsIcon className="h-4 w-4" />
           </Link>
-          {(isMainAdmin || user?.isAdmin) && (
+          {canAccessDashboard && (
             <Link
               to="/admin"
               className="flex items-center gap-2 transition-colors duration-150 hover:text-blue-600"

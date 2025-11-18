@@ -271,6 +271,25 @@ export const CompanyProvider = ({ children }) => {
   // Get company ID as a global parameter
   const companyId = companyConfig?.id || companyConfig?.companyId || companyConfig?.Id || companyConfig?.CompanyId;
 
+  // Check if accessing via subdomain (not localhost or direct domain)
+  const isSubdomainAccess = useMemo(() => {
+    const hostname = window.location.hostname;
+    const subdomain = companyConfig?.subdomain || companyConfig?.Subdomain;
+    
+    // If subdomain exists in config and hostname contains it, we're on subdomain
+    if (subdomain && hostname.includes(subdomain)) {
+      return true;
+    }
+    
+    // If hostname has multiple parts (not just domain.com), it's likely a subdomain
+    const parts = hostname.split('.');
+    if (parts.length > 2 && !hostname.includes('localhost')) {
+      return true;
+    }
+    
+    return false;
+  }, [companyConfig]);
+
   const value = {
     companyConfig,
     loading,
@@ -287,6 +306,8 @@ export const CompanyProvider = ({ children }) => {
     // Global company ID parameter (like subdomain)
     companyId,
     subdomain: companyConfig?.subdomain || companyConfig?.Subdomain,
+    // Flag to indicate if user is accessing via company subdomain (prohibit company switching)
+    isSubdomainAccess,
   };
 
   return (

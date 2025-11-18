@@ -17,6 +17,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ToastContainer } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Components
@@ -76,6 +77,7 @@ const TitleUpdater = () => {
 const AppLayout = () => {
   const { loading, error, companyConfig } = useCompany();
   const location = useLocation();
+  const { t } = useTranslation();
   
   // Full-screen routes without navbar/footer
   const fullScreenRoutes = ['/dl-scan'];
@@ -84,7 +86,7 @@ const AppLayout = () => {
   if (loading && !companyConfig) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-        <LoadingSpinner size="lg" text="Loading your rental experience..." />
+        <LoadingSpinner size="lg" text={t('common.loadingExperience')} />
       </div>
     );
   }

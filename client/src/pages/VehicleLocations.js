@@ -12,7 +12,7 @@ const VehicleLocations = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, isAdmin, currentCompanyId: authCompanyId, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, isAdmin, canAccessDashboard, currentCompanyId: authCompanyId, loading: authLoading } = useAuth();
   const { companyConfig, companyId: contextCompanyId, loading: companyLoading } = useCompany();
   const queryClient = useQueryClient();
   const [selectedLocationId, setSelectedLocationId] = useState('');
@@ -49,6 +49,7 @@ const VehicleLocations = () => {
     console.log('[VehicleLocations] Auth Check:', {
       isAuthenticated,
       isAdmin,
+      canAccessDashboard,
       user,
       currentCompanyId,
       companyConfig
@@ -62,8 +63,8 @@ const VehicleLocations = () => {
       return;
     }
 
-    if (!authLoading && !isAdmin) {
-      console.log('[VehicleLocations] Not admin, redirecting to home');
+    if (!authLoading && !canAccessDashboard) {
+      console.log('[VehicleLocations] No dashboard access, redirecting to home');
       toast.error(t('auth.adminRequired', 'Admin access required'));
       navigate('/');
       return;
@@ -75,7 +76,7 @@ const VehicleLocations = () => {
       navigate('/admin-dashboard');
       return;
     }
-  }, [isAuthenticated, isAdmin, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked, user, companyConfig]);
+  }, [isAuthenticated, isAdmin, canAccessDashboard, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked, user, companyConfig]);
 
   // Fetch all locations - only after auth is ready
   const { data: locationsData, isLoading: locationsLoading } = useQuery(
@@ -87,7 +88,7 @@ const VehicleLocations = () => {
       return result;
     },
     {
-      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && isAdmin,
+      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && canAccessDashboard,
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000 // 10 minutes
     }
@@ -101,7 +102,8 @@ const VehicleLocations = () => {
     companyLoading: companyLoading,
     isAuthenticated: isAuthenticated,
     isAdmin: isAdmin,
-    '✅ ENABLED': !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && isAdmin
+    canAccessDashboard: canAccessDashboard,
+    '✅ ENABLED': !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && canAccessDashboard
   });
 
   const { data: vehiclesData, isLoading: vehiclesLoading, error: vehiclesError } = useQuery(
@@ -133,7 +135,7 @@ const VehicleLocations = () => {
       return result;
     },
     {
-      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && isAdmin,
+      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && canAccessDashboard,
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000, // 10 minutes
       onError: (error) => {

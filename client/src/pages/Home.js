@@ -20,6 +20,7 @@ import { useQuery } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
 import AICarAssistant from '../components/AICarAssistant';
 import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
 
@@ -28,8 +29,34 @@ const SEARCH_FILTERS_STORAGE_KEY = 'rentalSearchFilters';
 const Home = () => {
   const { i18n: i18nInstance, t } = useTranslation();
   const currentLanguage = (i18nInstance.language || 'en').toLowerCase();
-  const { companyConfig, formatPrice } = useCompany();
+  const { companyConfig, formatPrice, isSubdomainAccess } = useCompany();
   const navigate = useNavigate();
+  const { user, isMainAdmin, isAdmin, isWorker } = useAuth();
+
+  // Redirect admins/workers to dashboard if viewing their own company, or mainadmin to dashboard
+  // Only redirect when accessing via subdomain (company-specific domain)
+  useEffect(() => {
+    // Only redirect if on subdomain access
+    if (!isSubdomainAccess) {
+      return;
+    }
+
+    if (isMainAdmin) {
+      // Main admin always goes to dashboard
+      navigate('/admin-dashboard');
+      return;
+    }
+    
+    if ((isAdmin || isWorker) && user) {
+      const userCompanyId = user.companyId || user.CompanyId;
+      const currentCompanyId = companyConfig?.id || companyConfig?.Id;
+      
+      // If viewing their own company, redirect to dashboard
+      if (userCompanyId && currentCompanyId && userCompanyId === currentCompanyId) {
+        navigate('/admin-dashboard');
+      }
+    }
+  }, [isMainAdmin, isAdmin, isWorker, user, companyConfig, navigate, isSubdomainAccess]);
 
   const bundledTranslations = useMemo(() => {
     const resources = i18nInstance?.options?.resources || {};

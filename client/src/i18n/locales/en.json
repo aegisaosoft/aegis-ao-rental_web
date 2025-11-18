@@ -474,6 +474,7 @@
   },
     "common": {
       "loading": "Loading...",
+      "loadingExperience": "Loading your rental experience...",
       "error": "Error",
       "success": "Success",
       "cancel": "Cancel",
@@ -509,7 +510,8 @@
       "loadingCompany": "Loading company information...",
       "loadingData": "Loading locations and vehicles...",
       "loadingLocations": "Loading locations...",
-      "loadingVehicles": "Loading vehicles..."
+      "loadingVehicles": "Loading vehicles...",
+      "viewOnly": "View Only"
   },
   "auth": {
     "loginRequired": "Please login to access this page",
@@ -891,6 +893,7 @@
           "tabCaptionLocations": "Add or edit pickup and return locations that customers can select during booking.",
            "noCompany": "No Company Selected",
            "noCompanyMessage": "Please select a company from the dropdown to view the dashboard.",
+           "canOnlyAccessOwnCompany": "You can only access your own company dashboard.",
            "companyLoadFailed": "Failed to load company data",
            "noCompanyData": "No company data available",
            "companyUpdated": "Company profile updated successfully!",

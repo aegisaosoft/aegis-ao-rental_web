@@ -177,6 +177,7 @@ export const AuthProvider = ({ children }) => {
     isAdmin: user?.role === 'admin' || user?.role === 'mainadmin',
     isMainAdmin: user?.role === 'mainadmin',
     isWorker: user?.role === 'worker',
+    canAccessDashboard: user?.role === 'admin' || user?.role === 'mainadmin' || user?.role === 'worker',
     currentCompanyId // Global company ID from authenticated user
   };
 

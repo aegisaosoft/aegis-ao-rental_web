@@ -474,6 +474,7 @@
   },
     "common": {
       "loading": "Carregando...",
+      "loadingExperience": "Carregando sua experiência de aluguel...",
       "error": "Erro",
       "success": "Sucesso",
       "cancel": "Cancelar",
@@ -509,7 +510,8 @@
       "loadingCompany": "Carregando informações da empresa...",
       "loadingData": "Carregando localizações e veículos...",
       "loadingLocations": "Carregando localizações...",
-      "loadingVehicles": "Carregando veículos..."
+      "loadingVehicles": "Carregando veículos...",
+      "viewOnly": "Somente Leitura"
   },
   "auth": {
     "loginRequired": "Por favor, faça login para acessar esta página",
@@ -878,6 +880,7 @@
       "editingNotice": "Outras ações do painel estão temporariamente desabilitadas. Salve ou cancele suas alterações para continuar.",
       "noCompany": "Nenhuma Empresa Selecionada",
       "noCompanyMessage": "Por favor selecione uma empresa no menu suspenso para visualizar o painel.",
+      "canOnlyAccessOwnCompany": "Você só pode acessar o painel da sua própria empresa.",
       "companyLoadFailed": "Falha ao carregar dados da empresa",
       "noCompanyData": "Não há dados da empresa disponíveis",
       "companyUpdated": "Perfil da empresa atualizado com sucesso!",

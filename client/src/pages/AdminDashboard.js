@@ -99,8 +99,8 @@ const AdminDashboard = () => {
   const t = translate;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, isAdmin, isMainAdmin } = useAuth();
-  const { companyConfig, formatPrice, currencySymbol, currencyCode } = useCompany();
+  const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard, isWorker } = useAuth();
+  const { companyConfig, formatPrice, currencySymbol, currencyCode, isSubdomainAccess } = useCompany();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [isEditingDeposit, setIsEditingDeposit] = useState(false);
@@ -423,9 +423,17 @@ const AdminDashboard = () => {
   }, [companyConfig]);
 
   // Initialize and sync with company from domain context
+  // Prohibit company switching when accessing via subdomain
   useEffect(() => {
     const companyId = getCompanyId();
-    setCurrentCompanyId(companyId);
+    
+    // If accessing via subdomain, lock to this company only
+    if (isSubdomainAccess && companyId) {
+      setCurrentCompanyId(companyId);
+    } else {
+      // Otherwise allow normal company selection
+      setCurrentCompanyId(companyId);
+    }
     
     // Invalidate queries when company changes
     if (companyId) {
@@ -433,14 +441,14 @@ const AdminDashboard = () => {
       queryClient.invalidateQueries(['vehiclesCount']);
       queryClient.invalidateQueries(['modelsGroupedByCategory']);
     }
-  }, [companyConfig?.id, queryClient, getCompanyId]);
+  }, [companyConfig?.id, queryClient, getCompanyId, isSubdomainAccess]);
 
   // Fetch current user's company data
   const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
     ['company', currentCompanyId],
     () => apiService.getCompany(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
       onSuccess: (data) => {
         // Handle both axios response format and direct data
         const companyInfo = data?.data || data;
@@ -467,7 +475,7 @@ const AdminDashboard = () => {
     ['companyLocations', currentCompanyId],
     () => apiService.getCompanyLocations({ companyId: currentCompanyId }),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'company',
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'company',
       onError: (error) => {
         console.error('Error loading company locations:', error);
         toast.error(t('admin.locationsLoadFailed'), {
@@ -483,7 +491,7 @@ const AdminDashboard = () => {
     ['pickupLocations', currentCompanyId],
     () => apiService.getPickupLocations(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && (activeTab === 'locations' || activeTab === 'vehicles'),
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && (activeTab === 'locations' || activeTab === 'vehicles'),
       onError: (error) => {
         console.error('Error loading pickup locations:', error);
         toast.error(t('admin.locationsLoadFailed'), {
@@ -843,7 +851,7 @@ const AdminDashboard = () => {
     ['modelsGroupedByCategory', currentCompanyId],
     () => apiService.getModelsGroupedByCategory(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -911,7 +919,7 @@ const AdminDashboard = () => {
       return apiService.getVehicles(params);
     },
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId,
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -1511,7 +1519,7 @@ const AdminDashboard = () => {
     ['allAdditionalServices'],
     () => apiService.getAdditionalServices({}),
     {
-      enabled: isAuthenticated && isAdmin && activeSection === 'additionalServices',
+      enabled: isAuthenticated && canAccessDashboard && activeSection === 'additionalServices',
       onError: (error) => {
         console.error('Error loading all additional services:', error);
       }
@@ -1523,7 +1531,7 @@ const AdminDashboard = () => {
     ['companyServices', currentCompanyId],
     () => apiService.getCompanyServices(currentCompanyId),
     {
-      enabled: isAuthenticated && isAdmin && !!currentCompanyId && activeSection === 'additionalServices',
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && activeSection === 'additionalServices',
       onError: (error) => {
         console.error('Error loading company services:', error);
       }
@@ -2817,25 +2825,34 @@ const AdminDashboard = () => {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEditVehicle(row.original)}
-            className="text-blue-600 hover:text-blue-900"
-            title={t('edit') || 'Edit'}
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDeleteVehicle(row.original)}
-            className="text-red-600 hover:text-red-900"
-            title={t('delete') || 'Delete'}
-            disabled={deleteVehicleMutation.isLoading}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {/* Edit and Delete buttons - Admin only */}
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => handleEditVehicle(row.original)}
+                className="text-blue-600 hover:text-blue-900"
+                title={t('edit') || 'Edit'}
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeleteVehicle(row.original)}
+                className="text-red-600 hover:text-red-900"
+                title={t('delete') || 'Delete'}
+                disabled={deleteVehicleMutation.isLoading}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {/* Workers see view-only indicator */}
+          {!isAdmin && (
+            <span className="text-xs text-gray-500 italic">{t('common.viewOnly', 'View Only')}</span>
+          )}
         </div>
       ),
     },
-  ], [t, handleEditVehicle, handleDeleteVehicle, deleteVehicleMutation.isLoading]);
+  ], [t, handleEditVehicle, handleDeleteVehicle, deleteVehicleMutation.isLoading, isAdmin]);
 
   // Extract total count for pagination
   const vehiclesTotalCount = useMemo(() => {
@@ -2976,37 +2993,46 @@ const AdminDashboard = () => {
           : '';
         return (
           <div className="flex justify-end items-center gap-3">
-            <button
-              type="button"
-              onClick={() => handleEditLocation(location)}
-              disabled={isDisabled}
-              className={`transition-colors ${
-                isDisabled 
-                  ? 'text-gray-400 cursor-not-allowed opacity-50' 
-                  : 'text-blue-600 hover:text-blue-900'
-              }`}
-              title={disabledTitle || t('common.edit', 'Edit')}
-            >
-              <Pencil className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDeleteLocation(locationId)}
-              disabled={isDisabled}
-              className={`transition-colors ${
-                isDisabled 
-                  ? 'text-gray-400 cursor-not-allowed opacity-50' 
-                  : 'text-red-600 hover:text-red-900'
-              }`}
-              title={disabledTitle || t('common.delete', 'Delete')}
-            >
-              <Trash className="h-5 w-5" />
-            </button>
+            {/* Edit and Delete buttons - Admin only */}
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleEditLocation(location)}
+                  disabled={isDisabled}
+                  className={`transition-colors ${
+                    isDisabled 
+                      ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                      : 'text-blue-600 hover:text-blue-900'
+                  }`}
+                  title={disabledTitle || t('common.edit', 'Edit')}
+                >
+                  <Pencil className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteLocation(locationId)}
+                  disabled={isDisabled}
+                  className={`transition-colors ${
+                    isDisabled 
+                      ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                      : 'text-red-600 hover:text-red-900'
+                  }`}
+                  title={disabledTitle || t('common.delete', 'Delete')}
+                >
+                  <Trash className="h-5 w-5" />
+                </button>
+              </>
+            )}
+            {/* Workers see view-only indicator */}
+            {!isAdmin && (
+              <span className="text-xs text-gray-500 italic">{t('common.viewOnly', 'View Only')}</span>
+            )}
           </div>
         );
       },
     },
-  ], [t, activeLocationSubTab, handleEditLocation, handleDeleteLocation]);
+  ], [t, activeLocationSubTab, handleEditLocation, handleDeleteLocation, isAdmin]);
 
   // Location table configuration
   const locationTable = useReactTable({
@@ -3042,7 +3068,7 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!isAdmin) {
+  if (!canAccessDashboard) {
     return (
       <PageContainer>
         <EmptyState
@@ -3062,6 +3088,14 @@ const AdminDashboard = () => {
         />
       </PageContainer>
     );
+  }
+
+  // Company-based access control: Admins and workers can only access their own company
+  // Main admins can access all companies
+  // Simply don't render dashboard if user is trying to access another company
+  const userCompanyId = user?.companyId || user?.CompanyId;
+  if (!isMainAdmin && userCompanyId && currentCompanyId && currentCompanyId !== userCompanyId) {
+    return null;
   }
 
   if (isLoading) {
@@ -3107,39 +3141,48 @@ const AdminDashboard = () => {
         <div className="col-span-1">
           <Card title={t('admin.navigation')} className="sticky top-4">
             <div className="space-y-2">
-              <button
-                onClick={() => {
-                  setActiveSection('company');
-                  setActiveTab('info');
-                }}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'company' && activeTab !== 'locations'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                title={t('admin.companyProfile')}
-                aria-label={t('admin.companyProfile')}
-              >
-                <Building2 className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs">{t('admin.companyProfile')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveSection('company');
-                  setActiveTab('locations');
-                }}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'company' && activeTab === 'locations'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.locations', 'Locations')}
-                aria-label={t('admin.locations', 'Locations')}
-              >
-                <MapPin className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.locations', 'Locations')}</span>
-              </button>
+              {/* Company Profile - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setActiveSection('company');
+                    setActiveTab('info');
+                  }}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'company' && activeTab !== 'locations'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  title={t('admin.companyProfile')}
+                  aria-label={t('admin.companyProfile')}
+                >
+                  <Building2 className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs">{t('admin.companyProfile')}</span>
+                </button>
+              )}
+              
+              {/* Locations - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setActiveSection('company');
+                    setActiveTab('locations');
+                  }}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'company' && activeTab === 'locations'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.locations', 'Locations')}
+                  aria-label={t('admin.locations', 'Locations')}
+                >
+                  <MapPin className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('admin.locations', 'Locations')}</span>
+                </button>
+              )}
+              
+              {/* Vehicles - All roles can see (workers: view only) */}
               <button
                 onClick={() => setActiveSection('vehicles')}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
@@ -3154,6 +3197,8 @@ const AdminDashboard = () => {
                 <Car className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs text-center">{t('vehicles.title')}</span>
               </button>
+              
+              {/* Vehicle Management (Location Assignment) - All roles */}
               <button
                 onClick={() => setActiveSection('vehicleManagement')}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
@@ -3162,12 +3207,14 @@ const AdminDashboard = () => {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 disabled={isEditing}
-                title={t('admin.vehicles')}
-                aria-label={t('admin.vehicles')}
+                title={t('admin.manageLocations')}
+                aria-label={t('admin.manageLocations')}
               >
-                <Car className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.vehicles')}</span>
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.manageLocations')}</span>
               </button>
+              
+              {/* Reservations - All roles can see and edit */}
               <button
                 onClick={() => setActiveSection('reservations')}
                 className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
@@ -3182,48 +3229,60 @@ const AdminDashboard = () => {
                 <Calendar className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs text-center">{t('admin.reservations')}</span>
               </button>
-              <button
-                onClick={() => setActiveSection('employees')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'employees'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.employees', 'Employees')}
-                aria-label={t('admin.employees', 'Employees')}
-              >
-                <Users className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.employees', 'Employees')}</span>
-              </button>
-              <button
-                onClick={() => setActiveSection('additionalServices')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'additionalServices'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.additionalServices')}
-                aria-label={t('admin.additionalServices')}
-              >
-                <Calendar className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.additionalServices')}</span>
-              </button>
-              <button
-                onClick={() => setActiveSection('reports')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'reports'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.viewReports')}
-                aria-label={t('admin.viewReports')}
-              >
-                <TrendingUp className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.viewReports')}</span>
-              </button>
+              
+              {/* Employees - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveSection('employees')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'employees'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.employees', 'Employees')}
+                  aria-label={t('admin.employees', 'Employees')}
+                >
+                  <Users className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('admin.employees', 'Employees')}</span>
+                </button>
+              )}
+              
+              {/* Additional Services - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveSection('additionalServices')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'additionalServices'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.additionalServices')}
+                  aria-label={t('admin.additionalServices')}
+                >
+                  <Calendar className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('admin.additionalServices')}</span>
+                </button>
+              )}
+              
+              {/* Reports - Admin only */}
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveSection('reports')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'reports'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.viewReports')}
+                  aria-label={t('admin.viewReports')}
+                >
+                  <TrendingUp className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('admin.viewReports')}</span>
+                </button>
+              )}
             </div>
           </Card>
         </div>
@@ -3301,8 +3360,8 @@ const AdminDashboard = () => {
                   </nav>
                 </div>
 
-                {/* Add Location Button */}
-                {!isEditingLocation && (
+                {/* Add Location Button - Admin only */}
+                {!isEditingLocation && isAdmin && (
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -5580,51 +5639,57 @@ const AdminDashboard = () => {
           {activeSection === 'vehicleManagement' && (
             <Card title={t('admin.vehicles')} headerActions={
               <div className="flex gap-2">
-                <label className={`btn-secondary text-sm ${isImportingVehicles ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`} style={{ margin: 0 }}>
-                  {isImportingVehicles ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2 inline-block"></div>
-                      {t('vehicles.importing') || 'Importing...'}
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2 inline" />
-                      {t('admin.importVehicles', 'Import Vehicles')}
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    onChange={handleVehicleImport}
-                    disabled={isImportingVehicles}
-                    className="hidden"
-                  />
-                </label>
-                <button
-                  onClick={() => {
-                    setIsCreatingVehicle(true);
-                    setVehicleCreateForm({
-                      make: '',
-                      model: '',
-                      year: '',
-                      licensePlate: '',
-                      color: '',
-                      vin: '',
-                      mileage: 0,
-                      transmission: '',
-                      seats: '',
-                      dailyRate: '',
-                      status: 'Available',
-                      state: '',
-                      location: '',
-                      features: null
-                    });
-                  }}
-                  className="btn-primary text-sm"
-                >
-                  <Plus className="h-4 w-4 mr-2 inline" />
-                  {t('admin.addVehicle')}
-                </button>
+                {/* Import and Add buttons - Admin only */}
+                {isAdmin && (
+                  <>
+                    <label className={`btn-secondary text-sm ${isImportingVehicles ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`} style={{ margin: 0 }}>
+                      {isImportingVehicles ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2 inline-block"></div>
+                          {t('vehicles.importing') || 'Importing...'}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2 inline" />
+                          {t('admin.importVehicles', 'Import Vehicles')}
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        onChange={handleVehicleImport}
+                        disabled={isImportingVehicles}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      onClick={() => {
+                        setIsCreatingVehicle(true);
+                        setVehicleCreateForm({
+                          make: '',
+                          model: '',
+                          year: '',
+                          licensePlate: '',
+                          color: '',
+                          vin: '',
+                          mileage: 0,
+                          transmission: '',
+                          seats: '',
+                          dailyRate: '',
+                          status: 'Available',
+                          state: '',
+                          location: '',
+                          features: null
+                        });
+                      }}
+                      className="btn-primary text-sm"
+                    >
+                      <Plus className="h-4 w-4 mr-2 inline" />
+                      {t('admin.addVehicle')}
+                    </button>
+                  </>
+                )}
+                {/* Manage Locations - All roles */}
                 <button
                   onClick={() => navigate(`/vehicle-locations?companyId=${currentCompanyId}`)}
                   className="btn-outline text-sm flex items-center gap-2"

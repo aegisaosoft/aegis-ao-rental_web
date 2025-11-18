@@ -488,6 +488,7 @@
   },
   "common": {
     "loading": "Wird Geladen...",
+    "loadingExperience": "Ihr Mietangebot wird geladen...",
     "error": "Fehler",
     "success": "Erfolg",
     "cancel": "Abbrechen",
@@ -520,10 +521,11 @@
     "companyId": "Firmen-ID",
     "notSet": "Nicht festgelegt",
     "admin": "Administrator",
-    "loadingCompany": "Firmeninformationen werden geladen...",
-    "loadingData": "Standorte und Fahrzeuge werden geladen...",
-    "loadingLocations": "Standorte werden geladen...",
-    "loadingVehicles": "Fahrzeuge werden geladen..."
+      "loadingCompany": "Firmeninformationen werden geladen...",
+      "loadingData": "Standorte und Fahrzeuge werden geladen...",
+      "loadingLocations": "Standorte werden geladen...",
+      "loadingVehicles": "Fahrzeuge werden geladen...",
+      "viewOnly": "Nur Lesen"
   },
   "auth": {
     "loginRequired": "Bitte melden Sie sich an, um auf diese Seite zuzugreifen",
@@ -889,6 +891,7 @@
     "editingNotice": "Andere Dashboard-Aktionen sind vorübergehend deaktiviert. Bitte speichern oder abbrechen Sie Ihre Änderungen, um fortzufahren.",
     "noCompany": "Kein Unternehmen Ausgewählt",
     "noCompanyMessage": "Bitte wählen Sie ein Unternehmen aus dem Dropdown-Menü aus, um das Dashboard anzuzeigen.",
+    "canOnlyAccessOwnCompany": "Sie können nur auf das Dashboard Ihres eigenen Unternehmens zugreifen.",
     "financialSettings": "Finanzielle Einstellungen",
     "currency": "Währung",
     "securityDeposit": "Sicherheitskaution",
