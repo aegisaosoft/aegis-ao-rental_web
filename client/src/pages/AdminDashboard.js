@@ -211,10 +211,22 @@ const AdminDashboard = () => {
   // Bookings filters & pagination
   const [bookingStatusFilter, setBookingStatusFilter] = useState('');
   const [bookingCustomerFilter, setBookingCustomerFilter] = useState('');
-  const [bookingDateFrom, setBookingDateFrom] = useState('');
-  const [bookingDateTo, setBookingDateTo] = useState('');
+  const [bookingDateFrom, setBookingDateFrom] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [bookingDateTo, setBookingDateTo] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
   const [bookingPage, setBookingPage] = useState(1);
   const [bookingPageSize, setBookingPageSize] = useState(10);
+  
+  // State for booking details modal
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [showBookingDetailsModal, setShowBookingDetailsModal] = useState(false);
+  const [editingBookingStatus, setEditingBookingStatus] = useState('');
   
   // State for employees
   const [customerPage, setCustomerPage] = useState(1);
@@ -546,6 +558,22 @@ const AdminDashboard = () => {
       onError: (error) => {
         console.error('Error creating vehicle:', error);
         toast.error(error.response?.data?.message || t('vehicles.createError') || 'Failed to create vehicle');
+      }
+    }
+  );
+
+  // Booking status update mutation
+  const updateBookingStatusMutation = useMutation(
+    ({ bookingId, status }) => apiService.updateBooking(bookingId, { status }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['bookings', currentCompanyId]);
+        setShowBookingDetailsModal(false);
+        setSelectedBooking(null);
+      },
+      onError: (error) => {
+        console.error('Error updating booking status:', error);
+        toast.error(error.response?.data?.message || t('admin.bookingUpdateError', 'Failed to update booking status'));
       }
     }
   );
@@ -1055,8 +1083,7 @@ const AdminDashboard = () => {
       formData.append('companyId', currentCompanyId || '');
 
       // Call vehicle import API endpoint
-      const response = await apiService.importVehicles(formData);
-      const importedCount = response.data?.count || response.data?.result?.count || 0;
+      await apiService.importVehicles(formData);
       queryClient.invalidateQueries(['vehicles', currentCompanyId]);
       
       event.target.value = ''; // Reset file input
@@ -1808,6 +1835,22 @@ const AdminDashboard = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // Handle open booking details
+  const handleOpenBookingDetails = (booking) => {
+    setSelectedBooking(booking);
+    setEditingBookingStatus(booking.status || '');
+    setShowBookingDetailsModal(true);
+  };
+
+  // Handle update booking status
+  const handleUpdateBookingStatus = () => {
+    if (!selectedBooking) return;
+    updateBookingStatusMutation.mutate({
+      bookingId: selectedBooking.id,
+      status: editingBookingStatus
+    });
   };
 
   const handleSaveCompany = async (e) => {
@@ -4487,7 +4530,7 @@ const AdminDashboard = () => {
                                   }
                                   setIsUpdatingRate(true);
                                   try {
-                                    const response = await apiService.bulkUpdateModelDailyRate({
+                                    await apiService.bulkUpdateModelDailyRate({
                                       dailyRate: parseFloat(rate),
                                       categoryId: categoryId,
                                       companyId: currentCompanyId
@@ -4576,7 +4619,7 @@ const AdminDashboard = () => {
                                             }
                                             setIsUpdatingRate(true);
                                             try {
-                                              const response = await apiService.bulkUpdateModelDailyRate({
+                                              await apiService.bulkUpdateModelDailyRate({
                                                 dailyRate: parseFloat(rate),
                                                 make: group.make,
                                                 companyId: currentCompanyId
@@ -4630,7 +4673,7 @@ const AdminDashboard = () => {
                                                   }
                                                   setIsUpdatingRate(true);
                                                   try {
-                                                    const response = await apiService.bulkUpdateModelDailyRate({
+                                                    await apiService.bulkUpdateModelDailyRate({
                                                       dailyRate: parseFloat(rate),
                                                       make: group.make,
                                                       modelName: group.modelName,
@@ -4689,7 +4732,7 @@ const AdminDashboard = () => {
                                                       }
                                                       setIsUpdatingRate(true);
                                                       try {
-                                                        const response = await apiService.bulkUpdateModelDailyRate({
+                                                        await apiService.bulkUpdateModelDailyRate({
                                                           dailyRate: parseFloat(rate),
                                                           make: group.make,
                                                           modelName: group.modelName,
@@ -4783,8 +4826,11 @@ const AdminDashboard = () => {
                     onClick={() => {
                       setBookingStatusFilter('');
                       setBookingCustomerFilter('');
-                      setBookingDateFrom('');
-                      setBookingDateTo('');
+                      const today = new Date();
+                      setBookingDateFrom(today.toISOString().split('T')[0]);
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setBookingDateTo(tomorrow.toISOString().split('T')[0]);
                     }}
                   >
                     {t('admin.resetFilters', 'Reset Filters')}
@@ -4838,7 +4884,14 @@ const AdminDashboard = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredBookings.map((booking) => (
                         <tr key={booking.id}>
-                          <td className="px-4 py-3 text-sm text-gray-900">{booking.bookingNumber}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <button
+                              onClick={() => handleOpenBookingDetails(booking)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                            >
+                              {booking.bookingNumber}
+                            </button>
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {booking.customerName}
                             <div className="text-xs text-gray-500">{booking.customerEmail}</div>
@@ -6843,6 +6896,151 @@ const AdminDashboard = () => {
                       : t('admin.setEmployee', 'Set Employee')}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Details Modal */}
+      {showBookingDetailsModal && selectedBooking && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setShowBookingDetailsModal(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              {/* Header */}
+              <div className="bg-blue-600 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">
+                    {t('admin.bookingDetails', 'Booking Details')} - {selectedBooking.bookingNumber}
+                  </h3>
+                  <button
+                    onClick={() => setShowBookingDetailsModal(false)}
+                    className="text-white hover:text-gray-200"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-white px-6 py-4">
+                <div className="space-y-4">
+                  {/* Customer Information */}
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.customerInformation', 'Customer Information')}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.name', 'Name')}</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedBooking.customerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.email', 'Email')}</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedBooking.customerEmail}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Vehicle Information */}
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.vehicleInformation', 'Vehicle Information')}
+                    </h4>
+                    <div>
+                      <p className="text-xs text-gray-500">{t('admin.vehicle', 'Vehicle')}</p>
+                      <p className="text-sm font-medium text-gray-900">{selectedBooking.vehicleName}</p>
+                    </div>
+                  </div>
+
+                  {/* Booking Dates */}
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.bookingDates', 'Booking Dates')}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.pickupDate', 'Pickup Date')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(selectedBooking.pickupDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.returnDate', 'Return Date')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(selectedBooking.returnDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.pricing', 'Pricing')}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.totalAmount', 'Total Amount')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.securityDeposit', 'Security Deposit')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          ${parseFloat(selectedBooking.securityDeposit || 0).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Booking Status - Editable */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.bookingStatus', 'Booking Status')}
+                    </h4>
+                    <select
+                      value={editingBookingStatus}
+                      onChange={(e) => setEditingBookingStatus(e.target.value)}
+                      className="input-field w-full border border-gray-300"
+                    >
+                      <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
+                      <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
+                      <option value="Active">{t('booking.statusActive', 'Active')}</option>
+                      <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
+                      <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowBookingDetailsModal(false)}
+                  className="btn-outline"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateBookingStatus}
+                  disabled={updateBookingStatusMutation.isLoading || editingBookingStatus === selectedBooking.status}
+                  className="btn-primary"
+                >
+                  {updateBookingStatusMutation.isLoading 
+                    ? t('common.saving', 'Saving...') 
+                    : t('common.save', 'Save')}
+                </button>
               </div>
             </div>
           </div>
