@@ -137,17 +137,16 @@ const Home = () => {
     try {
       const savedRaw = localStorage.getItem(SEARCH_FILTERS_STORAGE_KEY);
       
-      // Calculate default dates (today and one week later)
+      // Calculate default dates (today to today - same day rental)
       const today = new Date();
-      const oneWeekLater = new Date(today);
-      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
       const defaultStartDate = today.toISOString().split('T')[0];
-      const defaultEndDate = oneWeekLater.toISOString().split('T')[0];
+      const defaultEndDate = today.toISOString().split('T')[0];
       
       if (!savedRaw) {
-        // No saved filters - set default dates
+        // No saved filters - set default dates and All Locations
         setStartDate(defaultStartDate);
         setEndDate(defaultEndDate);
+        setSelectedLocationId(''); // All Locations
         filtersLoadedRef.current = true;
         return;
       }
@@ -167,15 +166,15 @@ const Home = () => {
       setStartDate(sanitized.startDate || defaultStartDate);
       setEndDate(sanitized.endDate || defaultEndDate);
       if (sanitized.category) setCategory(sanitized.category);
-      if (sanitized.locationId) setSelectedLocationId(sanitized.locationId);
+      // Always default to "All Locations" on first page load
+      setSelectedLocationId('');
     } catch (error) {
       console.warn('[Home] Failed to load saved search filters:', error);
-      // On error, set default dates
+      // On error, set default dates (today to today) and All Locations
       const today = new Date();
-      const oneWeekLater = new Date(today);
-      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
       setStartDate(today.toISOString().split('T')[0]);
-      setEndDate(oneWeekLater.toISOString().split('T')[0]);
+      setEndDate(today.toISOString().split('T')[0]);
+      setSelectedLocationId(''); // All Locations
     } finally {
       filtersLoadedRef.current = true;
     }

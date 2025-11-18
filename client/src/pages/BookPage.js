@@ -228,23 +228,17 @@ const BookPage = () => {
 
 
 
-  // Calculate today and tomorrow for default dates
+  // Calculate today for default dates (same-day rental allowed)
 
   const today = new Date();
 
-  const tomorrow = new Date(today);
-
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
   const todayStr = today.toISOString().split('T')[0];
-
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
 
 
   const initialPickupDate = searchStartDate || savedSearchFilters?.startDate || todayStr;
 
-  const initialReturnDate = searchEndDate || savedSearchFilters?.endDate || tomorrowStr;
+  const initialReturnDate = searchEndDate || savedSearchFilters?.endDate || todayStr;
 
   const initialSearchCategory = searchCategoryParam || savedSearchFilters?.category || '';
 
@@ -1164,16 +1158,12 @@ const BookPage = () => {
       const newPickupDate = new Date(value);
       const currentReturnDate = formData.returnDate ? new Date(formData.returnDate) : null;
       
-      // If return date exists and is less than or equal to new pickup date, set it to next day after pickup
-      if (currentReturnDate && currentReturnDate <= newPickupDate) {
-        const nextDay = new Date(newPickupDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const nextDayStr = nextDay.toISOString().split('T')[0];
-        
+      // If return date exists and is before new pickup date (not same day), set it to same day
+      if (currentReturnDate && currentReturnDate < newPickupDate) {
         setFormData({
           ...formData,
           pickupDate: value,
-          returnDate: nextDayStr
+          returnDate: value // Same day rental is allowed
         });
         return;
       }
@@ -1597,7 +1587,7 @@ const BookPage = () => {
 
     const returnDate = new Date(formData.returnDate);
 
-    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)));
+    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)) + 1);
 
 
 
@@ -1653,7 +1643,7 @@ const BookPage = () => {
 
     const returnDate = new Date(formData.returnDate);
 
-    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)));
+    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)) + 1);
 
     
 
@@ -1881,7 +1871,7 @@ const BookPage = () => {
 
 
 
-    if (returnDate <= pickupDate) {
+    if (returnDate < pickupDate) {
 
       toast.error(t('bookPage.returnDateAfterPickup'));
 
@@ -2827,7 +2817,7 @@ const BookPage = () => {
 
                           <span className="text-gray-600">
 
-                            {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)))} {t('bookPage.days')}
+                            {Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)) + 1)} {t('bookPage.days')}
 
                           </span>
 
@@ -2873,7 +2863,9 @@ const BookPage = () => {
 
                       className="w-full btn-primary py-3 text-lg"
 
-                      disabled={checkoutLoading}
+                      disabled={checkoutLoading || availableVehiclesCount === 0}
+
+                      title={availableVehiclesCount === 0 ? t('bookPage.unavailable') || 'Unavailable' : ''}
 
                     >
 
@@ -2884,6 +2876,18 @@ const BookPage = () => {
                         : t('bookPage.completeBooking')}
 
                     </button>
+
+
+
+                    {availableVehiclesCount === 0 && (
+
+                      <p className="text-sm text-center text-red-600 mt-2 font-semibold">
+
+                        {t('bookPage.noVehiclesAvailable') || 'No vehicles available for the selected dates and location'}
+
+                      </p>
+
+                    )}
 
 
 
