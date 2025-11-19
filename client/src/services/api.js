@@ -177,6 +177,13 @@ export const apiService = {
   createBooking: (data) => api.post('/booking/bookings', data),
   updateBooking: (id, data) => api.put(`/booking/bookings/${id}`, data),
   cancelBooking: (id) => api.post(`/booking/bookings/${id}/cancel`),
+  refundPayment: (bookingId, amount, reason) => api.post(`/booking/bookings/${bookingId}/refund`, { amount, reason }),
+  syncPaymentFromStripe: (bookingId) => api.post(`/booking/bookings/${bookingId}/sync-payment`),
+  syncPaymentsFromStripeBulk: (bookingIds) => api.post('/booking/bookings/sync-payments-bulk', bookingIds, {
+    timeout: 300000, // 5 minutes timeout for bulk sync (can take a while with many bookings)
+  }),
+  createSecurityDepositPaymentIntent: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-payment-intent`),
+  createSecurityDepositCheckout: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-checkout`),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),
@@ -285,6 +292,33 @@ export const apiService = {
     });
   },
   deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
+
+  // Stripe Terminal
+  createConnectionToken: (companyId) => api.post('/terminal/connection-token', { companyId }),
+  createTerminalPaymentIntent: (companyId, amount, currency = 'usd', options = {}) => {
+    return api.post('/terminal/create-payment-intent', {
+      companyId,
+      amount,
+      currency,
+      captureMethod: options.captureMethod || 'manual',
+      description: options.description,
+      bookingId: options.bookingId,
+      metadata: options.metadata
+    });
+  },
+  capturePaymentIntent: (companyId, paymentIntentId, amountToCapture = null) => {
+    return api.post('/terminal/capture-payment-intent', {
+      companyId,
+      paymentIntentId,
+      amountToCapture
+    });
+  },
+  cancelPaymentIntent: (companyId, paymentIntentId) => {
+    return api.post('/terminal/cancel-payment-intent', {
+      companyId,
+      paymentIntentId
+    });
+  },
 };
 
 // Export the axios instance for direct API calls (e.g., translation service)

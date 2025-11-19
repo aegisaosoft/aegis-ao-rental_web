@@ -105,17 +105,17 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">{t('footer.quickLinks')}</h3>
             <ul className="space-y-2">
-              <li key="link-home">
+              <li>
                 <Link to="/" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.home')}
                 </Link>
               </li>
-              <li key="link-about">
+              <li>
                 <Link to="/about" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.about')}
                 </Link>
               </li>
-              <li key="link-locations">
+              <li>
                 <Link to="/locations" className="text-gray-300 hover:text-white transition-colors">
                   {t('footer.contact')}
                 </Link>
@@ -164,10 +164,10 @@ const Footer = () => {
               © 2025 Aegis AP Soft. {t('footer.allRightsReserved')}
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Link to={getPrivacyLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
+              <Link key="privacy" to={getPrivacyLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.privacy')}
               </Link>
-              <Link to={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
+              <Link key="terms" to={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.terms')}
               </Link>
             </div>

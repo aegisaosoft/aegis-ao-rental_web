@@ -208,6 +208,30 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  syncPaymentFromStripe: async (bookingId) => {
+    const response = await apiService.syncPaymentFromStripe(bookingId);
+    return translateResponse(response);
+  },
+  
+  syncPaymentsFromStripeBulk: async (bookingIds) => {
+    // No translation needed for sync results, just pass through
+    return apiService.syncPaymentsFromStripeBulk(bookingIds);
+  },
+  
+  refundPayment: async (bookingId, amount, reason) => {
+    return apiService.refundPayment(bookingId, amount, reason);
+  },
+  
+  createSecurityDepositPaymentIntent: async (bookingId) => {
+    const response = await apiService.createSecurityDepositPaymentIntent(bookingId);
+    return translateResponse(response);
+  },
+  
+  createSecurityDepositCheckout: async (bookingId) => {
+    const response = await apiService.createSecurityDepositCheckout(bookingId);
+    return translateResponse(response);
+  },
+  
   cancelBooking: async (id) => {
     const response = await apiService.cancelBooking(id);
     return translateResponse(response);

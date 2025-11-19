@@ -48,6 +48,8 @@ const scanRoutes = require('./routes/scan');
 const licenseRoutes = require('./routes/license');
 const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
+const terminalRoutes = require('./routes/terminal');
+const webhooksRoutes = require('./routes/webhooks');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -234,6 +236,8 @@ app.use('/api/CompanyLocations', companyLocationsRoutes);
 app.use('/api/Models', modelsRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/license', licenseRoutes);
+app.use('/api/terminal', terminalRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);

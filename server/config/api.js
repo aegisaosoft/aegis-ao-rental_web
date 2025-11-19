@@ -185,6 +185,47 @@ const apiService = {
     }
     return apiClient.post(`/api/booking/bookings/${id}/cancel`, {}, config);
   },
+  syncPaymentFromStripe: (token, bookingId) => {
+    const config = { timeout: 300000 }; // 5 minutes timeout for Stripe API calls
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    console.log(`[API Config] Calling C# API to sync payment for booking ${bookingId}`);
+    return apiClient.post(`/api/Booking/${bookingId}/sync-payment`, {}, config);
+  },
+  syncPaymentsFromStripeBulk: (token, bookingIds) => {
+    const config = { timeout: 600000 }; // 10 minutes timeout for bulk operations
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    console.log(`[API Config] Calling C# API to bulk sync ${bookingIds.length} bookings`);
+    return apiClient.post('/api/Booking/sync-payments-bulk', bookingIds, config);
+  },
+  refundPayment: (token, bookingId, amount, reason) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    console.log(`[API Config] Calling C# API to refund booking ${bookingId}, amount: ${amount}, reason: ${reason || 'N/A'}`);
+    return apiClient.post(`/api/Booking/${bookingId}/refund`, { amount, reason }, config);
+  },
+  createSecurityDepositPaymentIntent: (token, bookingId) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    console.log(`[API Config] Creating security deposit payment intent for booking ${bookingId}`);
+    return apiClient.post(`/api/Booking/${bookingId}/security-deposit-payment-intent`, {}, config);
+  },
+
+  createSecurityDepositCheckout: (token, bookingId) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    console.log(`[API Config] Creating security deposit checkout session for booking ${bookingId}`);
+    return apiClient.post(`/api/Booking/${bookingId}/security-deposit-checkout`, {}, config);
+  },
 
   // Customers
   getCustomers: (token, params = {}) => {

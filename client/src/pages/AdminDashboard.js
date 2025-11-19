@@ -222,11 +222,26 @@ const AdminDashboard = () => {
   });
   const [bookingPage, setBookingPage] = useState(1);
   const [bookingPageSize, setBookingPageSize] = useState(10);
+  const [syncingPayments, setSyncingPayments] = useState(false);
+  const [showSyncConfirmModal, setShowSyncConfirmModal] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   
   // State for booking details modal
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingDetailsModal, setShowBookingDetailsModal] = useState(false);
   const [editingBookingStatus, setEditingBookingStatus] = useState('');
+  
+  // State for refund modal (when canceling booking)
+  const [showCancelRefundModal, setShowCancelRefundModal] = useState(false);
+  const [cancelRefundAmount, setCancelRefundAmount] = useState('');
+  const [cancelRefundReason, setCancelRefundReason] = useState('');
+  const [pendingCancelStatus, setPendingCancelStatus] = useState('');
+  
+  // State for security deposit payment modal
+  const [showSecurityDepositModal, setShowSecurityDepositModal] = useState(false);
+  const [pendingActiveStatus, setPendingActiveStatus] = useState('');
+  const [payingSecurityDeposit, setPayingSecurityDeposit] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState(''); // 'terminal' or 'checkout'
   
   // State for employees
   const [customerPage, setCustomerPage] = useState(1);
@@ -246,6 +261,27 @@ const AdminDashboard = () => {
   useEffect(() => {
     setBookingPage(1);
   }, [bookingStatusFilter, bookingCustomerFilter, bookingDateFrom, bookingDateTo]);
+
+  // Handle Stripe Checkout return (success/cancel)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('deposit_success') === 'true') {
+      const bookingId = urlParams.get('booking_id');
+      toast.success(t('admin.securityDepositPaid', 'Security deposit paid successfully!'));
+      console.log('✅ Security deposit payment successful for booking:', bookingId);
+      // Clean up URL
+      window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
+      // Refresh bookings list
+      setTimeout(() => {
+        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+      }, 1000);
+    } else if (urlParams.get('deposit_cancelled') === 'true') {
+      toast.warning(t('admin.securityDepositCancelled', 'Security deposit payment was cancelled.'));
+      console.log('⚠️ Security deposit payment cancelled');
+      // Clean up URL
+      window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
+    }
+  }, [t, queryClient, currentCompanyId]);
 
   const formatRate = useCallback(
     (value, options = {}) => {
@@ -450,6 +486,16 @@ const AdminDashboard = () => {
     }
   }, [companyConfig?.id, queryClient, getCompanyId, isSubdomainAccess]);
 
+  // Debug: Monitor security deposit modal state
+  useEffect(() => {
+    console.log('🔍 Security Deposit Modal State Changed:', showSecurityDepositModal);
+    if (showSecurityDepositModal) {
+      console.log('📋 Selected Booking:', selectedBooking);
+      console.log('💰 Security Deposit Amount (camelCase):', selectedBooking?.securityDeposit);
+      console.log('💰 Security Deposit Amount (PascalCase):', selectedBooking?.SecurityDeposit);
+    }
+  }, [showSecurityDepositModal, selectedBooking]);
+
   // Fetch current user's company data
   const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
     ['company', currentCompanyId],
@@ -567,13 +613,30 @@ const AdminDashboard = () => {
     ({ bookingId, status }) => apiService.updateBooking(bookingId, { status }),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries(['bookings', currentCompanyId]);
+        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
         setShowBookingDetailsModal(false);
         setSelectedBooking(null);
       },
       onError: (error) => {
         console.error('Error updating booking status:', error);
         toast.error(error.response?.data?.message || t('admin.bookingUpdateError', 'Failed to update booking status'));
+      }
+    }
+  );
+
+  // Refund payment mutation
+  const refundPaymentMutation = useMutation(
+    ({ bookingId, amount, reason }) => apiService.refundPayment(bookingId, amount, reason),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+        toast.success(t('admin.refundSuccess', 'Refund processed successfully'));
+        setShowBookingDetailsModal(false);
+        setSelectedBooking(null);
+      },
+      onError: (error) => {
+        console.error('Error processing refund:', error);
+        toast.error(error.response?.data?.message || t('admin.refundError', 'Failed to process refund'));
       }
     }
   );
@@ -1847,10 +1910,304 @@ const AdminDashboard = () => {
   // Handle update booking status
   const handleUpdateBookingStatus = () => {
     if (!selectedBooking) return;
+    
+    console.log('Updating booking status to:', editingBookingStatus);
+    console.log('Current booking status:', selectedBooking.status);
+    console.log('Current payment status:', selectedBooking.paymentStatus);
+    console.log('Has payment intent:', !!selectedBooking.stripePaymentIntentId);
+    
+    // If changing to Active, check if security deposit is mandatory and unpaid
+    if (editingBookingStatus === 'Active') {
+      console.log('=== Security Deposit Check ===');
+      console.log('Company data:', actualCompanyData);
+      
+      const isDepositMandatory = 
+        actualCompanyData?.isSecurityDepositMandatory ?? 
+        actualCompanyData?.IsSecurityDepositMandatory ?? 
+        true;
+      
+      console.log('Is deposit mandatory?', isDepositMandatory);
+      
+      // Check booking's security deposit first, then fall back to company default
+      let bookingDepositAmount = parseFloat(
+        selectedBooking.securityDeposit || 
+        selectedBooking.SecurityDeposit || 
+        0
+      );
+      
+      // If booking has no deposit set, use company's default deposit
+      const companyDepositAmount = parseFloat(
+        actualCompanyData?.securityDeposit || 
+        actualCompanyData?.SecurityDeposit || 
+        0
+      );
+      
+      // Use company deposit if booking deposit is 0
+      const depositAmount = bookingDepositAmount > 0 ? bookingDepositAmount : companyDepositAmount;
+      
+      console.log('Booking deposit amount:', bookingDepositAmount);
+      console.log('Company deposit amount:', companyDepositAmount);
+      console.log('Final deposit amount to collect:', depositAmount);
+      console.log('selectedBooking.securityDeposit:', selectedBooking.securityDeposit);
+      console.log('selectedBooking.SecurityDeposit:', selectedBooking.SecurityDeposit);
+      console.log('actualCompanyData.securityDeposit:', actualCompanyData?.securityDeposit);
+      console.log('actualCompanyData.SecurityDeposit:', actualCompanyData?.SecurityDeposit);
+      
+      // Check if security deposit has already been paid
+      const isDepositAlreadyPaid = !!selectedBooking.securityDepositPaymentIntentId;
+      console.log('Is deposit already paid?', isDepositAlreadyPaid);
+      console.log('Security Deposit Payment Intent ID:', selectedBooking.securityDepositPaymentIntentId);
+      
+      // Check if security deposit is unpaid
+      // Only show modal if deposit is mandatory, amount > 0, AND not already paid
+      if (isDepositMandatory && depositAmount > 0 && !isDepositAlreadyPaid) {
+        console.log('✅ Opening security deposit modal with amount:', depositAmount);
+        setPendingActiveStatus(editingBookingStatus);
+        setShowSecurityDepositModal(true);
+        return;
+      } else {
+        console.log('❌ Not opening modal - isDepositMandatory:', isDepositMandatory, 'depositAmount:', depositAmount, 'isDepositAlreadyPaid:', isDepositAlreadyPaid);
+      }
+    }
+    
+    // If changing to Cancelled and has a paid/succeeded payment, show refund modal
+    if (editingBookingStatus === 'Cancelled' && 
+        (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') && 
+        selectedBooking.stripePaymentIntentId) {
+      const paymentAmount = parseFloat(selectedBooking.totalAmount || 0);
+      setCancelRefundAmount(paymentAmount.toFixed(2));
+      setPendingCancelStatus(editingBookingStatus);
+      setShowCancelRefundModal(true);
+      return;
+    }
+    
+    // For other status changes or unpaid bookings, update directly
     updateBookingStatusMutation.mutate({
       bookingId: selectedBooking.id,
       status: editingBookingStatus
     });
+  };
+
+
+  // Handle creating Stripe Checkout Session or Terminal payment
+  const handleInitiatePayment = async () => {
+    if (!selectedBooking || !paymentMethod) {
+      toast.error(t('admin.selectPaymentMethod', 'Please select a payment method'));
+      return;
+    }
+    
+    setPayingSecurityDeposit(true);
+    
+    try {
+      if (paymentMethod === 'terminal') {
+        // Card Reader payment (Stripe Terminal)
+        console.log(`Creating payment intent for terminal:`, selectedBooking.id);
+        
+        const response = await apiService.createSecurityDepositPaymentIntent(selectedBooking.id);
+        console.log('Payment Intent created:', response.data);
+        
+        const { paymentIntentId, amount } = response.data;
+        
+        toast.info(t('admin.connectCardReader', 'Please connect card reader and have customer tap/swipe card'));
+        
+        // TODO: Integrate with useStripeTerminal hook
+        toast.warning(t('admin.terminalIntegrationPending', 'Stripe Terminal integration will be completed in next step'));
+        
+        // For terminal, simulate and complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Update booking status
+        await updateBookingStatusMutation.mutateAsync({
+          bookingId: selectedBooking.id,
+          status: pendingActiveStatus
+        });
+        
+        setShowSecurityDepositModal(false);
+        setPaymentMethod('');
+        toast.success(t('admin.securityDepositAuthorized', `Security deposit of $${amount} authorized (Payment Intent: ${paymentIntentId})`));
+        
+      } else if (paymentMethod === 'checkout') {
+        // Stripe Checkout - hosted payment page
+        console.log(`Creating Stripe Checkout session for booking:`, selectedBooking.id);
+        
+        const response = await apiService.createSecurityDepositCheckout(selectedBooking.id);
+        console.log('Checkout session created:', response.data);
+        
+        const { sessionUrl } = response.data;
+        
+        // Close modal and redirect to Stripe's hosted checkout page
+        setShowSecurityDepositModal(false);
+        setPaymentMethod('');
+        
+        toast.info(t('admin.redirectingToStripe', 'Redirecting to Stripe payment page...'));
+        
+        // Redirect to Stripe Checkout (opens in same tab)
+        // The user will be redirected back to admin dashboard after payment
+        window.location.href = sessionUrl;
+      }
+      
+    } catch (error) {
+      console.error('Error initiating payment:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to initiate payment';
+      toast.error(t('admin.securityDepositError', errorMessage));
+      setPayingSecurityDeposit(false);
+    }
+  };
+
+  // Handle refund payment
+  const handleRefund = () => {
+    if (!selectedBooking) return;
+    
+    const confirmRefund = window.confirm(
+      t('admin.confirmRefund', 'Are you sure you want to process a refund for this booking?') + 
+      `\n\n${t('admin.amount', 'Amount')}: $${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}`
+    );
+    
+    if (!confirmRefund) return;
+    
+    refundPaymentMutation.mutate({
+      bookingId: selectedBooking.id,
+      amount: selectedBooking.totalAmount,
+      reason: 'Full refund via booking details'
+    });
+  };
+
+  // Handle confirm refund when canceling booking
+  const handleConfirmCancelRefund = async () => {
+    if (!selectedBooking) return;
+    
+    const refundAmount = parseFloat(cancelRefundAmount);
+    const maxAmount = parseFloat(selectedBooking.totalAmount || 0);
+    
+    // Validate refund amount
+    if (isNaN(refundAmount) || refundAmount <= 0) {
+      toast.error(t('admin.invalidRefundAmount', 'Please enter a valid refund amount'));
+      return;
+    }
+    
+    if (refundAmount > maxAmount) {
+      toast.error(t('admin.refundExceedsPayment', `Refund amount cannot exceed payment amount of $${maxAmount.toFixed(2)}`));
+      return;
+    }
+    
+    // Process refund first
+    try {
+      await refundPaymentMutation.mutateAsync({
+        bookingId: selectedBooking.id,
+        amount: refundAmount,
+        reason: cancelRefundReason || 'Booking cancellation'
+      });
+      
+      // If refund successful, update booking status to Canceled
+      updateBookingStatusMutation.mutate({
+        bookingId: selectedBooking.id,
+        status: pendingCancelStatus
+      });
+      
+      // Close modals
+      setShowCancelRefundModal(false);
+      setShowBookingDetailsModal(false);
+      setCancelRefundAmount('');
+      setCancelRefundReason('');
+      setPendingCancelStatus('');
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      toast.error(t('admin.refundError', 'Failed to process refund'));
+    }
+  };
+
+  const handleSyncPaymentsFromStripe = async () => {
+    if (!filteredBookings || filteredBookings.length === 0) {
+      toast.error(t('admin.noBookingsToSync', 'No bookings to sync'));
+      return;
+    }
+
+    setShowSyncConfirmModal(true);
+  };
+
+  const confirmSyncPayments = async () => {
+    setShowSyncConfirmModal(false);
+    setSyncingPayments(true);
+
+    const bookingIds = filteredBookings.map(b => b.id);
+    const totalBookings = bookingIds.length;
+    setSyncProgress({ current: 0, total: totalBookings });
+
+    let successCount = 0;
+    let failureCount = 0;
+    const results = [];
+
+    try {
+      console.log('Starting async sync for', totalBookings, 'bookings');
+
+      // Process bookings one by one to avoid timeout
+      for (let i = 0; i < bookingIds.length; i++) {
+        const bookingId = bookingIds[i];
+        
+        try {
+          const response = await apiService.syncPaymentFromStripe(bookingId);
+          
+          if (response.data.success) {
+            successCount++;
+            results.push({
+              bookingId,
+              success: true,
+              status: response.data.status
+            });
+          } else {
+            failureCount++;
+            results.push({
+              bookingId,
+              success: false,
+              error: 'Sync failed'
+            });
+          }
+        } catch (error) {
+          // Check if error is due to no payment found in Stripe (skip silently)
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || '';
+          const isNoPaymentFound = errorMessage.toLowerCase().includes('no stripe payment found');
+          
+          if (isNoPaymentFound) {
+            // Skip this booking silently - it wasn't paid via Stripe
+            console.log(`Skipping booking ${bookingId}: No Stripe payment found`);
+          } else {
+            // Real error - count as failure
+            failureCount++;
+            results.push({
+              bookingId,
+              success: false,
+              error: errorMessage
+            });
+            console.error(`Error syncing booking ${bookingId}:`, error);
+          }
+        }
+
+        // Update progress
+        setSyncProgress({ current: i + 1, total: totalBookings });
+      }
+
+      // Show final results
+      toast.success(
+        `✅ ${t('admin.syncPaymentsSuccess', 
+          `Synced ${successCount} of ${totalBookings} bookings`)}` +
+        (failureCount > 0 
+          ? `\n⚠️ ${t('admin.syncPaymentsFailed', `${failureCount} failed`)}` 
+          : ''),
+        { autoClose: 5000 }
+      );
+
+      console.log('Sync completed:', { successCount, failureCount, results });
+
+      // Refresh bookings list
+      queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+
+    } catch (error) {
+      console.error('Error in sync process:', error);
+      toast.error(`❌ ${t('admin.syncPaymentsError', 'Failed to sync payments from Stripe')}`);
+    } finally {
+      setSyncingPayments(false);
+      setSyncProgress({ current: 0, total: 0 });
+    }
   };
 
   const handleSaveCompany = async (e) => {
@@ -4820,21 +5177,46 @@ const AdminDashboard = () => {
                   <div className="text-sm text-gray-600">
                     {t('admin.bookingCount', { count: totalBookings })}
                   </div>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => {
-                      setBookingStatusFilter('');
-                      setBookingCustomerFilter('');
-                      const today = new Date();
-                      setBookingDateFrom(today.toISOString().split('T')[0]);
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      setBookingDateTo(tomorrow.toISOString().split('T')[0]);
-                    }}
-                  >
-                    {t('admin.resetFilters', 'Reset Filters')}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => {
+                        setBookingStatusFilter('');
+                        setBookingCustomerFilter('');
+                        const today = new Date();
+                        setBookingDateFrom(today.toISOString().split('T')[0]);
+                        const tomorrow = new Date();
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        setBookingDateTo(tomorrow.toISOString().split('T')[0]);
+                      }}
+                    >
+                      {t('admin.resetFilters', 'Reset Filters')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary relative"
+                      onClick={handleSyncPaymentsFromStripe}
+                      disabled={syncingPayments || !filteredBookings || filteredBookings.length === 0}
+                    >
+                      {syncingPayments ? (
+                        <>
+                          <span className="animate-spin inline-block mr-2">⟳</span>
+                          {t('admin.syncingPayments', 'Syncing...')}
+                          {syncProgress.total > 0 && (
+                            <span className="ml-2 text-xs opacity-75">
+                              ({syncProgress.current}/{syncProgress.total})
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="mr-2">🔄</span>
+                          {t('admin.syncPayments', 'Sync Payments from Stripe')}
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -6902,6 +7284,440 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {/* Sync Payments Confirmation Modal */}
+      {showSyncConfirmModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setShowSyncConfirmModal(false)}
+            />
+
+            {/* Modal content */}
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              {/* Header with gradient */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-xl bg-white bg-opacity-20">
+                    <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-xl font-bold text-white">
+                      {t('admin.syncPayments', 'Sync Payments from Stripe')}
+                    </h3>
+                    <p className="text-sm text-blue-100 mt-1">
+                      {filteredBookings?.length || 0} {t('admin.bookingsSelected', 'booking(s) selected')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-white px-6 py-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100">
+                      <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="text-base font-medium text-gray-900 mb-3">
+                      {t('admin.confirmSyncPayments', 
+                        `Sync payment information from Stripe for ${filteredBookings?.length || 0} filtered booking(s)?`)}
+                    </p>
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3 space-y-1">
+                          <p className="text-sm text-blue-700">
+                            {t('admin.syncPaymentsNote', 'This will fetch the latest payment status from Stripe and update your database.')}
+                          </p>
+                          <p className="text-xs text-blue-600 font-medium">
+                            ⏱️ {t('admin.syncMayTakeTime', 'This may take a few minutes for multiple bookings.')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                <button
+                  type="button"
+                  onClick={confirmSyncPayments}
+                  className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-base font-medium text-white hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:w-auto transition-all transform hover:scale-105"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {t('common.ok', 'OK')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSyncConfirmModal(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto transition-colors"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Booking Refund Modal */}
+      {showCancelRefundModal && selectedBooking && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => setShowCancelRefundModal(false)}
+            />
+
+            {/* Modal content */}
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              {/* Header with gradient */}
+              <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-xl bg-white bg-opacity-20">
+                    <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentWidth">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-xl font-bold text-white">
+                      {t('admin.cancelBookingRefund', 'Cancel Booking & Process Refund')}
+                    </h3>
+                    <p className="text-sm text-red-100 mt-1">
+                      {selectedBooking.bookingNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-white px-6 py-6">
+                <div className="space-y-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <div className="flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100">
+                        <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentWidth">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex-1">
+                      <p className="text-base font-medium text-gray-900 mb-2">
+                        {t('admin.cancelBookingMessage', 'This booking will be canceled and a refund will be processed.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment Info */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-600">
+                        {t('admin.paymentAmount', 'Payment Amount')}
+                      </span>
+                      <span className="text-lg font-bold text-gray-900">
+                        ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Refund Amount Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.refundAmount', 'Refund Amount')} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">$</span>
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={parseFloat(selectedBooking.totalAmount || 0)}
+                        value={cancelRefundAmount}
+                        onChange={(e) => setCancelRefundAmount(e.target.value)}
+                        className="block w-full pl-7 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                        placeholder="0.00"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-400 sm:text-sm">
+                          / ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {t('admin.refundAmountNote', 'Enter an amount up to the payment total. This action cannot be undone.')}
+                    </p>
+                  </div>
+
+                  {/* Refund Reason Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.refundReason', 'Refund Reason')} <span className="text-gray-400">({t('common.optional', 'Optional')})</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={cancelRefundReason}
+                      onChange={(e) => setCancelRefundReason(e.target.value)}
+                      className="block w-full py-3 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      placeholder={t('admin.refundReasonPlaceholder', 'e.g., Customer requested cancellation, Change of plans, etc.')}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                <button
+                  type="button"
+                  onClick={handleConfirmCancelRefund}
+                  disabled={refundPaymentMutation.isLoading}
+                  className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-base font-medium text-white hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {refundPaymentMutation.isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('common.processing', 'Processing...')}
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentWidth">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {t('admin.processRefund', 'Process Refund & Cancel')}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCancelRefundModal(false);
+                    setCancelRefundAmount('');
+                    setCancelRefundReason('');
+                    setPendingCancelStatus('');
+                  }}
+                  disabled={refundPaymentMutation.isLoading}
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:mt-0 sm:w-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Deposit Payment Modal */}
+      {showSecurityDepositModal && selectedBooking && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => !payingSecurityDeposit && setShowSecurityDepositModal(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+                <div className="flex items-center">
+                  <svg className="h-6 w-6 text-white mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      {t('admin.paySecurityDeposit', 'Pay Security Deposit')}
+                    </h3>
+                    <p className="text-sm text-blue-100 mt-1">
+                      {selectedBooking.bookingNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-white px-6 py-4">
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      {t('admin.securityDepositRequired', 'A security deposit is required to activate this booking.')}
+                    </p>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.selectPaymentMethod', 'Select Payment Method')}
+                    </h4>
+                    <div className="space-y-3">
+                      {/* Card Reader Option */}
+                      <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        paymentMethod === 'terminal' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-300 hover:border-blue-300 bg-white'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="terminal"
+                          checked={paymentMethod === 'terminal'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-900">
+                              {t('admin.cardReader', 'Card Reader (Stripe Terminal)')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 ml-7 mt-1">
+                            {t('admin.cardReaderDesc', 'Customer taps/swipes card on physical reader')}
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Stripe Checkout Option */}
+                      <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        paymentMethod === 'checkout' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-300 hover:border-blue-300 bg-white'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="checkout"
+                          checked={paymentMethod === 'checkout'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-900">
+                              {t('admin.stripeCheckout', 'Stripe Checkout Page')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 ml-7 mt-1">
+                            {t('admin.stripeCheckoutDesc', 'Redirect to secure Stripe payment page to enter card')}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.customerName', 'Customer')}</span>
+                      <span className="text-sm font-medium text-gray-900">{selectedBooking.customerName}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.vehicleName', 'Vehicle')}</span>
+                      <span className="text-sm font-medium text-gray-900">{selectedBooking.vehicleName}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.bookingDates', 'Booking Dates')}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(selectedBooking.pickupDate).toLocaleDateString()} - {new Date(selectedBooking.returnDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-6 text-center">
+                    <p className="text-sm text-gray-600 mb-2">{t('admin.securityDepositAmount', 'Security Deposit Amount')}</p>
+                    <p className="text-4xl font-bold text-green-600">
+                      ${(() => {
+                        const bookingDeposit = parseFloat(selectedBooking.securityDeposit || selectedBooking.SecurityDeposit || 0);
+                        const companyDeposit = parseFloat(actualCompanyData?.securityDeposit || actualCompanyData?.SecurityDeposit || 0);
+                        const finalDeposit = bookingDeposit > 0 ? bookingDeposit : companyDeposit;
+                        return finalDeposit.toFixed(2);
+                      })()}
+                    </p>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex">
+                      <svg className="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm text-yellow-800">
+                        {t('admin.securityDepositNote', 'The security deposit will be refunded upon vehicle return in good condition.')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                <button
+                  type="button"
+                  onClick={handleInitiatePayment}
+                  disabled={payingSecurityDeposit || !paymentMethod}
+                  className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-base font-medium text-white hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:w-auto transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!paymentMethod ? t('admin.selectPaymentMethodFirst', 'Please select a payment method first') : ''}
+                >
+                  {payingSecurityDeposit ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('common.processing', 'Processing...')}
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {t('admin.processPayment', 'Process Payment')}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSecurityDepositModal(false);
+                    setPendingActiveStatus('');
+                    setPaymentMethod('');
+                    setPayingSecurityDeposit(false);
+                  }}
+                  disabled={payingSecurityDeposit}
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Booking Details Modal */}
       {showBookingDetailsModal && selectedBooking && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -7002,45 +7818,311 @@ const AdminDashboard = () => {
                     </div>
                   </div>
 
+                  {/* Payment Information */}
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.paymentInformation', 'Payment Information')}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.paymentMethod', 'Payment Method')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedBooking.paymentMethod || t('admin.notAvailable', 'N/A')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">{t('admin.paymentStatus', 'Payment Status')}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded'
+                              ? 'bg-green-100 text-green-800' 
+                              : selectedBooking.paymentStatus === 'Refunded' || selectedBooking.paymentStatus === 'refunded'
+                              ? 'bg-gray-100 text-gray-800'
+                              : selectedBooking.paymentStatus === 'Pending' || selectedBooking.paymentStatus === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {selectedBooking.paymentStatus === 'succeeded' 
+                              ? t('admin.paid', 'Paid') 
+                              : selectedBooking.paymentStatus || t('admin.unpaid', 'Unpaid')}
+                          </span>
+                        </p>
+                      </div>
+                      {selectedBooking.stripePaymentIntentId && (
+                        <>
+                          <div>
+                            <p className="text-xs text-gray-500">{t('admin.paymentIntentId', 'Payment Intent ID')}</p>
+                            <p className="text-xs font-mono text-gray-700 break-all">
+                              {selectedBooking.stripePaymentIntentId}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">{t('admin.transactionDate', 'Transaction Date')}</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedBooking.paymentDate 
+                                ? new Date(selectedBooking.paymentDate).toLocaleString() 
+                                : t('admin.notAvailable', 'N/A')}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {selectedBooking.refundAmount && parseFloat(selectedBooking.refundAmount) > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500">{t('admin.refundAmount', 'Refund Amount')}</p>
+                          <p className="text-sm font-medium text-red-600">
+                            ${parseFloat(selectedBooking.refundAmount).toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Security Deposit Information */}
+                  {selectedBooking.securityDepositPaymentIntentId && (
+                    <div className="border-b border-gray-200 pb-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        {t('admin.securityDepositInfo', 'Security Deposit Information')}
+                      </h4>
+                      <div className={`rounded-lg p-4 ${
+                        selectedBooking.securityDepositStatus === 'captured' 
+                          ? 'bg-red-50 border border-red-200'
+                          : selectedBooking.securityDepositStatus === 'released' 
+                          ? 'bg-gray-50 border border-gray-200'
+                          : 'bg-blue-50 border border-blue-200'
+                      }`}>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500">{t('admin.depositAmount', 'Deposit Amount')}</p>
+                            <p className={`text-lg font-bold ${
+                              selectedBooking.securityDepositStatus === 'captured' 
+                                ? 'text-red-600' 
+                                : selectedBooking.securityDepositStatus === 'released'
+                                ? 'text-gray-600'
+                                : 'text-blue-600'
+                            }`}>
+                              ${parseFloat(
+                                selectedBooking.securityDepositChargedAmount || 
+                                selectedBooking.securityDeposit || 
+                                actualCompanyData?.securityDeposit || 
+                                0
+                              ).toFixed(2)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">{t('admin.depositStatus', 'Status')}</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                selectedBooking.securityDepositStatus === 'captured' 
+                                  ? 'bg-red-100 text-red-800'
+                                  : selectedBooking.securityDepositStatus === 'released'
+                                  ? 'bg-gray-100 text-gray-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {selectedBooking.securityDepositStatus === 'captured' 
+                                  ? t('admin.captured', 'Captured (Charged)')
+                                  : selectedBooking.securityDepositStatus === 'released'
+                                  ? t('admin.released', 'Released (Not Charged)')
+                                  : t('admin.authorized', 'Authorized (Not Charged)')}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-xs text-gray-500">{t('admin.depositPaymentIntentId', 'Deposit Payment Intent ID')}</p>
+                            <p className="text-xs font-mono text-gray-700 break-all">
+                              {selectedBooking.securityDepositPaymentIntentId}
+                            </p>
+                          </div>
+                          {selectedBooking.securityDepositAuthorizedAt && (
+                            <div>
+                              <p className="text-xs text-gray-500">{t('admin.authorizedAt', 'Authorized At')}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {new Date(selectedBooking.securityDepositAuthorizedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          {selectedBooking.securityDepositCapturedAt && (
+                            <div>
+                              <p className="text-xs text-gray-500">{t('admin.capturedAt', 'Captured At')}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {new Date(selectedBooking.securityDepositCapturedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          {selectedBooking.securityDepositReleasedAt && (
+                            <div>
+                              <p className="text-xs text-gray-500">{t('admin.releasedAt', 'Released At')}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {new Date(selectedBooking.securityDepositReleasedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`mt-3 pt-3 border-t ${
+                          selectedBooking.securityDepositStatus === 'captured' 
+                            ? 'border-red-300'
+                            : selectedBooking.securityDepositStatus === 'released'
+                            ? 'border-gray-300'
+                            : 'border-blue-300'
+                        }`}>
+                          <div className="flex items-start">
+                            <svg className={`h-5 w-5 mr-2 flex-shrink-0 mt-0.5 ${
+                              selectedBooking.securityDepositStatus === 'captured'
+                                ? 'text-red-500'
+                                : selectedBooking.securityDepositStatus === 'released'
+                                ? 'text-gray-500'
+                                : 'text-blue-500'
+                            }`} fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <p className={`text-xs ${
+                              selectedBooking.securityDepositStatus === 'captured'
+                                ? 'text-red-800'
+                                : selectedBooking.securityDepositStatus === 'released'
+                                ? 'text-gray-800'
+                                : 'text-blue-800'
+                            }`}>
+                              {selectedBooking.securityDepositStatus === 'captured'
+                                ? t('admin.depositCapturedNote', 'Security deposit has been captured and charged to the customer\'s card.')
+                                : selectedBooking.securityDepositStatus === 'released'
+                                ? t('admin.depositReleasedNote', 'Security deposit authorization has been released. No charge was made.')
+                                : t('admin.depositNote', 'Security deposit has been authorized on the customer\'s card but not charged. It will be automatically released after 7 days or can be manually captured/released in Stripe Dashboard.')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Refund Records */}
+                  {selectedBooking.refundRecords && selectedBooking.refundRecords.length > 0 && (
+                    <div className="border-b border-gray-200 pb-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                        {t('admin.refundHistory', 'Refund History')}
+                      </h4>
+                      <div className="space-y-3">
+                        {selectedBooking.refundRecords.map((refund) => (
+                          <div key={refund.id} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <p className="text-xs text-gray-500">{t('admin.refundAmount', 'Refund Amount')}</p>
+                                <p className="text-sm font-bold text-red-600">
+                                  ${parseFloat(refund.amount).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">{t('admin.refundDate', 'Refund Date')}</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {new Date(refund.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                              {refund.reason && (
+                                <div className="col-span-2">
+                                  <p className="text-xs text-gray-500">{t('admin.refundReason', 'Reason')}</p>
+                                  <p className="text-sm text-gray-900">{refund.reason}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-xs text-gray-500">{t('admin.refundId', 'Refund ID')}</p>
+                                <p className="text-xs font-mono text-gray-700 break-all">
+                                  {refund.stripeRefundId}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">{t('admin.refundStatus', 'Status')}</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {refund.status || 'succeeded'}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Booking Status - Editable */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-3">
                       {t('admin.bookingStatus', 'Booking Status')}
                     </h4>
-                    <select
-                      value={editingBookingStatus}
-                      onChange={(e) => setEditingBookingStatus(e.target.value)}
-                      className="input-field w-full border border-gray-300"
-                    >
-                      <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
-                      <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
-                      <option value="Active">{t('booking.statusActive', 'Active')}</option>
-                      <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
-                      <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
-                    </select>
+                    {selectedBooking.refundRecords && selectedBooking.refundRecords.length > 0 ? (
+                      <div>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
+                          <p className="text-sm text-yellow-800">
+                            {t('admin.statusChangeProhibited', 'Status cannot be changed because this booking has been refunded.')}
+                          </p>
+                        </div>
+                        <input
+                          type="text"
+                          value={editingBookingStatus}
+                          disabled
+                          className="input-field w-full border border-gray-300 bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+                    ) : (
+                      <select
+                        value={editingBookingStatus}
+                        onChange={(e) => setEditingBookingStatus(e.target.value)}
+                        className="input-field w-full border border-gray-300"
+                      >
+                        <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
+                        <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
+                        <option value="Active">{t('booking.statusActive', 'Active')}</option>
+                        <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
+                        <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
+                      </select>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowBookingDetailsModal(false)}
-                  className="btn-outline"
-                >
-                  {t('common.cancel', 'Cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUpdateBookingStatus}
-                  disabled={updateBookingStatusMutation.isLoading || editingBookingStatus === selectedBooking.status}
-                  className="btn-primary"
-                >
-                  {updateBookingStatusMutation.isLoading 
-                    ? t('common.saving', 'Saving...') 
-                    : t('common.save', 'Save')}
-                </button>
+              <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+                {/* Refund button on the left */}
+                <div>
+                  {selectedBooking.stripePaymentIntentId && 
+                   (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') && 
+                   selectedBooking.status !== 'Cancelled' &&
+                   (!selectedBooking.refundRecords || selectedBooking.refundRecords.length === 0) && (
+                    <button
+                      type="button"
+                      onClick={handleRefund}
+                      disabled={refundPaymentMutation.isLoading}
+                      className="btn-outline border-red-600 text-red-600 hover:bg-red-50"
+                    >
+                      {refundPaymentMutation.isLoading 
+                        ? t('admin.processing', 'Processing...') 
+                        : t('admin.refundPayment', 'Refund Payment')}
+                    </button>
+                  )}
+                </div>
+                
+                {/* Action buttons on the right */}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowBookingDetailsModal(false)}
+                    className="btn-outline"
+                  >
+                    {t('common.cancel', 'Cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpdateBookingStatus}
+                    disabled={
+                      updateBookingStatusMutation.isLoading || 
+                      editingBookingStatus === selectedBooking.status ||
+                      (selectedBooking.refundRecords && selectedBooking.refundRecords.length > 0)
+                    }
+                    className="btn-primary"
+                  >
+                    {updateBookingStatusMutation.isLoading 
+                      ? t('common.saving', 'Saving...') 
+                      : t('common.save', 'Save')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

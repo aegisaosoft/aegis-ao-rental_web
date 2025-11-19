@@ -33,6 +33,23 @@ router.get('/bookings', authenticateToken, async (req, res) => {
   }
 });
 
+// Sync payments from Stripe for multiple bookings (MUST be before :id routes)
+router.post('/bookings/sync-payments-bulk', authenticateToken, async (req, res) => {
+  try {
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    const bookingIds = req.body;
+    console.log(`[Proxy] Bulk syncing payments for ${bookingIds.length} bookings`);
+    const response = await apiService.syncPaymentsFromStripeBulk(token, bookingIds);
+    console.log(`[Proxy] Bulk sync completed: ${response.data?.successCount}/${response.data?.totalProcessed} successful`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('[Proxy] Bulk payment sync error:', error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to sync payments' 
+    });
+  }
+});
+
 // Get booking by ID
 router.get('/bookings/:id', authenticateToken, async (req, res) => {
   try {
@@ -103,6 +120,74 @@ router.post('/bookings/:id/cancel', authenticateToken, async (req, res) => {
     console.error('Reservation cancellation error:', error);
     res.status(error.response?.status || 500).json({ 
       message: error.response?.data?.message || 'Server error' 
+    });
+  }
+});
+
+// Sync payment from Stripe for a single booking
+router.post('/bookings/:id/sync-payment', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    console.log(`[Proxy] Syncing payment for booking ${id}`);
+    const response = await apiService.syncPaymentFromStripe(token, id);
+    console.log(`[Proxy] Sync response for booking ${id}:`, response.data);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Payment sync error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to sync payment' 
+    });
+  }
+});
+
+// Refund payment
+router.post('/bookings/:id/refund', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    console.log(`[Proxy] Processing refund for booking ${id}, amount: ${amount}, reason: ${reason || 'N/A'}`);
+    const response = await apiService.refundPayment(token, id, amount, reason);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Refund error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to process refund' 
+    });
+  }
+});
+
+// Create security deposit payment intent
+router.post('/bookings/:id/security-deposit-payment-intent', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    console.log(`[Proxy] Creating security deposit payment intent for booking ${id}`);
+    const response = await apiService.createSecurityDepositPaymentIntent(token, id);
+    console.log(`[Proxy] Payment intent created: ${response.data.paymentIntentId}`);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Security deposit payment intent error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to create payment intent' 
+    });
+  }
+});
+
+// Create security deposit checkout session (hosted Stripe page)
+router.post('/bookings/:id/security-deposit-checkout', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    console.log(`[Proxy] Creating security deposit checkout session for booking ${id}`);
+    const response = await apiService.createSecurityDepositCheckout(token, id);
+    console.log(`[Proxy] Checkout session created: ${response.data.sessionId}`);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Security deposit checkout error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to create checkout session' 
     });
   }
 });

@@ -19,10 +19,11 @@ const apiService = require('../config/api');
 
 // Get current company config (domain-based) - must be before /:id route
 router.get('/config', async (req, res) => {
+  const axios = require('axios');
+  // Use Azure API by default for local testing (or set API_BASE_URL in .env)
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+  
   try {
-    const axios = require('axios');
-    // Use Azure API by default for local testing (or set API_BASE_URL in .env)
-    const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const proxyPath = '/api/companies/config';
     
     // Forward X-Company-Id header if present (set by company detection middleware)
@@ -163,13 +164,12 @@ router.get('/:id', async (req, res) => {
 
 // Update company
 router.put('/:id', async (req, res) => {
+  const axios = require('axios');
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+  
   try {
     const { id } = req.params;
     const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    
-          // Forward the request to the backend API
-          const axios = require('axios');
-          const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     
     console.log(`[Companies Route] PUT /api/companies/${id} -> ${apiBaseUrl}/api/RentalCompanies/${id}`);
     console.log('Request body:', JSON.stringify(req.body, null, 2));

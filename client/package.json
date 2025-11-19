@@ -9,6 +9,9 @@
   "dependencies": {
     "@microblink/blinkid": "^7.6.0",
     "@microblink/blinkid-in-browser-sdk": "^6.13.3",
+    "@stripe/react-stripe-js": "^5.4.0",
+    "@stripe/stripe-js": "^8.5.2",
+    "@stripe/terminal-js": "^0.26.0",
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
