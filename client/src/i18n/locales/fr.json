@@ -976,7 +976,23 @@
     "releasedAt": "Libéré le",
     "depositNote": "Le dépôt de garantie a été autorisé sur la carte du client mais n'a pas été débité. Il sera automatiquement libéré après 7 jours ou peut être manuellement capturé/libéré dans le tableau de bord Stripe.",
     "depositCapturedNote": "Le dépôt de garantie a été capturé et débité sur la carte du client.",
-    "depositReleasedNote": "L'autorisation du dépôt de garantie a été libérée. Aucun débit n'a été effectué."
+    "depositReleasedNote": "L'autorisation du dépôt de garantie a été libérée. Aucun débit n'a été effectué.",
+    "completeBooking": "Compléter la Réservation",
+    "damageCheckQuestion": "Y a-t-il eu des dommages au véhicule?",
+    "noDamage": "Aucun Dommage",
+    "noDamageDesc": "Véhicule retourné en bon état",
+    "hasDamage": "Dommage Trouvé",
+    "hasDamageDesc": "Le véhicule a des dommages - le dépôt de garantie sera débité",
+    "securityDepositWillBeCharged": "Le dépôt de garantie sera débité en raison des dommages.",
+    "noSecurityDepositToCharge": "Aucun dépôt de garantie n'a été collecté pour cette réservation.",
+    "bookingCompletedDepositCharged": "Réservation complétée. Le dépôt de garantie de {{amount}} sera débité.",
+    "bookingCompleteError": "Échec de la complétion de la réservation",
+    "securityDepositCharged": "Le dépôt de garantie a été débité en raison des dommages.",
+    "securityDepositChargeError": "Échec du débit du dépôt de garantie",
+    "damageAmount": "Montant des Dommages à Débiter",
+    "maxDepositAmount": "Maximum:",
+    "invalidDamageAmount": "Veuillez entrer un montant de dommage valide.",
+    "damageAmountExceedsDeposit": "Le montant des dommages ne peut pas dépasser le dépôt de garantie de {{amount}}."
   }
 }
 

@@ -973,7 +973,23 @@
       "releasedAt": "Liberado em",
       "depositNote": "O depósito de segurança foi autorizado no cartão do cliente, mas não cobrado. Será liberado automaticamente após 7 dias ou pode ser capturado/liberado manualmente no Painel do Stripe.",
       "depositCapturedNote": "O depósito de segurança foi capturado e cobrado no cartão do cliente.",
-      "depositReleasedNote": "A autorização do depósito de segurança foi liberada. Nenhuma cobrança foi feita."
+      "depositReleasedNote": "A autorização do depósito de segurança foi liberada. Nenhuma cobrança foi feita.",
+      "completeBooking": "Completar Reserva",
+      "damageCheckQuestion": "Houve algum dano no veículo?",
+      "noDamage": "Sem Danos",
+      "noDamageDesc": "Veículo devolvido em boas condições",
+      "hasDamage": "Dano Encontrado",
+      "hasDamageDesc": "O veículo tem danos - o depósito de segurança será cobrado",
+      "securityDepositWillBeCharged": "O depósito de segurança será cobrado devido aos danos.",
+      "noSecurityDepositToCharge": "Nenhum depósito de segurança foi coletado para esta reserva.",
+      "bookingCompletedDepositCharged": "Reserva completada. O depósito de segurança de {{amount}} será cobrado.",
+      "bookingCompleteError": "Falha ao completar a reserva",
+      "securityDepositCharged": "O depósito de segurança foi cobrado devido aos danos.",
+      "securityDepositChargeError": "Falha ao cobrar o depósito de segurança",
+      "damageAmount": "Valor do Dano a Cobrar",
+      "maxDepositAmount": "Máximo:",
+      "invalidDamageAmount": "Por favor, insira um valor de dano válido.",
+      "damageAmountExceedsDeposit": "O valor do dano não pode exceder o depósito de segurança de {{amount}}."
   }
 }
 

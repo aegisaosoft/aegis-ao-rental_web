@@ -1081,6 +1081,22 @@
     "stripeCheckoutDesc": "Redirect to secure Stripe payment page to enter card",
     "redirectingToStripe": "Redirecting to Stripe payment page...",
     "securityDepositPaid": "Security deposit paid successfully!",
-    "securityDepositCancelled": "Security deposit payment was cancelled."
+    "securityDepositCancelled": "Security deposit payment was cancelled.",
+    "completeBooking": "Complete Booking",
+    "damageCheckQuestion": "Was there any damage to the vehicle?",
+    "noDamage": "No Damage",
+    "noDamageDesc": "Vehicle returned in good condition",
+    "hasDamage": "Damage Found",
+    "hasDamageDesc": "Vehicle has damage - security deposit will be charged",
+    "securityDepositWillBeCharged": "The security deposit will be charged due to damage.",
+    "noSecurityDepositToCharge": "No security deposit was collected for this booking.",
+    "bookingCompletedDepositCharged": "Booking completed. Security deposit of {{amount}} will be charged.",
+    "bookingCompleteError": "Failed to complete booking",
+    "securityDepositCharged": "Security deposit has been charged due to damage.",
+    "securityDepositChargeError": "Failed to charge security deposit",
+    "damageAmount": "Damage Amount to Charge",
+    "maxDepositAmount": "Maximum:",
+    "invalidDamageAmount": "Please enter a valid damage amount.",
+    "damageAmountExceedsDeposit": "Damage amount cannot exceed security deposit of {{amount}}."
   }
 }

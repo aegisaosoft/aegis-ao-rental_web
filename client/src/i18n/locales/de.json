@@ -984,7 +984,23 @@
     "releasedAt": "Freigegeben am",
     "depositNote": "Die Kaution wurde auf der Karte des Kunden autorisiert, aber nicht belastet. Sie wird nach 7 Tagen automatisch freigegeben oder kann manuell im Stripe-Dashboard erfasst/freigegeben werden.",
     "depositCapturedNote": "Die Kaution wurde erfasst und von der Karte des Kunden belastet.",
-    "depositReleasedNote": "Die Kautionsautorisierung wurde freigegeben. Es wurde keine Belastung vorgenommen."
+    "depositReleasedNote": "Die Kautionsautorisierung wurde freigegeben. Es wurde keine Belastung vorgenommen.",
+    "completeBooking": "Buchung Abschließen",
+    "damageCheckQuestion": "Gab es Schäden am Fahrzeug?",
+    "noDamage": "Keine Schäden",
+    "noDamageDesc": "Fahrzeug in gutem Zustand zurückgegeben",
+    "hasDamage": "Schaden Gefunden",
+    "hasDamageDesc": "Das Fahrzeug hat Schäden - die Kaution wird belastet",
+    "securityDepositWillBeCharged": "Die Kaution wird aufgrund der Schäden belastet.",
+    "noSecurityDepositToCharge": "Für diese Buchung wurde keine Kaution erhoben.",
+    "bookingCompletedDepositCharged": "Buchung abgeschlossen. Die Kaution von {{amount}} wird belastet.",
+    "bookingCompleteError": "Fehler beim Abschließen der Buchung",
+    "securityDepositCharged": "Die Kaution wurde aufgrund der Schäden belastet.",
+    "securityDepositChargeError": "Fehler beim Belasten der Kaution",
+    "damageAmount": "Schadensbetrag zu Belasten",
+    "maxDepositAmount": "Maximum:",
+    "invalidDamageAmount": "Bitte geben Sie einen gültigen Schadensbetrag ein.",
+    "damageAmountExceedsDeposit": "Der Schadensbetrag darf die Kaution von {{amount}} nicht überschreiten."
   }
 }
 
