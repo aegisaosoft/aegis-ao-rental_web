@@ -20,6 +20,7 @@ import { Search, Filter, Car, MapPin, Users, Fuel, Settings, Calendar } from 'lu
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { useCompany } from '../context/CompanyContext';
+import { translateCategory } from '../i18n/translateHelpers';
 
 const VehicleList = () => {
   const { t } = useTranslation();
@@ -284,7 +285,7 @@ const VehicleList = () => {
                       const categoryName = category.category_name || category.CategoryName || category.categoryName;
                       return (
                         <option key={categoryId} value={categoryName}>
-                          {categoryName}
+                          {translateCategory(t, categoryName)}
                         </option>
                       );
                     })}
@@ -451,13 +452,13 @@ const VehicleList = () => {
                       {fuelType && (
                         <div className="flex items-center text-gray-600">
                           <Fuel className="h-4 w-4 mr-2" />
-                          <span>{fuelType}</span>
+                          <span>{t(`fuelTypes.${fuelType.toLowerCase()}`) || fuelType}</span>
                         </div>
                       )}
                       
                       <div className="flex items-center text-gray-600">
                         <Settings className="h-4 w-4 mr-2" />
-                        <span>{transmission || t('common.notAvailable')}</span>
+                        <span>{transmission ? t(`transmission.${transmission.toLowerCase()}`) || transmission : t('common.notAvailable')}</span>
                       </div>
                     </div>
 

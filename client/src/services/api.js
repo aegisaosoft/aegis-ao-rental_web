@@ -177,13 +177,16 @@ export const apiService = {
   createBooking: (data) => api.post('/booking/bookings', data),
   updateBooking: (id, data) => api.put(`/booking/bookings/${id}`, data),
   cancelBooking: (id) => api.post(`/booking/bookings/${id}/cancel`),
-  refundPayment: (bookingId, amount, reason) => api.post(`/booking/bookings/${bookingId}/refund`, { amount, reason }),
+  refundPayment: (bookingId, amount, reason) => {
+    console.log('[API] Sending refund request - Amount:', amount, '(type:', typeof amount + ')', 'Booking:', bookingId, 'Reason:', reason);
+    return api.post(`/booking/bookings/${bookingId}/refund`, { amount, reason });
+  },
   syncPaymentFromStripe: (bookingId) => api.post(`/booking/bookings/${bookingId}/sync-payment`),
   syncPaymentsFromStripeBulk: (bookingIds) => api.post('/booking/bookings/sync-payments-bulk', bookingIds, {
     timeout: 300000, // 5 minutes timeout for bulk sync (can take a while with many bookings)
   }),
   createSecurityDepositPaymentIntent: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-payment-intent`),
-  createSecurityDepositCheckout: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-checkout`),
+  createSecurityDepositCheckout: (bookingId, language) => api.post(`/booking/bookings/${bookingId}/security-deposit-checkout${language ? `?language=${language}` : ''}`),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),

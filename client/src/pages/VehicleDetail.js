@@ -182,13 +182,13 @@ const VehicleDetail = () => {
               {vehicle.fuel_type && (
                 <div className="flex items-center text-gray-600">
                   <Fuel className="h-5 w-5 mr-3" />
-                  <span>{vehicle.fuel_type}</span>
+                  <span>{t(`fuelTypes.${vehicle.fuel_type.toLowerCase()}`) || vehicle.fuel_type}</span>
                 </div>
               )}
               
               <div className="flex items-center text-gray-600">
                 <Settings className="h-5 w-5 mr-3" />
-                <span>{vehicle.transmission}</span>
+                <span>{vehicle.transmission ? t(`transmission.${vehicle.transmission.toLowerCase()}`) || vehicle.transmission : t('common.notAvailable')}</span>
               </div>
             </div>
 

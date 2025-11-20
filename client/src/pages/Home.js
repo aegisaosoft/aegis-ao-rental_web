@@ -23,6 +23,7 @@ import { useCompany } from '../context/CompanyContext';
 import { useAuth } from '../context/AuthContext';
 import AICarAssistant from '../components/AICarAssistant';
 import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
+import { translateCategory } from '../i18n/translateHelpers';
 
 const SEARCH_FILTERS_STORAGE_KEY = 'rentalSearchFilters';
 
@@ -860,7 +861,7 @@ const Home = () => {
                       {/* Category Header */}
                       <div className="text-center">
                         <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                          {t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}`) || categoryName}
+                          {translateCategory(t, categoryName)}
                         </h3>
                       </div>
 
@@ -1078,7 +1079,7 @@ const Home = () => {
                             >
                               {t('home.viewAllModels', { 
                                 count: uniqueModelsCount, 
-                                category: t(`categories.${(categoryName || '').toLowerCase().replace(/\s+/g, '-')}`) || categoryName 
+                                category: translateCategory(t, categoryName)
                               })}
                               <ArrowRight className="ml-2 h-5 w-5" />
                             </Link>

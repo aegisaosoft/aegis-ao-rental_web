@@ -2026,6 +2026,8 @@ const BookPage = () => {
         currency: (companyConfig?.currency || 'USD').toLowerCase(),
 
         description: `${make || ''} ${model || ''}`.trim() || 'Vehicle Booking',
+        
+        language: i18n.language,
 
         successUrl: `${window.location.origin}/my-bookings?booking=${bookingId ?? ''}`,
 

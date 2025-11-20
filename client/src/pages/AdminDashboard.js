@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
+import { translateCategory } from '../i18n/translateHelpers';
 import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +54,7 @@ const getServiceIdentifier = (service) =>
   null;
 
 const AdminDashboard = () => {
-  const { t: i18nT } = useTranslation();
+  const { t: i18nT, i18n } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
       if (!key) return String(fallback ?? '');
@@ -2024,13 +2025,13 @@ const AdminDashboard = () => {
         
         setShowSecurityDepositModal(false);
         setPaymentMethod('');
-        toast.success(t('admin.securityDepositAuthorized', `Security deposit of $${amount} authorized (Payment Intent: ${paymentIntentId})`));
+        toast.success(t('admin.securityDepositAuthorized', `Security deposit of ${formatPrice(amount)} authorized (Payment Intent: ${paymentIntentId})`));
         
       } else if (paymentMethod === 'checkout') {
         // Stripe Checkout - hosted payment page
         console.log(`Creating Stripe Checkout session for booking:`, selectedBooking.id);
         
-        const response = await apiService.createSecurityDepositCheckout(selectedBooking.id);
+        const response = await apiService.createSecurityDepositCheckout(selectedBooking.id, i18n.language);
         console.log('Checkout session created:', response.data);
         
         const { sessionUrl } = response.data;
@@ -2060,7 +2061,7 @@ const AdminDashboard = () => {
     
     const confirmRefund = window.confirm(
       t('admin.confirmRefund', 'Are you sure you want to process a refund for this booking?') + 
-      `\n\n${t('admin.amount', 'Amount')}: $${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}`
+      `\n\n${t('admin.amount', 'Amount')}: ${formatPrice(selectedBooking.totalAmount || 0)}`
     );
     
     if (!confirmRefund) return;
@@ -2086,17 +2087,21 @@ const AdminDashboard = () => {
     }
     
     if (refundAmount > maxAmount) {
-      toast.error(t('admin.refundExceedsPayment', `Refund amount cannot exceed payment amount of $${maxAmount.toFixed(2)}`));
+      toast.error(t('admin.refundExceedsPayment', `Refund amount cannot exceed payment amount of ${formatPrice(maxAmount)}`));
       return;
     }
     
+    console.log('[Refund] Processing refund - Requested Amount:', refundAmount, 'Max Amount:', maxAmount, 'Input Value:', cancelRefundAmount, 'Booking ID:', selectedBooking.id);
+    
     // Process refund first
     try {
-      await refundPaymentMutation.mutateAsync({
+      const refundResult = await refundPaymentMutation.mutateAsync({
         bookingId: selectedBooking.id,
         amount: refundAmount,
         reason: cancelRefundReason || 'Booking cancellation'
       });
+      
+      console.log('[Refund] Refund successful - Amount refunded:', refundResult?.data?.amount || refundResult?.amount, 'Currency:', refundResult?.data?.currency || refundResult?.currency, 'Status:', refundResult?.data?.status || refundResult?.status);
       
       // If refund successful, update booking status to Canceled
       updateBookingStatusMutation.mutate({
@@ -4850,7 +4855,7 @@ const AdminDashboard = () => {
                                   <ChevronRight className="h-5 w-5 text-gray-600 mr-2" />
                                 )}
                                 <h3 className="text-lg font-semibold text-gray-900">
-                                  {t(`categories.${categoryName.toLowerCase().replace(/\s+/g, '-')}`) || categoryName}
+                                  {translateCategory(t, categoryName)}
                                 </h3>
                       </div>
                               <span className="text-sm text-gray-600 ml-2">
@@ -7432,7 +7437,7 @@ const AdminDashboard = () => {
                         {t('admin.paymentAmount', 'Payment Amount')}
                       </span>
                       <span className="text-lg font-bold text-gray-900">
-                        ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                        {formatPrice(selectedBooking.totalAmount || 0)}
                       </span>
                     </div>
                   </div>
@@ -7444,7 +7449,7 @@ const AdminDashboard = () => {
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">$</span>
+                        <span className="text-gray-500 sm:text-sm">{currencySymbol}</span>
                       </div>
                       <input
                         type="number"
@@ -7458,7 +7463,7 @@ const AdminDashboard = () => {
                       />
                       <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span className="text-gray-400 sm:text-sm">
-                          / ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                          / {formatPrice(selectedBooking.totalAmount || 0)}
                         </span>
                       </div>
                     </div>
@@ -7651,11 +7656,11 @@ const AdminDashboard = () => {
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-6 text-center">
                     <p className="text-sm text-gray-600 mb-2">{t('admin.securityDepositAmount', 'Security Deposit Amount')}</p>
                     <p className="text-4xl font-bold text-green-600">
-                      ${(() => {
+                      {(() => {
                         const bookingDeposit = parseFloat(selectedBooking.securityDeposit || selectedBooking.SecurityDeposit || 0);
                         const companyDeposit = parseFloat(actualCompanyData?.securityDeposit || actualCompanyData?.SecurityDeposit || 0);
                         const finalDeposit = bookingDeposit > 0 ? bookingDeposit : companyDeposit;
-                        return finalDeposit.toFixed(2);
+                        return formatPrice(finalDeposit);
                       })()}
                     </p>
                   </div>
@@ -7806,13 +7811,13 @@ const AdminDashboard = () => {
                       <div>
                         <p className="text-xs text-gray-500">{t('admin.totalAmount', 'Total Amount')}</p>
                         <p className="text-sm font-medium text-gray-900">
-                          ${parseFloat(selectedBooking.totalAmount || 0).toFixed(2)}
+                          {formatPrice(selectedBooking.totalAmount || 0)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">{t('admin.securityDeposit', 'Security Deposit')}</p>
                         <p className="text-sm font-medium text-gray-900">
-                          ${parseFloat(selectedBooking.securityDeposit || 0).toFixed(2)}
+                          {formatPrice(selectedBooking.securityDeposit || 0)}
                         </p>
                       </div>
                     </div>
@@ -7870,7 +7875,7 @@ const AdminDashboard = () => {
                         <div>
                           <p className="text-xs text-gray-500">{t('admin.refundAmount', 'Refund Amount')}</p>
                           <p className="text-sm font-medium text-red-600">
-                            ${parseFloat(selectedBooking.refundAmount).toFixed(2)}
+                            {formatPrice(selectedBooking.refundAmount)}
                           </p>
                         </div>
                       )}
@@ -7900,12 +7905,12 @@ const AdminDashboard = () => {
                                 ? 'text-gray-600'
                                 : 'text-blue-600'
                             }`}>
-                              ${parseFloat(
+                              {formatPrice(
                                 selectedBooking.securityDepositChargedAmount || 
                                 selectedBooking.securityDeposit || 
                                 actualCompanyData?.securityDeposit || 
                                 0
-                              ).toFixed(2)}
+                              )}
                             </p>
                           </div>
                           <div>
@@ -8006,7 +8011,7 @@ const AdminDashboard = () => {
                               <div>
                                 <p className="text-xs text-gray-500">{t('admin.refundAmount', 'Refund Amount')}</p>
                                 <p className="text-sm font-bold text-red-600">
-                                  ${parseFloat(refund.amount).toFixed(2)}
+                                  {formatPrice(refund.amount)}
                                 </p>
                               </div>
                               <div>

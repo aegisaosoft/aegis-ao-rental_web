@@ -32,11 +32,9 @@ const translateValue = (key, value) => {
 
 /**
  * Fields that should be translated
+ * Note: Categories are translated manually in the UI, so we don't translate them here
  */
 const TRANSLATION_MAP = {
-  category_name: 'categories',
-  categoryName: 'categories',
-  category: 'categories',
   fuel_type: 'fuelTypes',
   fuelType: 'fuelTypes',
   transmission: 'transmission',
@@ -227,8 +225,8 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
-  createSecurityDepositCheckout: async (bookingId) => {
-    const response = await apiService.createSecurityDepositCheckout(bookingId);
+  createSecurityDepositCheckout: async (bookingId, language) => {
+    const response = await apiService.createSecurityDepositCheckout(bookingId, language);
     return translateResponse(response);
   },
   
