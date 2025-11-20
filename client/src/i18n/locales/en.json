@@ -833,6 +833,9 @@
            "refundDate": "Refund Date",
            "refundId": "Refund ID",
            "refundStatus": "Refund Status",
+           "succeeded": "succeeded",
+           "name": "Name",
+           "status": "Status",
            "statusChangeProhibited": "Status cannot be changed because this booking has been refunded.",
            "paySecurityDeposit": "Pay Security Deposit",
            "securityDepositRequired": "A security deposit is required to activate this booking.",
@@ -1008,7 +1011,20 @@
            "locationsLoadFailed": "Failed to load locations",
            "showing": "Showing",
            "to": "to",
-           "of": "of"
+           "of": "of",
+           "securityDepositInfo": "Security Deposit Information",
+           "depositAmount": "Deposit Amount",
+           "depositStatus": "Status",
+           "authorized": "Authorized (Not Charged)",
+           "captured": "Captured (Charged)",
+           "released": "Released (Not Charged)",
+           "depositPaymentIntentId": "Deposit Payment Intent ID",
+           "authorizedAt": "Authorized At",
+           "capturedAt": "Captured At",
+           "releasedAt": "Released At",
+           "depositNote": "Security deposit has been authorized on the customer's card but not charged. It will be automatically released after 7 days or can be manually captured/released in Stripe Dashboard.",
+           "depositCapturedNote": "Security deposit has been captured and charged to the customer's card.",
+           "depositReleasedNote": "Security deposit authorization has been released. No charge was made."
         },
   "terminal": {
     "title": "Stripe Terminal",
@@ -1065,19 +1081,6 @@
     "stripeCheckoutDesc": "Redirect to secure Stripe payment page to enter card",
     "redirectingToStripe": "Redirecting to Stripe payment page...",
     "securityDepositPaid": "Security deposit paid successfully!",
-    "securityDepositCancelled": "Security deposit payment was cancelled.",
-    "securityDepositInfo": "Security Deposit Information",
-    "depositAmount": "Deposit Amount",
-    "depositStatus": "Status",
-    "authorized": "Authorized (Not Charged)",
-    "captured": "Captured (Charged)",
-    "released": "Released (Not Charged)",
-    "depositPaymentIntentId": "Deposit Payment Intent ID",
-    "authorizedAt": "Authorized At",
-    "capturedAt": "Captured At",
-    "releasedAt": "Released At",
-    "depositNote": "Security deposit has been authorized on the customer's card but not charged. It will be automatically released after 7 days or can be manually captured/released in Stripe Dashboard.",
-    "depositCapturedNote": "Security deposit has been captured and charged to the customer's card.",
-    "depositReleasedNote": "Security deposit authorization has been released. No charge was made."
+    "securityDepositCancelled": "Security deposit payment was cancelled."
   }
 }
