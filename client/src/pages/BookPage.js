@@ -948,6 +948,7 @@ const BookPage = () => {
   const showLocationDropdown = companyLocations.length > 1;
 
   // Fetch accurate available count using the models API (which uses the stored procedure)
+  // Must have companyId to ensure rates are filtered by company
   const { data: modelsGroupedResponse } = useQuery(
     ['modelsGroupedByCategory', companyId, selectedLocationId, formData.pickupDate, formData.returnDate],
     () => apiService.getModelsGroupedByCategory(
@@ -957,7 +958,7 @@ const BookPage = () => {
       formData.returnDate || null
     ),
     {
-      enabled: !!(companyId && formData.pickupDate && formData.returnDate),
+      enabled: !!companyId, // Require companyId, but dates are optional (backend uses defaults)
       retry: 1,
       refetchOnWindowFocus: false
     }
@@ -965,17 +966,17 @@ const BookPage = () => {
 
 
 
-  // Fetch model data to get daily rate
-
+  // Fetch model data to get daily rate (fallback if modelsGroupedByCategory doesn't have the rate)
+  // Must have companyId to ensure rates are filtered by company
   const { data: modelsResponse } = useQuery(
 
-    ['models', { make, model }],
+    ['models', { make, model, companyId }],
 
-    () => apiService.getModels({ make, modelName: model }),
+    () => apiService.getModels({ make, modelName: model, companyId: companyId }),
 
     {
 
-      enabled: !!(make && model),
+      enabled: !!(make && model && companyId), // Require companyId to filter rates by company
 
       retry: 1,
 
@@ -987,14 +988,46 @@ const BookPage = () => {
 
   
 
-  const modelsData = modelsResponse?.data || modelsResponse;
+  // Get model data from modelsGroupedByCategory (same source as home page) or getModels fallback
+  // This ensures consistency with the listing page
+  const modelData = useMemo(() => {
+    // First try to get model from modelsGroupedByCategory (same as home page)
+    if (modelsGroupedResponse && make && model) {
+      const modelsGroupedData = modelsGroupedResponse?.data || modelsGroupedResponse;
+      const categories = Array.isArray(modelsGroupedData) ? modelsGroupedData : [];
+      
+      // Find the model in the grouped response (matches make and model)
+      for (const category of categories) {
+        const models = category.models || category.Models || [];
+        const matchingModel = models.find(m => {
+          const modelMake = m.make || m.Make || '';
+          const modelName = m.modelName || m.ModelName || '';
+          return modelMake?.toLowerCase() === make?.toLowerCase() && 
+                 modelName?.toLowerCase() === model?.toLowerCase();
+        });
+        
+        if (matchingModel) {
+          return matchingModel; // Found the model, return it
+        }
+      }
+    }
+    
+    // Fallback to getModels if not found in grouped data
+    if (modelsResponse) {
+      const modelsData = modelsResponse?.data || modelsResponse;
+      const data = Array.isArray(modelsData) ? modelsData[0] : null;
+      if (data) {
+        return data;
+      }
+    }
+    
+    return null;
+  }, [modelsGroupedResponse, modelsResponse, make, model]);
 
-  const modelData = Array.isArray(modelsData) ? modelsData[0] : null;
-
+  // Get daily rate from modelData
   const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
 
   // Explicitly use Description field (not CategoryName)
-
   const modelDescription = modelData?.description || modelData?.Description || '';
 
   const modelCategory = modelData?.categoryName || modelData?.CategoryName || modelData?.category || '';

@@ -4805,27 +4805,37 @@ const AdminDashboard = () => {
                       const categoryName = categoryGroup.categoryName || categoryGroup.category_name || 'Uncategorized';
                       const isCategoryExpanded = expandedCategories[categoryId];
                       
-                      // Group models by make and modelName with full data
-                      const makeModelGroups = {};
-                      (categoryGroup.models || []).forEach(model => {
-                        const make = (model.make || '').toUpperCase();
-                        const modelName = (model.modelName || model.model_name || '').toUpperCase();
-                        const makeModelKey = `${make}_${modelName}`;
+                      // Group models by make first, then by modelName
+                      // Normalize make and model names: uppercase and trim spaces for grouping
+                      const makeGroups = {};
+                      (categoryGroup.models || categoryGroup.Models || []).forEach(model => {
+                        const make = (model.make || model.Make || '').toString().toUpperCase().trim();
+                        const modelName = (model.modelName || model.model_name || model.ModelName || '').toString().toUpperCase().trim();
                         
-                        if (!makeModelGroups[makeModelKey]) {
-                          makeModelGroups[makeModelKey] = {
+                        // Group by make
+                        if (!makeGroups[make]) {
+                          makeGroups[make] = {
                             make,
+                            models: {} // Will contain model groups
+                          };
+                        }
+                        
+                        // Group by model within make
+                        if (!makeGroups[make].models[modelName]) {
+                          makeGroups[make].models[modelName] = {
                             modelName,
                             models: [] // Store full model objects
                           };
                         }
                         
-                        makeModelGroups[makeModelKey].models.push(model);
+                        makeGroups[make].models[modelName].models.push(model);
                       });
                       
-                      // Sort years descending in each group
-                      Object.values(makeModelGroups).forEach(group => {
-                        group.models.sort((a, b) => (b.year || 0) - (a.year || 0));
+                      // Sort years descending in each model group
+                      Object.values(makeGroups).forEach(makeGroup => {
+                        Object.values(makeGroup.models).forEach(modelGroup => {
+                          modelGroup.models.sort((a, b) => (b.year || 0) - (a.year || 0));
+                        });
                       });
                       
                       // Calculate rates for category display
@@ -4859,7 +4869,7 @@ const AdminDashboard = () => {
                                 </h3>
                       </div>
                               <span className="text-sm text-gray-600 ml-2">
-                                {Object.keys(makeModelGroups).length} {Object.keys(makeModelGroups).length === 1 ? 'make' : 'makes'}
+                                {Object.keys(makeGroups).length} {Object.keys(makeGroups).length === 1 ? 'make' : 'makes'}
                       </span>
                             </button>
                             <div className="flex items-center gap-2 ml-4">
@@ -4901,7 +4911,8 @@ const AdminDashboard = () => {
                                     setDailyRateInputs(prev => ({ ...prev, [`category_${categoryId}`]: '' }));
                                   } catch (error) {
                                     console.error('Error updating models:', error);
-                                    toast.error(error.response?.data?.message || 'Failed to update models');
+                                    const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
+                                    toast.error(errorMessage);
                                   } finally {
                                     setIsUpdatingRate(false);
                                   }
@@ -4917,22 +4928,22 @@ const AdminDashboard = () => {
                           {/* Category Content */}
                           {isCategoryExpanded && (
                             <div className="p-4 space-y-2">
-                              {Object.entries(makeModelGroups).map(([makeModelKey, group]) => {
-                                const makeExpandedKey = `${categoryId}_${makeModelKey}`;
+                              {Object.entries(makeGroups).map(([make, makeGroup]) => {
+                                const makeExpandedKey = `${categoryId}_${make}`;
                                 const isMakeExpanded = expandedMakes[makeExpandedKey];
                                 
-                                // Calculate rates for this make
-                                const makeRates = group.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
+                                // Calculate rates for all models in this make
+                                const allMakeModels = Object.values(makeGroup.models).flatMap(mg => mg.models);
+                                const makeRates = allMakeModels.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
                                 const isMakeUniform = makeRates.length > 0 && makeRates.every(r => r === makeRates[0]);
                                 const makeDisplayRate = isMakeUniform ? makeRates[0] : 'different';
                                 
-                                // Calculate rates for this model
-                                const modelRates = group.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
-                                const isModelUniform = modelRates.length > 0 && modelRates.every(r => r === modelRates[0]);
-                                const modelDisplayRate = isModelUniform ? modelRates[0] : 'different';
+                                // Count total models and years
+                                const totalModels = Object.keys(makeGroup.models).length;
+                                const totalYears = allMakeModels.length;
                                 
                                 return (
-                                  <div key={makeModelKey} className="border border-gray-200 rounded-lg">
+                                  <div key={make} className="border border-gray-200 rounded-lg">
                                     {/* Make Header */}
                                     <div className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors">
                                       <button
@@ -4949,11 +4960,11 @@ const AdminDashboard = () => {
                                             <ChevronRight className="h-4 w-4 text-gray-600 mr-2" />
                                           )}
                                           <span className="font-medium text-gray-800">
-                                            {group.make}
+                                            {make}
                                           </span>
                                         </div>
                                         <span className="text-sm text-gray-600 ml-2">
-                                          {group.models.length} {group.models.length === 1 ? 'year' : 'years'}
+                                          {totalModels} {totalModels === 1 ? 'model' : 'models'}
                                         </span>
                                       </button>
                                       <div className="flex items-center gap-2 ml-4">
@@ -4983,14 +4994,16 @@ const AdminDashboard = () => {
                                             try {
                                               await apiService.bulkUpdateModelDailyRate({
                                                 dailyRate: parseFloat(rate),
-                                                make: group.make,
+                                                categoryId: categoryId,
+                                                make: makeGroup.make,
                                                 companyId: currentCompanyId
                                               });
                                               queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
                                               setDailyRateInputs(prev => ({ ...prev, [`make_${makeExpandedKey}`]: '' }));
                                             } catch (error) {
                                               console.error('Error updating models:', error);
-                                              toast.error('Failed to update models');
+                                              const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
+                                              toast.error(errorMessage);
                                             } finally {
                                               setIsUpdatingRate(false);
                                             }
@@ -4999,95 +5012,45 @@ const AdminDashboard = () => {
                                           className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
                                         >
                                           Update
-                  </button>
-            </div>
+                                        </button>
+                                      </div>
                                     </div>
                                     
-                                    {/* Make Content */}
+                                    {/* Make Content - Show all models */}
                                     {isMakeExpanded && (
                                       <div className="p-4 space-y-2">
-                                        <div className="border border-gray-200 rounded-lg">
-                                          {/* Model Header */}
-                                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
-                                            <span className="font-medium text-gray-800">{group.modelName}</span>
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
-                                                {modelDisplayRate !== 'different' ? formatRate(modelDisplayRate) : modelDisplayRate}
-                                              </span>
-                                              <input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="Daily Rate"
-                                                value={dailyRateInputs[`model_${makeExpandedKey}`] || ''}
-                                                onChange={(e) => setDailyRateInputs(prev => ({
-                                                  ...prev,
-                                                  [`model_${makeExpandedKey}`]: e.target.value
-                                                }))}
-                                                className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                                disabled={isUpdatingRate}
-                                              />
-                                              <button
-                                                onClick={async () => {
-                                                  const rate = dailyRateInputs[`model_${makeExpandedKey}`];
-                                                  if (!rate) {
-                                                    toast.error('Please enter a daily rate');
-                                                    return;
-                                                  }
-                                                  setIsUpdatingRate(true);
-                                                  try {
-                                                    await apiService.bulkUpdateModelDailyRate({
-                                                      dailyRate: parseFloat(rate),
-                                                      make: group.make,
-                                                      modelName: group.modelName,
-                                                      companyId: currentCompanyId
-                                                    });
-                                                    queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                                    setDailyRateInputs(prev => ({ ...prev, [`model_${makeExpandedKey}`]: '' }));
-                                                  } catch (error) {
-                                                    console.error('Error updating models:', error);
-                                                    toast.error('Failed to update models');
-                                                  } finally {
-                                                    setIsUpdatingRate(false);
-                                                  }
-                                                }}
-                                                disabled={isUpdatingRate}
-                                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
-                                              >
-                                                Update
-                                              </button>
-                                            </div>
-                                          </div>
+                                        {Object.entries(makeGroup.models).map(([modelName, modelGroup]) => {
+                                          const modelExpandedKey = `${makeExpandedKey}_${modelName}`;
                                           
-                                          {/* Years */}
-                                          <div className="p-4">
-                                            <div className="flex flex-wrap gap-2">
-                                              {group.models.map(model => {
-                                                const year = model.year || 0;
-                                                const yearRate = model.dailyRate;
-                                                const vehicleCount = model.vehicleCount || 0;
-                                                return (
-                                                <div key={model.id || year} className="flex items-center gap-1">
-                                                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                                                    {year} ({vehicleCount})
-                                                  </span>
-                                                  <span className="text-xs font-medium text-gray-600 min-w-[45px]">
-                                                    {yearRate != null && yearRate !== '' ? formatRate(yearRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                                          // Calculate rates for this model
+                                          const modelRates = modelGroup.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
+                                          const isModelUniform = modelRates.length > 0 && modelRates.every(r => r === modelRates[0]);
+                                          const modelDisplayRate = isModelUniform ? modelRates[0] : 'different';
+                                          
+                                          return (
+                                            <div key={modelName} className="border border-gray-200 rounded-lg">
+                                              {/* Model Header */}
+                                              <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
+                                                <span className="font-medium text-gray-800">{modelGroup.modelName}</span>
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
+                                                    {modelDisplayRate !== 'different' ? formatRate(modelDisplayRate) : modelDisplayRate}
                                                   </span>
                                                   <input
                                                     type="number"
                                                     step="0.01"
-                                                    placeholder="Rate"
-                                                    value={dailyRateInputs[`year_${year}_${makeExpandedKey}`] || ''}
+                                                    placeholder="Daily Rate"
+                                                    value={dailyRateInputs[`model_${modelExpandedKey}`] || ''}
                                                     onChange={(e) => setDailyRateInputs(prev => ({
                                                       ...prev,
-                                                      [`year_${year}_${makeExpandedKey}`]: e.target.value
+                                                      [`model_${modelExpandedKey}`]: e.target.value
                                                     }))}
-                                                    className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                                                     disabled={isUpdatingRate}
                                                   />
                                                   <button
                                                     onClick={async () => {
-                                                      const rate = dailyRateInputs[`year_${year}_${makeExpandedKey}`];
+                                                      const rate = dailyRateInputs[`model_${modelExpandedKey}`];
                                                       if (!rate) {
                                                         toast.error('Please enter a daily rate');
                                                         return;
@@ -5096,31 +5059,96 @@ const AdminDashboard = () => {
                                                       try {
                                                         await apiService.bulkUpdateModelDailyRate({
                                                           dailyRate: parseFloat(rate),
-                                                          make: group.make,
-                                                          modelName: group.modelName,
-                                                          year: year,
+                                                          categoryId: categoryId,
+                                                          make: makeGroup.make,
+                                                          modelName: modelGroup.modelName,
                                                           companyId: currentCompanyId
                                                         });
                                                         queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                                        setDailyRateInputs(prev => ({ ...prev, [`year_${year}_${makeExpandedKey}`]: '' }));
+                                                        setDailyRateInputs(prev => ({ ...prev, [`model_${modelExpandedKey}`]: '' }));
                                                       } catch (error) {
                                                         console.error('Error updating models:', error);
-                                                        toast.error('Failed to update models');
+                                                        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
+                                                        toast.error(errorMessage);
                                                       } finally {
                                                         setIsUpdatingRate(false);
                                                       }
                                                     }}
                                                     disabled={isUpdatingRate}
-                                                    className="px-1 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                                    className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
                                                   >
-                                                    ✓
+                                                    Update
                                                   </button>
                                                 </div>
-                                                );
-                                              })}
+                                              </div>
+                                              
+                                              {/* Years */}
+                                              <div className="p-4">
+                                                <div className="flex flex-wrap gap-2">
+                                                  {modelGroup.models.map(model => {
+                                                    const year = model.year || 0;
+                                                    const yearRate = model.dailyRate;
+                                                    const vehicleCount = model.vehicleCount || 0;
+                                                    return (
+                                                      <div key={model.id || year} className="flex items-center gap-1">
+                                                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                                                          {year} ({vehicleCount})
+                                                        </span>
+                                                        <span className="text-xs font-medium text-gray-600 min-w-[45px]">
+                                                          {yearRate != null && yearRate !== '' ? formatRate(yearRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                                                        </span>
+                                                        <input
+                                                          type="number"
+                                                          step="0.01"
+                                                          placeholder="Rate"
+                                                          value={dailyRateInputs[`year_${year}_${modelExpandedKey}`] || ''}
+                                                          onChange={(e) => setDailyRateInputs(prev => ({
+                                                            ...prev,
+                                                            [`year_${year}_${modelExpandedKey}`]: e.target.value
+                                                          }))}
+                                                          className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                                                          disabled={isUpdatingRate}
+                                                        />
+                                                        <button
+                                                          onClick={async () => {
+                                                            const rate = dailyRateInputs[`year_${year}_${modelExpandedKey}`];
+                                                            if (!rate) {
+                                                              toast.error('Please enter a daily rate');
+                                                              return;
+                                                            }
+                                                            setIsUpdatingRate(true);
+                                                            try {
+                                                              await apiService.bulkUpdateModelDailyRate({
+                                                                dailyRate: parseFloat(rate),
+                                                                categoryId: categoryId,
+                                                                make: makeGroup.make,
+                                                                modelName: modelGroup.modelName,
+                                                                year: year,
+                                                                companyId: currentCompanyId
+                                                              });
+                                                              queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+                                                              setDailyRateInputs(prev => ({ ...prev, [`year_${year}_${modelExpandedKey}`]: '' }));
+                                                            } catch (error) {
+                                                              console.error('Error updating models:', error);
+                                                              const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
+                                                              toast.error(errorMessage);
+                                                            } finally {
+                                                              setIsUpdatingRate(false);
+                                                            }
+                                                          }}
+                                                          disabled={isUpdatingRate}
+                                                          className="px-1 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                                        >
+                                                          ✓
+                                                        </button>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
                                             </div>
-                                          </div>
-                                        </div>
+                                          );
+                                        })}
                                       </div>
                                     )}
                                   </div>

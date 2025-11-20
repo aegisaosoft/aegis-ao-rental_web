@@ -224,6 +224,7 @@ const Home = () => {
   }, [startDate, endDate, category, selectedLocationId]);
   
   // Fetch models grouped by category - filtered by company from domain, selected location, and dates
+  // Must have companyId to ensure rates are filtered by company
   const { data: modelsGroupedResponse, isLoading: modelsLoading, error: modelsError } = useQuery(
     ['modelsGroupedByCategory', effectiveCompanyId, selectedLocationId, startDate, endDate],
     () => apiService.getModelsGroupedByCategory(
@@ -235,7 +236,7 @@ const Home = () => {
     {
       retry: 1,
       refetchOnWindowFocus: false,
-      enabled: true // Always fetch, but filter by company, location, and dates if available
+      enabled: !!effectiveCompanyId // Require companyId to filter rates by company
     }
   );
 
