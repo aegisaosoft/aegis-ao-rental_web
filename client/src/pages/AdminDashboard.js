@@ -4938,9 +4938,8 @@ const AdminDashboard = () => {
                                 const isMakeUniform = makeRates.length > 0 && makeRates.every(r => r === makeRates[0]);
                                 const makeDisplayRate = isMakeUniform ? makeRates[0] : 'different';
                                 
-                                // Count total models and years
+                                // Count total models
                                 const totalModels = Object.keys(makeGroup.models).length;
-                                const totalYears = allMakeModels.length;
                                 
                                 return (
                                   <div key={make} className="border border-gray-200 rounded-lg">
