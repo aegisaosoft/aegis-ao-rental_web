@@ -2107,6 +2107,8 @@ const BookPage = () => {
 
     t,
 
+    i18n.language,
+
     user,
 
     calculateGrandTotal,
