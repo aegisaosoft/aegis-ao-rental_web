@@ -343,6 +343,7 @@ const AdminDashboard = () => {
                     await apiService.setSessionToken(storedToken, userData.companyId, userData.id);
                     // After restoring token, get profile to restore full user data
                     const profileResponse = await apiService.getProfile();
+                    restoreUser(profileResponse.data);
                     console.log('[AdminDashboard] ✅ Session restored from backup');
                     // Clean up backups
                     sessionStorage.removeItem('stripeUserBackup');
@@ -386,7 +387,7 @@ const AdminDashboard = () => {
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
     }
-  }, [t, queryClient, currentCompanyId]);
+  }, [t, queryClient, currentCompanyId, restoreUser]);
 
   const formatRate = useCallback(
     (value, options = {}) => {

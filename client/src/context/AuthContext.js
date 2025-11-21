@@ -13,7 +13,7 @@
  *
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { apiService } from '../services/api';
 import { clearStoredFilterDates } from '../utils/rentalSearchFilters';
 
@@ -29,8 +29,6 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false); // No loading on app start - auth state determined lazily
-  const isFirstMount = useRef(true);
 
   // NO initAuth call - user state is determined lazily:
   // 1. When user logs in/registers - user data comes from response
@@ -126,7 +124,6 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    loading,
     login,
     register,
     logout,
