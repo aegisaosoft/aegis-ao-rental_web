@@ -597,6 +597,38 @@
     "success": "Registration successful!",
     "failed": "Registration failed"
   },
+  "forgotPassword": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your email address and we'll send you a link to reset your password.",
+    "emailAddress": "Email address",
+    "emailPlaceholder": "Enter your email",
+    "sendResetLink": "Send Reset Link",
+    "sending": "Sending...",
+    "checkEmail": "Check your email",
+    "emailSentMessage": "We've sent a password reset link to your email address.",
+    "backToLogin": "Back to Login",
+    "emailNotFound": "Email not found. Redirecting to signup...",
+    "emailSent": "If the email exists, a password reset link has been sent.",
+    "error": "An error occurred. Please try again."
+  },
+  "resetPassword": {
+    "title": "Reset Password",
+    "subtitle": "Enter your new password below.",
+    "newPassword": "New Password",
+    "passwordPlaceholder": "Enter new password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Confirm new password",
+    "resetPassword": "Reset Password",
+    "resetting": "Resetting...",
+    "backToLogin": "Back to Login",
+    "invalidLink": "Invalid reset link. Please request a new password reset.",
+    "passwordsDoNotMatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 6 characters long.",
+    "success": "Password has been reset successfully.",
+    "successTitle": "Password Reset Successful",
+    "successMessage": "Your password has been reset successfully. Redirecting to login...",
+    "error": "An error occurred. Please try again."
+  },
   "modal": {
     "enterEmail": "Enter your email to continue",
     "enterPassword": "Enter your password",
