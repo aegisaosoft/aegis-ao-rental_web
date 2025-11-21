@@ -19,24 +19,76 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Test route to verify customers router is working
+router.get('/test', (req, res) => {
+  console.log('[Customer Routes] Test route hit!');
+  res.json({ message: 'Customer routes are working', timestamp: new Date().toISOString() });
+});
+
 // Lookup customer by email (public - no auth required)
 router.get('/email/:email', async (req, res) => {
+  console.log('[Customer Email Route] Route hit!', {
+    method: req.method,
+    originalUrl: req.originalUrl,
+    url: req.url,
+    params: req.params,
+    query: req.query
+  });
+  
   try {
-    const { email } = req.params;
+    let { email } = req.params;
+    console.log('[Customer Email] Raw email param:', email);
+    
+    // Decode URL-encoded email (e.g., orlovus%40yahoo.com -> orlovus@yahoo.com)
+    // Handle both single and double encoding
+    try {
+      email = decodeURIComponent(email);
+      // If it still looks encoded, decode again
+      if (email.includes('%')) {
+        email = decodeURIComponent(email);
+      }
+    } catch (decodeError) {
+      // If decoding fails, use as-is
+      console.warn('[Customer Email] Decode error, using email as-is:', decodeError.message);
+    }
+    
+    console.log('[Customer Email] Decoded email:', email);
+    
     if (!email || !email.trim()) {
+      console.error('[Customer Email] Email is empty after decoding');
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const response = await apiService.getCustomerByEmail(email.trim());
-    res.json(response.data);
+    const trimmedEmail = email.trim();
+    console.log('[Customer Email] Looking up customer with email:', trimmedEmail);
+    
+    const response = await apiService.getCustomerByEmail(trimmedEmail);
+    console.log('[Customer Email] Customer found:', !!response.data);
+    
+    if (response.data) {
+      console.log('[Customer Email] Returning customer data');
+      return res.json(response.data);
+    } else {
+      console.warn('[Customer Email] No customer data in response');
+      return res.status(404).json({ message: 'Customer not found' });
+    }
   } catch (error) {
     const status = error.response?.status || 500;
     const message =
       error.response?.data?.message ||
       (status === 404 ? 'Customer not found' : 'Server error');
 
-    if (status !== 404) {
-      console.error('Customer email lookup error:', error.response?.data || error.message);
+    // Don't log 404 errors as errors - they're expected when customer doesn't exist
+    if (status === 404) {
+      console.log('[Customer Email] Customer not found (expected):', req.params.email);
+    } else {
+      console.error('[Customer Email] Lookup error:', {
+        status,
+        message: error.message,
+        responseData: error.response?.data,
+        email: req.params.email,
+        stack: error.stack
+      });
     }
 
     res.status(status).json({ message });
@@ -48,7 +100,11 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const axios = require('axios');
     const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     
     console.log('[Customers Route] GET /api/customers with query:', req.query);
     console.log('[Customers Route] Token present:', !!token);
@@ -90,7 +146,11 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.getCustomer(token, id);
     res.json(response.data);
   } catch (error) {
@@ -121,7 +181,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const axios = require('axios');
     const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     
     console.log('[Customers Route] PUT /api/customers/' + id);
     console.log('[Customers Route] API Base URL:', apiBaseUrl);

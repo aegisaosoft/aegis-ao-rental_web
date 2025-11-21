@@ -21,15 +21,72 @@ import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
+import { toast } from 'react-toastify';
 
 const MyBookings = () => {
   const { t } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, restoreUser } = useAuth();
   const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
 
   const searchParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
   const bookingParam = React.useMemo(() => searchParams.get('booking'), [searchParams]);
+
+  // Handle Stripe Checkout return - restore session if lost
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isStripeReturn = urlParams.get('session_id') !== null || // Stripe Checkout returns session_id
+                          urlParams.get('booking') !== null; // Our success URL includes booking param
+    
+    // Also check if we have the stripeRedirect flag
+    const wasStripeRedirect = sessionStorage.getItem('stripeRedirect') === 'true';
+    
+    if (isStripeReturn || wasStripeRedirect) {
+      // Clear the flag
+      sessionStorage.removeItem('stripeRedirect');
+      sessionStorage.removeItem('stripeRedirectTime');
+      
+      // Always restore user data (including role) after Stripe redirect
+      const restoreSession = async () => {
+        try {
+          // Always get profile to restore user data (including role) in AuthContext
+          const profileResponse = await apiService.getProfile();
+          const userData = profileResponse.data;
+          
+          // Restore user data in AuthContext - this ensures role and all user info is current
+          if (userData) {
+            restoreUser(userData);
+            console.log('[MyBookings] ✅ User data restored after Stripe return, role:', userData.role);
+          }
+        } catch (error) {
+          if (error.response?.status === 401) {
+            console.error('[MyBookings] ❌ Session lost after Stripe redirect');
+            
+            // Try to restore from sessionStorage backup
+            const storedUserData = sessionStorage.getItem('stripeUserBackup');
+            if (storedUserData) {
+              try {
+                const userData = JSON.parse(storedUserData);
+                console.log('[MyBookings] Found user data backup, role:', userData.role);
+                // User data will be restored when they log in again
+              } catch (parseError) {
+                console.error('[MyBookings] Failed to parse stored user data:', parseError);
+              }
+            }
+            
+            toast.error(t('bookPage.sessionExpired', 'Your session expired. Please sign in again.'));
+            // Redirect to login page
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+          }
+        }
+      };
+      
+      restoreSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const bookingQuery = useQuery(
     ['bookingDetail', bookingParam, companyId],

@@ -146,16 +146,18 @@ app.use(cors({
 // Session configuration
 app.use(session({
   secret: process.env.JWT_SECRET || 'development-secret-key-that-should-be-at-least-32-characters-long',
-  resave: false,
-  saveUninitialized: false,
+  resave: true, // Force save session even if not modified (helps with cookie setting)
+  saveUninitialized: true, // Save uninitialized sessions (needed for login flow)
   name: 'connect.sid', // Explicit session cookie name
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    secure: false, // Always false for local development (HTTP)
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-site cookies on Azure
-    path: '/' // Ensure cookie is available for all paths
-  }
+    sameSite: 'lax', // Use 'lax' for local development to ensure cookies work
+    path: '/', // Ensure cookie is available for all paths
+    domain: undefined // Don't set domain - let browser handle it
+  },
+  rolling: true // Reset expiration on every request
 }));
 
 // Body parsing middleware - skip for multipart/form-data (handled by multer)

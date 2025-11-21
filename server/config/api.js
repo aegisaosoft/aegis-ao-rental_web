@@ -63,11 +63,16 @@ const apiClient = axios.create({
   })
 });
 
-// Request interceptor to add API key if needed
+// Request interceptor to add API key if needed (but don't overwrite existing Authorization header)
 apiClient.interceptors.request.use(
   (config) => {
-    if (process.env.API_KEY) {
+    // Only add API_KEY if no Authorization header is already set
+    // This allows token-based auth to work properly
+    if (process.env.API_KEY && !config.headers['Authorization']) {
       config.headers['Authorization'] = `Bearer ${process.env.API_KEY}`;
+      console.log('[API] Using API_KEY for request (no token provided)');
+    } else if (config.headers['Authorization']) {
+      console.log('[API] Using provided Authorization token');
     }
     return config;
   },
@@ -158,9 +163,21 @@ const apiService = {
     return apiClient.get(`/api/booking/bookings/${id}`, config);
   },
   getCompanyBookings: (token, companyId, params = {}) => {
-    const config = { params };
+    const config = { 
+      params,
+      headers: {}
+    };
     if (token) {
-      config.headers = { Authorization: `Bearer ${token}` };
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API] getCompanyBookings - Token being sent:', {
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenPrefix: token.substring(0, 20) + '...',
+        companyId: companyId,
+        url: `/api/booking/companies/${companyId}/bookings`
+      });
+    } else {
+      console.warn('[API] getCompanyBookings - No token provided!');
     }
     return apiClient.get(`/api/booking/companies/${companyId}/bookings`, config);
   },
@@ -273,6 +290,17 @@ const apiService = {
     }
     return apiClient.get('/api/auth/profile', config);
   },
+  updateProfile: (token, data) => {
+    const config = {
+      headers: {}
+    };
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return apiClient.put('/api/auth/profile', data, config);
+  },
+  forgotPassword: (data) => apiClient.post('/api/auth/forgot-password', data),
+  resetPassword: (data) => apiClient.post('/api/auth/reset-password', data),
 
   // Payments
   createPaymentIntent: (token, data) => {

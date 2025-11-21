@@ -100,7 +100,7 @@ const AdminDashboard = () => {
   const t = translate;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard } = useAuth();
+  const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard, restoreUser } = useAuth();
   const { companyConfig, formatPrice, currencySymbol, currencyCode, isSubdomainAccess } = useCompany();
   const queryClient = useQueryClient();
   const [isEditingCompany, setIsEditingCompany] = useState(false);
@@ -117,7 +117,7 @@ const AdminDashboard = () => {
   // Get initial tab from URL parameter, default to 'company' for activeSection
   const initialTab = searchParams.get('tab') || 'company';
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
-  const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company' or 'pickup'
+  const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company', 'pickup', or 'management'
   const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
@@ -227,10 +227,36 @@ const AdminDashboard = () => {
   const [showSyncConfirmModal, setShowSyncConfirmModal] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   
+  // Reservation wizard state
+  const [showReservationWizard, setShowReservationWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardCustomerEmail, setWizardCustomerEmail] = useState('');
+  const [wizardCustomer, setWizardCustomer] = useState(null);
+  const [wizardSearchingCustomer, setWizardSearchingCustomer] = useState(false);
+  const [wizardCreatingCustomer, setWizardCreatingCustomer] = useState(false);
+  const [wizardPickupDate, setWizardPickupDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [wizardReturnDate, setWizardReturnDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [wizardSelectedLocation, setWizardSelectedLocation] = useState(null);
+  const [wizardSelectedCategory, setWizardSelectedCategory] = useState(null);
+  const [wizardSelectedMake, setWizardSelectedMake] = useState(null);
+  const [wizardSelectedModel, setWizardSelectedModel] = useState(null);
+  const [wizardModelsByMake, setWizardModelsByMake] = useState({}); // { make: [models] }
+  const [wizardExpandedMakes, setWizardExpandedMakes] = useState(new Set()); // Track which makes are expanded in wizard
+  const [isLoadingWizardModels, setIsLoadingWizardModels] = useState(false);
+  const [wizardSelectedServices, setWizardSelectedServices] = useState([]); // Selected additional services
+  const [wizardAdditionalServices, setWizardAdditionalServices] = useState([]); // Available additional services
+  const [isLoadingWizardServices, setIsLoadingWizardServices] = useState(false);
+  
   // State for booking details modal
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingDetailsModal, setShowBookingDetailsModal] = useState(false);
-  const [editingBookingStatus, setEditingBookingStatus] = useState('');
   
   // State for refund modal (when canceling booking)
   const [showCancelRefundModal, setShowCancelRefundModal] = useState(false);
@@ -240,8 +266,11 @@ const AdminDashboard = () => {
   
   // State for security deposit payment modal
   const [showSecurityDepositModal, setShowSecurityDepositModal] = useState(false);
+  const [showBookingPaymentModal, setShowBookingPaymentModal] = useState(false); // Modal for booking total payment
   const [pendingActiveStatus, setPendingActiveStatus] = useState('');
+  const [pendingConfirmedStatus, setPendingConfirmedStatus] = useState(''); // Track pending status update after payment
   const [payingSecurityDeposit, setPayingSecurityDeposit] = useState(false);
+  const [payingBooking, setPayingBooking] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(''); // 'terminal' or 'checkout'
   
   // State for damage confirmation modal when completing booking
@@ -272,6 +301,75 @@ const AdminDashboard = () => {
   // Handle Stripe Checkout return (success/cancel)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const isStripeReturn = urlParams.get('deposit_success') === 'true' || 
+                          urlParams.get('deposit_cancelled') === 'true' ||
+                          urlParams.get('session_id') !== null; // Stripe Checkout returns session_id
+    
+    // Also check if we have the stripeRedirect flag
+    const wasStripeRedirect = sessionStorage.getItem('stripeRedirect') === 'true';
+    
+    if (isStripeReturn || wasStripeRedirect) {
+      // Clear the flag
+      sessionStorage.removeItem('stripeRedirect');
+      sessionStorage.removeItem('stripeRedirectTime');
+      
+      // Always restore user data (including role) after Stripe redirect
+      const restoreSession = async () => {
+        try {
+          // Always get profile to restore user data (including role) in AuthContext
+          const profileResponse = await apiService.getProfile();
+          const userData = profileResponse.data;
+          
+          // Restore user data in AuthContext - this ensures role and all user info is current
+          if (userData) {
+            restoreUser(userData);
+            console.log('[AdminDashboard] ✅ User data restored after Stripe return, role:', userData.role);
+          }
+        } catch (error) {
+          if (error.response?.status === 401) {
+            console.error('[AdminDashboard] ❌ Session lost after Stripe redirect');
+            
+            // Try to restore from sessionStorage backup
+            const storedUserData = sessionStorage.getItem('stripeUserBackup');
+            if (storedUserData) {
+              try {
+                const userData = JSON.parse(storedUserData);
+                console.log('[AdminDashboard] Attempting to restore user data from backup');
+                
+                // Try to restore session using stored token if available
+                const storedToken = sessionStorage.getItem('stripeTokenBackup');
+                if (storedToken) {
+                  try {
+                    await apiService.setSessionToken(storedToken, userData.companyId, userData.id);
+                    // After restoring token, get profile to restore full user data
+                    const profileResponse = await apiService.getProfile();
+                    console.log('[AdminDashboard] ✅ Session restored from backup');
+                    // Clean up backups
+                    sessionStorage.removeItem('stripeUserBackup');
+                    sessionStorage.removeItem('stripeTokenBackup');
+                    return;
+                  } catch (restoreError) {
+                    console.error('[AdminDashboard] Failed to restore session:', restoreError);
+                  }
+                }
+              } catch (parseError) {
+                console.error('[AdminDashboard] Failed to parse stored user data:', parseError);
+              }
+            }
+            
+            toast.error(t('admin.sessionExpired', 'Your session expired. Please log in again.'));
+            // Redirect to login after a short delay
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+            return;
+          }
+        }
+      };
+      
+      restoreSession();
+    }
+    
     if (urlParams.get('deposit_success') === 'true') {
       const bookingId = urlParams.get('booking_id');
       toast.success(t('admin.securityDepositPaid', 'Security deposit paid successfully!'));
@@ -1607,6 +1705,228 @@ const AdminDashboard = () => {
     }
   );
 
+  // Fetch company locations for reservation wizard
+  const { data: wizardLocationsResponse } = useQuery(
+    ['companyLocations', currentCompanyId],
+    () => apiService.getLocationsByCompany(currentCompanyId),
+    {
+      enabled: showReservationWizard && !!currentCompanyId
+    }
+  );
+  const wizardLocations = useMemo(() => {
+    const data = wizardLocationsResponse?.data || wizardLocationsResponse;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.locations)) return data.locations;
+    return [];
+  }, [wizardLocationsResponse]);
+
+  // Fetch categories for reservation wizard (filtered by availability)
+  const { data: categoriesResponse, isLoading: isLoadingCategories } = useQuery(
+    ['vehicleCategories', currentCompanyId, wizardPickupDate, wizardReturnDate, wizardSelectedLocation?.locationId || wizardSelectedLocation?.id],
+    () => {
+      const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
+      return apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate);
+    },
+    {
+      enabled: showReservationWizard && wizardStep === 2 && !!currentCompanyId && !!wizardPickupDate && !!wizardReturnDate
+    }
+  );
+  const categories = useMemo(() => {
+    const data = categoriesResponse?.data || categoriesResponse;
+    if (Array.isArray(data)) {
+      // Extract categories from grouped data - each item is a ModelsGroupedByCategoryDto
+      // Only include categories that have available models
+      const categoryMap = new Map();
+      data.forEach(group => {
+        const categoryId = group.categoryId || group.CategoryId;
+        const categoryName = group.categoryName || group.CategoryName;
+        const models = group.models || group.Models || [];
+        
+        // Only include categories that have at least one available model
+        const hasAvailableModels = models.some(model => {
+          const availableCount = model.availableCount || model.AvailableCount || 0;
+          return availableCount > 0;
+        });
+        
+        if (categoryId && categoryName && hasAvailableModels && !categoryMap.has(categoryId)) {
+          categoryMap.set(categoryId, {
+            categoryId: categoryId,
+            id: categoryId,
+            Id: categoryId,
+            categoryName: categoryName,
+            name: categoryName,
+            Name: categoryName,
+            description: group.categoryDescription || group.CategoryDescription
+          });
+        }
+      });
+      return Array.from(categoryMap.values());
+    }
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.categories)) return data.categories;
+    return [];
+  }, [categoriesResponse]);
+
+  // Fetch models grouped by make when category is selected (for step 3)
+  useEffect(() => {
+    if (wizardSelectedCategory && wizardStep >= 3 && currentCompanyId && wizardPickupDate && wizardReturnDate) {
+      setIsLoadingWizardModels(true);
+      const categoryId = wizardSelectedCategory.categoryId || wizardSelectedCategory.id || wizardSelectedCategory.Id;
+      const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
+      
+      apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate)
+        .then(response => {
+          const data = response?.data || response;
+          const groups = Array.isArray(data) ? data : (data?.items || []);
+          
+          // Find the category group - category info is directly on the group object
+          const categoryGroup = groups.find(group => {
+            const groupCategoryId = group.categoryId || group.CategoryId;
+            return groupCategoryId === categoryId;
+          });
+          
+          if (!categoryGroup) {
+            console.log('Category group not found for categoryId:', categoryId);
+            setWizardModelsByMake({});
+            setIsLoadingWizardModels(false);
+            return;
+          }
+          
+          // Extract all models from this category - models are directly in group.models
+          const models = categoryGroup.models || categoryGroup.Models || [];
+          
+          // Filter to only models with available vehicles
+          const availableModels = models.filter(model => {
+            const availableCount = model.availableCount || model.AvailableCount || 0;
+            return availableCount > 0;
+          });
+          
+          console.log('Available models for category:', availableModels.length);
+          console.log('Sample model structure:', availableModels[0]);
+          
+          // Group models by make (normalize make names to uppercase, trimmed)
+          const groupedByMake = availableModels.reduce((acc, model) => {
+            const make = (model.make || model.Make || '').toUpperCase().trim();
+            const modelName = model.modelName || model.ModelName || model.model || model.Model || '';
+            const modelId = model.id || model.Id || model.modelId || model.ModelId;
+            
+            if (!make || !modelName) {
+              console.warn('Skipping model - missing make or modelName:', model);
+              return acc;
+            }
+            
+            if (!modelId) {
+              console.warn('Model missing ID:', model);
+            }
+            
+            if (!acc[make]) {
+              acc[make] = [];
+            }
+            
+            // Check if model already exists (by ID first, then by name)
+            const existingModel = acc[make].find(m => {
+              const mId = m.id || m.Id || m.modelId || m.ModelId;
+              if (modelId && mId && mId === modelId) return true;
+              const mName = (m.modelName || m.ModelName || m.model || m.Model || '').toUpperCase().trim();
+              return mName === modelName.toUpperCase().trim();
+            });
+            
+            if (!existingModel) {
+              acc[make].push(model);
+            }
+            
+            return acc;
+          }, {});
+          
+          console.log('Grouped by make:', Object.keys(groupedByMake).map(make => ({ make, count: groupedByMake[make].length })));
+          
+          // Sort models within each make by model name and remove makes with no models
+          Object.keys(groupedByMake).forEach(make => {
+            groupedByMake[make].sort((a, b) => {
+              const nameA = (a.modelName || a.ModelName || a.model || a.Model || '').toUpperCase();
+              const nameB = (b.modelName || b.ModelName || b.model || b.Model || '').toUpperCase();
+              return nameA.localeCompare(nameB);
+            });
+            
+            // Remove makes that have no models after filtering
+            if (groupedByMake[make].length === 0) {
+              delete groupedByMake[make];
+            }
+          });
+          
+          setWizardModelsByMake(groupedByMake);
+          
+          // Auto-expand first make if only one make exists
+          const makeKeys = Object.keys(groupedByMake);
+          if (makeKeys.length === 1) {
+            setWizardExpandedMakes(new Set([makeKeys[0]]));
+          } else {
+            setWizardExpandedMakes(new Set());
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching models:', error);
+          toast.error('Failed to load vehicle models');
+        })
+        .finally(() => setIsLoadingWizardModels(false));
+    } else {
+      setWizardModelsByMake({});
+      setWizardSelectedMake(null);
+      setWizardSelectedModel(null);
+      setWizardExpandedMakes(new Set());
+    }
+  }, [wizardSelectedCategory, wizardStep, currentCompanyId, wizardPickupDate, wizardReturnDate, wizardSelectedLocation]);
+
+  // Fetch additional services when step 4 is reached
+  useEffect(() => {
+    if (wizardStep === 4 && currentCompanyId) {
+      setIsLoadingWizardServices(true);
+      apiService.getCompanyServices(currentCompanyId, { isActive: true })
+        .then(response => {
+          const data = response?.data || response;
+          const services = Array.isArray(data) ? data : (data?.items || []);
+          setWizardAdditionalServices(services);
+          console.log('Additional services loaded:', services.length);
+        })
+        .catch(error => {
+          console.error('Error fetching additional services:', error);
+          toast.error('Failed to load additional services');
+          setWizardAdditionalServices([]);
+        })
+        .finally(() => setIsLoadingWizardServices(false));
+    } else if (wizardStep < 4) {
+      setWizardAdditionalServices([]);
+      setWizardSelectedServices([]);
+    }
+  }, [wizardStep, currentCompanyId]);
+
+  // Calculate pricing for wizard
+  const calculateWizardDays = useMemo(() => {
+    if (!wizardPickupDate || !wizardReturnDate) return 1;
+    const pickup = new Date(wizardPickupDate);
+    const returnDate = new Date(wizardReturnDate);
+    return Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)) + 1);
+  }, [wizardPickupDate, wizardReturnDate]);
+
+  const calculateWizardVehicleTotal = useMemo(() => {
+    if (!wizardSelectedModel) return 0;
+    const dailyRate = wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || wizardSelectedModel.daily_rate || 0;
+    return dailyRate * calculateWizardDays;
+  }, [wizardSelectedModel, calculateWizardDays]);
+
+  const calculateWizardServicesTotal = useMemo(() => {
+    return wizardSelectedServices.reduce((total, selectedService) => {
+      const service = selectedService.service || selectedService;
+      const price = service.servicePrice || service.ServicePrice || service.price || service.Price || 0;
+      return total + (price * calculateWizardDays * (selectedService.quantity || 1));
+    }, 0);
+  }, [wizardSelectedServices, calculateWizardDays]);
+
+  const calculateWizardGrandTotal = useMemo(() => {
+    return calculateWizardVehicleTotal + calculateWizardServicesTotal;
+  }, [calculateWizardVehicleTotal, calculateWizardServicesTotal]);
+
   const { data: companyBookingsResponse, isLoading: isLoadingBookings, error: bookingsError } = useQuery(
     [
       'companyBookings',
@@ -1737,6 +2057,70 @@ const AdminDashboard = () => {
       setBookingPage(totalBookingPages || 1);
     }
   }, [bookingPage, totalBookingPages]);
+
+  // Handle URL params to open payment modal after reservation creation
+  useEffect(() => {
+    const bookingIdParam = searchParams.get('bookingId');
+    const paymentParam = searchParams.get('payment');
+    
+    if (bookingIdParam && paymentParam === 'true') {
+      // If bookings are loaded, find and open modal
+      if (filteredBookings.length > 0) {
+        const booking = filteredBookings.find(b => {
+          const id = b.id || b.Id || b.bookingId || b.BookingId;
+          return id === bookingIdParam || id?.toString() === bookingIdParam;
+        });
+        
+        if (booking) {
+          // Select the booking and open booking payment modal (for total amount)
+          setSelectedBooking(booking);
+          setShowBookingPaymentModal(true);
+          
+          // Clean up URL params
+          const newSearchParams = new URLSearchParams(searchParams);
+          newSearchParams.delete('bookingId');
+          newSearchParams.delete('payment');
+          navigate(`/admin?${newSearchParams.toString()}`, { replace: true });
+        }
+      } else {
+        // If bookings not loaded yet, wait for them to load
+        // The query will refetch when activeSection changes to 'reservations'
+      }
+    }
+  }, [searchParams, filteredBookings, navigate]);
+
+  // Handle pending status update after returning from Stripe Checkout
+  useEffect(() => {
+    const pendingUpdate = sessionStorage.getItem('pendingBookingStatusUpdate');
+    if (pendingUpdate && selectedBooking) {
+      try {
+        const update = JSON.parse(pendingUpdate);
+        const bookingId = selectedBooking.id || selectedBooking.Id || selectedBooking.bookingId || selectedBooking.BookingId;
+        
+        // Check if this is the same booking
+        if (update.bookingId === bookingId || update.bookingId?.toString() === bookingId?.toString()) {
+          // Check if payment was successful (booking should have payment intent or paid status)
+          const isPaid = 
+            (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') ||
+            !!selectedBooking.stripePaymentIntentId;
+          
+          if (isPaid && update.status === 'Confirmed') {
+            console.log('✅ Payment confirmed via webhook, updating booking status to Confirmed');
+            updateBookingStatusMutation.mutate({
+              bookingId: bookingId,
+              status: 'Confirmed'
+            });
+            // Clear the pending update
+            sessionStorage.removeItem('pendingBookingStatusUpdate');
+            setPendingConfirmedStatus('');
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing pending status update:', error);
+        sessionStorage.removeItem('pendingBookingStatusUpdate');
+      }
+    }
+  }, [selectedBooking, updateBookingStatusMutation]);
 
   const [assignmentOverrides, setAssignmentOverrides] = useState({});
 
@@ -1890,13 +2274,22 @@ const AdminDashboard = () => {
   const isLoading = false;
 
   const handleCompanyInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
 
     if (name === 'securityDeposit') {
       const numericValue = value === '' ? '' : parseFloat(value);
       setCompanyFormData(prev => ({
         ...prev,
         securityDeposit: value === '' || Number.isNaN(numericValue) ? '' : numericValue
+      }));
+      return;
+    }
+
+    // Handle checkboxes
+    if (type === 'checkbox') {
+      setCompanyFormData(prev => ({
+        ...prev,
+        [name]: checked
       }));
       return;
     }
@@ -1910,7 +2303,6 @@ const AdminDashboard = () => {
   // Handle open booking details
   const handleOpenBookingDetails = (booking) => {
     setSelectedBooking(booking);
-    setEditingBookingStatus(booking.status || '');
     setShowBookingDetailsModal(true);
   };
 
@@ -1918,13 +2310,48 @@ const AdminDashboard = () => {
   const handleUpdateBookingStatus = () => {
     if (!selectedBooking) return;
     
-    console.log('Updating booking status to:', editingBookingStatus);
-    console.log('Current booking status:', selectedBooking.status);
+    // Automatically determine next status based on current status
+    const currentStatus = selectedBooking.status || selectedBooking.Status || '';
+    let nextStatus = '';
+    
+    // Determine next status: Pending -> Confirmed -> Active -> Completed
+    if (currentStatus.toLowerCase() === 'pending') {
+      nextStatus = 'Confirmed';
+    } else if (currentStatus.toLowerCase() === 'confirmed') {
+      nextStatus = 'Active';
+    } else if (currentStatus.toLowerCase() === 'active') {
+      nextStatus = 'Completed';
+    } else {
+      // If already completed or cancelled, don't allow progression
+      toast.info(t('admin.statusAlreadyFinal', 'Booking status cannot be changed further.'));
+      return;
+    }
+    
+    console.log('Updating booking status from:', currentStatus, 'to:', nextStatus);
     console.log('Current payment status:', selectedBooking.paymentStatus);
     console.log('Has payment intent:', !!selectedBooking.stripePaymentIntentId);
     
+    // If changing from Pending to Confirmed, show payment modal first
+    if (currentStatus.toLowerCase() === 'pending' && nextStatus === 'Confirmed') {
+      // Check if booking has already been paid
+      const isAlreadyPaid = 
+        (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') ||
+        !!selectedBooking.stripePaymentIntentId;
+      
+      if (!isAlreadyPaid) {
+        // Show payment modal to collect booking payment
+        console.log('✅ Opening booking payment modal for pending booking');
+        setPendingConfirmedStatus(nextStatus);
+        setShowBookingPaymentModal(true);
+        return;
+      } else {
+        // Already paid, proceed with status update
+        console.log('✅ Booking already paid, updating status directly');
+      }
+    }
+    
     // If changing to Active, check if security deposit is mandatory and unpaid
-    if (editingBookingStatus === 'Active') {
+    if (nextStatus === 'Active') {
       console.log('=== Security Deposit Check ===');
       console.log('Company data:', actualCompanyData);
       
@@ -1969,7 +2396,7 @@ const AdminDashboard = () => {
       // Only show modal if deposit is mandatory, amount > 0, AND not already paid
       if (isDepositMandatory && depositAmount > 0 && !isDepositAlreadyPaid) {
         console.log('✅ Opening security deposit modal with amount:', depositAmount);
-        setPendingActiveStatus(editingBookingStatus);
+        setPendingActiveStatus(nextStatus);
         setShowSecurityDepositModal(true);
         return;
       } else {
@@ -1977,29 +2404,18 @@ const AdminDashboard = () => {
       }
     }
     
-    // If changing to Cancelled and has a paid/succeeded payment, show refund modal
-    if (editingBookingStatus === 'Cancelled' && 
-        (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') && 
-        selectedBooking.stripePaymentIntentId) {
-      const paymentAmount = parseFloat(selectedBooking.totalAmount || 0);
-      setCancelRefundAmount(paymentAmount.toFixed(2));
-      setPendingCancelStatus(editingBookingStatus);
-      setShowCancelRefundModal(true);
-      return;
-    }
-    
     // If changing to Completed, ask about damage first
-    if (editingBookingStatus === 'Completed' || editingBookingStatus === 'completed') {
-      setPendingCompletedStatus(editingBookingStatus);
+    if (nextStatus === 'Completed' || nextStatus === 'completed') {
+      setPendingCompletedStatus(nextStatus);
       setHasDamage(false);
       setShowDamageConfirmationModal(true);
       return;
     }
     
-    // For other status changes or unpaid bookings, update directly
+    // For other status changes (Pending -> Confirmed, Confirmed -> Active), update directly
     updateBookingStatusMutation.mutate({
       bookingId: selectedBooking.id,
-      status: editingBookingStatus
+      status: nextStatus
     });
   };
   
@@ -2138,6 +2554,22 @@ const AdminDashboard = () => {
         setShowSecurityDepositModal(false);
         setPaymentMethod('');
         
+        // Store flag and user data backup before redirecting to Stripe (for session restoration on return)
+        sessionStorage.setItem('stripeRedirect', 'true');
+        sessionStorage.setItem('stripeRedirectTime', Date.now().toString());
+        
+        // Store user data (including role) as backup in case session is lost
+        if (user) {
+          sessionStorage.setItem('stripeUserBackup', JSON.stringify({
+            id: user.id || user.customerId || user.customer_id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId || user.CompanyId,
+            firstName: user.firstName,
+            lastName: user.lastName
+          }));
+        }
+        
         toast.info(t('admin.redirectingToStripe', 'Redirecting to Stripe payment page...'));
         
         // Redirect to Stripe Checkout (opens in same tab)
@@ -2150,6 +2582,125 @@ const AdminDashboard = () => {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to initiate payment';
       toast.error(t('admin.securityDepositError', errorMessage));
       setPayingSecurityDeposit(false);
+    }
+  };
+
+  // Handle creating payment for booking total amount
+  const handleInitiateBookingPayment = async () => {
+    if (!selectedBooking || !paymentMethod) {
+      toast.error(t('admin.selectPaymentMethod', 'Please select a payment method'));
+      return;
+    }
+    
+    setPayingBooking(true);
+    
+    try {
+      const bookingTotal = parseFloat(selectedBooking.totalAmount || selectedBooking.TotalAmount || 0);
+      const currency = currencyCode || 'USD';
+      
+      if (paymentMethod === 'terminal') {
+        // Card Reader payment (Stripe Terminal)
+        console.log(`Creating payment intent for booking total:`, selectedBooking.id, bookingTotal);
+        
+        const response = await apiService.createTerminalPaymentIntent(
+          currentCompanyId,
+          bookingTotal,
+          currency.toLowerCase(),
+          {
+            bookingId: selectedBooking.id,
+            description: `Booking payment - ${selectedBooking.bookingNumber || selectedBooking.BookingNumber || ''}`
+          }
+        );
+        
+        console.log('Payment Intent created:', response.data);
+        const { paymentIntentId } = response.data;
+        
+        toast.info(t('admin.connectCardReader', 'Please connect card reader and have customer tap/swipe card'));
+        
+        // TODO: Integrate with useStripeTerminal hook
+        toast.warning(t('admin.terminalIntegrationPending', 'Stripe Terminal integration will be completed in next step'));
+        
+        // For terminal, simulate and complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        setShowBookingPaymentModal(false);
+        setPaymentMethod('');
+        setPayingBooking(false);
+        toast.success(t('admin.bookingPaymentAuthorized', `Booking payment of ${formatPrice(bookingTotal)} authorized (Payment Intent: ${paymentIntentId})`));
+        
+        // If we were waiting to update status to Confirmed after payment, do it now
+        if (pendingConfirmedStatus === 'Confirmed') {
+          console.log('✅ Payment successful, updating booking status to Confirmed');
+          updateBookingStatusMutation.mutate({
+            bookingId: selectedBooking.id,
+            status: 'Confirmed'
+          });
+          setPendingConfirmedStatus('');
+        }
+        
+        // Refresh bookings list
+        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+        
+      } else if (paymentMethod === 'checkout') {
+        // Stripe Checkout - hosted payment page
+        console.log(`Creating Stripe Checkout session for booking total:`, selectedBooking.id);
+        
+        const response = await apiService.createCheckoutSession({
+          customerId: selectedBooking.customerId || selectedBooking.CustomerId,
+          companyId: currentCompanyId,
+          bookingId: selectedBooking.id,
+          bookingNumber: selectedBooking.bookingNumber || selectedBooking.BookingNumber || '',
+          amount: bookingTotal,
+          currency: currency.toLowerCase(),
+          description: `Booking payment - ${selectedBooking.bookingNumber || selectedBooking.BookingNumber || ''}`,
+          language: i18n.language,
+          successUrl: `${window.location.origin}/admin?tab=reservations&bookingId=${selectedBooking.id}`,
+          cancelUrl: `${window.location.origin}/admin?tab=reservations`
+        });
+        
+        console.log('Checkout session created:', response.data);
+        const { url: sessionUrl } = response.data || response;
+        
+        // Close modal and redirect to Stripe's hosted checkout page
+        setShowBookingPaymentModal(false);
+        setPaymentMethod('');
+        setPayingBooking(false);
+        
+        // Store pending status in sessionStorage so we can update after redirect
+        if (pendingConfirmedStatus === 'Confirmed') {
+          sessionStorage.setItem('pendingBookingStatusUpdate', JSON.stringify({
+            bookingId: selectedBooking.id,
+            status: 'Confirmed'
+          }));
+        }
+        
+        // Store flag and user data backup before redirecting to Stripe (for session restoration on return)
+        sessionStorage.setItem('stripeRedirect', 'true');
+        sessionStorage.setItem('stripeRedirectTime', Date.now().toString());
+        
+        // Store user data (including role) as backup in case session is lost
+        if (user) {
+          sessionStorage.setItem('stripeUserBackup', JSON.stringify({
+            id: user.id || user.customerId || user.customer_id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId || user.CompanyId,
+            firstName: user.firstName,
+            lastName: user.lastName
+          }));
+        }
+        
+        toast.info(t('admin.redirectingToStripe', 'Redirecting to Stripe payment page...'));
+        
+        // Redirect to Stripe Checkout (opens in same tab)
+        window.location.href = sessionUrl;
+      }
+      
+    } catch (error) {
+      console.error('Error initiating booking payment:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to initiate payment';
+      toast.error(t('admin.bookingPaymentError', errorMessage));
+      setPayingBooking(false);
     }
   };
 
@@ -3606,6 +4157,38 @@ const AdminDashboard = () => {
                 </button>
               )}
               
+              {/* Reservations - All roles can see and edit */}
+              <button
+                onClick={() => setActiveSection('reservations')}
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                  activeSection === 'reservations'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+                title={t('admin.reservations')}
+                aria-label={t('admin.reservations')}
+              >
+                <Calendar className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.reservations')}</span>
+              </button>
+              
+              {/* Vehicles (Daily Rates) - All roles can see (workers: view only) */}
+              <button
+                onClick={() => setActiveSection('vehicles')}
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                  activeSection === 'vehicles'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+                title={t('admin.dailyRates', 'Daily Rates')}
+                aria-label={t('admin.dailyRates', 'Daily Rates')}
+              >
+                <Car className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.dailyRates', 'Daily Rates')}</span>
+              </button>
+              
               {/* Locations - Admin only */}
               {isAdmin && (
                 <button
@@ -3627,53 +4210,6 @@ const AdminDashboard = () => {
                 </button>
               )}
               
-              {/* Vehicles - All roles can see (workers: view only) */}
-              <button
-                onClick={() => setActiveSection('vehicles')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'vehicles'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('vehicles.title')}
-                aria-label={t('vehicles.title')}
-              >
-                <Car className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('vehicles.title')}</span>
-              </button>
-              
-              {/* Vehicle Management (Location Assignment) - All roles */}
-              <button
-                onClick={() => setActiveSection('vehicleManagement')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'vehicleManagement'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.manageLocations')}
-                aria-label={t('admin.manageLocations')}
-              >
-                <MapPin className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.manageLocations')}</span>
-              </button>
-              
-              {/* Reservations - All roles can see and edit */}
-              <button
-                onClick={() => setActiveSection('reservations')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'reservations'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.reservations')}
-                aria-label={t('admin.reservations')}
-              >
-                <Calendar className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.reservations')}</span>
-              </button>
               
               {/* Employees - Admin only */}
               {isAdmin && (
@@ -3802,11 +4338,24 @@ const AdminDashboard = () => {
                     >
                       {t('admin.pickupLocations', 'Pickup Locations')}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveLocationSubTab('management')}
+                      className={`
+                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
+                        ${activeLocationSubTab === 'management'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.manageLocations', 'Manage Locations')}
+                    </button>
                   </nav>
                 </div>
 
-                {/* Add Location Button - Admin only */}
-                {!isEditingLocation && isAdmin && (
+                {/* Add Location Button - Admin only (only show for company and pickup tabs) */}
+                {!isEditingLocation && isAdmin && activeLocationSubTab !== 'management' && (
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -3818,6 +4367,25 @@ const AdminDashboard = () => {
                   </div>
                 )}
 
+                {/* Management Tab - Vehicle Location Assignment */}
+                {activeLocationSubTab === 'management' ? (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        {t('admin.manageLocationsDescription', 'Assign vehicles to locations by dragging and dropping. This helps organize your fleet across different pickup and return locations.')}
+                      </p>
+                    </div>
+                    <div className="border-2 border-gray-300 rounded-lg" style={{ minHeight: '600px' }}>
+                      <iframe
+                        src={`/vehicle-locations?companyId=${currentCompanyId}`}
+                        className="w-full h-full"
+                        style={{ minHeight: '600px', border: 'none' }}
+                        title={t('admin.manageLocations', 'Manage Locations')}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 {/* Location Form */}
                 {isEditingLocation ? (
                   <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
@@ -4173,6 +4741,8 @@ const AdminDashboard = () => {
                     )}
                   </div>
                 )}
+                </>
+                )}
               </div>
           ) : isEditingCompany || (!currentCompanyId && isMainAdmin) ? (
               <form onSubmit={handleSaveCompany} className="space-y-6">
@@ -4228,6 +4798,25 @@ const AdminDashboard = () => {
                 {activeTab === 'info' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Basic Information */}
+                  <div className="md:col-span-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        name="isTestCompany"
+                        checked={companyFormData.isTestCompany ?? true}
+                        disabled
+                        readOnly
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-not-allowed opacity-60"
+                      />
+                      <span className="block text-sm font-medium text-gray-700">
+                        {t('admin.isTestCompany', 'Test Company')}
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      {t('admin.isTestCompanyHelp', 'Mark this company as a test company')} (Read-only)
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.companyName')}
@@ -5323,28 +5912,58 @@ const AdminDashboard = () => {
                     >
                       {t('admin.resetFilters', 'Reset Filters')}
                     </button>
+                    {/* Temporarily hidden */}
+                    {false && (
+                      <button
+                        type="button"
+                        className="btn-primary relative"
+                        onClick={handleSyncPaymentsFromStripe}
+                        disabled={syncingPayments || !filteredBookings || filteredBookings.length === 0}
+                      >
+                        {syncingPayments ? (
+                          <>
+                            <span className="animate-spin inline-block mr-2">⟳</span>
+                            {t('admin.syncingPayments', 'Syncing...')}
+                            {syncProgress.total > 0 && (
+                              <span className="ml-2 text-xs opacity-75">
+                                ({syncProgress.current}/{syncProgress.total})
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span className="mr-2">🔄</span>
+                            {t('admin.syncPayments', 'Sync Payments from Stripe')}
+                          </>
+                        )}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="btn-primary relative"
-                      onClick={handleSyncPaymentsFromStripe}
-                      disabled={syncingPayments || !filteredBookings || filteredBookings.length === 0}
+                      className="btn-primary"
+                      onClick={() => {
+                        setShowReservationWizard(true);
+                        setWizardStep(1);
+                        setWizardCustomerEmail('');
+                        setWizardCustomer(null);
+                        setWizardSelectedCategory(null);
+                        setWizardSelectedMake(null);
+                        setWizardSelectedModel(null);
+                        setWizardPickupDate(() => {
+                          const today = new Date();
+                          return today.toISOString().split('T')[0];
+                        });
+                        setWizardReturnDate(() => {
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          return tomorrow.toISOString().split('T')[0];
+                        });
+                        setWizardSelectedCategory(null);
+                        setWizardSelectedMake(null);
+                        setWizardSelectedModel(null);
+                      }}
                     >
-                      {syncingPayments ? (
-                        <>
-                          <span className="animate-spin inline-block mr-2">⟳</span>
-                          {t('admin.syncingPayments', 'Syncing...')}
-                          {syncProgress.total > 0 && (
-                            <span className="ml-2 text-xs opacity-75">
-                              ({syncProgress.current}/{syncProgress.total})
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <span className="mr-2">🔄</span>
-                          {t('admin.syncPayments', 'Sync Payments from Stripe')}
-                        </>
-                      )}
+                      {t('admin.createReservation', 'Create Reservation')}
                     </button>
                   </div>
                 </div>
@@ -7848,6 +8467,184 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {/* Booking Payment Modal - for booking total amount */}
+      {showBookingPaymentModal && selectedBooking && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={() => !payingBooking && setShowBookingPaymentModal(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+                <div className="flex items-center">
+                  <svg className="h-6 w-6 text-white mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      {t('admin.payBooking', 'Pay Booking')}
+                    </h3>
+                    <p className="text-sm text-blue-100 mt-1">
+                      {selectedBooking.bookingNumber || selectedBooking.BookingNumber || ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-white px-6 py-4">
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      {t('admin.bookingPaymentRequired', 'Please select a payment method to complete the booking payment.')}
+                    </p>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                      {t('admin.selectPaymentMethod', 'Select Payment Method')}
+                    </h4>
+                    <div className="space-y-3">
+                      {/* Card Reader Option */}
+                      <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        paymentMethod === 'terminal' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-300 hover:border-blue-300 bg-white'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="bookingPaymentMethod"
+                          value="terminal"
+                          checked={paymentMethod === 'terminal'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-900">
+                              {t('admin.cardReader', 'Card Reader (Stripe Terminal)')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 ml-7 mt-1">
+                            {t('admin.cardReaderDesc', 'Customer taps/swipes card on physical reader')}
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Stripe Checkout Option */}
+                      <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        paymentMethod === 'checkout' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-300 hover:border-blue-300 bg-white'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="bookingPaymentMethod"
+                          value="checkout"
+                          checked={paymentMethod === 'checkout'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center">
+                            <svg className="w-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-900">
+                              {t('admin.stripeCheckout', 'Stripe Checkout Page')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 ml-7 mt-1">
+                            {t('admin.stripeCheckoutDesc', 'Redirect to secure Stripe payment page to enter card')}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.customerName', 'Customer')}</span>
+                      <span className="text-sm font-medium text-gray-900">{selectedBooking.customerName || selectedBooking.CustomerName}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.vehicleName', 'Vehicle')}</span>
+                      <span className="text-sm font-medium text-gray-900">{selectedBooking.vehicleName || selectedBooking.VehicleName}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">{t('admin.bookingDates', 'Booking Dates')}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(selectedBooking.pickupDate || selectedBooking.PickupDate).toLocaleDateString()} - {new Date(selectedBooking.returnDate || selectedBooking.ReturnDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-6 text-center">
+                    <p className="text-sm text-gray-600 mb-2">{t('admin.bookingTotalAmount', 'Booking Total Amount')}</p>
+                    <p className="text-4xl font-bold text-green-600">
+                      {formatPrice(parseFloat(selectedBooking.totalAmount || selectedBooking.TotalAmount || 0))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                <button
+                  type="button"
+                  onClick={handleInitiateBookingPayment}
+                  disabled={payingBooking || !paymentMethod}
+                  className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-base font-medium text-white hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:w-auto transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!paymentMethod ? t('admin.selectPaymentMethodFirst', 'Please select a payment method first') : ''}
+                >
+                  {payingBooking ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('common.processing', 'Processing...')}
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {t('admin.processPayment', 'Process Payment')}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookingPaymentModal(false);
+                    setPaymentMethod('');
+                    setPayingBooking(false);
+                    // Clear pending status if user cancels payment
+                    if (pendingConfirmedStatus) {
+                      setPendingConfirmedStatus('');
+                    }
+                  }}
+                  disabled={payingBooking}
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Damage Confirmation Modal */}
       {showDamageConfirmationModal && selectedBooking && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
@@ -8359,7 +9156,7 @@ const AdminDashboard = () => {
                     </div>
                   )}
 
-                  {/* Booking Status - Editable */}
+                  {/* Booking Status - Read-only (auto-progresses with Next button) */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-3">
                       {t('admin.bookingStatus', 'Booking Status')}
@@ -8373,23 +9170,35 @@ const AdminDashboard = () => {
                         </div>
                         <input
                           type="text"
-                          value={editingBookingStatus}
+                          value={formatBookingStatus(selectedBooking.status || selectedBooking.Status || '')}
                           disabled
                           className="input-field w-full border border-gray-300 bg-gray-100 cursor-not-allowed"
                         />
                       </div>
                     ) : (
-                      <select
-                        value={editingBookingStatus}
-                        onChange={(e) => setEditingBookingStatus(e.target.value)}
-                        className="input-field w-full border border-gray-300"
-                      >
-                        <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
-                        <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
-                        <option value="Active">{t('booking.statusActive', 'Active')}</option>
-                        <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
-                        <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
-                      </select>
+                      <div>
+                        <input
+                          type="text"
+                          value={formatBookingStatus(selectedBooking.status || selectedBooking.Status || '')}
+                          disabled
+                          readOnly
+                          className="input-field w-full border border-gray-300 bg-gray-50 cursor-not-allowed"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {(() => {
+                            const currentStatus = (selectedBooking.status || selectedBooking.Status || '').toLowerCase();
+                            if (currentStatus === 'pending') {
+                              return t('admin.nextStatusWillBe', 'Next status will be: {{status}}', { status: t('booking.statusConfirmed', 'Confirmed') });
+                            } else if (currentStatus === 'confirmed') {
+                              return t('admin.nextStatusWillBe', 'Next status will be: {{status}}', { status: t('booking.statusActive', 'Active') });
+                            } else if (currentStatus === 'active') {
+                              return t('admin.nextStatusWillBe', 'Next status will be: {{status}}', { status: t('booking.statusCompleted', 'Completed') });
+                            } else {
+                              return t('admin.statusFinal', 'Status is final and cannot be changed');
+                            }
+                          })()}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -8402,6 +9211,8 @@ const AdminDashboard = () => {
                   {selectedBooking.stripePaymentIntentId && 
                    (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') && 
                    selectedBooking.status !== 'Cancelled' &&
+                   selectedBooking.status !== 'Completed' &&
+                   selectedBooking.status !== 'completed' &&
                    (!selectedBooking.refundRecords || selectedBooking.refundRecords.length === 0) && (
                     <button
                       type="button"
@@ -8430,16 +9241,774 @@ const AdminDashboard = () => {
                     onClick={handleUpdateBookingStatus}
                     disabled={
                       updateBookingStatusMutation.isLoading || 
-                      editingBookingStatus === selectedBooking.status ||
-                      (selectedBooking.refundRecords && selectedBooking.refundRecords.length > 0)
+                      (selectedBooking.refundRecords && selectedBooking.refundRecords.length > 0) ||
+                      (selectedBooking.status && ['Completed', 'completed', 'Cancelled', 'cancelled'].includes(selectedBooking.status))
                     }
                     className="btn-primary"
                   >
                     {updateBookingStatusMutation.isLoading 
                       ? t('common.saving', 'Saving...') 
-                      : t('common.save', 'Save')}
+                      : t('common.next', 'Next')}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Wizard Modal */}
+      {showReservationWizard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {t('admin.createReservation', 'Create Reservation')}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowReservationWizard(false);
+                    setWizardStep(1);
+                    setWizardCustomerEmail('');
+                    setWizardCustomer(null);
+                    setWizardSelectedCategory(null);
+                    setWizardSelectedMake(null);
+                    setWizardSelectedModel(null);
+                    setWizardModelsByMake({});
+                    setWizardExpandedMakes(new Set());
+                    setWizardSelectedLocation(null);
+                    setWizardSelectedServices([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Step Indicator */}
+              <div className="flex items-center mb-6 overflow-x-auto">
+                <div className={`flex items-center ${wizardStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${wizardStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    1
+                  </div>
+                  <span className="ml-2 font-medium whitespace-nowrap">{t('admin.datesAndCategory', 'Dates & Customer')}</span>
+                </div>
+                <div className={`flex-1 h-1 mx-2 ${wizardStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex items-center ${wizardStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${wizardStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    2
+                  </div>
+                  <span className="ml-2 font-medium whitespace-nowrap">Category</span>
+                </div>
+                <div className={`flex-1 h-1 mx-2 ${wizardStep >= 3 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex items-center ${wizardStep >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${wizardStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    3
+                  </div>
+                  <span className="ml-2 font-medium whitespace-nowrap">Make & Model</span>
+                </div>
+                <div className={`flex-1 h-1 mx-2 ${wizardStep >= 4 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex items-center ${wizardStep >= 4 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${wizardStep >= 4 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    4
+                  </div>
+                  <span className="ml-2 font-medium whitespace-nowrap">{t('admin.bookingSummary', 'Booking Summary')}</span>
+                </div>
+              </div>
+
+              {/* Step 1: Customer, Dates, and Location */}
+              {wizardStep === 1 && (
+                <div className="space-y-4">
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('admin.pickupDate', 'Pickup Date')}
+                      </label>
+                      <input
+                        type="date"
+                        value={wizardPickupDate}
+                        onChange={(e) => setWizardPickupDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('admin.returnDate', 'Return Date')}
+                      </label>
+                      <input
+                        type="date"
+                        value={wizardReturnDate}
+                        onChange={(e) => setWizardReturnDate(e.target.value)}
+                        min={wizardPickupDate || new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Location Selector (only if more than 1 location) */}
+                  {wizardLocations && wizardLocations.length > 1 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('admin.location', 'Location')}
+                      </label>
+                      <select
+                        value={wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || ''}
+                        onChange={(e) => {
+                          const locationId = e.target.value;
+                          const location = wizardLocations.find(loc => 
+                            (loc.locationId || loc.id) === locationId
+                          );
+                          setWizardSelectedLocation(location || null);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">{t('admin.allLocations', 'All Locations')}</option>
+                        {wizardLocations.map((location) => {
+                          const locId = location.locationId || location.id;
+                          const locName = location.locationName || location.name || location.address || '';
+                          return (
+                            <option key={locId} value={locId}>
+                              {locName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Customer Email */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.customerEmail', 'Customer Email')}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={wizardCustomerEmail}
+                        onChange={(e) => setWizardCustomerEmail(e.target.value)}
+                        placeholder="customer@example.com"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={wizardSearchingCustomer || wizardCreatingCustomer}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!wizardCustomerEmail || !wizardCustomerEmail.includes('@')) {
+                            toast.error(t('admin.invalidEmail', 'Please enter a valid email address'));
+                            return;
+                          }
+                          
+                          if (!wizardPickupDate || !wizardReturnDate) {
+                            toast.error(t('admin.selectDates', 'Please select pickup and return dates'));
+                            return;
+                          }
+                          
+                          if (new Date(wizardReturnDate) <= new Date(wizardPickupDate)) {
+                            toast.error(t('admin.invalidDateRange', 'Return date must be after pickup date'));
+                            return;
+                          }
+                          
+                          setWizardSearchingCustomer(true);
+                          try {
+                            const response = await apiService.getCustomerByEmail(wizardCustomerEmail);
+                            const customer = response?.data || response;
+                            if (customer && customer.customerId) {
+                              setWizardCustomer(customer);
+                              toast.success(t('admin.customerFound', 'Customer found'));
+                              setTimeout(() => setWizardStep(2), 500);
+                            } else {
+                              // Customer not found, silently create new one
+                              throw new Error('Customer not found');
+                            }
+                          } catch (error) {
+                            // Silently handle 404 - customer not found, create new one
+                            // Don't show error for 404, it's expected behavior
+                            const isNotFound = error.response?.status === 404 || error.message?.includes('not found');
+                            
+                            if (!isNotFound) {
+                              // Only log non-404 errors for debugging, but don't show to user
+                              console.warn('Customer lookup error (non-404):', error);
+                            }
+                            
+                            // Customer not found, create new one silently
+                            setWizardCreatingCustomer(true);
+                            try {
+                              const newCustomer = await apiService.createCustomer({
+                                email: wizardCustomerEmail,
+                                firstName: '',
+                                lastName: '',
+                                phone: ''
+                                // Note: Empty password - backend should send invitation email
+                              });
+                              const customer = newCustomer?.data || newCustomer;
+                              setWizardCustomer(customer);
+                              // Only show success message, no error for "not found"
+                              toast.success(t('admin.customerCreated', 'Customer created successfully. Invitation will be sent after booking payment.'));
+                              setTimeout(() => setWizardStep(2), 500);
+                            } catch (createError) {
+                              // Only show error if customer creation fails
+                              console.error('Error creating customer:', createError);
+                              toast.error(createError.response?.data?.message || t('admin.customerCreateError', 'Failed to create customer'));
+                            } finally {
+                              setWizardCreatingCustomer(false);
+                            }
+                          } finally {
+                            setWizardSearchingCustomer(false);
+                          }
+                        }}
+                        disabled={wizardSearchingCustomer || wizardCreatingCustomer || !wizardCustomerEmail || !wizardPickupDate || !wizardReturnDate}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {wizardSearchingCustomer 
+                          ? t('admin.searching', 'Searching...')
+                          : wizardCreatingCustomer
+                          ? t('admin.creating', 'Creating...')
+                          : t('admin.findOrCreate', 'Find or Create')}
+                      </button>
+                    </div>
+                  </div>
+                  {wizardCustomer && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-800">
+                        {t('admin.customerSelected', 'Customer selected')}: {wizardCustomer.email}
+                        {wizardCustomer.firstName && ` (${wizardCustomer.firstName} ${wizardCustomer.lastName})`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Category Selection */}
+              {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.selectCategory', 'Select Category')}
+                    </label>
+                    {isLoadingCategories ? (
+                      <div className="text-center py-4 text-gray-500">
+                        {t('common.loading', 'Loading...')}
+                      </div>
+                    ) : categories && categories.length > 0 ? (
+                      <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+                        {categories.map((category) => {
+                          const categoryId = category.categoryId || category.id || category.Id;
+                          const categoryName = category.categoryName || category.name || category.Name || '';
+                          return (
+                            <button
+                              key={categoryId}
+                              type="button"
+                              onClick={() => {
+                                setWizardSelectedCategory(category);
+                                setWizardSelectedMake(null);
+                                setWizardSelectedModel(null);
+                                setTimeout(() => setWizardStep(3), 300);
+                              }}
+                              className={`w-full text-left px-4 py-3 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 ${
+                                wizardSelectedCategory?.categoryId === categoryId || 
+                                wizardSelectedCategory?.id === categoryId
+                                  ? 'bg-blue-50 border-blue-200' 
+                                  : ''
+                              }`}
+                            >
+                              <div className="font-medium text-gray-900">{categoryName}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        {t('admin.noCategoriesFound', 'No categories found')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Make and Model Selection (Tree Structure) */}
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.selectMakeAndModel', 'Select Make and Model')}
+                    </label>
+                    {isLoadingWizardModels ? (
+                      <div className="text-center py-4 text-gray-500">
+                        {t('common.loading', 'Loading...')}
+                      </div>
+                    ) : Object.keys(wizardModelsByMake).length > 0 ? (
+                      <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
+                        {Object.entries(wizardModelsByMake)
+                          .sort(([makeA], [makeB]) => makeA.localeCompare(makeB))
+                          .map(([make, models]) => {
+                            const isExpanded = wizardExpandedMakes.has(make);
+                            return (
+                              <div key={make} className="border-b border-gray-200 last:border-b-0">
+                                {/* Make Header (Expandable) */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newExpanded = new Set(wizardExpandedMakes);
+                                    if (isExpanded) {
+                                      newExpanded.delete(make);
+                                      setWizardSelectedMake(null);
+                                      setWizardSelectedModel(null);
+                                    } else {
+                                      newExpanded.add(make);
+                                    }
+                                    setWizardExpandedMakes(newExpanded);
+                                  }}
+                                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between ${
+                                    wizardSelectedMake === make ? 'bg-blue-50' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-center">
+                                    <ChevronRight 
+                                      className={`h-5 w-5 mr-2 transition-transform ${isExpanded ? 'transform rotate-90' : ''}`}
+                                    />
+                                    <span className="font-semibold text-gray-900">{make}</span>
+                                    <span className="ml-2 text-sm text-gray-500">
+                                      ({models.length} {models.length === 1 ? 'model' : 'models'})
+                                    </span>
+                                  </div>
+                                </button>
+                                
+                                {/* Models under this make */}
+                                {isExpanded && models && models.length > 0 && (
+                                  <div className="bg-gray-50" onClick={(e) => e.stopPropagation()}>
+                                    {models.map((model) => {
+                                      const modelId = model.id || model.Id || model.modelId || model.ModelId;
+                                      const modelName = model.modelName || model.ModelName || model.model || model.Model || '';
+                                      const isSelected = wizardSelectedModel?.id === modelId || 
+                                                        wizardSelectedModel?.Id === modelId ||
+                                                        wizardSelectedModel?.modelId === modelId ||
+                                                        wizardSelectedModel?.ModelId === modelId;
+                                      
+                                      if (!modelId) {
+                                        console.warn('Model missing ID:', model);
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <button
+                                          key={modelId}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            console.log('Model clicked:', modelId, modelName, model);
+                                            setWizardSelectedMake(make);
+                                            setWizardSelectedModel(model);
+                                            setTimeout(() => setWizardStep(4), 300);
+                                          }}
+                                          className={`w-full text-left px-8 py-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0 cursor-pointer ${
+                                            isSelected ? 'bg-blue-100 border-blue-300' : ''
+                                          }`}
+                                        >
+                                          <div className="flex items-center">
+                                            <span className="text-gray-700">{modelName}</span>
+                                            {model.year && (
+                                              <span className="ml-2 text-sm text-gray-500">({model.year})</span>
+                                            )}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        {t('admin.noModelsFound', 'No models found for this category')}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {wizardSelectedModel && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-800">
+                        {t('admin.modelSelected', 'Model selected')}: {wizardSelectedMake} - {wizardSelectedModel.modelName || wizardSelectedModel.ModelName || wizardSelectedModel.model || wizardSelectedModel.Model || ''}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 4: Booking Summary & Pricing */}
+              {wizardStep === 4 && (
+                <div className="space-y-6">
+                  {/* Booking Details Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">{t('admin.pickupDate', 'Pickup Date')}:</span>
+                      <span className="text-sm font-medium text-gray-900">{wizardPickupDate}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">{t('admin.returnDate', 'Return Date')}:</span>
+                      <span className="text-sm font-medium text-gray-900">{wizardReturnDate}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">{t('admin.customer', 'Customer')}:</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {wizardCustomer?.email || wizardCustomerEmail}
+                      </span>
+                    </div>
+                    {wizardSelectedModel && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">{t('admin.vehicle', 'Vehicle')}:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {wizardSelectedMake} - {wizardSelectedModel.modelName || wizardSelectedModel.ModelName || wizardSelectedModel.model || wizardSelectedModel.Model}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Daily Rate */}
+                  {wizardSelectedModel && (
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">{t('admin.ratePerDay', 'Rate per Day')}:</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {formatPrice(wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || wizardSelectedModel.daily_rate || 0)} / {t('admin.day', 'day')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Additional Services */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      {t('admin.additionalOptions', 'Additional Options')}
+                    </label>
+                    {isLoadingWizardServices ? (
+                      <div className="text-center py-4 text-gray-500">
+                        {t('common.loading', 'Loading...')}
+                      </div>
+                    ) : wizardAdditionalServices && wizardAdditionalServices.length > 0 ? (
+                      <div className="space-y-2">
+                        {wizardAdditionalServices.map((service) => {
+                          const serviceId = service.additionalServiceId || service.AdditionalServiceId || service.id || service.Id;
+                          const serviceName = service.serviceName || service.ServiceName || service.name || service.Name || '';
+                          const servicePrice = service.servicePrice || service.ServicePrice || service.price || service.Price || 0;
+                          const isMandatory = service.serviceIsMandatory || service.ServiceIsMandatory || false;
+                          const isSelected = wizardSelectedServices.some(s => {
+                            const sId = s.service?.additionalServiceId || s.service?.AdditionalServiceId || s.service?.id || s.service?.Id || s.id;
+                            return sId === serviceId;
+                          });
+                          
+                          return (
+                            <label
+                              key={serviceId}
+                              className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                              } ${isMandatory ? 'bg-yellow-50 border-yellow-300' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected || isMandatory}
+                                disabled={isMandatory}
+                                onChange={() => {
+                                  if (isMandatory) return;
+                                  setWizardSelectedServices(prev => {
+                                    if (isSelected) {
+                                      return prev.filter(s => {
+                                        const sId = s.service?.additionalServiceId || s.service?.AdditionalServiceId || s.service?.id || s.service?.Id || s.id;
+                                        return sId !== serviceId;
+                                      });
+                                    } else {
+                                      return [...prev, { id: serviceId, service: service, quantity: 1 }];
+                                    }
+                                  });
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <div className="ml-3 flex-1">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {serviceName}
+                                    {isMandatory && (
+                                      <span className="ml-2 text-xs text-yellow-600">({t('admin.mandatory', 'Mandatory')})</span>
+                                    )}
+                                  </span>
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {formatPrice(servicePrice)} / {t('admin.day', 'day')}
+                                  </span>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">{t('admin.noAdditionalServices', 'No additional services available')}</p>
+                    )}
+                  </div>
+
+                  {/* Price Breakdown */}
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        {calculateWizardDays} {calculateWizardDays === 1 ? t('admin.day', 'day') : t('admin.days', 'days')}
+                      </span>
+                      <span className="font-medium text-blue-600">
+                        {formatPrice(calculateWizardVehicleTotal)}
+                      </span>
+                    </div>
+                    {calculateWizardServicesTotal > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">{t('admin.additionalServices', 'Additional Services')}:</span>
+                        <span className="font-medium text-blue-600">
+                          {formatPrice(calculateWizardServicesTotal)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="border-t border-gray-300 pt-2 mt-2">
+                      <div className="flex justify-between">
+                        <span className="text-base font-semibold text-gray-900">{t('admin.total', 'Total')}:</span>
+                        <span className="text-xl font-bold text-blue-600">
+                          {formatPrice(calculateWizardGrandTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer Buttons */}
+              <div className="flex justify-between mt-6 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wizardStep > 1) {
+                      setWizardStep(wizardStep - 1);
+                    } else {
+                      setShowReservationWizard(false);
+                    }
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  {wizardStep > 1 ? t('common.back', 'Back') : t('common.exit', 'Exit')}
+                </button>
+                {wizardStep === 2 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (wizardSelectedCategory) {
+                        setWizardStep(3);
+                      }
+                    }}
+                    disabled={!wizardSelectedCategory}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {t('common.next', 'Next')}
+                  </button>
+                )}
+                {wizardStep === 3 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (wizardSelectedModel) {
+                        setWizardStep(4);
+                      }
+                    }}
+                    disabled={!wizardSelectedModel}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {t('common.next', 'Next')}
+                  </button>
+                )}
+                {wizardStep === 4 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!wizardCustomer || !wizardCustomer.customerId) {
+                        toast.error(t('admin.customerRequired', 'Customer is required'));
+                        return;
+                      }
+                      
+                      if (!wizardSelectedModel) {
+                        toast.error(t('admin.modelRequired', 'Model is required'));
+                        return;
+                      }
+                      
+                      try {
+                        // Find an available vehicle for the selected model
+                        const modelName = wizardSelectedModel.modelName || wizardSelectedModel.ModelName || wizardSelectedModel.model || wizardSelectedModel.Model || '';
+                        const make = wizardSelectedMake || wizardSelectedModel.make || wizardSelectedModel.Make || '';
+                        const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
+                        
+                        console.log('🔍 Searching for vehicle:', { make, modelName, locationId, pickupDate: wizardPickupDate, returnDate: wizardReturnDate });
+                        
+                        // First, try with status filter
+                        let vehicleParams = {
+                          companyId: currentCompanyId,
+                          make: make,
+                          model: modelName,
+                          status: 'Available',
+                          availableFrom: wizardPickupDate,
+                          availableTo: wizardReturnDate,
+                          pageSize: 50
+                        };
+                        
+                        if (locationId) {
+                          vehicleParams.locationId = locationId;
+                        }
+                        
+                        console.log('📋 Vehicle search params:', vehicleParams);
+                        
+                        let vehiclesResponse = await apiService.getVehicles(vehicleParams);
+                        console.log('📦 Raw API response:', vehiclesResponse);
+                        
+                        // Parse response structure - same as BookPage and AdminDashboard vehicles list
+                        // API returns: { Vehicles: [...], TotalCount: ..., Page: ..., PageSize: ..., TotalPages: ... }
+                        const payload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
+                        let vehicles = [];
+                        
+                        // Check for Vehicles property (capital V) first - this is what the API returns
+                        if (Array.isArray(payload?.Vehicles)) {
+                          vehicles = payload.Vehicles;
+                        } else if (Array.isArray(payload?.vehicles)) {
+                          vehicles = payload.vehicles;
+                        } else if (Array.isArray(payload?.items)) {
+                          vehicles = payload.items;
+                        } else if (Array.isArray(payload?.data)) {
+                          vehicles = payload.data;
+                        } else if (Array.isArray(payload)) {
+                          vehicles = payload;
+                        } else if (Array.isArray(vehiclesResponse)) {
+                          vehicles = vehiclesResponse;
+                        }
+                        
+                        console.log('🚗 Found vehicles (with status filter):', vehicles.length, vehicles);
+                        
+                        // If no vehicles found with status filter, try without status filter
+                        // (the API filters by availability dates anyway)
+                        if (vehicles.length === 0) {
+                          console.log('⚠️ No vehicles with Available status, trying without status filter...');
+                          vehicleParams = {
+                            companyId: currentCompanyId,
+                            make: make,
+                            model: modelName,
+                            availableFrom: wizardPickupDate,
+                            availableTo: wizardReturnDate,
+                            pageSize: 50
+                          };
+                          
+                          if (locationId) {
+                            vehicleParams.locationId = locationId;
+                          }
+                          
+                          vehiclesResponse = await apiService.getVehicles(vehicleParams);
+                          console.log('📦 Raw API response (retry):', vehiclesResponse);
+                          
+                          // Parse response structure - same as BookPage and AdminDashboard vehicles list
+                          const payload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
+                          vehicles = [];
+                          
+                          // Check for Vehicles property (capital V) first - this is what the API returns
+                          if (Array.isArray(payload?.Vehicles)) {
+                            vehicles = payload.Vehicles;
+                          } else if (Array.isArray(payload?.vehicles)) {
+                            vehicles = payload.vehicles;
+                          } else if (Array.isArray(payload?.items)) {
+                            vehicles = payload.items;
+                          } else if (Array.isArray(payload?.data)) {
+                            vehicles = payload.data;
+                          } else if (Array.isArray(payload)) {
+                            vehicles = payload;
+                          } else if (Array.isArray(vehiclesResponse)) {
+                            vehicles = vehiclesResponse;
+                          }
+                          
+                          console.log('🚗 Found vehicles (without status filter):', vehicles.length, vehicles);
+                        }
+                        
+                        if (vehicles.length === 0) {
+                          console.error('❌ No vehicles found. Response structure:', vehiclesResponse);
+                          toast.error(t('admin.noVehiclesAvailableForDates', 'No vehicles available for the selected dates and location'));
+                          return;
+                        }
+                        
+                        const selectedVehicle = vehicles[0];
+                        const vehicleId = selectedVehicle.vehicleId || selectedVehicle.id || selectedVehicle.Id || selectedVehicle.VehicleId;
+                        const dailyRate = wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || wizardSelectedModel.daily_rate || 0;
+                        
+                        // Create booking
+                        const bookingData = {
+                          customerId: wizardCustomer.customerId || wizardCustomer.id,
+                          vehicleId: vehicleId,
+                          companyId: currentCompanyId,
+                          pickupDate: wizardPickupDate,
+                          returnDate: wizardReturnDate,
+                          pickupLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
+                          returnLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
+                          dailyRate: dailyRate,
+                          taxAmount: 0,
+                          insuranceAmount: 0,
+                          additionalFees: calculateWizardServicesTotal
+                        };
+                        
+                        const bookingResponse = await apiService.createBooking(bookingData);
+                        const booking = bookingResponse?.data || bookingResponse;
+                        const bookingId = booking.id || booking.Id || booking.bookingId || booking.BookingId;
+                        
+                        // Add selected services to the booking
+                        if (wizardSelectedServices.length > 0 && bookingId) {
+                          for (const selectedService of wizardSelectedServices) {
+                            const service = selectedService.service || selectedService;
+                            const serviceId = service.additionalServiceId || service.AdditionalServiceId || service.id || service.Id;
+                            
+                            try {
+                              await apiService.addServiceToBooking({
+                                bookingId: bookingId,
+                                additionalServiceId: serviceId,
+                                quantity: selectedService.quantity || 1
+                              });
+                            } catch (serviceError) {
+                              console.error('Error adding service to booking:', serviceError);
+                              // Continue with other services even if one fails
+                            }
+                          }
+                        }
+                        
+                        toast.success(t('admin.reservationCreated', 'Reservation created successfully'));
+                        
+                        // Close wizard and reset state
+                        setShowReservationWizard(false);
+                        setWizardStep(1);
+                        setWizardCustomerEmail('');
+                        setWizardCustomer(null);
+                        setWizardSelectedCategory(null);
+                        setWizardSelectedMake(null);
+                        setWizardSelectedModel(null);
+                        setWizardSelectedServices([]);
+                        setWizardModelsByMake({});
+                        setWizardExpandedMakes(new Set());
+                        setWizardSelectedLocation(null);
+                        
+                        // Refresh bookings list
+                        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+                        
+                        // Redirect to payment page with booking ID
+                        // Switch to reservations section and navigate with payment param
+                        setActiveSection('reservations');
+                        navigate(`/admin?tab=reservations&bookingId=${bookingId}&payment=true`);
+                      } catch (error) {
+                        console.error('Error creating reservation:', error);
+                        toast.error(error.response?.data?.message || t('admin.reservationCreateError', 'Failed to create reservation'));
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {t('admin.createReservation', 'Create Reservation')}
+                  </button>
+                )}
               </div>
             </div>
           </div>

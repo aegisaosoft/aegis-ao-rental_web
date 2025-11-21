@@ -59,7 +59,11 @@ router.get('/', async (req, res) => {
 // Bulk update daily rates for models
 router.put('/bulk-update-daily-rate', authenticateToken, async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.bulkUpdateModelDailyRate(token, req.body);
 
     // The .NET API returns { count, message }

@@ -26,7 +26,12 @@ router.use(requireAdmin);
 // Get admin dashboard data
 router.get('/dashboard', async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    // authenticateToken is applied via router.use() above
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     
     // Get various admin data
     const [vehiclesRes, reservationsRes, customersRes] = await Promise.all([
@@ -49,7 +54,12 @@ router.get('/dashboard', async (req, res) => {
 // Get all vehicles for admin
 router.get('/vehicles', async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    // authenticateToken is applied via router.use() above
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.adminGetVehicles(token, req.query);
     res.json(response.data);
   } catch (error) {
@@ -61,7 +71,12 @@ router.get('/vehicles', async (req, res) => {
 // Get all reservations for admin
 router.get('/reservations', async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    // authenticateToken is applied via router.use() above
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.adminGetReservations(token, req.query);
     res.json(response.data);
   } catch (error) {
@@ -73,7 +88,12 @@ router.get('/reservations', async (req, res) => {
 // Get all customers for admin
 router.get('/customers', async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    // authenticateToken is applied via router.use() above
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.adminGetCustomers(token, req.query);
     res.json(response.data);
   } catch (error) {

@@ -13,7 +13,7 @@
  *
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -22,10 +22,14 @@ import { useTranslation } from 'react-i18next';
 
 const Register = () => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const returnTo = location.state?.returnTo;
+  const emailFromState = location.state?.email;
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: emailFromState || '',
     phone: '',
     password: '',
     confirmPassword: ''
@@ -36,10 +40,15 @@ const Register = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const returnTo = location.state?.returnTo;
   const redirectTarget =
     (typeof returnTo === 'string' && returnTo.trim().length > 0 ? returnTo : '/') || '/';
+
+  // Show info message if redirected from forgot password
+  useEffect(() => {
+    if (emailFromState) {
+      toast.info(t('register.emailNotFoundMessage') || 'Email not found. Please create an account.');
+    }
+  }, [emailFromState, t]);
 
   const handleChange = (e) => {
     setFormData({

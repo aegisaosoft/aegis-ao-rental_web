@@ -9,6 +9,27 @@ module.exports = function(app) {
     ws: false, // Disable WebSocket proxying - HMR uses different WebSocket endpoint
     timeout: 60000, // 60 second timeout to handle slow API responses
     proxyTimeout: 60000,
+    cookieDomainRewrite: '', // Preserve cookie domain
+    cookiePathRewrite: '/', // Preserve cookie path
+    onProxyReq: (proxyReq, req, res) => {
+      // Forward cookies from the original request
+      if (req.headers.cookie) {
+        proxyReq.setHeader('Cookie', req.headers.cookie);
+      }
+      console.log(`[Proxy] ${req.method} ${req.url} -> http://localhost:5000${req.url}`);
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      // Forward Set-Cookie headers from the server response
+      // This ensures session cookies are properly set in the browser
+      if (proxyRes.headers['set-cookie']) {
+        proxyRes.headers['set-cookie'] = proxyRes.headers['set-cookie'].map(cookie => {
+          // Ensure cookies work with the proxy setup
+          return cookie
+            .replace(/; Secure/gi, '') // Remove Secure flag for HTTP in development
+            .replace(/; SameSite=None/gi, '; SameSite=Lax'); // Use Lax for local development
+        });
+      }
+    },
     onError: (err, req, res) => {
       console.error('[Proxy Error]', err.message);
       if (!res.headersSent) {
@@ -18,9 +39,6 @@ module.exports = function(app) {
           details: err.message
         });
       }
-    },
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`[Proxy] ${req.method} ${req.url} -> http://localhost:5000${req.url}`);
     }
   }));
 };

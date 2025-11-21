@@ -155,7 +155,11 @@ router.get('/locations', async (req, res) => {
 // Admin routes for vehicle management
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.adminCreateVehicle(token, req.body);
     res.status(201).json(response.data);
   } catch (error) {
@@ -170,7 +174,11 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.updateVehicle(token, id, req.body);
     res.json(response.data);
   } catch (error) {
@@ -184,7 +192,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.adminDeleteVehicle(token, id);
     res.json(response.data);
   } catch (error) {
@@ -220,7 +232,11 @@ router.post('/import', authenticateToken, requireAdmin, handleFileUpload, async 
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const companyId = req.body.companyId;
     
     console.log('[Vehicle Import] Token present:', !!token, 'CompanyId:', companyId);

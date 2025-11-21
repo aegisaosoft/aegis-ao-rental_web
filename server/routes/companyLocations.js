@@ -62,8 +62,8 @@ router.get('/', async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    // Use token from authenticateToken middleware (same as vehicles)
-    const token = req.token || req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
     
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -97,8 +97,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create company location (requires authentication and admin) - same pattern as vehicles
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Use token from authenticateToken middleware (same as vehicles)
-    const token = req.token || req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
     
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -138,8 +138,8 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    // Use token from authenticateToken middleware (same as vehicles)
-    const token = req.token || req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
     
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -178,8 +178,8 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    // Use token from authenticateToken middleware (same as vehicles)
-    const token = req.token || req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
     
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });

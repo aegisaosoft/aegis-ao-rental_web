@@ -22,7 +22,11 @@ const router = express.Router();
 // Get all bookings with optional filters
 router.get('/bookings', authenticateToken, async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.getBookings(token, req.query);
     res.json(response.data);
   } catch (error) {
@@ -36,7 +40,11 @@ router.get('/bookings', authenticateToken, async (req, res) => {
 // Sync payments from Stripe for multiple bookings (MUST be before :id routes)
 router.post('/bookings/sync-payments-bulk', authenticateToken, async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const bookingIds = req.body;
     console.log(`[Proxy] Bulk syncing payments for ${bookingIds.length} bookings`);
     const response = await apiService.syncPaymentsFromStripeBulk(token, bookingIds);
@@ -54,7 +62,11 @@ router.post('/bookings/sync-payments-bulk', authenticateToken, async (req, res) 
 router.get('/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.getBooking(token, id);
     res.json(response.data);
   } catch (error) {
@@ -69,11 +81,57 @@ router.get('/bookings/:id', authenticateToken, async (req, res) => {
 router.get('/companies/:companyId/bookings', authenticateToken, async (req, res) => {
   try {
     const { companyId } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
-    const response = await apiService.getCompanyBookings(token, companyId, req.query);
-    res.json(response.data);
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    
+    if (!token) {
+      console.error('[Company Bookings] ❌ No token found');
+      console.error('[Company Bookings] Debug:', {
+        hasReqToken: !!req.token,
+        hasSessionToken: !!req.session?.token,
+        sessionID: req.sessionID,
+        hasSession: !!req.session,
+        sessionKeys: req.session ? Object.keys(req.session) : [],
+        hasCookies: !!req.headers.cookie,
+        url: req.originalUrl || req.url
+      });
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    console.log('[Company Bookings] ✅ Using token from session via middleware (token length:', token.length + ')');
+    console.log('[Company Bookings] Making request to backend with:', {
+      companyId: companyId,
+      query: req.query,
+      tokenPrefix: token.substring(0, 30) + '...'
+    });
+    
+    try {
+      const response = await apiService.getCompanyBookings(token, companyId, req.query);
+      console.log('[Company Bookings] ✅ Backend response received:', {
+        status: response.status,
+        dataLength: response.data ? JSON.stringify(response.data).length : 0
+      });
+      res.json(response.data);
+    } catch (apiError) {
+      console.error('[Company Bookings] ❌ Backend API error:', {
+        status: apiError.response?.status,
+        statusText: apiError.response?.statusText,
+        data: apiError.response?.data,
+        message: apiError.message,
+        config: {
+          url: apiError.config?.url,
+          method: apiError.config?.method,
+          headers: apiError.config?.headers ? {
+            hasAuthorization: !!apiError.config.headers.Authorization,
+            authorizationPrefix: apiError.config.headers.Authorization ? apiError.config.headers.Authorization.substring(0, 30) + '...' : 'none'
+          } : 'none'
+        }
+      });
+      throw apiError;
+    }
   } catch (error) {
-    console.error('Company bookings fetch error:', error);
+    console.error('[Company Bookings] Error:', error.message);
+    console.error('[Company Bookings] Error status:', error.response?.status);
     res.status(error.response?.status || 500).json({ 
       message: error.response?.data?.message || 'Server error' 
     });
@@ -83,13 +141,54 @@ router.get('/companies/:companyId/bookings', authenticateToken, async (req, res)
 // Create new booking
 router.post('/bookings', authenticateToken, async (req, res) => {
   try {
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    
+    if (!token) {
+      console.error('[Booking] No token found for booking creation');
+      console.error('[Booking] Token sources:', {
+        hasReqToken: !!req.token,
+        hasSessionToken: !!req.session?.token,
+        hasHeaderToken: !!req.headers.authorization,
+        cookies: Object.keys(req.cookies || {}),
+        sessionKeys: Object.keys(req.session || {})
+      });
+      return res.status(401).json({ 
+        message: 'Authentication token required',
+        details: 'Please ensure you are logged in and your session is valid'
+      });
+    }
+    
+    console.log('[Booking] Creating booking with token (length:', token.length + ')');
+    console.log('[Booking] Booking data:', {
+      customerId: req.body.customerId,
+      vehicleId: req.body.vehicleId,
+      companyId: req.body.companyId,
+      pickupDate: req.body.pickupDate,
+      returnDate: req.body.returnDate
+    });
+    
     const response = await apiService.createBooking(token, req.body);
+    console.log('[Booking] Booking created successfully:', response.data?.id || response.data?.Id);
     res.status(201).json(response.data);
   } catch (error) {
-    console.error('Reservation creation error:', error);
-    res.status(error.response?.status || 500).json({ 
-      message: error.response?.data?.message || 'Server error' 
+    console.error('[Booking] Reservation creation error:', error.message);
+    console.error('[Booking] Error response:', error.response?.data);
+    console.error('[Booking] Error status:', error.response?.status);
+    console.error('[Booking] Error details:', {
+      code: error.code,
+      message: error.message,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data
+    });
+    
+    const status = error.response?.status || 500;
+    const errorMessage = error.response?.data?.message || error.message || 'Server error';
+    
+    res.status(status).json({ 
+      message: errorMessage,
+      error: error.response?.data?.error || errorMessage,
+      details: error.response?.data
     });
   }
 });
@@ -98,7 +197,11 @@ router.post('/bookings', authenticateToken, async (req, res) => {
 router.put('/bookings/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.updateBooking(token, id, req.body);
     res.json(response.data);
   } catch (error) {
@@ -113,7 +216,11 @@ router.put('/bookings/:id', authenticateToken, async (req, res) => {
 router.post('/bookings/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const response = await apiService.cancelBooking(token, id);
     res.json(response.data);
   } catch (error) {
@@ -128,7 +235,11 @@ router.post('/bookings/:id/cancel', authenticateToken, async (req, res) => {
 router.post('/bookings/:id/sync-payment', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     console.log(`[Proxy] Syncing payment for booking ${id}`);
     const response = await apiService.syncPaymentFromStripe(token, id);
     console.log(`[Proxy] Sync response for booking ${id}:`, response.data);
@@ -146,7 +257,11 @@ router.post('/bookings/:id/refund', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, reason } = req.body;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     console.log(`[Proxy] Processing refund for booking ${id}, amount: ${amount}, reason: ${reason || 'N/A'}`);
     const response = await apiService.refundPayment(token, id, amount, reason);
     res.json(response.data);
@@ -162,7 +277,11 @@ router.post('/bookings/:id/refund', authenticateToken, async (req, res) => {
 router.post('/bookings/:id/security-deposit-payment-intent', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     console.log(`[Proxy] Creating security deposit payment intent for booking ${id}`);
     const response = await apiService.createSecurityDepositPaymentIntent(token, id);
     console.log(`[Proxy] Payment intent created: ${response.data.paymentIntentId}`);
@@ -179,7 +298,11 @@ router.post('/bookings/:id/security-deposit-payment-intent', authenticateToken, 
 router.post('/bookings/:id/security-deposit-checkout', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     console.log(`[Proxy] Creating security deposit checkout session for booking ${id}`);
     const response = await apiService.createSecurityDepositCheckout(token, id);
     console.log(`[Proxy] Checkout session created: ${response.data.sessionId}`);

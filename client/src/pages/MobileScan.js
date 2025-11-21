@@ -141,28 +141,11 @@ const MobileScan = () => {
           console.log('[MobileScan] setSessionToken response:', response);
           console.log('[MobileScan] ✅ Token stored in server session successfully');
           
-          // Verify the session was set by immediately checking profile
-          console.log('[MobileScan] Verifying session by checking profile...');
-          try {
-            // Wait a brief moment for session cookie to be set
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            const profileResponse = await apiService.getProfile();
-            console.log('[MobileScan] ✅ Session verified - profile retrieved:', profileResponse.data);
-            
-            // Token is now stored in session, so we don't need to reload
-            // The tokenProcessedRef flag prevents reprocessing if the component re-renders
-            // Token can stay in URL - it won't be processed again due to the ref flag
-            console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
-          } catch (profileError) {
-            console.warn('[MobileScan] ⚠️ Session stored but profile check failed:', profileError);
-            console.warn('[MobileScan] This might be a timing issue - token is still stored in session');
-            
-            // Token is now stored in session, so we don't need to reload
-            // The tokenProcessedRef flag prevents reprocessing if the component re-renders
-            // Token can stay in URL - it won't be processed again due to the ref flag
-            console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
-          }
+          // NO profile verification needed - if setSessionToken succeeded, session is set
+          // Token is now stored in session, so we don't need to reload
+          // The tokenProcessedRef flag prevents reprocessing if the component re-renders
+          // Token can stay in URL - it won't be processed again due to the ref flag
+          console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
         } catch (error) {
           console.error('[MobileScan] ❌ Failed to store token in session:', error);
           console.error('[MobileScan] Error details:', {

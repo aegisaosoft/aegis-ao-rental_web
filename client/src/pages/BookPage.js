@@ -80,7 +80,7 @@ const BookPage = () => {
 
   const navigate = useNavigate();
 
-  const { user, isAuthenticated, login: loginUser, register: registerUser } = useAuth();
+  const { user, isAuthenticated, login: loginUser, register: registerUser, restoreUser } = useAuth();
 
   const queryClient = useQueryClient();
 
@@ -596,7 +596,59 @@ const BookPage = () => {
 
   }, [loadScannedLicense]);
 
-
+  // Handle Stripe Checkout return - restore session if lost
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isStripeReturn = urlParams.get('session_id') !== null || // Stripe Checkout returns session_id
+                          urlParams.get('booking') !== null; // Our success URL includes booking param
+    
+    // Also check if we have the stripeRedirect flag
+    const wasStripeRedirect = sessionStorage.getItem('stripeRedirect') === 'true';
+    
+    if (isStripeReturn || wasStripeRedirect) {
+      // Clear the flag
+      sessionStorage.removeItem('stripeRedirect');
+      sessionStorage.removeItem('stripeRedirectTime');
+      
+      // Always restore user data (including role) after Stripe redirect
+      const restoreSession = async () => {
+        try {
+          // Always get profile to restore user data (including role) in AuthContext
+          const profileResponse = await apiService.getProfile();
+          const userData = profileResponse.data;
+          
+          // Restore user data in AuthContext - this ensures role and all user info is current
+          if (userData) {
+            restoreUser(userData);
+            console.log('[BookPage] ✅ User data restored after Stripe return, role:', userData.role);
+          }
+        } catch (error) {
+          if (error.response?.status === 401) {
+            console.error('[BookPage] ❌ Session lost after Stripe redirect');
+            
+            // Try to restore from sessionStorage backup
+            const storedUserData = sessionStorage.getItem('stripeUserBackup');
+            if (storedUserData) {
+              try {
+                const userData = JSON.parse(storedUserData);
+                console.log('[BookPage] Found user data backup, role:', userData.role);
+                // User data will be restored when they log in again via auth modal
+              } catch (parseError) {
+                console.error('[BookPage] Failed to parse stored user data:', parseError);
+              }
+            }
+            
+            toast.error(t('bookPage.sessionExpired', 'Your session expired. Please sign in again.'));
+            // Open auth modal to allow user to log back in
+            setAuthModalOpen(true);
+          }
+        }
+      };
+      
+      restoreSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   React.useEffect(() => {
 
@@ -1414,60 +1466,10 @@ const BookPage = () => {
 
           } catch (err) {
 
-            console.warn('[QR Code] /session-token failed, trying profile endpoint:', err.message);
+            console.warn('[QR Code] /session-token failed:', err.message);
 
-            
-
-            // Fallback: Get token from profile response
-
-            try {
-
-              const profileResponse = await Promise.race([
-
-                fetch('/api/auth/profile?includeToken=true', {
-
-                  method: 'GET',
-
-                  credentials: 'include',
-
-                  headers: {
-
-                    'Accept': 'application/json',
-
-                    'Content-Type': 'application/json'
-
-                  }
-
-                }).then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))),
-
-                new Promise((_, reject) => 
-
-                  setTimeout(() => reject(new Error('Profile timeout')), 800)
-
-                )
-
-              ]);
-
-              
-
-              if (profileResponse?._token || profileResponse?.data?._token || profileResponse?.token) {
-
-                const token = profileResponse._token || profileResponse.data?._token || profileResponse.token;
-
-                console.log('[QR Code] ✅ Token retrieved from profile endpoint');
-
-                return token;
-
-              }
-
-            } catch (profileErr) {
-
-              console.warn('[QR Code] Profile endpoint also failed:', profileErr.message);
-
-            }
-
-            
-
+            // NO fallback to profile endpoint - if /session-token fails, token is not available
+            // This is acceptable - QR code can be generated without token if needed
             return null;
 
           }
@@ -2080,6 +2082,22 @@ const BookPage = () => {
 
         localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
 
+        // Store flag and user data backup before redirecting to Stripe (for session restoration on return)
+        sessionStorage.setItem('stripeRedirect', 'true');
+        sessionStorage.setItem('stripeRedirectTime', Date.now().toString());
+        
+        // Store user data (including role) as backup in case session is lost
+        if (user) {
+          sessionStorage.setItem('stripeUserBackup', JSON.stringify({
+            id: user.id || user.customerId || user.customer_id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId || user.CompanyId,
+            firstName: user.firstName,
+            lastName: user.lastName
+          }));
+        }
+
         window.location.href = sessionUrl;
 
       } else {
@@ -2274,7 +2292,7 @@ const BookPage = () => {
 
       setAuthError('');
 
-      await loginUser({
+      const loginResponse = await loginUser({
 
         email: authForm.email.trim().toLowerCase(),
 
@@ -2284,29 +2302,14 @@ const BookPage = () => {
 
       
 
-      // Fetch the user profile directly to avoid race condition with state updates
+      // Use user data directly from login response - NO profile call needed
+      // User data is already in login response and stored in session
+      const userData = loginResponse?.result?.user || loginResponse?.user || null;
 
-      // This ensures we have the user data before proceeding to checkout
-
-      let userData = null;
-
-      try {
-
-        const profileResponse = await apiService.getProfile();
-
-        userData = profileResponse?.data || profileResponse;
-
-      } catch (profileError) {
-
-        console.warn('Failed to fetch profile after login, will use state:', profileError);
-
-        // If profile fetch fails, wait for state to update
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-
+      if (!userData) {
+        console.error('[BookPage] ❌ No user data in login response');
+        throw new Error('Login response missing user data');
       }
-
-      
 
       await handleAuthSuccess(userData);
 
@@ -2360,7 +2363,7 @@ const BookPage = () => {
 
       setAuthError('');
 
-      await registerUser({
+      const registerResponse = await registerUser({
 
         email: authForm.email.trim().toLowerCase(),
 
@@ -2374,27 +2377,14 @@ const BookPage = () => {
 
       
 
-      // Fetch the user profile directly to avoid race condition with state updates
+      // Use user data directly from register response - NO profile call needed
+      // User data is already in register response and stored in session
+      const userData = registerResponse?.result?.user || registerResponse?.user || null;
 
-      let userData = null;
-
-      try {
-
-        const profileResponse = await apiService.getProfile();
-
-        userData = profileResponse?.data || profileResponse;
-
-      } catch (profileError) {
-
-        console.warn('Failed to fetch profile after registration, will use state:', profileError);
-
-        // If profile fetch fails, wait for state to update
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-
+      if (!userData) {
+        console.error('[BookPage] ❌ No user data in register response');
+        throw new Error('Register response missing user data');
       }
-
-      
 
       await handleAuthSuccess(userData);
 

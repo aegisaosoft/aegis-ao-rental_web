@@ -151,7 +151,9 @@ router.get('/', async (req, res) => {
 // Get single company by ID
 router.get('/:id', async (req, res) => {
   try {
-    const token = req.session.token;
+    // This route is public but can use token if available
+    // Check session first, then headers
+    const token = req.session?.token || req.headers.authorization?.split(' ')[1];
     const response = await apiService.getRentalCompany(token, req.params.id);
     res.json(response.data);
   } catch (error) {
@@ -169,7 +171,8 @@ router.put('/:id', async (req, res) => {
   
   try {
     const { id } = req.params;
-    const token = req.session.token || req.headers.authorization?.split(' ')[1];
+    // Use token from session (this route doesn't use authenticateToken, so check session directly)
+    const token = req.session?.token || req.headers.authorization?.split(' ')[1];
     
     console.log(`[Companies Route] PUT /api/companies/${id} -> ${apiBaseUrl}/api/RentalCompanies/${id}`);
     console.log('Request body:', JSON.stringify(req.body, null, 2));

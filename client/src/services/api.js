@@ -70,23 +70,37 @@ api.interceptors.response.use(
       };
     }
     
-    // Only handle 401/403 for authentication-related endpoints
-    // Other endpoints (like /customers, /vehicles, etc.) may return 401/403 for other reasons
-    // and shouldn't trigger a logout/redirect
-    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    // Silently handle 404 for customer email lookups - it's expected when customer doesn't exist
+    const isCustomerEmailLookup = error.config?.url?.includes('/customers/email/');
+    if (error.response?.status === 404 && isCustomerEmailLookup) {
+      // Don't log 404 errors for customer email lookups - they're expected
+      // The calling code will handle creating the customer
+      return Promise.reject(error);
+    }
     
-    if ((error.response?.status === 401 || error.response?.status === 403) && isAuthEndpoint) {
-      // Handle both 401 (Unauthorized) and 403 (Forbidden) - session expired or invalid
-      // Only redirect to login if not already on login/register pages or public pages
+    // Silently handle 401 for profile endpoint when checking auth on app load
+    // This is expected when user is not logged in - don't show console errors
+    const isProfileCheck = error.config?.url?.includes('/auth/profile');
+    if (error.response?.status === 401 && isProfileCheck) {
+      // This is expected when checking if user is logged in on app load
+      // The AuthContext will handle it silently
+      // Don't log to console or redirect - just reject silently
+      return Promise.reject(error);
+    }
+    
+    // Handle 401/403 errors - session expired or invalid
+    if (error.response?.status === 401 || error.response?.status === 403) {
       const currentPath = window.location.pathname;
       const publicPaths = ['/login', '/register', '/', '/home'];
       const isPublicPath = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
       
-      // Preserve companyId and userId (they persist through auth errors)
-      const preservedCompanyId = localStorage.getItem('companyId');
-      const preservedUserId = localStorage.getItem('userId');
-      
+      // If we're on a protected page (not public) and get 401/403, redirect to login
+      // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
       if (!isPublicPath) {
+        // Preserve companyId and userId (they persist through auth errors)
+        const preservedCompanyId = localStorage.getItem('companyId');
+        const preservedUserId = localStorage.getItem('userId');
+        
         // Session is invalid - redirect to login
         // CompanyId and userId will be restored if they existed
         if (preservedCompanyId) {
@@ -95,11 +109,16 @@ api.interceptors.response.use(
         if (preservedUserId) {
           localStorage.setItem('userId', preservedUserId);
         }
-        window.location.href = '/login';
+        
+        // Only redirect if we're not already redirecting (prevent multiple redirects)
+        if (!window.location.href.includes('/login')) {
+          console.warn('[API] Session expired (401/403), redirecting to login');
+          window.location.href = '/login';
+        }
       }
     }
-    // For 401/403 on non-auth endpoints, just reject the promise without redirecting
-    // This allows the calling code to handle the error appropriately
+    
+    // Reject the promise so calling code can handle the error
     return Promise.reject(error);
   }
 );
@@ -112,6 +131,8 @@ export const apiService = {
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 
   // Vehicles
   getVehicles: (params = {}) => api.get('/vehicles', { params }),
@@ -322,6 +343,9 @@ export const apiService = {
       paymentIntentId
     });
   },
+  
+  // Booking Services
+  addServiceToBooking: (data) => api.post('/BookingServices', data),
 };
 
 // Export the axios instance for direct API calls (e.g., translation service)

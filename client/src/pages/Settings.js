@@ -15,20 +15,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Save } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Shield, Palette, Globe, Save, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { PageContainer, PageHeader, Card } from '../components/common';
 
 const Settings = () => {
   const { t } = useTranslation();
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
     notifications: {
       email: true,
       sms: false,
@@ -39,6 +43,11 @@ const Settings = () => {
       showEmail: false,
       showPhone: false
     }
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
   });
 
   useEffect(() => {
@@ -73,23 +82,125 @@ const Settings = () => {
   };
 
   const handleSave = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      toast.error('You must be logged in to save settings');
+      return;
+    }
+
+    if (isSaving) {
+      return; // Prevent multiple simultaneous saves
+    }
+
+    setIsSaving(true);
+
     try {
       // Only save profile tab data to backend
       if (activeTab === 'profile') {
-        const profileData = {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phone: formData.phone,
-          email: formData.email
-        };
+        const profileData = {};
+        
+        // Only include fields that have values (not empty strings)
+        if (formData.firstName && formData.firstName.trim()) {
+          profileData.firstName = formData.firstName.trim();
+        }
+        if (formData.lastName && formData.lastName.trim()) {
+          profileData.lastName = formData.lastName.trim();
+        }
+        if (formData.phone && formData.phone.trim()) {
+          profileData.phone = formData.phone.trim();
+        }
+        if (formData.email && formData.email.trim()) {
+          profileData.email = formData.email.trim();
+        }
+
+        // Add password fields if they are provided (not empty strings)
+        const hasCurrentPassword = formData.currentPassword && formData.currentPassword.trim().length > 0;
+        const hasNewPassword = formData.newPassword && formData.newPassword.trim().length > 0;
+        const hasConfirmPassword = formData.confirmPassword && formData.confirmPassword.trim().length > 0;
+
+        if (hasCurrentPassword || hasNewPassword || hasConfirmPassword) {
+          // If any password field is filled, all must be filled
+          if (!hasCurrentPassword || !hasNewPassword || !hasConfirmPassword) {
+            toast.error('Please fill in all password fields to change your password');
+            setIsSaving(false);
+            return;
+          }
+
+          // Validate password
+          if (formData.newPassword.trim().length < 6) {
+            toast.error('New password must be at least 6 characters long');
+            setIsSaving(false);
+            return;
+          }
+
+          if (formData.newPassword.trim() !== formData.confirmPassword.trim()) {
+            toast.error('New password and confirm password do not match');
+            setIsSaving(false);
+            return;
+          }
+
+          profileData.currentPassword = formData.currentPassword.trim();
+          profileData.newPassword = formData.newPassword.trim();
+        }
+        
+        // Check if there's anything to update
+        if (Object.keys(profileData).length === 0) {
+          toast.info('No changes to save');
+          setIsSaving(false);
+          return;
+        }
         
         await updateProfile(profileData);
+        
+        // Clear password fields after successful update
+        if (hasCurrentPassword) {
+          setFormData(prev => ({
+            ...prev,
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          }));
+        }
+        
+        toast.success(t('settings.saved') || 'Settings saved successfully');
       } else {
         // For other tabs, settings saved locally (no notification needed)
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error(t('settings.failed'));
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      // Extract error message from various possible locations
+      let errorMessage = 'Failed to save settings';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (error.response?.status === 400) {
+        // Bad request - use the message from the API
+        errorMessage = error.response?.data?.message || 'Invalid data. Please check your input.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Profile not found. Please log in again.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -101,8 +212,13 @@ const Settings = () => {
     { id: 'general', label: t('settings.tabs.general'), icon: Globe }
   ];
 
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    handleSave();
+  };
+
   const renderProfileTab = () => (
-    <div className="space-y-6">
+    <form id="profile-form" onSubmit={handleFormSubmit} className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">{t('settings.profile.title')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -156,7 +272,86 @@ const Settings = () => {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Password Update Section */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Current Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPasswords.current ? "text" : "password"}
+                name="currentPassword"
+                value={formData.currentPassword}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                placeholder="Enter your current password"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPasswords.current ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              New Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPasswords.new ? "text" : "password"}
+                name="newPassword"
+                value={formData.newPassword}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                placeholder="Enter your new password (min. 6 characters)"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPasswords.new ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm New Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPasswords.confirm ? "text" : "password"}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                placeholder="Confirm your new password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPasswords.confirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-gray-500">
+            Leave password fields empty if you don't want to change your password.
+          </p>
+        </div>
+      </div>
+    </form>
   );
 
   const renderNotificationsTab = () => (
@@ -393,13 +588,26 @@ const Settings = () => {
               
               {/* Save Button */}
               <div className="mt-8 pt-6 border-t border-gray-200">
-                <button
-                  onClick={handleSave}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {t('settings.save')}
-                </button>
+                {activeTab === 'profile' ? (
+                  <button
+                    type="submit"
+                    form="profile-form"
+                    disabled={isSaving || authLoading || !user}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Saving...' : (t('settings.save') || 'Save Changes')}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || authLoading || !user}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Saving...' : (t('settings.save') || 'Save Changes')}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -29,80 +29,34 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // No loading on app start - auth state determined lazily
   const isFirstMount = useRef(true);
 
-  // Initialize authentication by checking session
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const response = await apiService.getProfile();
-        console.log('[AuthContext] ✅ Session is valid, user authenticated');
-        setUser(response.data);
-      } catch (error) {
-        // Only clear user on 401/403 - these mean no valid session
-        // Other errors (500, 502, network errors) should NOT clear the session
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          // Silent failure - 401/403 is expected when user is not logged in
-          // Only log in development mode for debugging
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[AuthContext] No active session (user not logged in)');
-          }
-          setUser(null);
-        } else {
-          // For other errors (500, 502, network, etc.), keep the user logged in
-          // These are likely temporary issues and shouldn't log the user out
-          console.warn('[AuthContext] ⚠️ Error checking session (non-auth error):', {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            code: error.code
-          });
-          // On first mount, set user to null if there's an error
-          // After first mount, don't clear user - keep them logged in if they were already authenticated
-          if (isFirstMount.current) {
-            setUser(null);
-          }
-        }
-      } finally {
-        setLoading(false);
-        isFirstMount.current = false;
-      }
-    };
-
-    // Add a small delay on mount to ensure session cookies are available
-    // This is especially important after a page reload following QR code scan
-    const timer = setTimeout(() => {
-      initAuth();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
+  // NO initAuth call - user state is determined lazily:
+  // 1. When user logs in/registers - user data comes from response
+  // 2. When accessing protected routes - 401 means not logged in
+  // 3. When explicitly checking profile - only if needed
+  // This eliminates unnecessary profile calls on app load
 
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
       
       // Token is stored in session on the server - no need to store in localStorage
-      // Fetch full user profile to ensure complete authentication
-      try {
-        const profileResponse = await apiService.getProfile();
-        if (profileResponse.data) {
-          setUser(profileResponse.data);
-        }
-      } catch (profileError) {
-        // If profile fetch fails, try to use user data from login response
-        if (response.data.result?.user) {
-          setUser(response.data.result.user);
-        } else if (response.data.user) {
-          setUser(response.data.user);
-        } else {
-          throw profileError;
-        }
-        console.warn('Failed to fetch user profile after login, using login response data:', profileError);
-      }
+      // User data comes with the login response - use it directly
+      // DO NOT call getProfile - user data is already in login response and stored in session
+      const userData = response.data.result?.user || response.data.user;
       
-      return response.data;
+      if (userData) {
+        // Use user data from login response directly - NO profile call needed
+        setUser(userData);
+        console.log('[AuthContext] ✅ User data set from login response - NO profile call');
+        return response.data;
+      } else {
+        // This should not happen - login response should always include user data
+        console.error('[AuthContext] ❌ No user data in login response - this is unexpected');
+        throw new Error('Login response missing user data');
+      }
     } catch (error) {
       throw error;
     }
@@ -113,22 +67,18 @@ export const AuthProvider = ({ children }) => {
       const response = await apiService.register(userData);
       
       // Token is stored in session on the server - no need to store in localStorage
-      // Fetch full user profile to ensure complete authentication
-      try {
-        const profileResponse = await apiService.getProfile();
-        if (profileResponse.data) {
-          setUser(profileResponse.data);
-        }
-      } catch (profileError) {
-        // If profile fetch fails, try to use user data from register response
-        if (response.data.result?.user) {
-          setUser(response.data.result.user);
-        } else if (response.data.user) {
-          setUser(response.data.user);
-        } else {
-          throw profileError;
-        }
-        console.warn('Failed to fetch user profile after registration, using register response data:', profileError);
+      // User data comes with the register response - use it directly
+      // DO NOT call getProfile - user data is already in register response and stored in session
+      const userDataFromResponse = response.data.result?.user || response.data.user;
+      
+      if (userDataFromResponse) {
+        // Use user data from register response directly - NO profile call needed
+        setUser(userDataFromResponse);
+        console.log('[AuthContext] ✅ User data set from register response - NO profile call');
+      } else {
+        // This should not happen - register response should always include user data
+        console.error('[AuthContext] ❌ No user data in register response - this is unexpected');
+        throw new Error('Register response missing user data');
       }
       
       return response.data;
@@ -163,6 +113,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Restore user data (e.g., after Stripe redirect) - updates AuthContext without API call
+  const restoreUser = (userData) => {
+    if (userData) {
+      setUser(userData);
+      console.log('[AuthContext] ✅ User data restored, role:', userData.role);
+    }
+  };
+
   // Get company ID from user object - this is a global parameter like subdomain
   const currentCompanyId = user?.companyId || user?.CompanyId;
 
@@ -173,6 +131,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
+    restoreUser,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin' || user?.role === 'mainadmin',
     isMainAdmin: user?.role === 'mainadmin',
