@@ -44,7 +44,6 @@ const ForgotPassword = () => {
       }
       
       setEmailSent(true);
-      toast.success(response.data?.message || t('forgotPassword.emailSent') || 'If the email exists, a password reset link has been sent.');
     } catch (error) {
       toast.error(error.response?.data?.message || t('forgotPassword.error') || 'An error occurred. Please try again.');
     } finally {

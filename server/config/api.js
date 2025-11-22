@@ -371,3 +371,4 @@ const apiService = {
 };
 
 module.exports = apiService;
+module.exports.apiClient = apiClient;

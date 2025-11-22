@@ -148,7 +148,6 @@ const StripeTerminal = ({
       } else {
         setSelectedReader(connectResult.reader);
         setStatus('connected');
-        toast.success(t('terminal.connected', 'Reader connected'));
       }
     } catch (error) {
       console.error('Error connecting reader:', error);
@@ -226,7 +225,6 @@ const StripeTerminal = ({
       }
 
       setStatus('authorized');
-      toast.success(t('terminal.authorized', 'Payment authorized'));
       if (onSuccess) onSuccess(processResult.paymentIntent);
 
     } catch (error) {
@@ -249,7 +247,6 @@ const StripeTerminal = ({
     try {
       setLoading(true);
       await apiService.capturePaymentIntent(companyConfig?.id, paymentIntentId);
-      toast.success(t('terminal.captured', 'Payment captured successfully'));
       setStatus('completed');
       if (onSuccess) onSuccess({ id: paymentIntentId, status: 'captured' });
     } catch (error) {

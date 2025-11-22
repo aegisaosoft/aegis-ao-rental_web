@@ -26,6 +26,7 @@ import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
 import { getStatesForCountry } from '../utils/statesByCountry';
 import MultiLanguageTipTapEditor from '../components/MultiLanguageTipTapEditor';
+import VehicleLocations from './VehicleLocations';
 import {
   useReactTable,
   getCoreRowModel,
@@ -373,7 +374,6 @@ const AdminDashboard = () => {
     
     if (urlParams.get('deposit_success') === 'true') {
       const bookingId = urlParams.get('booking_id');
-      toast.success(t('admin.securityDepositPaid', 'Security deposit paid successfully!'));
       console.log('✅ Security deposit payment successful for booking:', bookingId);
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
@@ -736,7 +736,6 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-        toast.success(t('admin.refundSuccess', 'Refund processed successfully'));
         setShowBookingDetailsModal(false);
         setSelectedBooking(null);
       },
@@ -2489,8 +2488,6 @@ const AdminDashboard = () => {
         securityDepositDamageAmount: chargeAmount
       });
       
-      toast.success(t('admin.bookingCompletedDepositCharged', 'Booking completed. Security deposit will be charged.').replace('{{amount}}', formatPrice(chargeAmount)));
-      
       setShowDamageConfirmationModal(false);
       setHasDamage(false);
       setDamageAmount('');
@@ -2540,7 +2537,6 @@ const AdminDashboard = () => {
         
         setShowSecurityDepositModal(false);
         setPaymentMethod('');
-        toast.success(t('admin.securityDepositAuthorized', `Security deposit of ${formatPrice(amount)} authorized (Payment Intent: ${paymentIntentId})`));
         
       } else if (paymentMethod === 'checkout') {
         // Stripe Checkout - hosted payment page
@@ -2627,7 +2623,6 @@ const AdminDashboard = () => {
         setShowBookingPaymentModal(false);
         setPaymentMethod('');
         setPayingBooking(false);
-        toast.success(t('admin.bookingPaymentAuthorized', `Booking payment of ${formatPrice(bookingTotal)} authorized (Payment Intent: ${paymentIntentId})`));
         
         // If we were waiting to update status to Confirmed after payment, do it now
         if (pendingConfirmedStatus === 'Confirmed') {
@@ -2842,13 +2837,12 @@ const AdminDashboard = () => {
       }
 
       // Show final results
-      toast.success(
+      console.log(
         `✅ ${t('admin.syncPaymentsSuccess', 
           `Synced ${successCount} of ${totalBookings} bookings`)}` +
         (failureCount > 0 
           ? `\n⚠️ ${t('admin.syncPaymentsFailed', `${failureCount} failed`)}` 
-          : ''),
-        { autoClose: 5000 }
+          : '')
       );
 
       console.log('Sync completed:', { successCount, failureCount, results });
@@ -4376,14 +4370,7 @@ const AdminDashboard = () => {
                         {t('admin.manageLocationsDescription', 'Assign vehicles to locations by dragging and dropping. This helps organize your fleet across different pickup and return locations.')}
                       </p>
                     </div>
-                    <div className="border-2 border-gray-300 rounded-lg" style={{ minHeight: '600px' }}>
-                      <iframe
-                        src={`/vehicle-locations?companyId=${currentCompanyId}`}
-                        className="w-full h-full"
-                        style={{ minHeight: '600px', border: 'none' }}
-                        title={t('admin.manageLocations', 'Manage Locations')}
-                      />
-                    </div>
+                    <VehicleLocations embedded={true} />
                   </div>
                 ) : (
                   <>
@@ -9419,7 +9406,6 @@ const AdminDashboard = () => {
                             const customer = response?.data || response;
                             if (customer && customer.customerId) {
                               setWizardCustomer(customer);
-                              toast.success(t('admin.customerFound', 'Customer found'));
                               setTimeout(() => setWizardStep(2), 500);
                             } else {
                               // Customer not found, silently create new one
@@ -9447,8 +9433,6 @@ const AdminDashboard = () => {
                               });
                               const customer = newCustomer?.data || newCustomer;
                               setWizardCustomer(customer);
-                              // Only show success message, no error for "not found"
-                              toast.success(t('admin.customerCreated', 'Customer created successfully. Invitation will be sent after booking payment.'));
                               setTimeout(() => setWizardStep(2), 500);
                             } catch (createError) {
                               // Only show error if customer creation fails
@@ -9977,8 +9961,6 @@ const AdminDashboard = () => {
                             }
                           }
                         }
-                        
-                        toast.success(t('admin.reservationCreated', 'Reservation created successfully'));
                         
                         // Close wizard and reset state
                         setShowReservationWizard(false);

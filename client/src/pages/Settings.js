@@ -161,8 +161,6 @@ const Settings = () => {
             confirmPassword: ''
           }));
         }
-        
-        toast.success(t('settings.saved') || 'Settings saved successfully');
       } else {
         // For other tabs, settings saved locally (no notification needed)
       }

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-const VehicleLocations = () => {
+const VehicleLocations = ({ embedded = false }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -31,7 +31,14 @@ const VehicleLocations = () => {
 
 
   // Redirect if not authenticated or not admin (only after loading is complete)
+  // Skip redirects when embedded (already in authenticated AdminDashboard context)
   useEffect(() => {
+    // If embedded, skip auth checks - parent AdminDashboard handles authentication
+    if (embedded) {
+      console.log('[VehicleLocations] Embedded mode - skipping auth redirects');
+      return;
+    }
+
     // Wait for auth and company contexts to finish loading
     if (authLoading || companyLoading) {
       console.log('[VehicleLocations] Waiting for contexts to load...', {
@@ -41,9 +48,12 @@ const VehicleLocations = () => {
       return;
     }
 
-    // Mark that we've checked auth (prevents flash of error messages)
+    // Mark that we've checked auth (prevents flash of error messages and duplicate toasts)
     if (!authChecked) {
       setAuthChecked(true);
+    } else {
+      // If we've already checked auth, don't run the checks again (prevents duplicate toasts)
+      return;
     }
 
     console.log('[VehicleLocations] Auth Check:', {
@@ -55,30 +65,31 @@ const VehicleLocations = () => {
       companyConfig
     });
 
-    // Only show errors and redirect after auth has loaded
-    if (!authLoading && !isAuthenticated) {
+    // Only redirect if NOT embedded (standalone access)
+    if (!isAuthenticated) {
       console.log('[VehicleLocations] Not authenticated, redirecting to login');
       toast.error(t('auth.loginRequired', 'Please login to access this page'));
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
 
-    if (!authLoading && !canAccessDashboard) {
+    if (!canAccessDashboard) {
       console.log('[VehicleLocations] No dashboard access, redirecting to home');
       toast.error(t('auth.adminRequired', 'Admin access required'));
-      navigate('/');
+      navigate('/', { replace: true });
       return;
     }
 
-    if (!authLoading && !companyLoading && !currentCompanyId) {
+    if (!currentCompanyId) {
       console.log('[VehicleLocations] No company ID, redirecting to admin dashboard');
       toast.error(t('auth.noCompany', 'No company selected'));
-      navigate('/admin-dashboard');
+      navigate('/admin-dashboard', { replace: true });
       return;
     }
-  }, [isAuthenticated, isAdmin, canAccessDashboard, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked, user, companyConfig]);
+  }, [isAuthenticated, isAdmin, canAccessDashboard, currentCompanyId, navigate, t, authLoading, companyLoading, authChecked, user, companyConfig, embedded]);
 
   // Fetch all locations - only after auth is ready
+  // If in iframe, allow query even if not authenticated yet (session may still be loading)
   const { data: locationsData, isLoading: locationsLoading } = useQuery(
     ['pickupLocations', currentCompanyId],
     async () => {
@@ -88,7 +99,7 @@ const VehicleLocations = () => {
       return result;
     },
     {
-      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && canAccessDashboard,
+      enabled: !!currentCompanyId && !authLoading && !companyLoading && (isAuthenticated || embedded),
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000 // 10 minutes
     }
@@ -135,7 +146,7 @@ const VehicleLocations = () => {
       return result;
     },
     {
-      enabled: !!currentCompanyId && !authLoading && !companyLoading && isAuthenticated && canAccessDashboard,
+      enabled: !!currentCompanyId && !authLoading && !companyLoading && (isAuthenticated || embedded),
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000, // 10 minutes
       onError: (error) => {
@@ -425,20 +436,22 @@ const VehicleLocations = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Header with Back button */}
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate('/admin-dashboard?tab=vehicleManagement')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          {t('common.back', 'Back to Vehicles')}
-        </button>
-        <h1 className="text-3xl font-bold">
-          {t('admin.vehicleLocationManagement', 'Vehicle Location Management')}
-        </h1>
-      </div>
+    <div className={embedded ? "w-full" : "container mx-auto p-6"}>
+      {/* Header with Back button - only show when not embedded */}
+      {!embedded && (
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => navigate('/admin-dashboard?tab=vehicleManagement')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            {t('common.back', 'Back to Vehicles')}
+          </button>
+          <h1 className="text-3xl font-bold">
+            {t('admin.vehicleLocationManagement', 'Vehicle Location Management')}
+          </h1>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">

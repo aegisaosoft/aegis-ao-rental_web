@@ -94,22 +94,23 @@ const Navbar = () => {
 
   return (
     <header className="bg-white border-b border-gray-200">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-        <div className="flex items-center">
-          {logoUrl ? (
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 gap-6">
+        {/* Left Section - Logo and Title (far left) */}
+        <div className="flex items-center gap-4 flex-shrink-0 min-w-0 max-w-[50%]">
+          {logoUrl && (
             <img
               src={logoUrl}
               alt={companyConfig?.companyName || 'Company logo'}
-              className="h-16 w-auto object-contain"
+              className="h-16 w-auto object-contain flex-shrink-0"
             />
-          ) : (
-            <span className="text-xl font-semibold tracking-wide text-gray-900">
-              {companyConfig?.companyName || 'M.L.C RENT CARS'}
-            </span>
           )}
+          <span className="text-xl font-semibold tracking-wide text-gray-900 truncate block overflow-hidden text-ellipsis whitespace-nowrap">
+            {companyConfig?.companyName || 'M.L.C RENT CARS'}
+          </span>
         </div>
 
-        <div className="hidden items-center gap-10 md:flex">
+        {/* Right Section - Navigation Links and Buttons */}
+        <div className="hidden items-center gap-10 md:flex flex-shrink-0">
           {renderNavLinks()}
           <div className="flex items-center gap-6">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-900">

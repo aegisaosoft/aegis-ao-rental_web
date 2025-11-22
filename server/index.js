@@ -340,9 +340,24 @@ app.use('/api/*', async (req, res, next) => {
 });
 
 
+// Helper middleware to get token from session (optional - doesn't fail if no token)
+// This ensures token is available from session before catch-all proxy
+const getTokenFromSession = (req, res, next) => {
+  // Get token from session (priority) or Authorization header
+  const sessionToken = req.session?.token;
+  const headerToken = req.headers['authorization']?.split(' ')[1];
+  
+  // Set req.token if available (for consistency with authenticateToken middleware)
+  req.token = sessionToken || headerToken;
+  
+  // Continue even if no token (some endpoints may be public)
+  next();
+};
+
 // Catch-all proxy for unmapped API routes (forward to C# API)
 // Handle file uploads with multer middleware
-app.use('/api/*', upload.any(), async (req, res) => {
+// Use getTokenFromSession middleware to ensure token is retrieved from session
+app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
   const axios = require('axios');
   const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
   
@@ -365,16 +380,19 @@ app.use('/api/*', upload.any(), async (req, res) => {
     // Log that we're processing this route through catch-all
     console.log(`[Proxy Catch-All] Processing: ${req.method} ${req.originalUrl}`);
   
-  // Extract token from session or Authorization header (same way vehicles do it)
-  const sessionToken = req.session?.token;
-  const headerToken = req.headers.authorization?.split(' ')[1] || req.headers.authorization;
-  const token = sessionToken || headerToken;
+  // Use token from getTokenFromSession middleware (req.token) - it gets it from session
+  // Fallback to manual extraction if middleware didn't set it
+  const headerToken = req.headers.authorization?.split(' ')[1];
+  const token = req.token || req.session?.token || headerToken;
   
   console.log(`[Proxy Catch-All] Token extraction:`, {
-    hasSessionToken: !!sessionToken,
+    hasReqToken: !!req.token, // From getTokenFromSession middleware
+    hasSessionToken: !!req.session?.token,
     hasHeaderToken: !!headerToken,
     hasToken: !!token,
     tokenLength: token?.length || 0,
+    sessionID: req.sessionID,
+    hasSessionCookie: req.headers.cookie?.includes('connect.sid'),
     url: req.originalUrl
   });
   

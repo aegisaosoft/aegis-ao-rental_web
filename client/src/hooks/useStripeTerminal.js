@@ -173,7 +173,6 @@ export const useStripeTerminal = (options = {}) => {
       }
 
       setReader(connectResult.reader);
-      toast.success(t('terminal.connected', 'Reader connected successfully'));
       return true;
     } catch (err) {
       console.error('Error connecting reader:', err);
@@ -280,7 +279,6 @@ export const useStripeTerminal = (options = {}) => {
         throw processResult.error;
       }
 
-      toast.success(t('terminal.authorized', 'Payment authorized successfully'));
       return processResult.paymentIntent;
     } catch (err) {
       console.error('Error processing payment:', err);
@@ -307,7 +305,6 @@ export const useStripeTerminal = (options = {}) => {
         amountToCapture
       );
 
-      toast.success(t('terminal.captured', 'Payment captured successfully'));
       return response;
     } catch (err) {
       console.error('Error capturing payment:', err);

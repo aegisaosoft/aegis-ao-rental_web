@@ -19,6 +19,34 @@ import './index.css';
 import './i18n/config'; // Initialize i18n
 import App from './App';
 
+// Suppress harmless browser extension errors
+// These errors occur when browser extensions (like React DevTools, Redux DevTools, etc.)
+// try to communicate with the page but the message channel closes before a response is received
+window.addEventListener('error', (event) => {
+  if (
+    event.message &&
+    typeof event.message === 'string' &&
+    event.message.includes('message channel closed before a response was received')
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+  }
+});
+
+// Also handle unhandled promise rejections with the same message
+window.addEventListener('unhandledrejection', (event) => {
+  if (
+    event.reason &&
+    typeof event.reason === 'object' &&
+    event.reason.message &&
+    typeof event.reason.message === 'string' &&
+    event.reason.message.includes('message channel closed before a response was received')
+  ) {
+    event.preventDefault();
+    return false;
+  }
+});
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

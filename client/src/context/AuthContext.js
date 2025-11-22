@@ -13,7 +13,7 @@
  *
  */
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { clearStoredFilterDates } from '../utils/rentalSearchFilters';
 
@@ -29,12 +29,32 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // Add loading state
 
-  // NO initAuth call - user state is determined lazily:
-  // 1. When user logs in/registers - user data comes from response
-  // 2. When accessing protected routes - 401 means not logged in
-  // 3. When explicitly checking profile - only if needed
-  // This eliminates unnecessary profile calls on app load
+  // Check session on mount to restore user from server session
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        // Try to get user profile from server session
+        // This will return 401 if no valid session, which is expected when not logged in
+        const response = await apiService.getProfile();
+        if (response.data) {
+          setUser(response.data);
+          console.log('[AuthContext] ✅ User restored from server session');
+        }
+      } catch (error) {
+        // 401 is expected when not logged in - don't log as error
+        if (error.response?.status !== 401) {
+          console.error('[AuthContext] Error checking session:', error);
+        }
+        // User is not logged in - leave user as null
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+  }, []); // Only run once on mount
 
   const login = async (credentials) => {
     try {
@@ -124,6 +144,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    loading, // Add loading state to context
     login,
     register,
     logout,

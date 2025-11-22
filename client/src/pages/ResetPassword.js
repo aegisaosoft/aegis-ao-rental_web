@@ -73,7 +73,6 @@ const ResetPassword = () => {
       });
       
       setIsSuccess(true);
-      toast.success(response.data?.message || t('resetPassword.success') || 'Password has been reset successfully.');
       
       // Redirect to login after 3 seconds
       setTimeout(() => {

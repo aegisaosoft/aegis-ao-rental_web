@@ -91,12 +91,18 @@ api.interceptors.response.use(
     // Handle 401/403 errors - session expired or invalid
     if (error.response?.status === 401 || error.response?.status === 403) {
       const currentPath = window.location.pathname;
-      const publicPaths = ['/login', '/register', '/', '/home'];
+      const publicPaths = ['/login', '/register', '/', '/home', '/locations'];
       const isPublicPath = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
+      
+      // Don't redirect for CompanyLocations or Locations endpoints - let the component handle it
+      // These endpoints may allow anonymous access or the component will handle auth
+      const isLocationEndpoint = error.config?.url?.includes('/CompanyLocations') || 
+                                  error.config?.url?.includes('/Locations/');
       
       // If we're on a protected page (not public) and get 401/403, redirect to login
       // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
-      if (!isPublicPath) {
+      // But skip redirect for location endpoints - let the component handle auth
+      if (!isPublicPath && !isLocationEndpoint) {
         // Preserve companyId and userId (they persist through auth errors)
         const preservedCompanyId = localStorage.getItem('companyId');
         const preservedUserId = localStorage.getItem('userId');
