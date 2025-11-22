@@ -142,10 +142,10 @@ const MobileScan = () => {
           console.log('[MobileScan] ✅ Token stored in server session successfully');
           
           // NO profile verification needed - if setSessionToken succeeded, session is set
-          // Token is now stored in session, so we don't need to reload
-          // The tokenProcessedRef flag prevents reprocessing if the component re-renders
-          // Token can stay in URL - it won't be processed again due to the ref flag
-          console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
+            // Token is now stored in session, so we don't need to reload
+            // The tokenProcessedRef flag prevents reprocessing if the component re-renders
+            // Token can stay in URL - it won't be processed again due to the ref flag
+            console.log('[MobileScan] ✅ Token processed and stored in session. Component will not reprocess.');
         } catch (error) {
           console.error('[MobileScan] ❌ Failed to store token in session:', error);
           console.error('[MobileScan] Error details:', {

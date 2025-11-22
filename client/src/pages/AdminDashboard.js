@@ -7114,7 +7114,6 @@ const AdminDashboard = () => {
             </Card>
           )}
 
-          {/* Reports Section */}
           {activeSection === 'reports' && (
             <Card title={t('admin.viewReports')}>
               <p className="text-gray-500 text-center py-4">{t('admin.reportsComingSoon')}</p>
