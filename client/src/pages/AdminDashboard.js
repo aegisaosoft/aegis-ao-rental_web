@@ -2567,8 +2567,6 @@ const AdminDashboard = () => {
           }));
         }
         
-        toast.info(t('admin.redirectingToStripe', 'Redirecting to Stripe payment page...'));
-        
         // Redirect to Stripe Checkout (opens in same tab)
         // The user will be redirected back to admin dashboard after payment
         window.location.href = sessionUrl;
@@ -2685,8 +2683,6 @@ const AdminDashboard = () => {
             lastName: user.lastName
           }));
         }
-        
-        toast.info(t('admin.redirectingToStripe', 'Redirecting to Stripe payment page...'));
         
         // Redirect to Stripe Checkout (opens in same tab)
         window.location.href = sessionUrl;
