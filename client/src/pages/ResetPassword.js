@@ -66,7 +66,7 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiService.resetPassword({
+      await apiService.resetPassword({
         token,
         email,
         newPassword: formData.password

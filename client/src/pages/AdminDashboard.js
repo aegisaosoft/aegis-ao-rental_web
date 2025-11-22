@@ -2519,8 +2519,6 @@ const AdminDashboard = () => {
         const response = await apiService.createSecurityDepositPaymentIntent(selectedBooking.id);
         console.log('Payment Intent created:', response.data);
         
-        const { paymentIntentId, amount } = response.data;
-        
         toast.info(t('admin.connectCardReader', 'Please connect card reader and have customer tap/swipe card'));
         
         // TODO: Integrate with useStripeTerminal hook
@@ -2608,7 +2606,6 @@ const AdminDashboard = () => {
         );
         
         console.log('Payment Intent created:', response.data);
-        const { paymentIntentId } = response.data;
         
         toast.info(t('admin.connectCardReader', 'Please connect card reader and have customer tap/swipe card'));
         
