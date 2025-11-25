@@ -13,7 +13,7 @@
  *
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { apiService } from '../services/api';
 import { clearStoredFilterDates } from '../utils/rentalSearchFilters';
 
@@ -29,7 +29,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false); // Start as false - no auto-check on load
+  const loading = false; // Always false - no auto-check on load
 
   // Do NOT automatically check session on mount - app must start logged out
   // User must explicitly log in to be authenticated
