@@ -21,7 +21,6 @@ import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
 import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
-import { api } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';

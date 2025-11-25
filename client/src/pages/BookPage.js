@@ -2286,7 +2286,7 @@ const BookPage = () => {
 
     }
 
-  }, [proceedToCheckout, resetAuthModal, authReason, isAuthenticated, companyId, apiService]);
+  }, [proceedToCheckout, resetAuthModal, authReason]);
 
 
 
