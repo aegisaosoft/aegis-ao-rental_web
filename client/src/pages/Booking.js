@@ -19,7 +19,7 @@ import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
-import { User, Mail, AlertCircle, Home, ArrowLeft } from 'lucide-react';
+import { User, Mail } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
