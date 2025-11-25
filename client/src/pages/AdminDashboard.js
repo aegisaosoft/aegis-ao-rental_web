@@ -3983,8 +3983,8 @@ const AdminDashboard = () => {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {/* Edit and Delete buttons - Admin only */}
-          {isAdmin && (
+          {/* Edit and Delete buttons - Admin and MainAdmin */}
+          {(isAdmin || isMainAdmin) && (
             <>
               <button
                 onClick={() => handleEditVehicle(row.original)}
@@ -4004,13 +4004,13 @@ const AdminDashboard = () => {
             </>
           )}
           {/* Workers see view-only indicator */}
-          {!isAdmin && (
+          {!(isAdmin || isMainAdmin) && (
             <span className="text-xs text-gray-500 italic">{t('common.viewOnly', 'View Only')}</span>
           )}
         </div>
       ),
     },
-  ], [t, handleEditVehicle, handleDeleteVehicle, deleteVehicleMutation.isLoading, isAdmin]);
+  ], [t, handleEditVehicle, handleDeleteVehicle, deleteVehicleMutation.isLoading, isAdmin, isMainAdmin]);
 
   // Extract total count for pagination
   const vehiclesTotalCount = useMemo(() => {
@@ -4350,6 +4350,24 @@ const AdminDashboard = () => {
                 <Car className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs text-center">{t('admin.dailyRates', 'Daily Rates')}</span>
               </button>
+              
+              {/* Vehicle Management - Admin and MainAdmin */}
+              {(isAdmin || isMainAdmin) && (
+                <button
+                  onClick={() => setActiveSection('vehicleManagement')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'vehicleManagement'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('vehicles.vehicleManagement', 'Vehicle Management')}
+                  aria-label={t('vehicles.vehicleManagement', 'Vehicle Management')}
+                >
+                  <Car className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('vehicles.vehicleManagement', 'Vehicles')}</span>
+                </button>
+              )}
               
               {/* Locations - Admin only */}
               {isAdmin && (
@@ -7000,8 +7018,8 @@ const AdminDashboard = () => {
           {activeSection === 'vehicleManagement' && (
             <Card title={t('admin.vehicles')} headerActions={
               <div className="flex gap-2">
-                {/* Import and Add buttons - Admin only */}
-                {isAdmin && (
+                {/* Import and Add buttons - Admin and MainAdmin */}
+                {(isAdmin || isMainAdmin) && (
                   <>
                     <label className={`btn-secondary text-sm ${isImportingVehicles ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`} style={{ margin: 0 }}>
                       {isImportingVehicles ? (

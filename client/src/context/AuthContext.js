@@ -29,32 +29,10 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(false); // Start as false - no auto-check on load
 
-  // Check session on mount to restore user from server session
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Try to get user profile from server session
-        // This will return 401 if no valid session, which is expected when not logged in
-        const response = await apiService.getProfile();
-        if (response.data) {
-          setUser(response.data);
-          console.log('[AuthContext] ✅ User restored from server session');
-        }
-      } catch (error) {
-        // 401 is expected when not logged in - don't log as error
-        if (error.response?.status !== 401) {
-          console.error('[AuthContext] Error checking session:', error);
-        }
-        // User is not logged in - leave user as null
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSession();
-  }, []); // Only run once on mount
+  // Do NOT automatically check session on mount - app must start logged out
+  // User must explicitly log in to be authenticated
 
   const login = async (credentials) => {
     try {
