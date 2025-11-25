@@ -252,13 +252,35 @@ router.post('/login', [
 });
 
 // Get current user profile - return from session ONLY (never re-read from backend)
-router.get('/profile', authenticateToken, async (req, res) => {
+// This endpoint allows checking session status without requiring authentication
+// (used by AuthContext on app load to check if user is logged in)
+router.get('/profile', async (req, res) => {
   try {
-    // authenticateToken middleware already extracted token and set req.token
-    const token = req.token || req.session?.token;
+    // Check for token in session or Authorization header (don't require it)
+    const sessionToken = req.session?.token;
+    const headerToken = req.headers['authorization']?.split(' ')[1];
+    const token = sessionToken || headerToken;
     
+    // Log session state for debugging
+    console.log('[Profile] Request received:', {
+      hasSession: !!req.session,
+      sessionID: req.sessionID,
+      hasSessionToken: !!sessionToken,
+      hasHeaderToken: !!headerToken,
+      hasToken: !!token,
+      hasSessionUser: !!req.session?.user,
+      hasCookies: !!req.headers.cookie,
+      cookieIncludesSession: req.headers.cookie?.includes('connect.sid')
+    });
+    
+    // If no token, return 200 with authenticated: false (avoids browser error messages)
+    // This is expected when checking if user is logged in on app load
     if (!token) {
-      return res.status(401).json({ message: 'Token not found' });
+      console.log('[Profile] No token found - user not authenticated (expected on app load)');
+      return res.status(200).json({ 
+        authenticated: false,
+        message: 'Not authenticated'
+      });
     }
     
     // ALWAYS return from session - never re-read from backend
@@ -275,11 +297,12 @@ router.get('/profile', authenticateToken, async (req, res) => {
       return res.json(userData);
     }
     
-    // If user info not in session, return error (should not happen after login)
-    console.warn('[Profile] ⚠️ User info not in session - user should log in again');
-    return res.status(401).json({ 
-      message: 'User session not found. Please log in again.',
-      sessionExpired: true
+    // If user info not in session but token exists, session might be corrupted
+    console.warn('[Profile] ⚠️ Token found but user info not in session - session may be corrupted');
+    return res.status(200).json({ 
+      authenticated: false,
+      sessionExpired: true,
+      message: 'User session not found. Please log in again.'
     });
   } catch (error) {
     console.error('[Profile] Profile error:', error.message);

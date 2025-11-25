@@ -323,6 +323,16 @@ export const apiService = {
   },
   deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
 
+  // Stripe Connect - using same API functions as admin app
+  setupStripeAccount: (companyId) => api.post(`/companies/${companyId}/stripe/setup?source=web`),
+  getStripeAccountStatus: (companyId) => api.get(`/companies/${companyId}/stripe/status?source=web`),
+  checkStripeAccount: (companyId) => api.get(`/companies/${companyId}/stripe/check-account`),
+  getStripeOnboardingLink: (companyId) => api.get(`/companies/${companyId}/stripe/reauth?json=true&source=web`),
+  syncStripeAccountStatus: (companyId) => api.post(`/companies/${companyId}/stripe/sync?source=web`),
+  suspendStripeAccount: (companyId, reason) => api.post(`/companies/${companyId}/stripe/suspend`, { reason }),
+  reactivateStripeAccount: (companyId) => api.post(`/companies/${companyId}/stripe/reactivate`),
+  deleteStripeAccount: (companyId) => api.delete(`/companies/${companyId}/stripe`),
+  
   // Stripe Terminal
   createConnectionToken: (companyId) => api.post('/terminal/connection-token', { companyId }),
   createTerminalPaymentIntent: (companyId, amount, currency = 'usd', options = {}) => {

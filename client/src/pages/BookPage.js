@@ -90,15 +90,63 @@ const BookPage = () => {
 
   const { companyConfig, formatPrice } = useCompany();
 
+  // Priority: domain context only (no fallback)
+  const companyId = companyConfig?.id || null;
+
+  // Check if Stripe account exists for this company (public endpoint, no auth required)
+  // This is used to determine if booking button should be available
+  const { data: stripeAccountCheck, isLoading: isLoadingStripe } = useQuery(
+    ['stripeAccountCheck', companyId],
+    async () => {
+      if (!companyId) {
+        console.log('[BookPage] No companyId, skipping Stripe account check');
+        return null;
+      }
+      
+      try {
+        console.log('[BookPage] Checking Stripe account for company:', companyId);
+        const response = await apiService.checkStripeAccount(companyId);
+        const responseData = response?.data || response;
+        const checkData = responseData?.result || responseData;
+        
+        console.log('[BookPage] Stripe account check received:', {
+          hasStripeAccount: checkData?.hasStripeAccount,
+          fullResponse: checkData
+        });
+        
+        return checkData;
+      } catch (error) {
+        console.error('[BookPage] Error checking Stripe account:', {
+          status: error.response?.status,
+          message: error.message,
+          data: error.response?.data
+        });
+        // Return false if error (assume no account)
+        return { hasStripeAccount: false };
+      }
+    },
+    {
+      enabled: !!companyId,
+      retry: false,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  // Check if booking is available (requires Stripe account)
+  // Use the public check-account endpoint result
+  const isBookingAvailable = stripeAccountCheck?.hasStripeAccount === true;
+  
+  console.log('[BookPage] Booking availability check:', {
+    isBookingAvailable,
+    hasStripeAccount: stripeAccountCheck?.hasStripeAccount,
+    isLoadingStripe
+  });
+
   const categoryId = searchParams.get('category');
 
   const make = searchParams.get('make');
 
   const model = searchParams.get('model');
-
-  // Priority: domain context only (no fallback)
-
-  const companyId = companyConfig?.id || null;
 
 
 
@@ -1885,6 +1933,20 @@ const BookPage = () => {
 
 
   const proceedToCheckout = useCallback(async (overrideUser = null) => {
+    // User must be authenticated to proceed
+    const currentUser = overrideUser || user;
+    // If overrideUser is provided (from login/register), skip isAuthenticated check
+    // since the user just authenticated and state might not be updated yet
+    if (!currentUser || (!overrideUser && !isAuthenticated)) {
+      toast.error('Please authenticate to continue with booking.');
+      return;
+    }
+
+    // Check if booking is available (Stripe account must exist)
+    if (!isBookingAvailable) {
+      toast.error('Booking is currently unavailable. Please contact the company for assistance.');
+      return;
+    }
 
     if (!formData.pickupDate || !formData.returnDate) {
 
@@ -2172,7 +2234,11 @@ const BookPage = () => {
 
     showLocationDropdown,
 
-    selectedLocationId
+    selectedLocationId,
+
+    isAuthenticated,
+
+    isBookingAvailable
 
   ]);
 
@@ -2220,7 +2286,7 @@ const BookPage = () => {
 
     }
 
-  }, [proceedToCheckout, resetAuthModal, authReason]);
+  }, [proceedToCheckout, resetAuthModal, authReason, isAuthenticated, companyId, apiService]);
 
 
 

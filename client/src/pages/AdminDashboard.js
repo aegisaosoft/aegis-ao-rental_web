@@ -19,8 +19,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { api } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
@@ -114,6 +115,7 @@ const AdminDashboard = () => {
   const [companyFormData, setCompanyFormData] = useState({});
   const [currentCompanyId, setCurrentCompanyId] = useState(null);
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+  const [isCreatingStripeAccount, setIsCreatingStripeAccount] = useState(false);
   
   // Get initial tab from URL parameter, default to 'company' for activeSection
   const initialTab = searchParams.get('tab') || 'company';
@@ -628,6 +630,86 @@ const AdminDashboard = () => {
       }
     }
   );
+
+  // Fetch Stripe account status - using same pattern as admin app
+  const { data: stripeStatusData, isLoading: isLoadingStripeStatus, refetch: refetchStripeStatus } = useQuery(
+    ['stripeStatus', currentCompanyId],
+    async () => {
+      try {
+        // Use EXACT same API function as admin app
+        // Admin app uses: api.get(`/companies/${companyId}/stripe/status`)
+        const response = await apiService.getStripeAccountStatus(currentCompanyId);
+        
+        // Match admin app's EXACT unwrapping logic: response.data.result || response.data
+        // apiService methods return the axios response, so we need to unwrap it
+        const responseData = response?.data || response;
+        const statusData = responseData?.result || responseData;
+        
+        return statusData;
+      } catch (error) {
+        console.error('[AdminDashboard] Error fetching Stripe status:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        // If 404 or 503, the company might not have a Stripe account yet or service is unavailable
+        if (error.response?.status === 404 || error.response?.status === 503) {
+          return {
+            stripeAccountId: undefined,
+            StripeAccountId: undefined,
+            chargesEnabled: false,
+            ChargesEnabled: false,
+            payoutsEnabled: false,
+            PayoutsEnabled: false,
+            detailsSubmitted: false,
+            DetailsSubmitted: false,
+            onboardingCompleted: false,
+            OnboardingCompleted: false,
+            accountStatus: 'not_started',
+            AccountStatus: 'not_started',
+            requirementsCurrentlyDue: [],
+            RequirementsCurrentlyDue: [],
+            requirementsPastDue: [],
+            RequirementsPastDue: [],
+          };
+        }
+        
+        // Return default status for any other error
+        return {
+          stripeAccountId: undefined,
+          StripeAccountId: undefined,
+          chargesEnabled: false,
+          ChargesEnabled: false,
+          payoutsEnabled: false,
+          PayoutsEnabled: false,
+          detailsSubmitted: false,
+          DetailsSubmitted: false,
+          onboardingCompleted: false,
+          OnboardingCompleted: false,
+          accountStatus: 'not_started',
+          AccountStatus: 'not_started',
+          requirementsCurrentlyDue: [],
+          RequirementsCurrentlyDue: [],
+          requirementsPastDue: [],
+          RequirementsPastDue: [],
+        };
+      }
+    },
+    {
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
+      retry: false,
+      refetchOnWindowFocus: false,
+      onError: (error) => {
+        console.error('[AdminDashboard] Stripe status query error:', error);
+      },
+      // Allow all authenticated users to see status, but backend will enforce admin privileges for actions
+    }
+  );
+
+  // Extract Stripe status - data is already unwrapped from the query function
+  const stripeStatus = stripeStatusData || {};
 
   // Fetch company locations
   const { data: companyLocationsData, isLoading: isLoadingCompanyLocations } = useQuery(
@@ -3046,6 +3128,99 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreateStripeAccount = async () => {
+    if (!currentCompanyId) {
+      toast.error(t('admin.noCompanySelected', 'Please select a company first.'));
+      return;
+    }
+    
+    // Check if Stripe account already exists
+    const hasStripeAccount = stripeStatus?.StripeAccountId || stripeStatus?.stripeAccountId;
+    
+    setIsCreatingStripeAccount(true);
+    try {
+      if (hasStripeAccount) {
+        // Account exists - get onboarding link (reauth) - same as admin app
+        const response = await apiService.getStripeOnboardingLink(currentCompanyId);
+        // apiService returns axios response, so unwrap like admin app does
+        const data = response?.data || response;
+        
+        // The API wraps responses in { result: data, reason: 0 }
+        // Try multiple ways to extract the URL (same as admin app)
+        let url = null;
+        
+        // Check if data is already the URL string
+        if (typeof data === 'string' && data.startsWith('http')) {
+          url = data;
+        }
+        // Check if wrapped in result
+        else if (data?.result) {
+          const result = data.result;
+          url = result?.url || result?.onboardingUrl || (typeof result === 'string' ? result : null);
+        }
+        // Check if direct properties
+        else if (data) {
+          url = data.url || data.onboardingUrl || (typeof data === 'string' ? data : null);
+        }
+        
+        if (url) {
+          // Redirect to Stripe onboarding in the same window
+          window.location.href = url;
+          // Invalidate queries to refresh status
+          await queryClient.invalidateQueries(['stripeStatus', currentCompanyId]);
+          await queryClient.invalidateQueries(['company', currentCompanyId]);
+        } else {
+          console.warn('[AdminDashboard] No URL found in response. Full data:', JSON.stringify(data, null, 2));
+          toast.error(t('admin.stripeOnboardingLinkFailed', 'Failed to get Stripe onboarding link.'));
+        }
+      } else {
+        // No account - create new account
+        // Use same API function as admin app: api.post(`/companies/${companyId}/stripe/setup`)
+        const response = await apiService.setupStripeAccount(currentCompanyId);
+        // apiService returns axios response, so unwrap like admin app does
+        const data = response?.data || response;
+        
+        if (data?.onboardingUrl) {
+          toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
+          // Redirect to Stripe onboarding in the same window
+          window.location.href = data.onboardingUrl;
+        } else {
+          toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
+        }
+        
+        // Invalidate queries to refresh company data and Stripe status
+        await queryClient.invalidateQueries(['company', currentCompanyId]);
+        await queryClient.invalidateQueries(['stripeStatus', currentCompanyId]);
+        // Refetch Stripe status immediately
+        setTimeout(() => {
+          refetchStripeStatus();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error with Stripe account:', error);
+      const errorData = error.response?.data;
+      let errorMessage = hasStripeAccount 
+        ? t('admin.stripeOnboardingLinkFailed', 'Failed to get Stripe onboarding link.')
+        : t('admin.stripeAccountCreationFailed', 'Failed to create Stripe account.');
+      
+      if (errorData) {
+        // Combine error and message fields for better user feedback (same as admin app)
+        const parts = [];
+        if (errorData.error) parts.push(errorData.error);
+        if (errorData.message && errorData.message !== errorData.error) {
+          parts.push(errorData.message);
+        }
+        errorMessage = parts.length > 0 ? parts.join(': ') : errorData.message || errorData.error || errorMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsCreatingStripeAccount(false);
+    }
+  };
+
   // Location handlers
   const handleLocationInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -5411,6 +5586,94 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Create Stripe Account Button - Visible to all authenticated users, but only admin/mainadmin can create */}
+                {isAuthenticated && canAccessDashboard && currentCompanyId && (
+                  <div className="md:col-span-2 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-gray-700">
+                        {t('admin.stripeAccount', 'Stripe Account')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {t('admin.stripeAccountDescription', 'Connect a Stripe account to accept payments and receive payouts for your rental business.')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCreateStripeAccount}
+                        disabled={isCreatingStripeAccount || isEditingCompany || !(isAdmin || isMainAdmin)}
+                        className="btn-primary px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px] justify-center"
+                        title={!(isAdmin || isMainAdmin) ? t('admin.adminOnly', 'Admin access required') : ''}
+                      >
+                        {isCreatingStripeAccount ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            {t('common.creating', 'Creating...')}
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4" />
+                            {stripeStatus?.StripeAccountId || stripeStatus?.stripeAccountId 
+                              ? t('admin.stripe', 'Stripe')
+                              : t('admin.createStripeAccount', 'Create Stripe Account')
+                            }
+                          </>
+                        )}
+                      </button>
+                      {!(isAdmin || isMainAdmin) && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          {t('admin.readOnlyAccess', 'Read-only access. Admin or Main Admin role required to create accounts.')}
+                        </p>
+                      )}
+                      {/* Status Indicators - Visible to all authenticated users */}
+                      <div className="flex items-center gap-3 mt-3">
+                        {isLoadingStripeStatus ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                        ) : (
+                          <>
+                            {/* 1. Is Active */}
+                            <div className="flex flex-col items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                (stripeStatus?.AccountStatus || stripeStatus?.accountStatus || '').toLowerCase() === 'active' 
+                                  ? 'bg-green-500' 
+                                  : 'bg-red-500'
+                              }`}></div>
+                              <span className="text-xs text-gray-600 whitespace-nowrap">Active</span>
+                            </div>
+                            {/* 2. Charges Enabled */}
+                            <div className="flex flex-col items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                stripeStatus?.ChargesEnabled === true || stripeStatus?.chargesEnabled === true
+                                  ? 'bg-green-500' 
+                                  : 'bg-red-500'
+                              }`}></div>
+                              <span className="text-xs text-gray-600 whitespace-nowrap">Charges</span>
+                            </div>
+                            {/* 3. Payouts Enabled */}
+                            <div className="flex flex-col items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                stripeStatus?.PayoutsEnabled === true || stripeStatus?.payoutsEnabled === true
+                                  ? 'bg-green-500' 
+                                  : 'bg-red-500'
+                              }`}></div>
+                              <span className="text-xs text-gray-600 whitespace-nowrap">Payouts</span>
+                            </div>
+                            {/* 4. Onboarding Completed */}
+                            <div className="flex flex-col items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                stripeStatus?.OnboardingCompleted === true || stripeStatus?.onboardingCompleted === true
+                                  ? 'bg-green-500' 
+                                  : 'bg-red-500'
+                              }`}></div>
+                              <span className="text-xs text-gray-600 whitespace-nowrap">Onboarded</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Terms of Use Section - Always Editable for Admins */}
                 {(isAdmin || isMainAdmin) && currentCompanyId && (

@@ -148,6 +148,83 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ============================================================================
+// STRIPE ROUTES - MUST BE BEFORE /:id ROUTE TO MATCH FIRST
+// ============================================================================
+// Proxy all Stripe management endpoints to Azure API
+// These routes MUST come before /:id route so Express matches them first
+// Public endpoint to check if Stripe account exists (for booking availability)
+router.all('/:id/stripe/check-account', async (req, res) => {
+  await handleStripeRoute(req, res, 'check-account');
+});
+
+// Admin app calls: /api/companies/{companyId}/stripe/status
+// This maps to: CompanyStripeManagementController.GetStatus (NOT StripeConnectController.GetAccountStatus)
+router.all('/:id/stripe/status', async (req, res) => {
+  await handleStripeRoute(req, res, 'status');
+});
+
+router.all('/:id/stripe/sync', async (req, res) => {
+  await handleStripeRoute(req, res, 'sync');
+});
+
+router.all('/:id/stripe/setup', async (req, res) => {
+  await handleStripeRoute(req, res, 'setup');
+});
+
+router.all('/:id/stripe/reauth', async (req, res) => {
+  await handleStripeRoute(req, res, 'reauth');
+});
+
+router.all('/:id/stripe/suspend', async (req, res) => {
+  await handleStripeRoute(req, res, 'suspend');
+});
+
+router.all('/:id/stripe/reactivate', async (req, res) => {
+  await handleStripeRoute(req, res, 'reactivate');
+});
+
+router.all('/:id/stripe', async (req, res) => {
+  await handleStripeRoute(req, res, '');
+});
+
+// Helper function to handle Stripe routes
+async function handleStripeRoute(req, res, stripePath) {
+  const axios = require('axios');
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+  
+  try {
+    const { id } = req.params;
+    
+    // If stripePath wasn't provided, try to extract from URL
+    if (!stripePath) {
+      const originalMatch = req.originalUrl.match(/\/companies\/[^\/]+\/stripe\/(.+?)(?:\?|$)/);
+      if (originalMatch && originalMatch[1]) {
+        stripePath = originalMatch[1];
+      } else {
+        const pathMatch = req.path.match(/\/stripe\/(.+?)(?:\?|$)/);
+        if (pathMatch && pathMatch[1]) {
+          stripePath = pathMatch[1];
+        }
+      }
+    }
+    
+    // Build path without query string - query params will be forwarded via config.params in handleStripeProxy
+    const fullPath = `/api/companies/${id}/stripe/${stripePath}`;
+    
+    console.log(`[Companies Route] 🔵 Stripe proxy: ${req.method} ${req.originalUrl} -> ${apiBaseUrl}${fullPath}`);
+    console.log(`[Companies Route] Query parameters:`, req.query);
+    
+    await handleStripeProxy(req, res, id, fullPath, apiBaseUrl);
+  } catch (error) {
+    console.error(`[Companies Route] Error in Stripe proxy:`, error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+}
+
+// ============================================================================
+// COMPANY ROUTES - MUST BE AFTER STRIPE ROUTES
+// ============================================================================
 // Get single company by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -223,5 +300,114 @@ router.put('/:id', async (req, res) => {
     res.status(statusCode).json(errorData);
   }
 });
+
+// Shared handler function for Stripe proxy requests
+async function handleStripeProxy(req, res, id, fullPath, apiBaseUrl) {
+  const axios = require('axios');
+  
+  try {
+    // Get token from multiple sources (in order of preference):
+    // 1. Authorization header (if frontend sends it directly)
+    // 2. Session token (for web app users)
+    // 3. Cookie (if token is stored in cookie)
+    let token = req.headers.authorization;
+    if (token && token.startsWith('Bearer ')) {
+      token = token.substring(7); // Remove "Bearer " prefix
+    } else if (!token) {
+      token = req.session?.token;
+    }
+    
+    // If still no token, check cookies
+    if (!token && req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+    
+    console.log(`[Companies Route] ${req.method} ${req.path} -> ${apiBaseUrl}${fullPath}`);
+    console.log(`[Companies Route] Token found: ${token ? 'Yes' : 'No'}, Has session: ${!!req.session}, Session has token: ${!!req.session?.token}`);
+    
+    // For status endpoint, don't require token (allows anonymous access)
+    const isStatusEndpoint = fullPath.includes('/stripe/status');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
+      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] })
+    };
+    
+    if (isStatusEndpoint) {
+      console.log(`[Companies Route] Status endpoint - allowing anonymous access (no token required)`);
+    }
+    
+    const config = {
+      method: req.method.toLowerCase(),
+      url: `${apiBaseUrl}${fullPath}`,
+      headers: headers,
+      httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
+      validateStatus: () => true, // Don't throw on any status code
+      timeout: 30000 // 30 second timeout
+    };
+    
+    // Add request body for POST/PUT/PATCH
+    if (['post', 'put', 'patch'].includes(req.method.toLowerCase()) && req.body) {
+      config.data = req.body;
+    }
+    
+    // Add query parameters (including source=web or source=admin)
+    if (Object.keys(req.query).length > 0) {
+      config.params = req.query;
+      console.log(`[Companies Route] Forwarding query parameters to backend:`, req.query);
+    }
+    
+    const response = await axios(config);
+    
+    console.log(`[Companies Route] ${req.method} ${req.path} response status: ${response.status}`);
+    console.log(`[Companies Route] Response data keys:`, response.data ? Object.keys(response.data) : 'null');
+    if (response.data?.result) {
+      console.log(`[Companies Route] Response.result keys:`, Object.keys(response.data.result));
+      console.log(`[Companies Route] Response.result.stripeAccountId:`, response.data.result.stripeAccountId);
+      console.log(`[Companies Route] Response.result.StripeAccountId:`, response.data.result.StripeAccountId);
+    }
+    
+    // Forward the response status and data
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error(`[Companies Route] Stripe endpoint error for ${req.method} ${req.path}:`, error.message);
+    console.error('Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      code: error.code,
+      message: error.message
+    });
+    
+    // Handle timeout errors
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+      return res.status(504).json({
+        message: 'Gateway Timeout - The backend API did not respond in time.',
+        error: 'GATEWAY_TIMEOUT',
+        code: error.code
+      });
+    }
+    
+    // Handle connection errors
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
+      return res.status(503).json({
+        message: 'Service Unavailable - Cannot connect to backend API.',
+        error: 'CONNECTION_FAILED',
+        code: error.code
+      });
+    }
+    
+    // Forward the error response
+    const statusCode = error.response?.status || 500;
+    const errorData = error.response?.data || {
+      message: error.message || 'Server error',
+      error: error.message
+    };
+    
+    res.status(statusCode).json(errorData);
+  }
+}
 
 module.exports = router;

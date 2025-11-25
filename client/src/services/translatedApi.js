@@ -315,6 +315,29 @@ export const translatedApiService = {
     return translateResponse(response);
   },
 
+  // Stripe Connect
+  setupStripeAccount: async (companyId) => {
+    const response = await apiService.setupStripeAccount(companyId);
+    return translateResponse(response);
+  },
+  
+  getStripeAccountStatus: async (companyId) => {
+    const response = await apiService.getStripeAccountStatus(companyId);
+    return translateResponse(response);
+  },
+  checkStripeAccount: async (companyId) => {
+    const response = await apiService.checkStripeAccount(companyId);
+    return translateResponse(response);
+  },
+  getStripeOnboardingLink: async (companyId) => {
+    const response = await apiService.getStripeOnboardingLink(companyId);
+    return translateResponse(response);
+  },
+  syncStripeAccountStatus: async (companyId) => {
+    const response = await apiService.syncStripeAccountStatus(companyId);
+    return translateResponse(response);
+  },
+
   deleteCompany: async (id) => {
     const response = await apiService.deleteCompany(id);
     return translateResponse(response);

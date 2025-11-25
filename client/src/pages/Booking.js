@@ -19,7 +19,7 @@ import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-toastify';
-import { User, Mail } from 'lucide-react';
+import { User, Mail, AlertCircle, Home, ArrowLeft } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
@@ -54,6 +54,31 @@ const Booking = () => {
       enabled: !!vehicleId
     }
   );
+
+  // Check if Stripe account exists for this company
+  const { data: stripeStatus, isLoading: isLoadingStripe } = useQuery(
+    ['stripeStatus', companyId],
+    async () => {
+      try {
+        const response = await apiService.getStripeAccountStatus(companyId);
+        // Unwrap the response - apiService methods return the axios response
+        const responseData = response?.data || response;
+        const statusData = responseData?.result || responseData;
+        return statusData;
+      } catch (error) {
+        // Silently handle errors - booking will be disabled if no account
+        return null;
+      }
+    },
+    {
+      enabled: !!companyId,
+      retry: false
+    }
+  );
+
+  // Check if booking is available (requires Stripe account)
+  // Match AdminDashboard's check: stripeStatus?.StripeAccountId || stripeStatus?.stripeAccountId
+  const isBookingAvailable = stripeStatus?.StripeAccountId || stripeStatus?.stripeAccountId;
 
   const handleChange = (e) => {
     const name = e.target.name;
@@ -116,6 +141,12 @@ const Booking = () => {
       return;
     }
 
+    // Prohibit booking if no Stripe account
+    if (!isBookingAvailable) {
+      toast.error('Booking is currently unavailable. Please contact the company for assistance.');
+      return;
+    }
+
     try {
       const bookingData = {
         vehicleId,
@@ -135,7 +166,7 @@ const Booking = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingStripe) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -149,6 +180,28 @@ const Booking = () => {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('vehicleDetail.vehicleNotFound')}</h2>
           <p className="text-gray-600">{t('vehicleDetail.vehicleNotFoundDesc')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if booking is unavailable due to missing Stripe account
+  if (!isBookingAvailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            {t('booking.unavailable.title') || 'Booking Currently Unavailable'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {t('booking.unavailable.description') || 'Booking is currently unavailable. Please contact the company for assistance.'}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="btn-primary"
+          >
+            {t('booking.unavailable.goHome') || 'Return to Home'}
+          </button>
         </div>
       </div>
     );
@@ -259,6 +312,7 @@ const Booking = () => {
                 <button
                   type="submit"
                   className="w-full btn-primary"
+                  disabled={!isBookingAvailable}
                 >
                   {t('booking.confirmBooking')}
                 </button>
