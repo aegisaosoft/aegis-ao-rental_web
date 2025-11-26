@@ -3263,7 +3263,11 @@ const AdminDashboard = () => {
   const handleSaveCompany = async (e) => {
     e.preventDefault();
     
-    // Only send fields that the API expects (exclude read-only and navigation properties)
+    // Get the original subdomain from companyConfig (if company already has one)
+    const originalSubdomain = companyConfig?.subdomain || actualCompanyData?.subdomain;
+    
+    // If company already has a subdomain, completely prohibit updating it
+    // Don't include subdomain in the update request at all
     const companyData = {
       companyName: companyFormData.companyName,
       email: companyFormData.email || null,
@@ -3277,7 +3281,9 @@ const AdminDashboard = () => {
       termsOfUse: companyFormData.termsOfUse || companyFormData.TermsOfUse || null,
       bookingIntegrated: companyFormData.bookingIntegrated || null,
       companyPath: companyFormData.companyPath || null,
-      subdomain: companyFormData.subdomain || null,
+      // Only include subdomain if company doesn't have one yet (for new companies)
+      // If company already has a subdomain, exclude it from the update request
+      ...(originalSubdomain ? {} : { subdomain: companyFormData.subdomain?.trim() || null }),
       primaryColor: companyFormData.primaryColor || null,
       secondaryColor: companyFormData.secondaryColor || null,
       logoUrl: companyFormData.logoUrl || null,
@@ -5687,18 +5693,38 @@ const AdminDashboard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t('admin.subdomain')}
                     </label>
-                    <input
-                      type="text"
-                      name="subdomain"
-                      value={companyFormData.subdomain || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="mycompany"
-                      maxLength="100"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Used for: [subdomain].aegis-rental.com
-                    </p>
+                    {(companyConfig?.subdomain || actualCompanyData?.subdomain) ? (
+                      <div>
+                        <input
+                          type="text"
+                          value={companyConfig?.subdomain || actualCompanyData?.subdomain || ''}
+                          className="input-field bg-gray-100 cursor-not-allowed"
+                          readOnly
+                          disabled
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Used for: {(companyConfig?.subdomain || actualCompanyData?.subdomain)}.aegis-rental.com
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          {t('admin.subdomainCannotBeChanged', 'Subdomain cannot be changed once set')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="text"
+                          name="subdomain"
+                          value={companyFormData.subdomain || ''}
+                          onChange={handleCompanyInputChange}
+                          className="input-field"
+                          placeholder="mycompany"
+                          maxLength="100"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Used for: [subdomain].aegis-rental.com
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-2"></div>
