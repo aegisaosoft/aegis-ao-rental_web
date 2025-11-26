@@ -512,8 +512,6 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
     // Check if this is a file upload (multipart/form-data)
     const isFileUpload = req.headers['content-type']?.includes('multipart/form-data') || req.files?.length > 0;
     
-    console.log(`[Proxy] Request: ${req.method} ${proxyPath}, isFileUpload: ${isFileUpload}, files: ${req.files?.length || 0}`);
-    
     // Use the token extracted at the top level
     // Build headers - don't set Content-Type for file uploads (let axios set it with boundary)
     const headers = {
@@ -541,32 +539,40 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
     
     // For file uploads, create FormData from multer-processed files
     if (isFileUpload && req.files && req.files.length > 0) {
-      console.log(`[Proxy] Processing file upload with ${req.files.length} file(s)`);
-      req.files.forEach((file, index) => {
-        console.log(`[Proxy] File ${index + 1}: fieldname=${file.fieldname}, originalname=${file.originalname}, mimetype=${file.mimetype}, size=${file.size}`);
-      });
-      
       const formData = new FormData();
       
       // Add files from multer
+      // IMPORTANT: Backend expects parameter name 'file', so always use 'file' as fieldname
       req.files.forEach(file => {
-        formData.append(file.fieldname || 'file', file.buffer, {
+        formData.append('file', file.buffer, {
           filename: file.originalname,
           contentType: file.mimetype
         });
       });
       
-      // Add other form fields
+      // Add other form fields (including fieldMapping if present)
+      // Multer with upload.any() should parse both files and fields into req.body
       if (req.body && typeof req.body === 'object') {
         Object.keys(req.body).forEach(key => {
-          formData.append(key, req.body[key]);
+          // Skip file fields (already added above)
+          if (key !== 'file') {
+            const value = req.body[key];
+            const stringValue = value != null ? String(value) : '';
+            formData.append(key, stringValue);
+          }
         });
+      }
+      
+      // Also check req.body.fieldMapping directly (in case it wasn't in the keys loop)
+      if (req.body?.fieldMapping !== undefined && req.body?.fieldMapping !== null) {
+        formData.append('fieldMapping', String(req.body.fieldMapping));
       }
       
       requestData = formData;
       // Use formData's headers (includes boundary)
       Object.assign(headers, formData.getHeaders());
       console.log(`[Proxy] FormData headers:`, formData.getHeaders());
+      console.log(`[Proxy] ✓ FormData prepared with ${req.files.length} file(s) and fields`);
     } else if (isFileUpload) {
       console.error(`[Proxy] File upload detected but no files found in req.files`);
     }

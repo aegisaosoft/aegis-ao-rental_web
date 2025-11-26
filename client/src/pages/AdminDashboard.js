@@ -200,6 +200,10 @@ const AdminDashboard = () => {
   const [vehicleLicensePlateFilter, setVehicleLicensePlateFilter] = useState('');
   const [vehicleLocationFilter, setVehicleLocationFilter] = useState('');
   const [isImportingVehicles, setIsImportingVehicles] = useState(false);
+  const [showFieldMappingModal, setShowFieldMappingModal] = useState(false);
+  const [fieldMappingData, setFieldMappingData] = useState(null);
+  const [fieldMapping, setFieldMapping] = useState({});
+  const [pendingImportFile, setPendingImportFile] = useState(null);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [vehicleEditForm, setVehicleEditForm] = useState({});
   const [isCreatingVehicle, setIsCreatingVehicle] = useState(false);
@@ -653,8 +657,9 @@ const AdminDashboard = () => {
           message: error.message
         });
         
-        // If 404 or 503, the company might not have a Stripe account yet or service is unavailable
-        if (error.response?.status === 404 || error.response?.status === 503) {
+        // If 401, 404, or 503, the company might not have a Stripe account yet, user lacks permission, or service is unavailable
+        // Handle these gracefully without losing auth
+        if (error.response?.status === 401 || error.response?.status === 404 || error.response?.status === 503) {
           return {
             stripeAccountId: undefined,
             StripeAccountId: undefined,
@@ -755,6 +760,7 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
         setEditingVehicle(null);
         setVehicleEditForm({});
       },
@@ -771,6 +777,7 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
       },
       onError: (error) => {
         console.error('Error deleting vehicle:', error);
@@ -785,6 +792,7 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+        queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
         setIsCreatingVehicle(false);
         setVehicleCreateForm({});
       },
@@ -1295,6 +1303,125 @@ const AdminDashboard = () => {
     }
   }, [vehicleMakeFilter]);
 
+  // Handle vehicle import with field mapping
+  const handleVehicleImportWithMapping = async (mapping) => {
+    if (!pendingImportFile) return;
+    
+    setIsImportingVehicles(true);
+    setShowFieldMappingModal(false);
+    
+    try {
+      const formData = new FormData();
+      // IMPORTANT: Append fieldMapping BEFORE the file
+      // Some multipart parsers (like multer) may not parse fields that come after files
+      // Convert mapping to JSON string and append to form data FIRST
+      const mappingJson = JSON.stringify(mapping);
+      formData.append('fieldMapping', mappingJson);
+      formData.append('companyId', currentCompanyId || '');
+      // Append file LAST to ensure fieldMapping is parsed first
+      formData.append('file', pendingImportFile);
+      
+      // Call vehicle import API endpoint with mapping
+      const response = await apiService.importVehicles(formData);
+      
+      // Process response same as regular import
+      const responseData = response?.data || response;
+      let result = responseData;
+      if (responseData && typeof responseData === 'object') {
+        if ('result' in responseData && responseData.result !== undefined) {
+          result = responseData.result;
+        } else if ('original' in responseData && responseData.original?.result) {
+          result = responseData.original.result;
+        }
+      }
+      
+      const loadedCount = Number(result?.loadedCount ?? result?.loaded ?? 0);
+      const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
+      const errors = Array.isArray(result?.errors) ? result.errors : [];
+      const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
+      const totalLines = Number(result?.totalLines ?? result?.total ?? 0);
+      const totalImported = Number(result?.count ?? result?.importedCount ?? (loadedCount + updatedCount));
+      
+      const finalLoadedCount = (loadedCount === 0 && updatedCount === 0 && ignoredCount === 0 && totalImported > 0) 
+        ? totalImported 
+        : loadedCount;
+      
+      const breakdownParts = [
+        `${finalLoadedCount} ${t('vehicles.loaded', 'loaded')}`,
+        `${updatedCount} ${t('vehicles.updated', 'updated')}`,
+        `${ignoredCount} ${t('vehicles.ignored', 'ignored')}`
+      ];
+      
+      const message = totalLines > 0
+        ? `${t('vehicles.importSuccess', 'Import completed')}: ${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`
+        : `${t('vehicles.importSuccess', 'Import completed')}: ${breakdownParts.join(', ')}`;
+      
+      toast.success(message, { autoClose: 8000 });
+      
+      // Show error details if any
+      if (ignoredCount > 0 && errors.length > 0) {
+        const failedCars = [];
+        errors.forEach(error => {
+          const licensePlateMatch = error.match(/license plate\s+([A-Z0-9]+)/i);
+          const lineMatch = error.match(/Line\s+(\d+)/i);
+          const licensePlate = licensePlateMatch ? licensePlateMatch[1] : null;
+          const lineNumber = lineMatch ? lineMatch[1] : null;
+          
+          if (licensePlate) {
+            failedCars.push({ licensePlate, lineNumber, error });
+          } else if (lineNumber) {
+            const missingMatch = error.match(/licenseplate:\s*([A-Z0-9]+)/i);
+            if (missingMatch) {
+              failedCars.push({ licensePlate: missingMatch[1], lineNumber, error });
+            } else {
+              failedCars.push({ licensePlate: `Line ${lineNumber}`, lineNumber, error });
+            }
+          } else {
+            failedCars.push({ licensePlate: 'Unknown', lineNumber: null, error });
+          }
+        });
+        
+        if (failedCars.length > 0) {
+          const licensePlates = failedCars
+            .map(car => car.licensePlate)
+            .filter((plate, index, self) => self.indexOf(plate) === index)
+            .slice(0, 10);
+          
+          let errorSummary = `${ignoredCount} ${t('vehicles.carsNotLoaded', 'car(s) not loaded')}`;
+          if (licensePlates.length > 0 && licensePlates.length <= 10) {
+            errorSummary += `: ${licensePlates.join(', ')}`;
+            if (failedCars.length > 10) {
+              errorSummary += ` (+${failedCars.length - 10} more)`;
+            }
+          }
+          
+          toast.warning(errorSummary, { autoClose: 10000 });
+          console.group('🚫 Failed to Load Vehicles');
+          failedCars.forEach((car, index) => {
+            console.log(`${index + 1}. ${car.licensePlate}${car.lineNumber ? ` (Line ${car.lineNumber})` : ''}: ${car.error}`);
+          });
+          console.groupEnd();
+        }
+      }
+      
+      queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+      queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
+      
+      setPendingImportFile(null);
+      setFieldMapping({});
+    } catch (error) {
+      console.error('Error importing vehicles with mapping:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error?.message || 
+                          error.message || 
+                          t('vehicles.importError') || 
+                          'Failed to import vehicles';
+      toast.error(errorMessage);
+    } finally {
+      setIsImportingVehicles(false);
+    }
+  };
+
   // Handle vehicle import from file
   const handleVehicleImport = async (event) => {
     const file = event.target.files[0];
@@ -1327,13 +1454,213 @@ const AdminDashboard = () => {
     setIsImportingVehicles(true);
 
     try {
+      // Verify file exists
+      if (!file) {
+        toast.error(t('vehicles.noFileSelected', 'No file selected'));
+        return;
+      }
+      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('companyId', currentCompanyId || '');
 
       // Call vehicle import API endpoint
-      await apiService.importVehicles(formData);
+      const response = await apiService.importVehicles(formData);
+      
+      // Extract response data - interceptor already unwraps standardized format
+      // So response.data should be the actual data object
+      const responseData = response?.data || response;
+      
+      // Handle both wrapped (if not unwrapped) and direct responses
+      let result = responseData;
+      if (responseData && typeof responseData === 'object') {
+        // If still wrapped in standardized format (has 'result' property)
+        if ('result' in responseData && responseData.result !== undefined) {
+          result = responseData.result;
+        }
+        // Also check for original property (interceptor might have saved it)
+        else if ('original' in responseData && responseData.original?.result) {
+          result = responseData.original.result;
+        }
+      }
+      
+      // Check if field mapping is required
+      if (result?.requiresMapping === true) {
+        setIsImportingVehicles(false);
+        const headers = result.headers || [];
+        const availableFields = result.availableFields || [];
+        
+        // Auto-map columns by matching names (case-insensitive)
+        const autoMapping = {};
+        headers.forEach((header, index) => {
+          const headerLower = header.toLowerCase().trim();
+          
+          // Try to find matching field
+          availableFields.forEach(field => {
+            const fieldNameLower = field.field.toLowerCase();
+            const fieldLabelLower = (field.label || '').toLowerCase();
+            
+            // Check if header matches field name or label
+            if (headerLower === fieldNameLower || 
+                headerLower === fieldLabelLower ||
+                headerLower.replace(/[_\s-]/g, '') === fieldNameLower.replace(/[_\s-]/g, '') ||
+                headerLower.replace(/[_\s-]/g, '') === fieldLabelLower.replace(/[_\s-]/g, '')) {
+              // Only set if not already mapped (first match wins)
+              if (!autoMapping[field.field]) {
+                autoMapping[field.field] = index;
+              }
+            }
+          });
+          
+          // Special cases for common variations
+          if (headerLower.includes('license') && headerLower.includes('plate')) {
+            if (!autoMapping['license_plate']) autoMapping['license_plate'] = index;
+          }
+          if (headerLower.includes('seats') || headerLower.includes('seat')) {
+            if (!autoMapping['number_of_seats']) autoMapping['number_of_seats'] = index;
+          }
+          if (headerLower.includes('fuel')) {
+            if (!autoMapping['fuel_type']) autoMapping['fuel_type'] = index;
+          }
+        });
+        
+        // Verify we have the actual CSV headers
+        setFieldMappingData({
+          headers: headers,
+          availableFields: availableFields
+        });
+        setFieldMapping(autoMapping); // Set auto-detected mapping
+        setPendingImportFile(file);
+        setShowFieldMappingModal(true);
+        event.target.value = ''; // Reset file input
+        return;
+      }
+      
+      // Get import statistics - try multiple possible field names
+      const loadedCount = Number(result?.loadedCount ?? result?.loaded ?? 0);
+      const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
+      const errors = Array.isArray(result?.errors) ? result.errors : [];
+      const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
+      const totalLines = Number(result?.totalLines ?? result?.total ?? 0);
+      const totalImported = Number(result?.count ?? result?.importedCount ?? (loadedCount + updatedCount));
+      
+      // Build detailed success message showing complete breakdown
+      // Always show all three counts: loaded, updated, and ignored
+      let message = '';
+      
+      // Validate counts - if all are 0 but we have totalLines, something is wrong
+      // In that case, use totalImported as loadedCount
+      const finalLoadedCount = (loadedCount === 0 && updatedCount === 0 && ignoredCount === 0 && totalImported > 0) 
+        ? totalImported 
+        : loadedCount;
+      
+      // Always show all counts, even if zero
+      const breakdownParts = [
+        `${finalLoadedCount} ${t('vehicles.loaded', 'loaded')}`,
+        `${updatedCount} ${t('vehicles.updated', 'updated')}`,
+        `${ignoredCount} ${t('vehicles.ignored', 'ignored')}`
+      ];
+      
+      if (totalLines > 0) {
+        // Show complete breakdown: "50 total - 40 loaded, 5 updated, 5 ignored"
+        message = `${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`;
+      } else if (totalImported > 0) {
+        // Fallback: use totalImported as totalLines if totalLines not available
+        message = `${totalImported} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`;
+      } else {
+        // Last resort: just show breakdown
+        message = breakdownParts.join(', ');
+      }
+      
+      // Prepend success label
+      message = `${t('vehicles.importSuccess', 'Import completed')}: ${message}`;
+      
+      // Show success message
+      toast.success(message, {
+        autoClose: 8000,
+      });
+      
+      // Show error details if any
+      if (ignoredCount > 0 && errors.length > 0) {
+        console.warn('Import errors:', errors);
+        
+        // Parse errors to extract license plates and create a summary
+        const failedCars = [];
+        errors.forEach(error => {
+          // Try to extract license plate from error message
+          // Error formats: "Line X: Vehicle with license plate ABC123...", "Line X: Missing required fields...", etc.
+          const licensePlateMatch = error.match(/license plate\s+([A-Z0-9]+)/i);
+          const lineMatch = error.match(/Line\s+(\d+)/i);
+          const licensePlate = licensePlateMatch ? licensePlateMatch[1] : null;
+          const lineNumber = lineMatch ? lineMatch[1] : null;
+          
+          if (licensePlate) {
+            failedCars.push({ licensePlate, lineNumber, error });
+          } else if (lineNumber) {
+            // Try to extract from "Missing required fields" errors
+            const missingMatch = error.match(/licenseplate:\s*([A-Z0-9]+)/i);
+            if (missingMatch) {
+              failedCars.push({ licensePlate: missingMatch[1], lineNumber, error });
+            } else {
+              failedCars.push({ licensePlate: `Line ${lineNumber}`, lineNumber, error });
+            }
+          } else {
+            failedCars.push({ licensePlate: 'Unknown', lineNumber: null, error });
+          }
+        });
+        
+        // Show summary with failed cars
+        if (failedCars.length > 0) {
+          const licensePlates = failedCars
+            .map(car => car.licensePlate)
+            .filter((plate, index, self) => self.indexOf(plate) === index) // unique
+            .slice(0, 10); // First 10 unique plates
+          
+          let errorSummary = `${ignoredCount} ${t('vehicles.carsNotLoaded', 'car(s) not loaded')}`;
+          if (licensePlates.length > 0 && licensePlates.length <= 10) {
+            errorSummary += `: ${licensePlates.join(', ')}`;
+            if (failedCars.length > 10) {
+              errorSummary += ` (+${failedCars.length - 10} more)`;
+            }
+          }
+          
+          toast.warning(errorSummary, {
+            autoClose: 10000,
+          });
+          
+          // Show detailed errors in console with better formatting
+          console.group('🚫 Failed to Load Vehicles');
+          failedCars.forEach((car, index) => {
+            console.log(`${index + 1}. ${car.licensePlate}${car.lineNumber ? ` (Line ${car.lineNumber})` : ''}: ${car.error}`);
+          });
+          console.groupEnd();
+          
+          // If there are only a few errors, show them individually
+          if (failedCars.length <= 3) {
+            failedCars.forEach((car, index) => {
+              setTimeout(() => {
+                const shortError = car.error.length > 80 ? car.error.substring(0, 80) + '...' : car.error;
+                toast.warning(`${car.licensePlate}: ${shortError}`, { autoClose: 5000 });
+              }, (index + 1) * 400);
+            });
+          } else {
+            // Show message to check console for all details
+            setTimeout(() => {
+              toast.info(`${failedCars.length} ${t('vehicles.errorsDetails', 'error details')} in console (F12)`, {
+                autoClose: 5000,
+              });
+            }, 1000);
+          }
+        } else {
+          // Fallback if we couldn't parse license plates
+          toast.warning(`${ignoredCount} ${t('vehicles.lineIgnored', 'line(s) ignored')} due to errors. Check console for details.`, {
+            autoClose: 5000,
+          });
+        }
+      }
+      
       queryClient.invalidateQueries(['vehicles', currentCompanyId]);
+      queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
       
       event.target.value = ''; // Reset file input
     } catch (error) {
@@ -4261,6 +4588,7 @@ const AdminDashboard = () => {
   }
 
   return (
+    <>
     <PageContainer>
       <PageHeader
         title={`${companyConfig?.companyName || 'Company'} Dashboard`}
@@ -10270,6 +10598,127 @@ const AdminDashboard = () => {
         </div>
       )}
     </PageContainer>
+    {showFieldMappingModal && fieldMappingData && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">{t('vehicles.mapFields', 'Map CSV Columns to Fields')}</h2>
+            <button
+              onClick={() => {
+                setShowFieldMappingModal(false);
+                setFieldMappingData(null);
+                setPendingImportFile(null);
+                setFieldMapping({});
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          
+          <p className="text-gray-600 mb-6">
+            {t('vehicles.mapFieldsDescription', 'Please map each CSV column to the corresponding field. Mandatory fields are marked with *.')}
+          </p>
+          
+          <div className="space-y-4">
+            {fieldMappingData.availableFields.map((field) => {
+              const currentMapping = fieldMapping[field.field];
+              // Check if mapped (0 is a valid column index)
+              const isMapped = currentMapping !== undefined && currentMapping !== null && currentMapping !== '';
+              const isMandatoryUnmapped = field.mandatory && !isMapped;
+              
+              return (
+                <div key={field.field} className={`flex items-center gap-4 ${isMandatoryUnmapped ? 'bg-red-50 p-3 rounded border border-red-200' : ''}`}>
+                  <label className={`w-48 font-medium ${isMandatoryUnmapped ? 'text-red-600' : ''}`}>
+                    {field.label}
+                    {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+                    {field.defaultValue && (
+                      <span className="text-gray-500 text-sm ml-2">({t('vehicles.default', 'default')}: {field.defaultValue})</span>
+                    )}
+                    {isMandatoryUnmapped && (
+                      <span className="text-red-600 text-sm ml-2 font-normal">({t('vehicles.required', 'required')})</span>
+                    )}
+                  </label>
+                  <select
+                    value={currentMapping === undefined || currentMapping === null ? '' : currentMapping}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFieldMapping(prev => ({
+                        ...prev,
+                        [field.field]: value === '' ? undefined : parseInt(value, 10)
+                      }));
+                    }}
+                    className={`flex-1 border rounded px-3 py-2 ${
+                      isMandatoryUnmapped 
+                        ? 'border-red-500 bg-red-50 focus:border-red-600 focus:ring-red-500' 
+                        : 'border-gray-300'
+                    }`}
+                    required={field.mandatory}
+                  >
+                    <option value="">{t('vehicles.selectColumn', 'Select CSV column...')}</option>
+                    {fieldMappingData.headers.map((header, index) => (
+                      <option key={index} value={index}>
+                        {header} (Column {index + 1})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+            <button
+              onClick={() => {
+                setShowFieldMappingModal(false);
+                setFieldMappingData(null);
+                setPendingImportFile(null);
+                setFieldMapping({});
+              }}
+              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+            >
+              {t('common.cancel', 'Cancel')}
+            </button>
+            <button
+              onClick={() => {
+                // Validate mandatory fields are mapped
+                const mandatoryFields = fieldMappingData.availableFields.filter(f => f.mandatory);
+                const missingMandatory = mandatoryFields.some(f => {
+                  const value = fieldMapping[f.field];
+                  // Field is missing if value is undefined, null, empty string, or NaN
+                  return value === undefined || value === null || value === '' || isNaN(Number(value));
+                });
+                
+                if (missingMandatory) {
+                  const unmappedFields = mandatoryFields.filter(f => {
+                    const value = fieldMapping[f.field];
+                    return value === undefined || value === null || value === '' || isNaN(Number(value));
+                  }).map(f => f.label).join(', ');
+                  toast.error(t('vehicles.mapAllMandatoryFields', 'Please map all mandatory fields') + `: ${unmappedFields}`);
+                  return;
+                }
+                
+                // Create mapping object with field names as keys and column indices as values
+                const mapping = {};
+                Object.keys(fieldMapping).forEach(field => {
+                  const value = fieldMapping[field];
+                  // Only include if value is a valid number (0 is valid)
+                  if (value !== undefined && value !== null && value !== '' && !isNaN(Number(value))) {
+                    mapping[field] = Number(value);
+                  }
+                });
+                
+                handleVehicleImportWithMapping(mapping);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              {t('vehicles.importWithMapping', 'Import with Mapping')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

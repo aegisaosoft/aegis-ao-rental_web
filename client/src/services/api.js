@@ -37,6 +37,15 @@ api.interceptors.request.use(
     if (config.baseURL?.includes('localhost')) {
       config.httpsAgent = false;
     }
+    
+    // CRITICAL: If FormData is being sent, remove Content-Type header
+    // so Axios can automatically set it with the correct boundary
+    // The default 'application/json' header will break multipart/form-data
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+      // Axios will automatically set: multipart/form-data; boundary=----WebKitFormBoundary...
+    }
+    
     return config;
   },
   (error) => {
@@ -99,10 +108,14 @@ api.interceptors.response.use(
       const isLocationEndpoint = error.config?.url?.includes('/CompanyLocations') || 
                                   error.config?.url?.includes('/Locations/');
       
+      // Don't redirect for Stripe status endpoints - 401 may mean no Stripe account or insufficient permissions
+      // Let the component handle it gracefully
+      const isStripeStatusEndpoint = error.config?.url?.includes('/stripe/status');
+      
       // If we're on a protected page (not public) and get 401/403, redirect to login
       // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
-      // But skip redirect for location endpoints - let the component handle auth
-      if (!isPublicPath && !isLocationEndpoint) {
+      // But skip redirect for location and Stripe status endpoints - let the component handle auth
+      if (!isPublicPath && !isLocationEndpoint && !isStripeStatusEndpoint) {
         // Preserve companyId and userId (they persist through auth errors)
         const preservedCompanyId = localStorage.getItem('companyId');
         const preservedUserId = localStorage.getItem('userId');
@@ -169,9 +182,8 @@ export const apiService = {
   getVehicleLocations: () => api.get('/vehicles/locations'),
   bulkUpdateVehicleDailyRate: (data) => api.put('/vehicles/bulk-update-daily-rate', data),
   importVehicles: (formData) => api.post('/vehicles/import', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    // DO NOT set Content-Type manually - Axios will automatically set it with the correct boundary
+    // Manually setting it breaks multipart parsing and causes fieldMapping to be lost
   }),
 
   // Models

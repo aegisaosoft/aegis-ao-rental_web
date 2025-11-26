@@ -823,7 +823,6 @@ const Home = () => {
           ) : !Array.isArray(modelsGrouped) || modelsGrouped.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-600 mb-4">{t('home.noModelsAvailable')}</p>
-              <p className="text-gray-500 text-sm">Response: {JSON.stringify(modelsGroupedResponse?.slice?.(0, 200) || modelsGroupedResponse)}</p>
             </div>
           ) : filteredModelsGrouped.length === 0 ? (
             <div className="text-center py-12">

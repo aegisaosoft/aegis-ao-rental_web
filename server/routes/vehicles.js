@@ -213,8 +213,9 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Create a wrapper to handle multer after authentication
+// Use upload.any() to parse both files and form fields (fieldMapping, companyId)
 const handleFileUpload = (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
+  upload.any()(req, res, (err) => {
     if (err) {
       console.error('[Vehicle Import] Multer error:', err);
       return res.status(400).json({ message: 'File upload error: ' + err.message });
@@ -228,7 +229,9 @@ router.post('/import', authenticateToken, requireAdmin, handleFileUpload, async 
     console.log('[Vehicle Import] Request received, user:', req.user);
     console.log('[Vehicle Import] Is admin:', req.user?.isAdmin, 'Role:', req.user?.role);
     
-    if (!req.file) {
+    // Find the file in req.files (multer.any() puts files in req.files, not req.file)
+    const file = req.files?.find(f => f.fieldname === 'file');
+    if (!file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
@@ -237,19 +240,29 @@ router.post('/import', authenticateToken, requireAdmin, handleFileUpload, async 
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    const companyId = req.body.companyId;
     
-    console.log('[Vehicle Import] Token present:', !!token, 'CompanyId:', companyId);
+    // Get form fields from req.body (multer.any() parses them)
+    const companyId = req.body?.companyId;
+    const fieldMapping = req.body?.fieldMapping;
 
-    // Forward the file to the backend API
+    // Forward the file and fields to the backend API
     const FormData = require('form-data');
     const formData = new FormData();
-    formData.append('file', req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype
+    
+    // Append file
+    formData.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype
     });
+    
+    // Append companyId if present
     if (companyId) {
       formData.append('companyId', companyId);
+    }
+    
+    // Append fieldMapping if present
+    if (fieldMapping) {
+      formData.append('fieldMapping', fieldMapping);
     }
 
     const axios = require('axios');
