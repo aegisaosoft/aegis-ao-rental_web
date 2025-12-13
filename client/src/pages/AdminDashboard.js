@@ -122,7 +122,6 @@ const AdminDashboard = () => {
   const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company', 'pickup', or 'management'
   const [activeViolationsTab, setActiveViolationsTab] = useState('list'); // 'list', 'finders', or 'payment'
   const [selectedStates, setSelectedStates] = useState(new Set()); // Selected state codes for violation finders
-  const [isSavingFindersList, setIsSavingFindersList] = useState(false);
   const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
@@ -2417,7 +2416,7 @@ const AdminDashboard = () => {
   );
 
   // Load finders list configuration
-  const { isLoading: isLoadingFindersList, refetch: refetchFindersList } = useQuery(
+  const { isLoading: isLoadingFindersList } = useQuery(
     ['findersList', currentCompanyId, activeSection, activeViolationsTab],
     () =>
       apiService.getFindersList({
