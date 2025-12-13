@@ -128,8 +128,8 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">{t('footer.contactUs', 'Contact Us')}</h3>
             {locations.length > 0 ? (
               <ul className="space-y-3">
-                {locations.map((location) => (
-                  <li key={location.id} className="text-sm">
+                {locations.map((location, index) => (
+                  <li key={location.id || location.locationId || location.Id || `location-${index}`} className="text-sm">
                     <div className="text-gray-300 font-medium">{location.locationName}</div>
                     {location.address && (
                       <div className="text-gray-400 text-xs flex items-start mt-1">

@@ -582,6 +582,19 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  getViolations: async (params = {}) => {
+    const response = await apiService.getViolations(params);
+    return translateResponse(response);
+  },
+  getFindersList: async (params = {}) => {
+    const response = await apiService.getFindersList(params);
+    return translateResponse(response);
+  },
+  saveFindersList: async (data) => {
+    const response = await apiService.saveFindersList(data);
+    return translateResponse(response);
+  },
+  
   // Authentication
   login: async (credentials) => {
     return await apiService.login(credentials);

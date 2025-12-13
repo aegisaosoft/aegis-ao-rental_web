@@ -50,6 +50,8 @@ const modelsRoutes = require('./routes/models');
 const mockRoutes = require('./routes/mock');
 const terminalRoutes = require('./routes/terminal');
 const webhooksRoutes = require('./routes/webhooks');
+const violationsRoutes = require('./routes/violations');
+const findersListRoutes = require('./routes/findersList');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -240,9 +242,27 @@ app.use('/api/scan', scanRoutes);
 app.use('/api/license', licenseRoutes);
 app.use('/api/terminal', terminalRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/violations', violationsRoutes);
+app.use('/api/finderslist', findersListRoutes);
 
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);
+
+// Middleware to preserve original hostname early in the request
+// This ensures we capture the hostname before any proxies modify it
+app.use((req, res, next) => {
+  // Store the original hostname for later use
+  const originalHost = req.get('x-forwarded-host') || req.get('host') || req.hostname || '';
+  if (originalHost) {
+    req.originalHostname = originalHost.toLowerCase().split(':')[0];
+    console.log(`[Host Preservation] Captured original hostname: ${req.originalHostname} from headers:`, {
+      'x-forwarded-host': req.get('x-forwarded-host'),
+      'host': req.get('host'),
+      'hostname': req.hostname
+    });
+  }
+  next();
+});
 
 // Middleware to detect company from domain and add X-Company-Id header
 // This helps the backend middleware identify the company
@@ -258,24 +278,45 @@ app.use('/api/*', async (req, res, next) => {
     const hostname = req.get('x-forwarded-host') || req.get('host') || req.hostname || '';
     const hostnameLower = hostname.toLowerCase().split(':')[0]; // Remove port if present
     
-    // Skip for localhost
-    if (hostnameLower.includes('localhost') || hostnameLower.includes('127.0.0.1')) {
+    // Check if this is a .localhost subdomain (e.g., miamilifecars.localhost)
+    const isLocalhostSubdomain = hostnameLower.endsWith('.localhost');
+    const isPlainLocalhost = hostnameLower === 'localhost' || hostnameLower === '127.0.0.1';
+    
+    // Skip only for plain localhost (not subdomains)
+    if (isPlainLocalhost) {
+      console.log(`[Company Detection] Skipping plain localhost: ${hostnameLower}`);
       return next();
     }
     
-    // Extract subdomain from hostname (e.g., company1.aegis-rental.com -> company1)
-    const parts = hostnameLower.split('.');
-    if (parts.length > 2) {
-      const subdomain = parts[0];
-      
+    // Extract subdomain from hostname
+    // For .localhost subdomains: miamilifecars.localhost -> miamilifecars
+    // For production domains: company1.aegis-rental.com -> company1
+    let subdomain = null;
+    let fullDomain = null;
+    
+    if (isLocalhostSubdomain) {
+      // Extract subdomain from .localhost (e.g., miamilifecars.localhost -> miamilifecars)
+      const parts = hostnameLower.split('.');
+      if (parts.length >= 2 && parts[parts.length - 1] === 'localhost') {
+        subdomain = parts[0];
+        fullDomain = hostnameLower; // Use full hostname for .localhost subdomains
+        console.log(`[Company Detection] .localhost subdomain detected: ${subdomain} from ${hostnameLower}`);
+      }
+    } else {
+      // Extract subdomain from production domain (e.g., company1.aegis-rental.com -> company1)
+      const parts = hostnameLower.split('.');
+      if (parts.length > 2) {
+        subdomain = parts[0];
+        fullDomain = `${subdomain}.aegis-rental.com`;
+      }
+    }
+    
+    if (subdomain) {
       // Skip 'www' subdomain
       if (subdomain === 'www') {
         return next();
       }
       
-      // Try to get domain mapping from API (cached by backend)
-      // This is a lightweight call that the backend caches
-      const fullDomain = `${subdomain}.aegis-rental.com`;
       // Use Azure API by default for local testing (or set API_BASE_URL in .env)
       const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
       
@@ -283,38 +324,39 @@ app.use('/api/*', async (req, res, next) => {
       console.log(`[Company Detection] API Base URL: ${apiBaseUrl}`);
       
       try {
-        const domainMappingUrl = `${apiBaseUrl}/api/companies/domain-mapping`;
-        console.log(`[Company Detection] Fetching domain mapping from: ${domainMappingUrl}`);
-        
-        const domainMappingResponse = await axios.get(domainMappingUrl, {
-          httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
-          timeout: 10000 // Increased timeout for production
-        });
-        
-        const domainMapping = domainMappingResponse.data?.result || domainMappingResponse.data;
-        
-        console.log(`[Company Detection] Domain mapping response status: ${domainMappingResponse.status}`);
-        console.log(`[Company Detection] Domain mapping keys:`, Object.keys(domainMapping || {}));
-        
-        if (domainMapping && domainMapping[fullDomain]) {
-          const companyId = domainMapping[fullDomain];
-          req.headers['x-company-id'] = companyId;
-          console.log(`[Company Detection] ✓ Set X-Company-Id header: ${companyId} for ${fullDomain}`);
+        // For .localhost subdomains, we need to query the backend directly by subdomain
+        // since they won't be in the domain mapping (which is for production domains)
+        if (isLocalhostSubdomain) {
+          console.log(`[Company Detection] .localhost subdomain detected, querying backend for subdomain: ${subdomain}`);
+          // The backend will resolve the company from the hostname in X-Forwarded-Host header
+          // We'll ensure the host header is forwarded, but don't set X-Company-Id here
+          // Let the backend middleware handle the resolution
+          console.log(`[Company Detection] Forwarding hostname ${hostnameLower} to backend for resolution`);
         } else {
-          console.warn(`[Company Detection] ✗ No mapping found for ${fullDomain}`);
-          console.warn(`[Company Detection] Available domains:`, Object.keys(domainMapping || {}));
-          console.warn(`[Company Detection] Looking for: ${fullDomain}`);
+          // For production domains, use domain mapping
+          const domainMappingUrl = `${apiBaseUrl}/api/companies/domain-mapping`;
+          console.log(`[Company Detection] Fetching domain mapping from: ${domainMappingUrl}`);
           
-          // Fallback: Try to get company directly by subdomain from backend
-          try {
-            console.log(`[Company Detection] Fallback: Trying to get company by subdomain: ${subdomain}`);
-            // We'll add the subdomain as a query parameter so backend can resolve it
-            // The backend middleware should handle hostname resolution, but this is a fallback
-            req.query.companySubdomain = subdomain;
-          } catch (fallbackErr) {
-            console.error(`[Company Detection] Fallback also failed:`, fallbackErr.message);
+          const domainMappingResponse = await axios.get(domainMappingUrl, {
+            httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false }),
+            timeout: 10000 // Increased timeout for production
+          });
+          
+          const domainMapping = domainMappingResponse.data?.result || domainMappingResponse.data;
+          
+          console.log(`[Company Detection] Domain mapping response status: ${domainMappingResponse.status}`);
+          console.log(`[Company Detection] Domain mapping keys:`, Object.keys(domainMapping || {}));
+          
+          if (domainMapping && domainMapping[fullDomain]) {
+            const companyId = domainMapping[fullDomain];
+            req.headers['x-company-id'] = companyId;
+            console.log(`[Company Detection] ✓ Set X-Company-Id header: ${companyId} for ${fullDomain}`);
+          } else {
+            console.warn(`[Company Detection] ✗ No mapping found for ${fullDomain}`);
+            console.warn(`[Company Detection] Available domains:`, Object.keys(domainMapping || {}));
+            console.warn(`[Company Detection] Looking for: ${fullDomain}`);
+            // Don't set header - let backend try to resolve from hostname
           }
-          // Don't set header - let backend try to resolve from hostname
         }
       } catch (err) {
         // If domain mapping fails, log but continue - backend will try to resolve from hostname

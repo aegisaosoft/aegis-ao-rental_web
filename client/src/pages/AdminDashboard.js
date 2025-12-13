@@ -19,7 +19,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard, AlertTriangle } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -120,6 +120,9 @@ const AdminDashboard = () => {
   const initialTab = searchParams.get('tab') || 'company';
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'design', or 'locations'
   const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company', 'pickup', or 'management'
+  const [activeViolationsTab, setActiveViolationsTab] = useState('list'); // 'list', 'finders', or 'payment'
+  const [selectedStates, setSelectedStates] = useState(new Set()); // Selected state codes for violation finders
+  const [isSavingFindersList, setIsSavingFindersList] = useState(false);
   const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
@@ -300,9 +303,27 @@ const AdminDashboard = () => {
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
   const [isSettingEmployee, setIsSettingEmployee] = useState(false);
 
+  // State for violations
+  const [violationsDateFrom, setViolationsDateFrom] = useState(() => {
+    const today = new Date();
+    today.setMonth(today.getMonth() - 1); // Default to last month
+    return today.toISOString().split('T')[0];
+  });
+  const [violationsDateTo, setViolationsDateTo] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [violationsPage, setViolationsPage] = useState(0);
+  const [violationsPageSize, setViolationsPageSize] = useState(10);
+  const [violationsSearchTrigger, setViolationsSearchTrigger] = useState(0);
+
   useEffect(() => {
     setBookingPage(1);
   }, [bookingStatusFilter, bookingCustomerFilter, bookingDateFrom, bookingDateTo]);
+
+  useEffect(() => {
+    setViolationsPage(0); // Reset to first page when filters change
+  }, [violationsDateFrom, violationsDateTo, violationsSearchTrigger]);
 
   // Handle Stripe Checkout return (success/cancel)
   useEffect(() => {
@@ -2361,6 +2382,59 @@ const AdminDashboard = () => {
       keepPreviousData: true,
       onError: (error) => {
         console.error('Error loading company bookings:', error);
+      },
+    }
+  );
+
+  // Fetch violations
+  const { data: violationsResponse, isLoading: isLoadingViolations, error: violationsError } = useQuery(
+    [
+      'violations',
+      currentCompanyId,
+      violationsDateFrom,
+      violationsDateTo,
+      violationsPage,
+      violationsPageSize,
+      violationsSearchTrigger,
+      activeSection,
+    ],
+    () =>
+      apiService.getViolations({
+        companyId: currentCompanyId,
+        dateFrom: violationsDateFrom || undefined,
+        dateTo: violationsDateTo || undefined,
+        page: violationsPage + 1, // Backend uses 1-based pagination
+        pageSize: violationsPageSize,
+      }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && activeViolationsTab === 'list',
+      keepPreviousData: true,
+      onError: (error) => {
+        console.error('Error loading violations:', error);
+        toast.error(t('admin.violationsLoadError', 'Failed to load violations'));
+      },
+    }
+  );
+
+  // Load finders list configuration
+  const { data: findersListResponse, isLoading: isLoadingFindersList, refetch: refetchFindersList } = useQuery(
+    ['findersList', currentCompanyId, activeSection, activeViolationsTab],
+    () =>
+      apiService.getFindersList({
+        companyId: currentCompanyId,
+      }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && activeViolationsTab === 'finders',
+      onSuccess: (data) => {
+        // Initialize selected states from loaded data
+        const findersList = data?.findersList || data?.FindersList || [];
+        if (Array.isArray(findersList) && findersList.length > 0) {
+          setSelectedStates(new Set(findersList));
+        }
+      },
+      onError: (error) => {
+        console.error('Error loading finders list:', error);
+        // Don't show error toast - empty list is acceptable
       },
     }
   );
@@ -4548,6 +4622,154 @@ const AdminDashboard = () => {
     },
   });
 
+  // Violations data extraction
+  const violationsData = useMemo(() => {
+    let data = violationsResponse;
+    if (data?.data) {
+      data = data.data;
+    }
+    if (data?.result) {
+      data = data.result;
+    }
+    // Handle PaginatedResult format (Items with capital I) or standard format (items/data)
+    if (data?.Items || data?.items || data?.data) {
+      return Array.isArray(data.Items || data.items || data.data) ? (data.Items || data.items || data.data) : [];
+    }
+    return Array.isArray(data) ? data : [];
+  }, [violationsResponse]);
+
+  const violationsTotalCount = useMemo(() => {
+    let data = violationsResponse;
+    if (data?.data) {
+      data = data.data;
+    }
+    if (data?.result) {
+      data = data.result;
+    }
+    // Handle PaginatedResult format (TotalCount with capital T) or standard format
+    return data?.TotalCount || data?.totalCount || data?.total || data?.Total || 0;
+  }, [violationsResponse]);
+
+  // Violations table columns
+  const violationsColumns = useMemo(() => [
+    {
+      id: 'violationNumber',
+      header: t('admin.violationNumber', 'Violation #'),
+      accessorFn: row => {
+        // Use computed ViolationNumber from DTO, or fallback to citation/notice number
+        return row.violationNumber || row.ViolationNumber || 
+               row.citationNumber || row.CitationNumber || 
+               row.noticeNumber || row.NoticeNumber || 
+               (row.id ? row.id.substring(0, 8) : '-');
+      },
+      cell: info => info.getValue(),
+    },
+    {
+      id: 'date',
+      header: t('admin.date', 'Date'),
+      accessorFn: row => {
+        // Use computed ViolationDate from DTO, or fallback to issue_date/start_date
+        const date = row.violationDate || row.ViolationDate || 
+                     row.issueDate || row.IssueDate || 
+                     row.startDate || row.StartDate ||
+                     row.createdAt || row.CreatedAt;
+        if (!date) return '-';
+        try {
+          return new Date(date).toLocaleDateString();
+        } catch {
+          return date;
+        }
+      },
+      cell: info => info.getValue(),
+    },
+    {
+      id: 'type',
+      header: t('admin.type', 'Type'),
+      accessorFn: row => {
+        // Use computed Type from DTO, or fallback to agency/fine_type
+        return row.type || row.Type || 
+               row.agency || row.Agency || 
+               (row.fineType ? `Fine Type ${row.fineType}` : '-');
+      },
+      cell: info => info.getValue(),
+    },
+    {
+      id: 'description',
+      header: t('admin.description', 'Description'),
+      accessorFn: row => {
+        // Use computed Description from DTO, or fallback to note/address
+        return row.description || row.Description || 
+               row.note || row.Note || 
+               row.address || row.Address || '-';
+      },
+      cell: info => {
+        const value = info.getValue();
+        return value && value !== '-' && value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      },
+    },
+    {
+      id: 'amount',
+      header: t('admin.amount', 'Amount'),
+      accessorFn: row => row.amount || row.Amount || 0,
+      cell: ({ row }) => {
+        const amount = row.original.amount || row.original.Amount || 0;
+        return formatPrice(amount);
+      },
+    },
+    {
+      id: 'status',
+      header: t('admin.status', 'Status'),
+      accessorFn: row => {
+        // Use computed Status from DTO, or convert payment_status to string
+        if (row.status || row.Status) {
+          return (row.status || row.Status).toLowerCase();
+        }
+        // Convert payment_status integer to string
+        const paymentStatus = row.paymentStatus ?? row.PaymentStatus ?? 0;
+        const statusMap = { 0: 'pending', 1: 'paid', 2: 'overdue', 3: 'cancelled' };
+        return statusMap[paymentStatus] || 'pending';
+      },
+      cell: ({ row }) => {
+        const status = (row.original.status || row.original.Status || 'pending').toLowerCase();
+        const statusColors = {
+          paid: 'bg-green-100 text-green-800',
+          pending: 'bg-yellow-100 text-yellow-800',
+          overdue: 'bg-red-100 text-red-800',
+          cancelled: 'bg-gray-100 text-gray-800',
+        };
+        const colorClass = statusColors[status] || statusColors.pending;
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </span>
+        );
+      },
+    },
+  ], [t]);
+
+  // Violations table configuration
+  const violationsTable = useReactTable({
+    data: violationsData,
+    columns: violationsColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true, // Server-side pagination
+    pageCount: Math.ceil(violationsTotalCount / violationsPageSize),
+    state: {
+      pagination: {
+        pageIndex: violationsPage,
+        pageSize: violationsPageSize,
+      },
+    },
+    onPaginationChange: (updater) => {
+      const newState = typeof updater === 'function' 
+        ? updater({ pageIndex: violationsPage, pageSize: violationsPageSize })
+        : updater;
+      setViolationsPage(newState.pageIndex);
+      setViolationsPageSize(newState.pageSize);
+    },
+  });
+
   if (!isAuthenticated) {
     return (
       <PageContainer>
@@ -4667,6 +4889,22 @@ const AdminDashboard = () => {
               >
                 <Calendar className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs text-center">{t('admin.reservations')}</span>
+              </button>
+              
+              {/* Violations - All roles can see */}
+              <button
+                onClick={() => setActiveSection('violations')}
+                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                  activeSection === 'violations'
+                    ? 'bg-blue-100 text-blue-700 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                disabled={isEditing}
+                title={t('admin.violations', 'Violations')}
+                aria-label={t('admin.violations', 'Violations')}
+              >
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs text-center">{t('admin.violations', 'Violations')}</span>
               </button>
               
               {/* Vehicles (Daily Rates) - All roles can see (workers: view only) */}
@@ -6083,6 +6321,337 @@ const AdminDashboard = () => {
           )}
         </div>
             </Card>
+          )}
+
+          {/* Violations Section */}
+          {activeSection === 'violations' && (
+            <div className="space-y-6">
+              <Card title={t('admin.violations', 'Violations')}>
+                {/* Tab Navigation */}
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                      type="button"
+                      onClick={() => setActiveViolationsTab('list')}
+                      className={`
+                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeViolationsTab === 'list'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.violationsList', 'Violations List')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveViolationsTab('finders')}
+                      className={`
+                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeViolationsTab === 'finders'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.configureFinders', 'Configure Finders')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveViolationsTab('payment')}
+                      className={`
+                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeViolationsTab === 'payment'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {t('admin.payment', 'Payment')}
+                    </button>
+                  </nav>
+                </div>
+
+                {/* Tab Content */}
+                {activeViolationsTab === 'list' && (
+                  <div className="py-6">
+                    {/* Date Filters and Search */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+                        <input
+                          type="date"
+                          className="input-field border border-gray-300"
+                          value={violationsDateFrom}
+                          onChange={(e) => setViolationsDateFrom(e.target.value)}
+                        />
+                        <input
+                          type="date"
+                          className="input-field border border-gray-300"
+                          value={violationsDateTo}
+                          onChange={(e) => setViolationsDateTo(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-primary px-6"
+                        onClick={() => setViolationsSearchTrigger(prev => prev + 1)}
+                        disabled={isLoadingViolations}
+                      >
+                        {isLoadingViolations ? (
+                          <>
+                            <span className="animate-spin inline-block mr-2">⟳</span>
+                            {t('common.loading', 'Loading...')}
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 inline-block mr-2" />
+                            {t('common.search', 'Search')}
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Violations Table */}
+                    {isLoadingViolations ? (
+                      <div className="text-center py-12">
+                        <LoadingSpinner />
+                        <p className="mt-4 text-gray-600">{t('common.loading', 'Loading...')}</p>
+                      </div>
+                    ) : violationsError ? (
+                      <div className="text-center py-12">
+                        <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                        <p className="text-red-600">{t('admin.violationsLoadError', 'Failed to load violations')}</p>
+                      </div>
+                    ) : violationsData.length === 0 ? (
+                      <div className="text-center py-12">
+                        <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500">{t('admin.noViolations', 'No violations found for the selected period')}</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            {violationsTable.getHeaderGroups().map(headerGroup => (
+                              <tr key={headerGroup.id}>
+                                {headerGroup.headers.map(header => (
+                                  <th
+                                    key={header.id}
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                  >
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext()
+                                        )}
+                                  </th>
+                                ))}
+                              </tr>
+                            ))}
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {violationsTable.getRowModel().rows.map(row => (
+                              <tr key={row.id} className="hover:bg-gray-50">
+                                {row.getVisibleCells().map(cell => (
+                                  <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-700">
+                              {t('common.showing', 'Showing')} {violationsTable.getState().pagination.pageIndex * violationsPageSize + 1} - {Math.min((violationsTable.getState().pagination.pageIndex + 1) * violationsPageSize, violationsTotalCount)} {t('common.of', 'of')} {violationsTotalCount}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => violationsTable.previousPage()}
+                              disabled={!violationsTable.getCanPreviousPage()}
+                              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {t('common.previous', 'Previous')}
+                            </button>
+                            <span className="text-sm text-gray-700">
+                              {t('common.page', 'Page')} {violationsTable.getState().pagination.pageIndex + 1} {t('common.of', 'of')} {violationsTable.getPageCount()}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => violationsTable.nextPage()}
+                              disabled={!violationsTable.getCanNextPage()}
+                              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {t('common.next', 'Next')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeViolationsTab === 'finders' && (() => {
+                  const companyCountry = companyConfig?.country || '';
+                  const states = getStatesForCountry(companyCountry);
+                  const allSelected = states.length > 0 && selectedStates.size === states.length;
+                  const someSelected = selectedStates.size > 0 && selectedStates.size < states.length;
+
+                  const handleStateToggle = (stateCode) => {
+                    setSelectedStates(prev => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(stateCode)) {
+                        newSet.delete(stateCode);
+                      } else {
+                        newSet.add(stateCode);
+                      }
+                      return newSet;
+                    });
+                  };
+
+                  const handleSelectAll = () => {
+                    if (allSelected) {
+                      setSelectedStates(new Set());
+                    } else {
+                      setSelectedStates(new Set(states.map(s => s.code)));
+                    }
+                  };
+
+                  return (
+                    <div className="py-6">
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          {t('admin.configureFinders', 'Configure Finders')}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          {t('admin.selectStatesForFinders', 'Select the states where violation finders should be active for {{country}}.', { country: companyCountry || 'your country' })}
+                        </p>
+                        
+                        {isLoadingFindersList ? (
+                          <div className="flex items-center justify-center py-12">
+                            <LoadingSpinner size="md" text={t('common.loading', 'Loading...')} />
+                          </div>
+                        ) : states.length === 0 ? (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p className="text-yellow-800">
+                              {companyCountry 
+                                ? t('admin.noStatesForCountry', 'No states/provinces are defined for {{country}}. Please configure states in the system.', { country: companyCountry })
+                                : t('admin.noCountryConfigured', 'No country is configured for this company. Please set a country in company settings.')}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={handleSelectAll}
+                                  className="text-sm font-medium text-blue-600 hover:text-blue-700 focus:outline-none focus:underline"
+                                >
+                                  {allSelected 
+                                    ? t('admin.deselectAll', 'Deselect All')
+                                    : t('admin.selectAll', 'Select All')}
+                                </button>
+                                {someSelected && (
+                                  <span className="text-sm text-gray-500">
+                                    ({selectedStates.size} {t('admin.selected', 'selected')})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {selectedStates.size} / {states.length} {t('admin.selected', 'selected')}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                              {states.map((state) => {
+                                const isChecked = selectedStates.has(state.code);
+                                return (
+                                  <label
+                                    key={state.code}
+                                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                      isChecked
+                                        ? 'bg-blue-50 border-blue-300 text-blue-900'
+                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => handleStateToggle(state.code)}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <span className="text-sm font-medium flex-1">
+                                      {state.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      ({state.code})
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStates(new Set())}
+                                disabled={isSavingFindersList}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {t('admin.clear', 'Clear')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!currentCompanyId) {
+                                    toast.error(t('admin.companyIdRequired', 'Company ID is required'));
+                                    return;
+                                  }
+                                  
+                                  setIsSavingFindersList(true);
+                                  try {
+                                    await apiService.saveFindersList({
+                                      companyId: currentCompanyId,
+                                      findersList: Array.from(selectedStates),
+                                    });
+                                    toast.success(t('admin.findersListSaved', 'Finders list saved successfully'));
+                                    refetchFindersList();
+                                  } catch (error) {
+                                    console.error('Error saving finders list:', error);
+                                    toast.error(t('admin.findersListSaveError', 'Failed to save finders list'));
+                                  } finally {
+                                    setIsSavingFindersList(false);
+                                  }
+                                }}
+                                disabled={isSavingFindersList || isLoadingFindersList}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isSavingFindersList ? t('admin.saving', 'Saving...') : t('admin.save', 'Save')}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {activeViolationsTab === 'payment' && (
+                  <div className="py-6">
+                    <div className="text-center py-12">
+                      <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">{t('admin.paymentComingSoon', 'Payment configuration coming soon...')}</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
           )}
 
           {/* Vehicles Section */}

@@ -367,6 +367,18 @@ const apiService = {
   adminGetCustomers: (token, params = {}) => apiClient.get('/api/admin/customers', {
     params,
     headers: { Authorization: `Bearer ${token}` }
+  }),
+  getViolations: (token, params = {}) => apiClient.get('/api/violations', {
+    params,
+    headers: { Authorization: `Bearer ${token}` }
+  }),
+  getFindersList: (token, params = {}) => apiClient.get('/api/finderslist', {
+    params,
+    headers: { Authorization: `Bearer ${token}` }
+  }),
+  saveFindersList: (token, data) => apiClient.post('/api/finderslist', data.findersList, {
+    params: { companyId: data.companyId },
+    headers: { Authorization: `Bearer ${token}` }
   })
 };
 

@@ -28,13 +28,40 @@ router.get('/config', async (req, res) => {
     
     // Forward X-Company-Id header if present (set by company detection middleware)
     // Also forward X-Forwarded-Host so backend can resolve company from hostname
+    // Use the preserved original hostname if available, otherwise extract from headers
+    let hostname = req.originalHostname || 
+                   req.get('x-forwarded-host') || 
+                   req.get('host') || 
+                   req.hostname || '';
+    
+    // If hostname is still empty or just 'localhost', try to get it from the original URL
+    // This can happen if the request went through multiple proxies
+    if (!hostname || hostname === 'localhost' || hostname.startsWith('localhost:')) {
+      // Try to extract from referer or other headers
+      const referer = req.get('referer') || req.get('origin') || '';
+      if (referer) {
+        try {
+          const url = new URL(referer);
+          hostname = url.hostname;
+          console.log(`[Companies Route] Extracted hostname from referer: ${hostname}`);
+        } catch (e) {
+          // Ignore URL parsing errors
+        }
+      }
+    }
+    
+    const hostnameLower = hostname.toLowerCase().split(':')[0]; // Remove port if present
+    
+    // Use the hostname without port for backend resolution
+    const forwardedHost = hostnameLower;
+    
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(req.headers.authorization && { Authorization: req.headers.authorization }),
       ...(req.headers['x-company-id'] && { 'X-Company-Id': req.headers['x-company-id'] }),
-      ...(req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['x-forwarded-host'] }),
-      ...(req.headers['host'] && !req.headers['x-forwarded-host'] && { 'X-Forwarded-Host': req.headers['host'] })
+      // Always forward the host header so backend can extract subdomain
+      ...(forwardedHost && { 'X-Forwarded-Host': forwardedHost })
     };
     
     // Forward query parameters (including companyId as fallback)
@@ -45,8 +72,17 @@ router.get('/config', async (req, res) => {
     console.log(`[Companies Route] Request headers from client:`, {
       'x-company-id': req.headers['x-company-id'],
       'host': req.headers['host'],
-      'x-forwarded-host': req.headers['x-forwarded-host']
+      'x-forwarded-host': req.headers['x-forwarded-host'],
+      'x-original-host': req.headers['x-original-host'],
+      'req.get(host)': req.get('host'),
+      'req.get(x-forwarded-host)': req.get('x-forwarded-host'),
+      'req.hostname': req.hostname,
+      'referer': req.get('referer'),
+      'origin': req.get('origin')
     });
+    console.log(`[Companies Route] Extracted hostname: ${hostname}`);
+    console.log(`[Companies Route] Forwarded host to backend: ${forwardedHost}`);
+    console.log(`[Companies Route] X-Forwarded-Host header to backend: ${headers['X-Forwarded-Host'] || 'none'}`);
     console.log(`[Companies Route] X-Company-Id header to backend: ${headers['X-Company-Id'] || 'none'}`);
     console.log(`[Companies Route] Query params:`, queryParams);
     
