@@ -1183,5 +1183,14 @@
     "statusAlreadyFinal": "Booking status cannot be changed further.",
     "nextStatusWillBe": "Next status will be: {{status}}",
     "statusFinal": "Status is final and cannot be changed"
+  },
+  "main": {
+    "selectRentalCompany": "Select Rental Company",
+    "chooseCompanyToVisit": "Choose a company to visit their site",
+    "loadingCompanies": "Loading rental companies...",
+    "noCompaniesAvailable": "No rental companies available",
+    "unableToLoadCompanies": "Unable to load rental companies. Please try accessing a specific company site directly.",
+    "noActiveCompanies": "No active rental companies found. Please contact the administrator.",
+    "visitSite": "Visit Site"
   }
 }

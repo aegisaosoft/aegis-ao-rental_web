@@ -46,6 +46,21 @@ export const CompanyProvider = ({ children }) => {
         setLoading(true);
         setError(null);
 
+        // Check if we're on the main site (no subdomain) - skip API call
+        const hostname = window.location.hostname.toLowerCase();
+        const isMainSite = hostname === 'localhost' || 
+                          hostname === '127.0.0.1' || 
+                          (!hostname.includes('.') && !hostname.includes('localhost')) ||
+                          (hostname.split('.').length <= 2 && !hostname.includes('.localhost'));
+        
+        if (isMainSite) {
+          // Main site - no company config needed, show tenants grid
+          console.log('[CompanyContext] Main site detected, skipping company config load');
+          setLoading(false);
+          setError('Company configuration not available');
+          return;
+        }
+
         let response;
         try {
           response = await apiService.getCurrentCompanyConfig();

@@ -1066,6 +1066,15 @@
     "statusAlreadyFinal": "Der Buchungsstatus kann nicht weiter geändert werden.",
     "nextStatusWillBe": "Der nächste Status wird sein: {{status}}",
     "statusFinal": "Der Status ist endgültig und kann nicht geändert werden"
+  },
+  "main": {
+    "selectRentalCompany": "Mietunternehmen Auswählen",
+    "chooseCompanyToVisit": "Wählen Sie ein Unternehmen aus, um dessen Website zu besuchen",
+    "loadingCompanies": "Mietunternehmen werden geladen...",
+    "noCompaniesAvailable": "Keine Mietunternehmen verfügbar",
+    "unableToLoadCompanies": "Mietunternehmen konnten nicht geladen werden. Bitte versuchen Sie, direkt auf die Website eines bestimmten Unternehmens zuzugreifen.",
+    "noActiveCompanies": "Keine aktiven Mietunternehmen gefunden. Bitte kontaktieren Sie den Administrator.",
+    "visitSite": "Website Besuchen"
   }
 }
 

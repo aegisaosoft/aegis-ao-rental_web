@@ -25,6 +25,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import TenantsGrid from './components/TenantsGrid';
 
 // Pages
 import Home from './pages/Home';
@@ -95,23 +96,7 @@ const AppLayout = () => {
   }
 
   if (error && !companyConfig) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4 text-center">
-        <h1 className="text-2xl font-semibold text-gray-900">We're preparing this site</h1>
-        <p className="mt-4 text-gray-600 max-w-md">
-          {typeof error === 'string'
-            ? error
-            : 'We were unable to load the company configuration. Please try again in a moment.'}
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-6 inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          Retry Loading
-        </button>
-      </div>
-    );
+    return <TenantsGrid />;
   }
 
   return (

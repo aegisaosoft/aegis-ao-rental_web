@@ -1047,6 +1047,15 @@
       "statusAlreadyFinal": "El estado de la reserva no se puede cambiar más.",
       "nextStatusWillBe": "El siguiente estado será: {{status}}",
       "statusFinal": "El estado es final y no se puede cambiar"
+  },
+  "main": {
+    "selectRentalCompany": "Seleccionar Empresa de Alquiler",
+    "chooseCompanyToVisit": "Elija una empresa para visitar su sitio",
+    "loadingCompanies": "Cargando empresas de alquiler...",
+    "noCompaniesAvailable": "No hay empresas de alquiler disponibles",
+    "unableToLoadCompanies": "No se pueden cargar las empresas de alquiler. Intente acceder directamente al sitio de una empresa específica.",
+    "noActiveCompanies": "No se encontraron empresas de alquiler activas. Por favor, contacte al administrador.",
+    "visitSite": "Visitar Sitio"
   }
 }
 

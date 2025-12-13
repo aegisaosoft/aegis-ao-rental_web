@@ -1058,6 +1058,15 @@
     "statusAlreadyFinal": "Le statut de la réservation ne peut plus être modifié.",
     "nextStatusWillBe": "Le prochain statut sera : {{status}}",
     "statusFinal": "Le statut est final et ne peut pas être modifié"
+  },
+  "main": {
+    "selectRentalCompany": "Sélectionner une Entreprise de Location",
+    "chooseCompanyToVisit": "Choisissez une entreprise pour visiter son site",
+    "loadingCompanies": "Chargement des entreprises de location...",
+    "noCompaniesAvailable": "Aucune entreprise de location disponible",
+    "unableToLoadCompanies": "Impossible de charger les entreprises de location. Veuillez essayer d'accéder directement au site d'une entreprise spécifique.",
+    "noActiveCompanies": "Aucune entreprise de location active trouvée. Veuillez contacter l'administrateur.",
+    "visitSite": "Visiter le Site"
   }
 }
 
