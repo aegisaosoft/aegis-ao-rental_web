@@ -317,7 +317,7 @@ export const apiService = {
   getAdminCustomers: (params = {}) => api.get('/admin/customers', { params }),
   getViolations: (params = {}) => api.get('/violations', { params }),
   getFindersList: (params = {}) => api.get('/finderslist', { params }),
-  saveFindersList: (data) => api.post('/finderslist', data.findersList, { params: { companyId: data.companyId } }),
+  saveFindersList: (data) => api.post('/finderslist', { findersList: data.findersList || [] }, { params: { companyId: data.companyId } }),
 
   // Media uploads
   uploadCompanyVideo: (companyId, file, onProgress) => {

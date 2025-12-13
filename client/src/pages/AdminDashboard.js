@@ -2417,7 +2417,7 @@ const AdminDashboard = () => {
   );
 
   // Load finders list configuration
-  const { data: findersListResponse, isLoading: isLoadingFindersList, refetch: refetchFindersList } = useQuery(
+  const { isLoading: isLoadingFindersList, refetch: refetchFindersList } = useQuery(
     ['findersList', currentCompanyId, activeSection, activeViolationsTab],
     () =>
       apiService.getFindersList({
@@ -2435,6 +2435,29 @@ const AdminDashboard = () => {
       onError: (error) => {
         console.error('Error loading finders list:', error);
         // Don't show error toast - empty list is acceptable
+      },
+    }
+  );
+
+  // Mutation for saving finders list
+  const saveFindersListMutation = useMutation(
+    async (stateCodes) => {
+      return await apiService.saveFindersList({
+        companyId: currentCompanyId,
+        findersList: stateCodes,
+      });
+    },
+    {
+      onSuccess: () => {
+        // Silently update the cache
+        queryClient.setQueryData(['findersList', currentCompanyId, activeSection, activeViolationsTab], (oldData) => ({
+          ...oldData,
+          findersList: Array.from(selectedStates),
+        }));
+      },
+      onError: (error) => {
+        console.error('Error saving finders list:', error);
+        toast.error(t('admin.findersListSaveError', 'Failed to save finders list'));
       },
     }
   );
@@ -4662,7 +4685,52 @@ const AdminDashboard = () => {
                row.noticeNumber || row.NoticeNumber || 
                (row.id ? row.id.substring(0, 8) : '-');
       },
-      cell: info => info.getValue(),
+      cell: ({ row }) => {
+        const violationNumber = row.original.violationNumber || row.original.ViolationNumber || 
+                                row.original.citationNumber || row.original.CitationNumber || 
+                                row.original.noticeNumber || row.original.NoticeNumber || 
+                                (row.original.id ? row.original.id.substring(0, 8) : '-');
+        const link = row.original.link || row.original.Link;
+        
+        const handleClick = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Copy to clipboard
+          try {
+            await navigator.clipboard.writeText(violationNumber);
+            toast.success(t('admin.violationNumberCopied', 'Violation number copied to clipboard'));
+          } catch (err) {
+            console.error('Failed to copy:', err);
+            toast.error(t('admin.copyFailed', 'Failed to copy to clipboard'));
+          }
+          
+          // Navigate to link if available
+          if (link) {
+            // Replace {DatasetId} placeholder with violation number if present
+            let finalLink = link;
+            if (link.includes('{DatasetId}') && violationNumber && violationNumber !== '-') {
+              finalLink = link.replace(/{DatasetId}/g, violationNumber);
+            }
+            window.open(finalLink, '_blank', 'noopener,noreferrer');
+          }
+        };
+        
+        if (violationNumber && violationNumber !== '-') {
+          return (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+              title={link ? t('admin.clickToCopyAndOpen', 'Click to copy violation number and open link') : t('admin.clickToCopy', 'Click to copy violation number')}
+            >
+              {violationNumber}
+            </button>
+          );
+        }
+        
+        return <span className="text-gray-400">-</span>;
+      },
     },
     {
       id: 'date',
@@ -4683,15 +4751,29 @@ const AdminDashboard = () => {
       cell: info => info.getValue(),
     },
     {
-      id: 'type',
-      header: t('admin.type', 'Type'),
+      id: 'licensePlate',
+      header: t('admin.licensePlate', 'License Plate'),
       accessorFn: row => {
-        // Use computed Type from DTO, or fallback to agency/fine_type
-        return row.type || row.Type || 
-               row.agency || row.Agency || 
-               (row.fineType ? `Fine Type ${row.fineType}` : '-');
+        // Combine tag (license plate) and state
+        const tag = row.tag || row.Tag || '';
+        const state = row.state || row.State || '';
+        if (tag && state) {
+          return `${tag} ${state}`;
+        } else if (tag) {
+          return tag;
+        } else if (state) {
+          return state;
+        }
+        return '-';
       },
-      cell: info => info.getValue(),
+      cell: info => {
+        const value = info.getValue();
+        return value && value !== '-' ? (
+          <span className="font-mono text-sm">{value}</span>
+        ) : (
+          <span className="text-gray-400">-</span>
+        );
+      },
     },
     {
       id: 'description',
@@ -4745,7 +4827,7 @@ const AdminDashboard = () => {
         );
       },
     },
-  ], [t]);
+  ], [t, formatPrice]);
 
   // Violations table configuration
   const violationsTable = useReactTable({
@@ -6510,15 +6592,34 @@ const AdminDashboard = () => {
                       } else {
                         newSet.add(stateCode);
                       }
+                      
+                      // Auto-save after state change (async, don't block UI)
+                      if (currentCompanyId) {
+                        const stateCodesArray = Array.from(newSet);
+                        // Use setTimeout to ensure state is updated first
+                        setTimeout(() => {
+                          saveFindersListMutation.mutate(stateCodesArray);
+                        }, 0);
+                      }
+                      
                       return newSet;
                     });
                   };
 
                   const handleSelectAll = () => {
-                    if (allSelected) {
-                      setSelectedStates(new Set());
-                    } else {
-                      setSelectedStates(new Set(states.map(s => s.code)));
+                    const newSet = allSelected 
+                      ? new Set() 
+                      : new Set(states.map(s => s.code));
+                    
+                    setSelectedStates(newSet);
+                    
+                    // Auto-save after select all/deselect all
+                    if (currentCompanyId) {
+                      const stateCodesArray = Array.from(newSet);
+                      // Use setTimeout to ensure state is updated first
+                      setTimeout(() => {
+                        saveFindersListMutation.mutate(stateCodesArray);
+                      }, 0);
                     }
                   };
 
@@ -6597,43 +6698,35 @@ const AdminDashboard = () => {
                               })}
                             </div>
 
-                            <div className="mt-6 flex justify-end gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedStates(new Set())}
-                                disabled={isSavingFindersList}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {t('admin.clear', 'Clear')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!currentCompanyId) {
-                                    toast.error(t('admin.companyIdRequired', 'Company ID is required'));
-                                    return;
-                                  }
-                                  
-                                  setIsSavingFindersList(true);
-                                  try {
-                                    await apiService.saveFindersList({
-                                      companyId: currentCompanyId,
-                                      findersList: Array.from(selectedStates),
-                                    });
-                                    toast.success(t('admin.findersListSaved', 'Finders list saved successfully'));
-                                    refetchFindersList();
-                                  } catch (error) {
-                                    console.error('Error saving finders list:', error);
-                                    toast.error(t('admin.findersListSaveError', 'Failed to save finders list'));
-                                  } finally {
-                                    setIsSavingFindersList(false);
-                                  }
-                                }}
-                                disabled={isSavingFindersList || isLoadingFindersList}
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isSavingFindersList ? t('admin.saving', 'Saving...') : t('admin.save', 'Save')}
-                              </button>
+                            <div className="mt-6 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {saveFindersListMutation.isLoading && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <LoadingSpinner size="sm" />
+                                    <span>{t('admin.saving', 'Saving...')}</span>
+                                  </div>
+                                )}
+                                {saveFindersListMutation.isSuccess && !saveFindersListMutation.isLoading && (
+                                  <span className="text-sm text-green-600">
+                                    {t('admin.saved', 'Saved')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-3">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setSelectedStates(new Set());
+                                    if (currentCompanyId) {
+                                      saveFindersListMutation.mutate([]);
+                                    }
+                                  }}
+                                  disabled={saveFindersListMutation.isLoading || isLoadingFindersList}
+                                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {t('admin.clear', 'Clear')}
+                                </button>
+                              </div>
                             </div>
                           </>
                         )}

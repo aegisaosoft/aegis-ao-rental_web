@@ -376,7 +376,9 @@ const apiService = {
     params,
     headers: { Authorization: `Bearer ${token}` }
   }),
-  saveFindersList: (token, data) => apiClient.post('/api/finderslist', data.findersList, {
+  saveFindersList: (token, data) => apiClient.post('/api/finderslist', {
+    findersList: data.findersList || []
+  }, {
     params: { companyId: data.companyId },
     headers: { Authorization: `Bearer ${token}` }
   })

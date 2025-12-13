@@ -83,6 +83,10 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Company ID is required' });
     }
 
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ message: 'Request body must be an object with findersList property' });
+    }
+
     if (!Array.isArray(findersList)) {
       return res.status(400).json({ message: 'Finders list must be an array' });
     }
@@ -90,7 +94,8 @@ router.post('/', authenticateToken, async (req, res) => {
     console.log('[Finders List Route] Saving finders list:', {
       companyId,
       count: findersList.length,
-      hasToken: !!token
+      hasToken: !!token,
+      body: req.body
     });
 
     const response = await apiService.saveFindersList(token, {
@@ -127,6 +132,10 @@ router.put('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Company ID is required' });
     }
 
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ message: 'Request body must be an object with findersList property' });
+    }
+
     if (!Array.isArray(findersList)) {
       return res.status(400).json({ message: 'Finders list must be an array' });
     }
@@ -134,7 +143,8 @@ router.put('/', authenticateToken, async (req, res) => {
     console.log('[Finders List Route] Saving finders list (PUT):', {
       companyId,
       count: findersList.length,
-      hasToken: !!token
+      hasToken: !!token,
+      body: req.body
     });
 
     const response = await apiService.saveFindersList(token, {
