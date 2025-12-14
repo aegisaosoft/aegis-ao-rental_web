@@ -592,8 +592,8 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
-  getViolationsProgress: async (requestId) => {
-    const response = await apiService.getViolationsProgress(requestId);
+  getViolationsProgress: async (companyId) => {
+    const response = await apiService.getViolationsProgress(companyId);
     return translateResponse(response);
   },
   

@@ -19,7 +19,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard, AlertTriangle } from 'lucide-react';
+import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard, AlertTriangle, RefreshCw } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -104,6 +104,13 @@ const AdminDashboard = () => {
   const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard, restoreUser } = useAuth();
   const { companyConfig, formatPrice, currencySymbol, currencyCode, isSubdomainAccess } = useCompany();
   const queryClient = useQueryClient();
+  
+  // Check if company is in USA - violations are only available for USA companies
+  const isUSCompany = useMemo(() => {
+    const country = (companyConfig?.country || '').toLowerCase();
+    return country === 'united states' || country === 'usa' || country === 'us';
+  }, [companyConfig?.country]);
+  
   const [isEditingCompany, setIsEditingCompany] = useState(false);
   const [isEditingDeposit, setIsEditingDeposit] = useState(false);
   const [termsOfUseDraft, setTermsOfUseDraft] = useState('');
@@ -122,18 +129,17 @@ const AdminDashboard = () => {
   const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company', 'pickup', or 'management'
   const [activeViolationsTab, setActiveViolationsTab] = useState('list'); // 'list', 'finders', or 'payment'
   const [selectedStates, setSelectedStates] = useState(new Set()); // Selected state codes for violation finders
-  const [violationsFindingProgress, setViolationsFindingProgress] = useState(null); // { requestId, progress: 0-100, status: 'pending'|'processing'|'completed'|'error' }
-  const [violationsRequestId, setViolationsRequestId] = useState(() => {
-    // Load requestId from sessionStorage on mount
-    try {
-      const stored = sessionStorage.getItem('violationsRequestId');
-      return stored || null;
-    } catch (e) {
-      console.error('Error loading violationsRequestId from sessionStorage:', e);
-      return null;
-    }
-  }); // Request ID for tracking progress
+  const [violationsFindingProgress, setViolationsFindingProgress] = useState(null); // { progress: 0-100, status: 'pending'|'processing'|'completed'|'error' }
   const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
+  
+  // Redirect away from violations section if company is not in USA
+  useEffect(() => {
+    const country = (companyConfig?.country || '').toLowerCase();
+    const isUSA = country === 'united states' || country === 'usa' || country === 'us';
+    if (activeSection === 'violations' && !isUSA) {
+      setActiveSection('company');
+    }
+  }, [activeSection, companyConfig?.country]);
   const tabCaptions = useMemo(
     () => ({
       info: t(
@@ -2417,7 +2423,7 @@ const AdminDashboard = () => {
         pageSize: violationsPageSize,
       }),
     {
-      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && activeViolationsTab === 'list',
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && activeViolationsTab === 'list' && isUSCompany,
       keepPreviousData: true,
       onError: (error) => {
         console.error('Error loading violations:', error);
@@ -2434,7 +2440,7 @@ const AdminDashboard = () => {
         companyId: currentCompanyId,
       }),
     {
-      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations',
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && isUSCompany,
       onError: (error) => {
         console.error('Error loading finders list:', error);
         // Don't show error toast - empty list is acceptable
@@ -2477,88 +2483,183 @@ const AdminDashboard = () => {
     }
   }, [findersListData]);
 
-  // Helper function to save requestId to sessionStorage
-  const saveRequestIdToSession = (requestId) => {
-    try {
-      if (requestId) {
-        sessionStorage.setItem('violationsRequestId', requestId);
-      } else {
-        sessionStorage.removeItem('violationsRequestId');
-      }
-    } catch (e) {
-      console.error('Error saving violationsRequestId to sessionStorage:', e);
-    }
-  };
-
-  // Helper function to remove requestId from sessionStorage
-  const removeRequestIdFromSession = () => {
-    try {
-      sessionStorage.removeItem('violationsRequestId');
-    } catch (e) {
-      console.error('Error removing violationsRequestId from sessionStorage:', e);
-    }
-  };
 
   // Mutation for finding violations from external API - runs in background
   const findViolationsMutation = useMutation(
     async ({ companyId, states, dateFrom, dateTo }) => {
-      // This should return quickly with a requestId, the actual finding runs in background
-      const response = await apiService.findViolations(companyId, states, dateFrom, dateTo);
-      return response;
+      // This starts the violation collection process in background
+      try {
+        const response = await apiService.findViolations(companyId, states, dateFrom, dateTo);
+        // Success response: { requestId, companyId, findersCount, message }
+        return { success: true, response, isAlreadyRunning: false };
+      } catch (error) {
+        // Check if it's the "already in progress" error - this is actually info, not an error
+        const errorData = error.response?.data || error.data || {};
+        const errorMessage = (errorData?.error || errorData?.message || '').toLowerCase();
+        const statusCode = error.response?.status;
+        const isAlreadyRunning = statusCode === 409 ||
+                                errorMessage.includes('already in progress') ||
+                                errorMessage.includes('collection is already') ||
+                                errorMessage.includes('already running');
+        
+        if (isAlreadyRunning) {
+          // Process already running - extract info and treat as success (not error)
+          // Error response format: { error, companyId, requestId, progress, status, startedAt }
+          console.log('Violations finding already in progress - treating as info:', { progress: errorData.progress, status: errorData.status });
+          return { 
+            success: true, 
+            response: { 
+              data: { 
+                progress: errorData.progress || 0,
+                status: errorData.status || 'processing',
+                startedAt: errorData.startedAt
+              } 
+            }, 
+            isAlreadyRunning: true 
+          };
+        }
+        
+        // Check for timeout - might have started but timed out
+        const isTimeout = error.code === 'ECONNABORTED' ||
+                         error.response?.status === 408 ||
+                         error.response?.status === 504 ||
+                         error.message?.toLowerCase().includes('timeout');
+        
+        // Real error - not "already running" and not a timeout
+        return { success: false, error: error.message || 'Unknown error', isAlreadyRunning: false };
+      }
     },
     {
-      onSuccess: (response) => {
-        console.log('Violations finding request submitted:', response.data);
-        // Extract requestId from response
-        const requestId = response?.data?.requestId || response?.data?.RequestId || response?.data?.id || response?.data?.request_id;
+      onSuccess: (result) => {
+        if (!result.success) {
+          // Real error occurred
+          console.error('Violations finding request failed:', result.error);
+          toast.error(t('admin.findViolationsError', 'Failed to start violations finding. Please try again.'));
+          return;
+        }
         
-        if (requestId) {
-          // Start background processing with requestId
-          setViolationsRequestId(requestId);
-          saveRequestIdToSession(requestId);
-          setViolationsFindingProgress({ requestId, progress: 0, status: 'pending' });
-          toast.info(t('admin.violationsFindingStarted', 'Violations finding started in background. Progress will be shown below.'));
+        // Start background processing (job is running in background)
+        // Extract progress info if available
+        const progress = result.response?.data?.progress || 0;
+        const status = result.response?.data?.status || '';
+        
+        // Determine the UI status: if we have status text or progress > 0, it's processing
+        // If result.isAlreadyRunning, it's definitely processing (collection is active)
+        const isProcessing = result.isAlreadyRunning || progress > 0 || (status && status.toLowerCase() !== 'completed' && status.toLowerCase() !== 'error');
+        
+        setViolationsFindingProgress({ 
+          progress: Math.min(100, Math.max(0, progress)), 
+          status: isProcessing ? 'processing' : 'pending' 
+        });
+        
+        if (result.isAlreadyRunning) {
+          // Process already in progress - show info message
+          toast.info(t('admin.violationsFindingAlreadyRunning', 'Violations finding is already in progress. Progress will be shown below.'));
         } else {
-          // If no requestId, assume it completed immediately (legacy behavior)
-          toast.success(t('admin.violationsFound', 'Violations found successfully'));
-          setViolationsSearchTrigger(prev => prev + 1);
+          // New process started
+          toast.info(t('admin.violationsFindingStarted', 'Violations finding started in background. Progress will be shown below.'));
         }
       },
       onError: (error) => {
-        console.error('Error starting violations finding:', error);
-        console.error('Error response data:', error.response?.data);
-        console.error('Error response status:', error.response?.status);
-        console.error('Error response headers:', error.response?.headers);
-        toast.error(t('admin.findViolationsError', 'Failed to start violations finding. Please try again.'));
-        setViolationsFindingProgress(null);
-        setViolationsRequestId(null);
-        removeRequestIdFromSession();
+        // This should not happen now since we catch errors in the mutation function
+        // But keep as fallback
+        console.error('Unexpected error in violations finding mutation:', error);
       },
     }
   );
 
-  // Load requestId from sessionStorage on mount and initialize progress
+  // Check if collection has started when violations section opens
   useEffect(() => {
-    if (violationsRequestId && !violationsFindingProgress) {
-      // If we have a requestId but no progress state, initialize it
-      setViolationsFindingProgress({ requestId: violationsRequestId, progress: 0, status: 'pending' });
+    if (activeSection === 'violations' && currentCompanyId && isUSCompany && !violationsFindingProgress) {
+      // Check if there's an active collection when violations page opens
+      const checkActiveCollection = async () => {
+        try {
+          const response = await apiService.getViolationsProgress(currentCompanyId);
+          const progressData = response?.data || response;
+          
+          // Check if there's an active collection (has progress/status but not completed)
+          const progress = progressData?.progress ?? progressData?.Progress ?? progressData?.ProgressPercentage ?? 0;
+          const status = progressData?.status ?? progressData?.Status ?? progressData?.state ?? '';
+          
+          const isComplete = status?.toLowerCase() === 'completed' || status?.toLowerCase() === 'complete' || progress >= 100;
+          const isError = status?.toLowerCase() === 'error' || status?.toLowerCase() === 'failed' || status?.toLowerCase() === 'failure';
+          
+          // If there's progress data and it's not completed/error, collection is active
+          if ((progress > 0 || status) && !isComplete && !isError) {
+            console.log('Active violations collection found on page open:', { progress, status });
+            setViolationsFindingProgress({
+              progress: Math.min(100, Math.max(0, progress)),
+              status: 'processing',
+            });
+          } else if (status && !isComplete && !isError) {
+            // Has status but no progress yet - collection might be starting
+            console.log('Violations collection status found on page open (pending):', { status });
+            setViolationsFindingProgress({
+              progress: 0,
+              status: 'processing', // Set to processing if we have status (collection is active)
+            });
+          }
+        } catch (error) {
+          // Check if it's a timeout or network error - these are common when collection is running
+          // Different browsers may report timeouts differently
+          const errorMessage = (error.message || '').toLowerCase();
+          const isTimeout = error.code === 'ECONNABORTED' ||
+                           error.code === 'ETIMEDOUT' ||
+                           error.response?.status === 408 ||
+                           error.response?.status === 504 ||
+                           errorMessage.includes('timeout') ||
+                           errorMessage.includes('network error') ||
+                           errorMessage.includes('networkerror');
+          
+          // Also check for 409 (conflict) which might indicate collection is running
+          const isConflict = error.response?.status === 409;
+          
+          if (isTimeout || isConflict) {
+            // Timeout or conflict on initial check - assume collection might be running
+            // Set pending state so polling will check and UI shows progress bar + disabled button
+            console.log('Timeout/conflict checking for active collection on page open - assuming active and will poll to confirm:', { 
+              isTimeout, 
+              isConflict, 
+              status: error.response?.status,
+              message: error.message 
+            });
+            setViolationsFindingProgress({
+              progress: 0,
+              status: 'pending', // Start with pending, polling will update to processing if confirmed
+            });
+          } else {
+            // Other error (not timeout) - might be 404 (no collection) or other error
+            // Only log, don't set progress state (no active collection)
+            console.log('No active violations collection found (or error):', { 
+              status: error.response?.status, 
+              message: error.message 
+            });
+          }
+        }
+      };
+      
+      checkActiveCollection();
     }
-  }, [violationsRequestId, violationsFindingProgress]);
+  }, [activeSection, currentCompanyId, isUSCompany, violationsFindingProgress]);
 
-  // Poll for progress when requestId is set - runs in background
+  // Poll for progress when violations section is active - runs in background
   useEffect(() => {
-    if (!violationsRequestId) return;
+    // Start polling if we're in violations section and have companyId
+    // We check progress by companyId
+    if (activeSection !== 'violations' || !currentCompanyId || !isUSCompany) return;
 
     let intervalId;
     let isMounted = true;
     let consecutiveErrors = 0;
-    const MAX_CONSECUTIVE_ERRORS = 5; // Stop polling after 5 consecutive errors
+    let consecutiveNoData = 0; // Track consecutive responses with no data (resets when we get data)
+    const MAX_CONSECUTIVE_ERRORS = 5; // Stop polling after 5 consecutive errors (not timeouts)
+    const MAX_CONSECUTIVE_NO_DATA = 3; // Stop polling after 3 consecutive responses with no data (if not pending status)
 
     const pollProgress = async () => {
       if (!isMounted) return;
 
       try {
-        const response = await apiService.getViolationsProgress(violationsRequestId);
+        const response = await apiService.getViolationsProgress(currentCompanyId);
         consecutiveErrors = 0; // Reset error counter on success
         
         const progressData = response?.data;
@@ -2568,11 +2669,38 @@ const AdminDashboard = () => {
         const isError = status?.toLowerCase() === 'error' || status?.toLowerCase() === 'failed' || status?.toLowerCase() === 'failure';
 
         if (isMounted) {
-          setViolationsFindingProgress({
-            requestId: violationsRequestId,
-            progress: Math.min(100, Math.max(0, progress)),
-            status: isComplete ? 'completed' : isError ? 'error' : 'processing',
-          });
+          // Update progress if we have data
+          const hasProgressData = progress > 0 || status;
+          const currentStatus = violationsFindingProgress?.status;
+          
+          if (hasProgressData) {
+            // We have progress data - update it and reset no-data counter
+            consecutiveNoData = 0;
+            setViolationsFindingProgress({
+              progress: Math.min(100, Math.max(0, progress)),
+              status: isComplete ? 'completed' : isError ? 'error' : 'processing',
+            });
+          } else {
+            // No progress data in response
+            consecutiveNoData++;
+            
+            // If we're in pending status, keep polling (collection might be starting)
+            // Otherwise, stop after a few consecutive no-data responses
+            if (currentStatus === 'pending') {
+              // Keep polling - collection might still be initializing
+              return;
+            } else if (consecutiveNoData >= MAX_CONSECUTIVE_NO_DATA) {
+              // No data after multiple checks - stop polling and clear progress
+              console.log('No active violations collection found after multiple checks');
+              if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+              }
+              setViolationsFindingProgress(null);
+              return;
+            }
+            // Otherwise, continue polling (haven't hit max no-data yet)
+          }
         }
 
         if (isComplete) {
@@ -2584,12 +2712,10 @@ const AdminDashboard = () => {
           if (isMounted) {
             toast.success(t('admin.violationsFound', 'Violations found successfully'));
             setViolationsSearchTrigger(prev => prev + 1);
-            // Clear progress and remove from sessionStorage
+            // Clear progress
             setTimeout(() => {
               if (isMounted) {
                 setViolationsFindingProgress(null);
-                setViolationsRequestId(null);
-                removeRequestIdFromSession();
               }
             }, 3000);
           }
@@ -2604,25 +2730,60 @@ const AdminDashboard = () => {
             setTimeout(() => {
               if (isMounted) {
                 setViolationsFindingProgress(null);
-                setViolationsRequestId(null);
-                removeRequestIdFromSession();
               }
             }, 3000);
           }
         }
       } catch (error) {
-        consecutiveErrors++;
-        console.error(`Error checking violations progress (attempt ${consecutiveErrors}):`, error);
+        // Check if it's a timeout or network error - don't count these as errors, just continue polling
+        // Different browsers may report these differently
+        const errorMessage = (error.message || '').toLowerCase();
+        const isTimeout = error.code === 'ECONNABORTED' || 
+                         error.code === 'ETIMEDOUT' ||
+                         errorMessage.includes('timeout') ||
+                         errorMessage.includes('network error') ||
+                         errorMessage.includes('networkerror') ||
+                         error.response?.status === 408 ||
+                         error.response?.status === 504;
         
-        // Stop polling after too many consecutive errors
+        if (isTimeout) {
+          // Timeout - just log and continue polling (don't count as error)
+          // Timeouts are expected when collection is running (API might be slow)
+          // If we're in pending status, keep it (means we detected collection might be running)
+          // If we're in processing, also keep it (collection is confirmed running)
+          if (isMounted) {
+            const currentStatus = violationsFindingProgress?.status;
+            if (currentStatus === 'pending' || currentStatus === 'processing') {
+              // Keep current status - collection is likely still running
+              consecutiveErrors = 0;
+              consecutiveNoData = 0; // Don't count timeouts as no-data
+              return; // Continue polling
+            } else if (!violationsFindingProgress) {
+              // No progress state yet but we got timeout - might be starting, set pending
+              setViolationsFindingProgress({ progress: 0, status: 'pending' });
+              consecutiveErrors = 0;
+              consecutiveNoData = 0;
+              return;
+            }
+          }
+          consecutiveErrors = 0; // Reset error counter on timeout - don't treat as error
+          consecutiveNoData = 0; // Don't count timeouts as no-data
+          return; // Continue polling
+        }
+        
+        consecutiveErrors++;
+        console.warn(`Error checking violations progress (attempt ${consecutiveErrors}):`, error);
+        
+        // Stop polling after too many consecutive errors (but not timeouts)
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          console.error('Too many consecutive errors, stopping progress polling');
+          console.warn('Too many consecutive errors (not timeouts), stopping progress polling');
           if (intervalId) {
             clearInterval(intervalId);
             intervalId = null;
           }
           if (isMounted) {
-            toast.error(t('admin.findViolationsProgressError', 'Unable to check progress. The violations finding may still be running in the background.'));
+            // Don't show error toast - background job might still be running
+            console.log('Progress polling stopped, but background job may still be running');
             // Keep progress bar visible but mark as uncertain
             setViolationsFindingProgress(prev => prev ? { ...prev, status: 'uncertain' } : null);
           }
@@ -2630,8 +2791,8 @@ const AdminDashboard = () => {
       }
     };
 
-    // Poll every 2 seconds
-    intervalId = setInterval(pollProgress, 2000);
+    // Poll every 3 seconds (longer interval to reduce timeout issues)
+    intervalId = setInterval(pollProgress, 3000);
     // Initial poll after a short delay to allow backend to initialize
     setTimeout(pollProgress, 1000);
 
@@ -2641,7 +2802,7 @@ const AdminDashboard = () => {
         clearInterval(intervalId);
       }
     };
-  }, [violationsRequestId, t]);
+  }, [activeSection, currentCompanyId, isUSCompany, t]);
 
   // Mutation for saving finders list
   const saveFindersListMutation = useMutation(
@@ -4544,7 +4705,7 @@ const AdminDashboard = () => {
   const actualCompanyData = companyData?.data || companyData;
 
   // Get states for company's country (for vehicle state dropdown)
-  const companyCountry = actualCompanyData?.country || actualCompanyData?.Country || '';
+  const companyCountry = actualCompanyData?.country || actualCompanyData?.Country || companyConfig?.country || '';
   const statesForCompanyCountry = useMemo(() => {
     return getStatesForCountry(companyCountry);
   }, [companyCountry]);
@@ -5177,21 +5338,23 @@ const AdminDashboard = () => {
                 <span className="text-xs text-center">{t('admin.reservations')}</span>
               </button>
               
-              {/* Violations - All roles can see */}
-              <button
-                onClick={() => setActiveSection('violations')}
-                className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
-                  activeSection === 'violations'
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                disabled={isEditing}
-                title={t('admin.violations', 'Violations')}
-                aria-label={t('admin.violations', 'Violations')}
-              >
-                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-                <span className="text-xs text-center">{t('admin.violations', 'Violations')}</span>
-              </button>
+              {/* Violations - Only visible for USA companies */}
+              {isUSCompany && (
+                <button
+                  onClick={() => setActiveSection('violations')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'violations'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.violations', 'Violations')}
+                  aria-label={t('admin.violations', 'Violations')}
+                >
+                  <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-xs text-center">{t('admin.violations', 'Violations')}</span>
+                </button>
+              )}
               
               {/* Vehicles (Daily Rates) - All roles can see (workers: view only) */}
               <button
@@ -6609,8 +6772,8 @@ const AdminDashboard = () => {
             </Card>
           )}
 
-          {/* Violations Section */}
-          {activeSection === 'violations' && (
+          {/* Violations Section - Only show for USA companies */}
+          {activeSection === 'violations' && isUSCompany && (
             <div className="space-y-6">
               <Card title={t('admin.violations', 'Violations')}>
                 {/* Tab Navigation */}
@@ -6753,13 +6916,55 @@ const AdminDashboard = () => {
                               ? t('admin.violationsFindingError', 'Finding violations failed')
                               : violationsFindingProgress.status === 'uncertain'
                               ? t('admin.violationsFindingUncertain', 'Finding violations in progress (status unknown)')
+                              : violationsFindingProgress.status === 'pending'
+                              ? t('admin.violationsFindingInProgress', 'Finding violations in progress...')
                               : t('admin.violationsFindingInProgress', 'Finding violations in progress...')}
                           </span>
-                          <span className="text-sm text-blue-700">
-                            {violationsFindingProgress.status === 'uncertain' 
-                              ? '...' 
-                              : `${Math.round(violationsFindingProgress.progress)}%`}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-blue-700">
+                              {violationsFindingProgress.status === 'uncertain' 
+                                ? '...' 
+                                : `${Math.round(violationsFindingProgress.progress)}%`}
+                            </span>
+                            {violationsFindingProgress && violationsFindingProgress.status !== 'completed' && violationsFindingProgress.status !== 'error' && currentCompanyId && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!currentCompanyId) {
+                                    toast.error(t('admin.companyIdRequired', 'Company ID is required'));
+                                    return;
+                                  }
+                                  try {
+                                    const response = await apiService.getViolationsProgress(currentCompanyId);
+                                    const progressData = response?.data;
+                                    const progress = progressData?.progress ?? progressData?.Progress ?? progressData?.ProgressPercentage ?? 0;
+                                    const status = progressData?.status ?? progressData?.Status ?? progressData?.state ?? 'processing';
+                                    const isComplete = status?.toLowerCase() === 'completed' || status?.toLowerCase() === 'complete' || progress >= 100;
+                                    const isError = status?.toLowerCase() === 'error' || status?.toLowerCase() === 'failed' || status?.toLowerCase() === 'failure';
+                                    
+                                    setViolationsFindingProgress(prev => ({
+                                      ...prev,
+                                      progress: Math.min(100, Math.max(0, progress)),
+                                      status: isComplete ? 'completed' : isError ? 'error' : 'processing',
+                                    }));
+                                    
+                                    if (isComplete) {
+                                      toast.success(t('admin.violationsFound', 'Violations found successfully'));
+                                      setViolationsSearchTrigger(prev => prev + 1);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error checking progress:', error);
+                                    toast.error(t('admin.progressCheckError', 'Failed to check progress. Please try again.'));
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1"
+                                title={t('admin.checkProgress', 'Check Progress')}
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                {t('admin.checkProgress', 'Check')}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="w-full bg-blue-200 rounded-full h-2.5">
                           <div
@@ -6775,6 +6980,8 @@ const AdminDashboard = () => {
                             style={{ 
                               width: violationsFindingProgress.status === 'uncertain' 
                                 ? '100%' 
+                                : violationsFindingProgress.status === 'pending'
+                                ? '0%'
                                 : `${Math.min(100, Math.max(0, violationsFindingProgress.progress))}%` 
                             }}
                           ></div>

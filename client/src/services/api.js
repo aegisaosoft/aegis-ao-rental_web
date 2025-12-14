@@ -334,9 +334,10 @@ export const apiService = {
     return api.post(`/violations/find/${companyId}`, body);
   },
   // Get violations finding progress - proxied through backend to avoid CORS
-  getViolationsProgress: (requestId) => {
+  getViolationsProgress: (companyId) => {
     // Use backend proxy endpoint to avoid CORS issues
-    return api.get(`/violations/progress/${requestId}`);
+    // Endpoint: /api/violations/progress/company/{companyId}
+    return api.get(`/violations/progress/company/${companyId}`);
   },
   getFindersList: (params = {}) => api.get('/finderslist', { params }),
   saveFindersList: (data) => api.post('/finderslist', { findersList: data.findersList || [] }, { params: { companyId: data.companyId } }),
