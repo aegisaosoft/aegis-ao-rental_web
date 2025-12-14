@@ -2543,7 +2543,7 @@ const AdminDashboard = () => {
       // If we have a requestId but no progress state, initialize it
       setViolationsFindingProgress({ requestId: violationsRequestId, progress: 0, status: 'pending' });
     }
-  }, [violationsRequestId]);
+  }, [violationsRequestId, violationsFindingProgress]);
 
   // Poll for progress when requestId is set - runs in background
   useEffect(() => {
