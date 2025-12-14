@@ -132,12 +132,19 @@ router.post('/find/:companyId', authenticateToken, async (req, res) => {
       dateTo
     });
 
+    // Get token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
     // Create axios instance for external API
     const externalApi = axios.create({
       baseURL: EXTERNAL_VIOLATIONS_API,
       timeout: 10000, // Short timeout since this should return quickly with requestId
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`, // Include authentication token
       },
     });
 
@@ -225,12 +232,19 @@ router.get('/progress/:requestId', authenticateToken, async (req, res) => {
       requestId
     });
 
+    // Get token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
     // Create axios instance for external API
     const externalApi = axios.create({
       baseURL: EXTERNAL_VIOLATIONS_API,
       timeout: 10000, // 10 second timeout for progress checks
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`, // Include authentication token
       },
     });
 
@@ -242,6 +256,60 @@ router.get('/progress/:requestId', authenticateToken, async (req, res) => {
     console.error('[Violations Route] Error getting violations progress:', error.message);
     console.error('[Violations Route] Error response:', error.response?.data);
     console.error('[Violations Route] Error status:', error.response?.status);
+
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to get violations progress',
+      error: error.message,
+    });
+  }
+});
+
+// Get violations finding progress by company ID (newer endpoint)
+router.get('/progress/company/:companyId', authenticateToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    console.log('[Violations Route] Getting violations progress by company:', {
+      companyId
+    });
+
+    // Get token from authenticateToken middleware (req.token) - it gets it from session
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Create axios instance for external API
+    const externalApi = axios.create({
+      baseURL: EXTERNAL_VIOLATIONS_API,
+      timeout: 30000, // Longer timeout for progress checks (API might be slow)
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`, // Include authentication token
+      },
+    });
+
+    const response = await externalApi.get(`/api/Violations/progress/company/${companyId}`);
+
+    console.log('[Violations Route] Progress response status:', response.status);
+    res.json(response.data);
+  } catch (error) {
+    console.error('[Violations Route] Error getting violations progress by company:', error.message);
+    console.error('[Violations Route] Error response:', error.response?.data);
+    console.error('[Violations Route] Error status:', error.response?.status);
+
+    // Handle timeout errors gracefully (don't return error to client)
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      console.log('[Violations Route] Timeout checking progress - returning empty response');
+      return res.status(408).json({
+        message: 'Progress check timed out',
+        timeout: true
+      });
+    }
 
     res.status(error.response?.status || 500).json({
       message: error.response?.data?.message || 'Failed to get violations progress',

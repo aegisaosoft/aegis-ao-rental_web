@@ -2519,13 +2519,7 @@ const AdminDashboard = () => {
           };
         }
         
-        // Check for timeout - might have started but timed out
-        const isTimeout = error.code === 'ECONNABORTED' ||
-                         error.response?.status === 408 ||
-                         error.response?.status === 504 ||
-                         error.message?.toLowerCase().includes('timeout');
-        
-        // Real error - not "already running" and not a timeout
+        // Real error - not "already running"
         return { success: false, error: error.message || 'Unknown error', isAlreadyRunning: false };
       }
     },
@@ -2671,7 +2665,6 @@ const AdminDashboard = () => {
         if (isMounted) {
           // Update progress if we have data
           const hasProgressData = progress > 0 || status;
-          const currentStatus = violationsFindingProgress?.status;
           
           if (hasProgressData) {
             // We have progress data - update it and reset no-data counter
@@ -2684,12 +2677,8 @@ const AdminDashboard = () => {
             // No progress data in response
             consecutiveNoData++;
             
-            // If we're in pending status, keep polling (collection might be starting)
-            // Otherwise, stop after a few consecutive no-data responses
-            if (currentStatus === 'pending') {
-              // Keep polling - collection might still be initializing
-              return;
-            } else if (consecutiveNoData >= MAX_CONSECUTIVE_NO_DATA) {
+            // Check if we should stop polling based on consecutive no-data responses
+            if (consecutiveNoData >= MAX_CONSECUTIVE_NO_DATA) {
               // No data after multiple checks - stop polling and clear progress
               console.log('No active violations collection found after multiple checks');
               if (intervalId) {
@@ -2699,7 +2688,9 @@ const AdminDashboard = () => {
               setViolationsFindingProgress(null);
               return;
             }
-            // Otherwise, continue polling (haven't hit max no-data yet)
+            
+            // Continue polling - if status is pending, it will be handled by checking progress
+            // No need to update state here, just continue polling
           }
         }
 
@@ -2749,22 +2740,17 @@ const AdminDashboard = () => {
         if (isTimeout) {
           // Timeout - just log and continue polling (don't count as error)
           // Timeouts are expected when collection is running (API might be slow)
-          // If we're in pending status, keep it (means we detected collection might be running)
-          // If we're in processing, also keep it (collection is confirmed running)
+          // Use functional update to check current state without needing it in dependencies
           if (isMounted) {
-            const currentStatus = violationsFindingProgress?.status;
-            if (currentStatus === 'pending' || currentStatus === 'processing') {
-              // Keep current status - collection is likely still running
-              consecutiveErrors = 0;
-              consecutiveNoData = 0; // Don't count timeouts as no-data
-              return; // Continue polling
-            } else if (!violationsFindingProgress) {
+            setViolationsFindingProgress(prev => {
+              const currentStatus = prev?.status;
+              // If we already have pending/processing status, keep it
+              if (currentStatus === 'pending' || currentStatus === 'processing') {
+                return prev; // Return unchanged - collection is likely still running
+              }
               // No progress state yet but we got timeout - might be starting, set pending
-              setViolationsFindingProgress({ progress: 0, status: 'pending' });
-              consecutiveErrors = 0;
-              consecutiveNoData = 0;
-              return;
-            }
+              return prev || { progress: 0, status: 'pending' };
+            });
           }
           consecutiveErrors = 0; // Reset error counter on timeout - don't treat as error
           consecutiveNoData = 0; // Don't count timeouts as no-data
@@ -2802,6 +2788,10 @@ const AdminDashboard = () => {
         clearInterval(intervalId);
       }
     };
+    // violationsFindingProgress is intentionally excluded from dependencies
+    // Including it would cause the effect to restart on every progress update, resetting the polling interval
+    // We use functional updates (setState with callback) to access current state values instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, currentCompanyId, isUSCompany, t]);
 
   // Mutation for saving finders list
