@@ -586,6 +586,17 @@ export const translatedApiService = {
     const response = await apiService.getViolations(params);
     return translateResponse(response);
   },
+  
+  findViolations: async (companyId, states, dateFrom, dateTo) => {
+    const response = await apiService.findViolations(companyId, states, dateFrom, dateTo);
+    return translateResponse(response);
+  },
+  
+  getViolationsProgress: async (requestId) => {
+    const response = await apiService.getViolationsProgress(requestId);
+    return translateResponse(response);
+  },
+  
   getFindersList: async (params = {}) => {
     const response = await apiService.getFindersList(params);
     return translateResponse(response);

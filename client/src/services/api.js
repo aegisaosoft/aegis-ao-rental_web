@@ -316,6 +316,28 @@ export const apiService = {
   getAdminReservations: (params = {}) => api.get('/admin/reservations', { params }),
   getAdminCustomers: (params = {}) => api.get('/admin/customers', { params }),
   getViolations: (params = {}) => api.get('/violations', { params }),
+  // External violations finder API - proxied through backend to avoid CORS
+  // Returns immediately with requestId, processing runs in background
+  findViolations: (companyId, states, dateFrom, dateTo) => {
+    const body = {};
+    if (states && Array.isArray(states) && states.length > 0) {
+      body.states = states;
+    }
+    if (dateFrom) {
+      body.dateFrom = dateFrom;
+    }
+    if (dateTo) {
+      body.dateTo = dateTo;
+    }
+    
+    // Use backend proxy endpoint to avoid CORS issues
+    return api.post(`/violations/find/${companyId}`, body);
+  },
+  // Get violations finding progress - proxied through backend to avoid CORS
+  getViolationsProgress: (requestId) => {
+    // Use backend proxy endpoint to avoid CORS issues
+    return api.get(`/violations/progress/${requestId}`);
+  },
   getFindersList: (params = {}) => api.get('/finderslist', { params }),
   saveFindersList: (data) => api.post('/finderslist', { findersList: data.findersList || [] }, { params: { companyId: data.companyId } }),
 

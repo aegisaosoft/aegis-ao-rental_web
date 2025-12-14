@@ -1182,7 +1182,19 @@
     "damageAmountExceedsDeposit": "Damage amount cannot exceed security deposit of {{amount}}.",
     "statusAlreadyFinal": "Booking status cannot be changed further.",
     "nextStatusWillBe": "Next status will be: {{status}}",
-    "statusFinal": "Status is final and cannot be changed"
+          "statusFinal": "Status is final and cannot be changed",
+          "findViolations": "Find Violations",
+          "violationsFound": "Violations found successfully",
+          "findViolationsError": "Failed to find violations. Please try again.",
+          "noStatesSelected": "Please configure states in Configure Finders tab first",
+          "violationsFindingInProgress": "Finding violations in progress...",
+          "violationsFindingCompleted": "Finding violations completed",
+          "violationsFindingError": "Finding violations failed",
+          "violationsFindingPleaseWait": "Please wait while we search for violations in the background...",
+          "violationsFindingStarted": "Violations finding started in background. Progress will be shown below.",
+          "violationsFindingUncertain": "Finding violations in progress (status unknown)",
+          "violationsFindingUncertainMessage": "Progress check unavailable. The search may still be running in the background.",
+          "findViolationsProgressError": "Unable to check progress. The violations finding may still be running in the background."
   },
   "main": {
     "selectRentalCompany": "Select Rental Company",

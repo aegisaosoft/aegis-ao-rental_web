@@ -122,6 +122,17 @@ const AdminDashboard = () => {
   const [activeLocationSubTab, setActiveLocationSubTab] = useState('company'); // 'company', 'pickup', or 'management'
   const [activeViolationsTab, setActiveViolationsTab] = useState('list'); // 'list', 'finders', or 'payment'
   const [selectedStates, setSelectedStates] = useState(new Set()); // Selected state codes for violation finders
+  const [violationsFindingProgress, setViolationsFindingProgress] = useState(null); // { requestId, progress: 0-100, status: 'pending'|'processing'|'completed'|'error' }
+  const [violationsRequestId, setViolationsRequestId] = useState(() => {
+    // Load requestId from sessionStorage on mount
+    try {
+      const stored = sessionStorage.getItem('violationsRequestId');
+      return stored || null;
+    } catch (e) {
+      console.error('Error loading violationsRequestId from sessionStorage:', e);
+      return null;
+    }
+  }); // Request ID for tracking progress
   const [activeSection, setActiveSection] = useState(initialTab); // 'company', 'vehicles', 'reservations', 'additionalServices', 'employees', 'reports', etc.
   const tabCaptions = useMemo(
     () => ({
@@ -2415,28 +2426,222 @@ const AdminDashboard = () => {
     }
   );
 
-  // Load finders list configuration
-  const { isLoading: isLoadingFindersList } = useQuery(
-    ['findersList', currentCompanyId, activeSection, activeViolationsTab],
+  // Load finders list configuration - load it when on violations section (any tab) so we can use it for Find Violations button
+  const { data: findersListData, isLoading: isLoadingFindersList } = useQuery(
+    ['findersList', currentCompanyId, activeSection],
     () =>
       apiService.getFindersList({
         companyId: currentCompanyId,
       }),
     {
-      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations' && activeViolationsTab === 'finders',
-      onSuccess: (data) => {
-        // Initialize selected states from loaded data
-        const findersList = data?.findersList || data?.FindersList || [];
-        if (Array.isArray(findersList) && findersList.length > 0) {
-          setSelectedStates(new Set(findersList));
-        }
-      },
+      enabled: isAuthenticated && !!currentCompanyId && activeSection === 'violations',
       onError: (error) => {
         console.error('Error loading finders list:', error);
         // Don't show error toast - empty list is acceptable
       },
     }
   );
+
+  // Update selectedStates whenever findersListData changes
+  useEffect(() => {
+    if (findersListData) {
+      // Try multiple possible property names
+      const findersList = findersListData?.findersList || 
+                         findersListData?.FindersList || 
+                         findersListData?.data?.findersList ||
+                         findersListData?.data?.FindersList ||
+                         [];
+      
+      console.log('[Finders List] Loaded data:', {
+        findersListData,
+        findersList,
+        isArray: Array.isArray(findersList),
+        length: Array.isArray(findersList) ? findersList.length : 0,
+        rawData: JSON.stringify(findersListData)
+      });
+      
+      if (Array.isArray(findersList) && findersList.length > 0) {
+        console.log('[Finders List] Setting selected states:', findersList);
+        const statesSet = new Set(findersList);
+        console.log('[Finders List] States set created:', Array.from(statesSet));
+        setSelectedStates(statesSet);
+      } else if (Array.isArray(findersList) && findersList.length === 0) {
+        // Explicitly clear if empty array is returned
+        console.log('[Finders List] Clearing selected states (empty array)');
+        setSelectedStates(new Set());
+      } else {
+        console.warn('[Finders List] Invalid data format:', findersList);
+      }
+    } else {
+      console.log('[Finders List] No data available yet');
+    }
+  }, [findersListData]);
+
+  // Helper function to save requestId to sessionStorage
+  const saveRequestIdToSession = (requestId) => {
+    try {
+      if (requestId) {
+        sessionStorage.setItem('violationsRequestId', requestId);
+      } else {
+        sessionStorage.removeItem('violationsRequestId');
+      }
+    } catch (e) {
+      console.error('Error saving violationsRequestId to sessionStorage:', e);
+    }
+  };
+
+  // Helper function to remove requestId from sessionStorage
+  const removeRequestIdFromSession = () => {
+    try {
+      sessionStorage.removeItem('violationsRequestId');
+    } catch (e) {
+      console.error('Error removing violationsRequestId from sessionStorage:', e);
+    }
+  };
+
+  // Mutation for finding violations from external API - runs in background
+  const findViolationsMutation = useMutation(
+    async ({ companyId, states, dateFrom, dateTo }) => {
+      // This should return quickly with a requestId, the actual finding runs in background
+      const response = await apiService.findViolations(companyId, states, dateFrom, dateTo);
+      return response;
+    },
+    {
+      onSuccess: (response) => {
+        console.log('Violations finding request submitted:', response.data);
+        // Extract requestId from response
+        const requestId = response?.data?.requestId || response?.data?.RequestId || response?.data?.id || response?.data?.request_id;
+        
+        if (requestId) {
+          // Start background processing with requestId
+          setViolationsRequestId(requestId);
+          saveRequestIdToSession(requestId);
+          setViolationsFindingProgress({ requestId, progress: 0, status: 'pending' });
+          toast.info(t('admin.violationsFindingStarted', 'Violations finding started in background. Progress will be shown below.'));
+        } else {
+          // If no requestId, assume it completed immediately (legacy behavior)
+          toast.success(t('admin.violationsFound', 'Violations found successfully'));
+          setViolationsSearchTrigger(prev => prev + 1);
+        }
+      },
+      onError: (error) => {
+        console.error('Error starting violations finding:', error);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response headers:', error.response?.headers);
+        toast.error(t('admin.findViolationsError', 'Failed to start violations finding. Please try again.'));
+        setViolationsFindingProgress(null);
+        setViolationsRequestId(null);
+        removeRequestIdFromSession();
+      },
+    }
+  );
+
+  // Load requestId from sessionStorage on mount and initialize progress
+  useEffect(() => {
+    if (violationsRequestId && !violationsFindingProgress) {
+      // If we have a requestId but no progress state, initialize it
+      setViolationsFindingProgress({ requestId: violationsRequestId, progress: 0, status: 'pending' });
+    }
+  }, [violationsRequestId]);
+
+  // Poll for progress when requestId is set - runs in background
+  useEffect(() => {
+    if (!violationsRequestId) return;
+
+    let intervalId;
+    let isMounted = true;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5; // Stop polling after 5 consecutive errors
+
+    const pollProgress = async () => {
+      if (!isMounted) return;
+
+      try {
+        const response = await apiService.getViolationsProgress(violationsRequestId);
+        consecutiveErrors = 0; // Reset error counter on success
+        
+        const progressData = response?.data;
+        const progress = progressData?.progress ?? progressData?.Progress ?? progressData?.ProgressPercentage ?? 0;
+        const status = progressData?.status ?? progressData?.Status ?? progressData?.state ?? 'processing';
+        const isComplete = status?.toLowerCase() === 'completed' || status?.toLowerCase() === 'complete' || progress >= 100;
+        const isError = status?.toLowerCase() === 'error' || status?.toLowerCase() === 'failed' || status?.toLowerCase() === 'failure';
+
+        if (isMounted) {
+          setViolationsFindingProgress({
+            requestId: violationsRequestId,
+            progress: Math.min(100, Math.max(0, progress)),
+            status: isComplete ? 'completed' : isError ? 'error' : 'processing',
+          });
+        }
+
+        if (isComplete) {
+          // Progress complete
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          if (isMounted) {
+            toast.success(t('admin.violationsFound', 'Violations found successfully'));
+            setViolationsSearchTrigger(prev => prev + 1);
+            // Clear progress and remove from sessionStorage
+            setTimeout(() => {
+              if (isMounted) {
+                setViolationsFindingProgress(null);
+                setViolationsRequestId(null);
+                removeRequestIdFromSession();
+              }
+            }, 3000);
+          }
+        } else if (isError) {
+          // Error occurred
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          if (isMounted) {
+            toast.error(t('admin.findViolationsError', 'Failed to find violations. Please try again.'));
+            setTimeout(() => {
+              if (isMounted) {
+                setViolationsFindingProgress(null);
+                setViolationsRequestId(null);
+                removeRequestIdFromSession();
+              }
+            }, 3000);
+          }
+        }
+      } catch (error) {
+        consecutiveErrors++;
+        console.error(`Error checking violations progress (attempt ${consecutiveErrors}):`, error);
+        
+        // Stop polling after too many consecutive errors
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.error('Too many consecutive errors, stopping progress polling');
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          if (isMounted) {
+            toast.error(t('admin.findViolationsProgressError', 'Unable to check progress. The violations finding may still be running in the background.'));
+            // Keep progress bar visible but mark as uncertain
+            setViolationsFindingProgress(prev => prev ? { ...prev, status: 'uncertain' } : null);
+          }
+        }
+      }
+    };
+
+    // Poll every 2 seconds
+    intervalId = setInterval(pollProgress, 2000);
+    // Initial poll after a short delay to allow backend to initialize
+    setTimeout(pollProgress, 1000);
+
+    return () => {
+      isMounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [violationsRequestId, t]);
 
   // Mutation for saving finders list
   const saveFindersListMutation = useMutation(
@@ -2449,7 +2654,7 @@ const AdminDashboard = () => {
     {
       onSuccess: () => {
         // Silently update the cache
-        queryClient.setQueryData(['findersList', currentCompanyId, activeSection, activeViolationsTab], (oldData) => ({
+        queryClient.setQueryData(['findersList', currentCompanyId, activeSection], (oldData) => ({
           ...oldData,
           findersList: Array.from(selectedStates),
         }));
@@ -6490,7 +6695,102 @@ const AdminDashboard = () => {
                           </>
                         )}
                       </button>
+                      <button
+                        type="button"
+                        className="btn-primary px-6 bg-blue-600 hover:bg-blue-700"
+                        onClick={async () => {
+                          if (!currentCompanyId) {
+                            toast.error(t('admin.companyIdRequired', 'Company ID is required'));
+                            return;
+                          }
+                          
+                          // Get states from finders list
+                          const findersList = findersListData?.findersList || findersListData?.FindersList || [];
+                          const states = Array.isArray(findersList) && findersList.length > 0 
+                            ? findersList 
+                            : Array.from(selectedStates);
+                          
+                          if (!states || states.length === 0) {
+                            toast.warning(t('admin.noStatesSelected', 'Please configure states in Configure Finders tab first'));
+                            return;
+                          }
+                          
+                          // Use selected dates or default to last 30 days
+                          const dateFrom = violationsDateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                          const dateTo = violationsDateTo || new Date().toISOString().split('T')[0];
+                          
+                          findViolationsMutation.mutate({
+                            companyId: currentCompanyId,
+                            states,
+                            dateFrom,
+                            dateTo,
+                          });
+                        }}
+                        disabled={findViolationsMutation.isLoading || !currentCompanyId || (violationsFindingProgress && violationsFindingProgress.status !== 'completed' && violationsFindingProgress.status !== 'error')}
+                      >
+                        {findViolationsMutation.isLoading ? (
+                          <>
+                            <span className="animate-spin inline-block mr-2">⟳</span>
+                            {t('common.loading', 'Loading...')}
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 inline-block mr-2" />
+                            {t('admin.findViolations', 'Find Violations')}
+                          </>
+                        )}
+                      </button>
                     </div>
+
+                    {/* Progress Bar for Finding Violations */}
+                    {violationsFindingProgress && (
+                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-blue-900">
+                            {violationsFindingProgress.status === 'completed' 
+                              ? t('admin.violationsFindingCompleted', 'Finding violations completed')
+                              : violationsFindingProgress.status === 'error'
+                              ? t('admin.violationsFindingError', 'Finding violations failed')
+                              : violationsFindingProgress.status === 'uncertain'
+                              ? t('admin.violationsFindingUncertain', 'Finding violations in progress (status unknown)')
+                              : t('admin.violationsFindingInProgress', 'Finding violations in progress...')}
+                          </span>
+                          <span className="text-sm text-blue-700">
+                            {violationsFindingProgress.status === 'uncertain' 
+                              ? '...' 
+                              : `${Math.round(violationsFindingProgress.progress)}%`}
+                          </span>
+                        </div>
+                        <div className="w-full bg-blue-200 rounded-full h-2.5">
+                          <div
+                            className={`h-2.5 rounded-full transition-all duration-300 ${
+                              violationsFindingProgress.status === 'completed'
+                                ? 'bg-green-500'
+                                : violationsFindingProgress.status === 'error'
+                                ? 'bg-red-500'
+                                : violationsFindingProgress.status === 'uncertain'
+                                ? 'bg-yellow-500'
+                                : 'bg-blue-600'
+                            }`}
+                            style={{ 
+                              width: violationsFindingProgress.status === 'uncertain' 
+                                ? '100%' 
+                                : `${Math.min(100, Math.max(0, violationsFindingProgress.progress))}%` 
+                            }}
+                          ></div>
+                        </div>
+                        {violationsFindingProgress.status === 'processing' && (
+                          <p className="text-xs text-blue-600 mt-2">
+                            {t('admin.violationsFindingPleaseWait', 'Please wait while we search for violations in the background...')}
+                          </p>
+                        )}
+                        {violationsFindingProgress.status === 'uncertain' && (
+                          <p className="text-xs text-yellow-600 mt-2">
+                            {t('admin.violationsFindingUncertainMessage', 'Progress check unavailable. The search may still be running in the background.')}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Violations Table */}
                     {isLoadingViolations ? (
@@ -6582,6 +6882,15 @@ const AdminDashboard = () => {
                   const states = getStatesForCountry(companyCountry);
                   const allSelected = states.length > 0 && selectedStates.size === states.length;
                   const someSelected = selectedStates.size > 0 && selectedStates.size < states.length;
+                  
+                  // Debug log when finders tab is rendered
+                  console.log('[Finders Tab] Rendering with:', {
+                    selectedStates: Array.from(selectedStates),
+                    selectedStatesSize: selectedStates.size,
+                    statesCount: states.length,
+                    findersListData,
+                    companyCountry
+                  });
 
                   const handleStateToggle = (stateCode) => {
                     setSelectedStates(prev => {

@@ -405,7 +405,7 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
   
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
-    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/mock'];
+    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/mock', '/api/violations', '/api/finderslist'];
     // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
     if (req.originalUrl.startsWith('/api/DriverLicense') ||
         skipPaths.some(path => req.originalUrl.startsWith(path))) {
