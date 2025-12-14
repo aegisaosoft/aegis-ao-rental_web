@@ -75,17 +75,19 @@ const TenantsGrid = () => {
     if (subdomain) {
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
-      // Replace current hostname with subdomain
-      let baseHost = hostname.replace(/^[^.]+\./, '').replace(/^localhost/, 'localhost');
       
-      // If baseHost is 'aegis-rental.com', replace it with just 'com' to generate <subdomain>.com
-      if (baseHost === 'aegis-rental.com') {
-        baseHost = 'com';
-      }
-      
-      if (baseHost === 'localhost' || baseHost.includes('localhost')) {
+      // Handle localhost development
+      if (hostname === 'localhost' || hostname.includes('localhost')) {
         return `${protocol}//${subdomain}.localhost:${window.location.port}`;
       }
+      
+      // For production: if we're on aegis-rental.com or a subdomain of it, use aegis-rental.com as base
+      if (hostname === 'aegis-rental.com' || hostname.endsWith('.aegis-rental.com')) {
+        return `${protocol}//${subdomain}.aegis-rental.com`;
+      }
+      
+      // For other domains, extract base host and construct subdomain URL
+      const baseHost = hostname.replace(/^[^.]+\./, '');
       return `${protocol}//${subdomain}.${baseHost}`;
     }
     if (companyPath) {
