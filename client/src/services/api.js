@@ -361,6 +361,24 @@ export const apiService = {
   },
   deleteCompanyVideo: (companyId) => api.delete(`/Media/companies/${companyId}/video`),
 
+  // Customer License Images
+  uploadCustomerLicenseImage: (customerId, side, file, onProgress) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    return api.post(`/Media/customers/${customerId}/licenses/${side}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percentCompleted);
+        }
+      },
+    });
+  },
+
   // Stripe Connect - using same API functions as admin app
   setupStripeAccount: (companyId) => api.post(`/companies/${companyId}/stripe/setup?source=web`),
   getStripeAccountStatus: (companyId) => api.get(`/companies/${companyId}/stripe/status?source=web`),

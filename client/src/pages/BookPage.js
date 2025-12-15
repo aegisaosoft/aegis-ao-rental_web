@@ -2641,7 +2641,7 @@ const BookPage = () => {
       setWizardLoading(true);
       setWizardError('');
 
-      // Register user (without driver license images for now, can be enhanced later)
+      // Register user
       const registerResponse = await registerUser({
         email: wizardFormData.email.trim().toLowerCase(),
         password: wizardFormData.password,
@@ -2655,6 +2655,36 @@ const BookPage = () => {
       }
 
       await handleAuthSuccess(userData);
+      
+      // Get customer ID from registered user
+      const registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
+      
+      // Upload driver license images if we have them
+      if (registeredCustomerId && (wizardFormData.driverLicenseFront || wizardFormData.driverLicenseBack)) {
+        try {
+          if (wizardFormData.driverLicenseFront) {
+            await apiService.uploadCustomerLicenseImage(
+              registeredCustomerId,
+              'front',
+              wizardFormData.driverLicenseFront
+            );
+            toast.success(t('bookPage.frontPhotoSaved', 'Front photo saved!'));
+          }
+          if (wizardFormData.driverLicenseBack) {
+            await apiService.uploadCustomerLicenseImage(
+              registeredCustomerId,
+              'back',
+              wizardFormData.driverLicenseBack
+            );
+            toast.success(t('bookPage.backPhotoSaved', 'Back photo saved!'));
+          }
+        } catch (uploadError) {
+          console.error('Error uploading license images:', uploadError);
+          // Don't fail the registration if image upload fails, just log it
+          toast.warning(t('bookPage.licenseUploadWarning', 'Account created but license images could not be uploaded. You can add them later.'));
+        }
+      }
+      
       setIsCreateUserWizardOpen(false);
       setWizardStep(1);
       setWizardFormData({
@@ -2664,6 +2694,18 @@ const BookPage = () => {
         phoneNumber: '',
         password: '',
         confirmPassword: '',
+        driverLicenseFront: null,
+        driverLicenseBack: null,
+      });
+      
+      // Clean up image previews
+      if (wizardImagePreviews.driverLicenseFront) {
+        URL.revokeObjectURL(wizardImagePreviews.driverLicenseFront);
+      }
+      if (wizardImagePreviews.driverLicenseBack) {
+        URL.revokeObjectURL(wizardImagePreviews.driverLicenseBack);
+      }
+      setWizardImagePreviews({
         driverLicenseFront: null,
         driverLicenseBack: null,
       });
@@ -2708,15 +2750,22 @@ const BookPage = () => {
     const origin = window.location.origin;
     const wizardId = `wizard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
+    // Get customer ID from user if available (user might have registered already)
+    const customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
+    
     // Store wizard form data temporarily in sessionStorage for mobile page to retrieve
     sessionStorage.setItem(`wizardData-${wizardId}`, JSON.stringify({
       email: wizardFormData.email,
       firstName: wizardFormData.firstName,
       lastName: wizardFormData.lastName,
+      customerId: customerId,
     }));
     
     // Create URL to DriverLicensePhoto page
-    const qrUrl = `${origin}/driver-license-photo?wizardId=${wizardId}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    let qrUrl = `${origin}/driver-license-photo?wizardId=${wizardId}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    if (customerId) {
+      qrUrl += `&customerId=${encodeURIComponent(customerId)}`;
+    }
     setWizardQRUrl(qrUrl);
     setShowWizardQRCode(true);
   };
