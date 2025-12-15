@@ -17,7 +17,6 @@ const MobileScan = () => {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
   const isWizardMode = searchParams.get('wizard') === 'true';
-  const wizardId = searchParams.get('wizardId') || '';
   
   // Check if company has BlinkID key configured
   const hasBlinkKey = companyConfig?.blinkKey || 
