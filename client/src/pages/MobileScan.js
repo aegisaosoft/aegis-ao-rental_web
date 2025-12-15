@@ -16,6 +16,8 @@ const MobileScan = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+  const isWizardMode = searchParams.get('wizard') === 'true';
+  const wizardId = searchParams.get('wizardId') || '';
   
   // Check if company has BlinkID key configured
   const hasBlinkKey = companyConfig?.blinkKey || 
@@ -608,9 +610,11 @@ const MobileScan = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 relative">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Driver License Scan</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          {isWizardMode ? 'Take Driver License Photo' : 'Driver License Scan'}
+        </h1>
 
         {/* File input - always in DOM so file remains accessible */}
         <input
@@ -668,12 +672,30 @@ const MobileScan = () => {
 
         {status === 'ready' && (
           <div className="space-y-4">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg"
-            >
-              Open Camera
-            </button>
+            <div className="bg-gray-800 rounded-lg p-6 text-center">
+              <p className="text-gray-300 mb-6">
+                {isWizardMode 
+                  ? 'Take a clear photo of your driver license. You\'ll need to take photos of both the front and back sides.'
+                  : 'Click the button below to open your camera and take a photo of your driver license.'}
+              </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg"
+              >
+                Open Camera
+              </button>
+              {isWizardMode && (
+                <button
+                  onClick={() => {
+                    const returnTo = searchParams.get('returnTo') || '/';
+                    navigate(returnTo);
+                  }}
+                  className="w-full mt-3 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg"
+                >
+                  Close
+                </button>
+              )}
+            </div>
             {error && (
               <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
                 {error}
@@ -739,9 +761,25 @@ const MobileScan = () => {
         {status === 'success' && (
           <div className="space-y-4 text-center">
             <div className="bg-green-900 text-green-100 p-6 rounded-lg">
-              <p className="text-lg font-bold">✓ Upload Successful!</p>
-              <p className="text-sm mt-2">Closing page...</p>
-              <p className="text-xs mt-2 text-green-200">If the page doesn't close automatically, please close it manually.</p>
+              <p className="text-lg font-bold">✓ {isWizardMode ? 'Photo Saved!' : 'Upload Successful!'}</p>
+              <p className="text-sm mt-2">
+                {isWizardMode 
+                  ? 'Your photo has been saved. You can now take the other side or return to the wizard.'
+                  : 'Closing page...'}
+              </p>
+              {isWizardMode ? (
+                <button
+                  onClick={() => {
+                    const returnTo = searchParams.get('returnTo') || '/';
+                    navigate(returnTo);
+                  }}
+                  className="w-full mt-4 bg-green-700 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg"
+                >
+                  Return to Wizard
+                </button>
+              ) : (
+                <p className="text-xs mt-2 text-green-200">If the page doesn't close automatically, please close it manually.</p>
+              )}
             </div>
           </div>
         )}

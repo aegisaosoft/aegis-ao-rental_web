@@ -40,7 +40,8 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
 
@@ -561,6 +562,33 @@ const BookPage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [authReason, setAuthReason] = useState(null); // 'checkout' or 'license'
+
+  // Wizard state for Create User
+  const [isCreateUserWizardOpen, setIsCreateUserWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardFormData, setWizardFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    password: '',
+    confirmPassword: '',
+    driverLicenseFront: null,
+    driverLicenseBack: null,
+  });
+  const [wizardImagePreviews, setWizardImagePreviews] = useState({
+    driverLicenseFront: null,
+    driverLicenseBack: null,
+  });
+  const [wizardLoading, setWizardLoading] = useState(false);
+  const [wizardError, setWizardError] = useState('');
+  const [showWizardQRCode, setShowWizardQRCode] = useState(false);
+  const [wizardQRUrl, setWizardQRUrl] = useState('');
+  
+  // Mobile detection
+  const isMobile = React.useMemo(() => {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  }, []);
 
   
 
@@ -2504,6 +2532,256 @@ const BookPage = () => {
 
   };
 
+  // Wizard handlers
+  const handleWizardInputChange = (e) => {
+    const { name, value } = e.target;
+    setWizardFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setWizardError('');
+  };
+
+  const handleWizardFileChange = (e, fieldName) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setWizardError(t('bookPage.invalidImageFile', 'Please upload an image file'));
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setWizardError(t('bookPage.fileTooLarge', 'File size must be less than 5MB'));
+        return;
+      }
+      setWizardFormData(prev => ({
+        ...prev,
+        [fieldName]: file
+      }));
+      const previewUrl = URL.createObjectURL(file);
+      const previewKey = fieldName === 'driverLicenseFront' ? 'driverLicenseFront' : 'driverLicenseBack';
+      setWizardImagePreviews(prev => ({
+        ...prev,
+        [previewKey]: previewUrl
+      }));
+      setWizardError('');
+    }
+  };
+
+  const removeWizardImage = (fieldName) => {
+    setWizardFormData(prev => ({
+      ...prev,
+      [fieldName]: null
+    }));
+    const previewKey = fieldName === 'driverLicenseFront' ? 'driverLicenseFront' : 'driverLicenseBack';
+    if (wizardImagePreviews[previewKey]) {
+      URL.revokeObjectURL(wizardImagePreviews[previewKey]);
+    }
+    setWizardImagePreviews(prev => ({
+      ...prev,
+      [previewKey]: null
+    }));
+  };
+
+  const handleWizardNext = () => {
+    if (wizardStep === 2) {
+      // Validate personal information
+      if (!wizardFormData.firstName.trim()) {
+        setWizardError(t('bookPage.firstNameRequired', 'First Name is required'));
+        return;
+      }
+      if (!wizardFormData.lastName.trim()) {
+        setWizardError(t('bookPage.lastNameRequired', 'Last Name is required'));
+        return;
+      }
+      if (!wizardFormData.email.trim()) {
+        setWizardError(t('bookPage.emailRequired', 'Email is required'));
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(wizardFormData.email)) {
+        setWizardError(t('bookPage.invalidEmail', 'Please enter a valid email address'));
+        return;
+      }
+      if (!wizardFormData.phoneNumber.trim()) {
+        setWizardError(t('bookPage.phoneRequired', 'Phone Number is required'));
+        return;
+      }
+      if (!wizardFormData.password) {
+        setWizardError(t('bookPage.passwordRequired', 'Password is required'));
+        return;
+      }
+      if (wizardFormData.password !== wizardFormData.confirmPassword) {
+        setWizardError(t('bookPage.passwordMismatch', 'Passwords do not match'));
+        return;
+      }
+    }
+    if (wizardStep === 3) {
+      // Validate driver license images
+      if (!wizardFormData.driverLicenseFront) {
+        setWizardError(t('bookPage.driverLicenseFrontRequired', 'Driver License Front Image is required'));
+        return;
+      }
+      if (!wizardFormData.driverLicenseBack) {
+        setWizardError(t('bookPage.driverLicenseBackRequired', 'Driver License Back Image is required'));
+        return;
+      }
+    }
+    setWizardStep(wizardStep + 1);
+    setWizardError('');
+  };
+
+  const handleWizardPrevious = () => {
+    setWizardStep(wizardStep - 1);
+    setWizardError('');
+  };
+
+  const handleWizardSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setWizardLoading(true);
+      setWizardError('');
+
+      // Register user (without driver license images for now, can be enhanced later)
+      const registerResponse = await registerUser({
+        email: wizardFormData.email.trim().toLowerCase(),
+        password: wizardFormData.password,
+        firstName: wizardFormData.firstName.trim(),
+        lastName: wizardFormData.lastName.trim()
+      });
+
+      const userData = registerResponse?.result?.user || registerResponse?.user || null;
+      if (!userData) {
+        throw new Error('Register response missing user data');
+      }
+
+      await handleAuthSuccess(userData);
+      setIsCreateUserWizardOpen(false);
+      setWizardStep(1);
+      setWizardFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phoneNumber: '',
+        password: '',
+        confirmPassword: '',
+        driverLicenseFront: null,
+        driverLicenseBack: null,
+      });
+    } catch (error) {
+      setWizardError(error.response?.data?.message || t('auth.registrationFailed') || 'Unable to create account.');
+    } finally {
+      setWizardLoading(false);
+    }
+  };
+
+  const handleCloseWizard = () => {
+    if (wizardLoading) return;
+    setIsCreateUserWizardOpen(false);
+    setWizardStep(1);
+    setWizardError('');
+    setShowWizardQRCode(false);
+    setWizardFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      password: '',
+      confirmPassword: '',
+      driverLicenseFront: null,
+      driverLicenseBack: null,
+    });
+    // Clean up image previews
+    if (wizardImagePreviews.driverLicenseFront) {
+      URL.revokeObjectURL(wizardImagePreviews.driverLicenseFront);
+    }
+    if (wizardImagePreviews.driverLicenseBack) {
+      URL.revokeObjectURL(wizardImagePreviews.driverLicenseBack);
+    }
+    setWizardImagePreviews({
+      driverLicenseFront: null,
+      driverLicenseBack: null,
+    });
+  };
+
+  const handleShowWizardQRCode = () => {
+    // Generate QR code URL for mobile camera upload
+    const origin = window.location.origin;
+    const wizardId = `wizard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Store wizard form data temporarily in sessionStorage for mobile page to retrieve
+    sessionStorage.setItem(`wizardData-${wizardId}`, JSON.stringify({
+      email: wizardFormData.email,
+      firstName: wizardFormData.firstName,
+      lastName: wizardFormData.lastName,
+    }));
+    
+    // Create URL to DriverLicensePhoto page
+    const qrUrl = `${origin}/driver-license-photo?wizardId=${wizardId}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    setWizardQRUrl(qrUrl);
+    setShowWizardQRCode(true);
+  };
+
+  // Listen for messages from mobile page (when images are uploaded)
+  React.useEffect(() => {
+    if (!isCreateUserWizardOpen || wizardStep !== 3) return;
+
+    const checkForWizardImages = () => {
+      // Check all sessionStorage keys for wizard images
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('wizardImage-')) {
+          try {
+            const imageData = JSON.parse(sessionStorage.getItem(key));
+            
+            if (imageData.side === 'front' && !wizardImagePreviews.driverLicenseFront) {
+              // Convert base64 to blob
+              fetch(imageData.dataUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                  const file = new File([blob], 'driver-license-front.jpg', { type: 'image/jpeg' });
+                  const previewUrl = URL.createObjectURL(file);
+                  setWizardFormData(prev => ({ ...prev, driverLicenseFront: file }));
+                  setWizardImagePreviews(prev => ({ ...prev, driverLicenseFront: previewUrl }));
+                  sessionStorage.removeItem(key);
+                });
+            } else if (imageData.side === 'back' && !wizardImagePreviews.driverLicenseBack) {
+              fetch(imageData.dataUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                  const file = new File([blob], 'driver-license-back.jpg', { type: 'image/jpeg' });
+                  const previewUrl = URL.createObjectURL(file);
+                  setWizardFormData(prev => ({ ...prev, driverLicenseBack: file }));
+                  setWizardImagePreviews(prev => ({ ...prev, driverLicenseBack: previewUrl }));
+                  sessionStorage.removeItem(key);
+                });
+            }
+          } catch (e) {
+            console.error('Error parsing wizard image data:', e);
+          }
+        }
+      }
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key && e.key.startsWith('wizardImage-')) {
+        checkForWizardImages();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Check periodically (storage event doesn't fire in same tab/window)
+    const interval = setInterval(checkForWizardImages, 1000);
+
+    // Initial check
+    checkForWizardImages();
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [isCreateUserWizardOpen, wizardStep, wizardImagePreviews]);
+
 
 
   if (!make || !model) {
@@ -2629,6 +2907,27 @@ const BookPage = () => {
 
 
 
+              {/* Create User section - shown when not authenticated */}
+              {!isAuthenticated && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                    {t('bookPage.createAccount', 'Create Account')}
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {t('bookPage.createAccountHelper', 'Please create an account to complete your booking.')}
+                  </p>
+                  <button
+                    onClick={() => setIsCreateUserWizardOpen(true)}
+                    className="w-full btn-primary flex items-center justify-center gap-2 py-3"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                    {t('bookPage.createUser', 'Create User')}
+                  </button>
+                </div>
+              )}
+
+              {/* TEMPORARILY HIDDEN: Driver License Information form */}
+              {false && (
               <div className="bg-white rounded-lg shadow-md p-6">
 
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">
@@ -2674,6 +2973,7 @@ const BookPage = () => {
                 </button>
 
               </div>
+              )}
 
             </div>
 
@@ -2952,9 +3252,15 @@ const BookPage = () => {
 
                       className="w-full btn-primary py-3 text-lg"
 
-                      disabled={checkoutLoading || availableVehiclesCount === 0}
+                      disabled={checkoutLoading || availableVehiclesCount === 0 || !isAuthenticated}
 
-                      title={availableVehiclesCount === 0 ? t('bookPage.unavailable') || 'Unavailable' : ''}
+                      title={
+                        !isAuthenticated 
+                          ? t('bookPage.createAccountHelper', 'Please create an account to complete your booking.')
+                          : availableVehiclesCount === 0 
+                            ? t('bookPage.unavailable') || 'Unavailable' 
+                            : ''
+                      }
 
                     >
 
@@ -4060,6 +4366,503 @@ const BookPage = () => {
 
         </div>
 
+      )}
+
+      {/* Create User Wizard Modal */}
+      {isCreateUserWizardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={handleCloseWizard} />
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={handleCloseWizard}
+              className="absolute right-4 top-4 z-10 rounded-full p-2 text-gray-500 hover:bg-gray-100 transition-colors"
+              disabled={wizardLoading}
+              title={t('common.close', 'Close')}
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Progress Indicator */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+              <div className="flex items-center justify-between">
+                {[1, 2, 3, 4].map((step) => (
+                  <React.Fragment key={step}>
+                    <div className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                        wizardStep === step 
+                          ? 'bg-blue-600 text-white' 
+                          : wizardStep > step 
+                            ? 'bg-green-500 text-white' 
+                            : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {wizardStep > step ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          step
+                        )}
+                      </div>
+                      <span className="mt-2 text-xs text-gray-600">
+                        {step === 1 ? t('bookPage.wizardStep1', 'Welcome') :
+                         step === 2 ? t('bookPage.wizardStep2', 'Personal Info') :
+                         step === 3 ? t('bookPage.wizardStep3', 'License Photos') :
+                         t('bookPage.wizardStep4', 'Confirm')}
+                      </span>
+                    </div>
+                    {step < 4 && (
+                      <div className={`flex-1 h-1 mx-2 ${
+                        wizardStep > step ? 'bg-green-500' : 'bg-gray-200'
+                      }`} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleWizardSubmit} className="p-6">
+              {wizardError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {wizardError}
+                </div>
+              )}
+
+              {/* Step 1: Welcome */}
+              {wizardStep === 1 && (
+                <div className="text-center py-8">
+                  <div className="mb-6">
+                    <UserPlus className="h-16 w-16 text-blue-600 mx-auto" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    {t('bookPage.wizardWelcome', 'Welcome!')}
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    {t('bookPage.wizardWelcomeText', 'Thank you for choosing our service. We\'re excited to have you on board!')}
+                  </p>
+                  <p className="text-gray-700 mb-6">
+                    {t('bookPage.wizardWelcomeInstruction', 'Before you start, please prepare your driver\'s license. You\'ll need to take photos of both the front and back sides.')}
+                  </p>
+                  <div className="space-y-3 text-left max-w-md mx-auto">
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <Check className="h-5 w-5 text-green-500" />
+                      <span>{t('bookPage.wizardCheck1', 'Have your driver\'s license ready')}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <Check className="h-5 w-5 text-green-500" />
+                      <span>{t('bookPage.wizardCheck2', 'Ensure good lighting for photos')}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <Check className="h-5 w-5 text-green-500" />
+                      <span>{t('bookPage.wizardCheck3', 'This will only take 2-3 minutes')}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-center mt-8">
+                    <button
+                      type="button"
+                      onClick={handleCloseWizard}
+                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                      disabled={wizardLoading}
+                    >
+                      {t('common.cancel', 'Cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleWizardNext}
+                      className="btn-primary px-8 py-3 flex items-center gap-2"
+                      disabled={wizardLoading}
+                    >
+                      {t('bookPage.getStarted', 'Get Started')}
+                      <ArrowRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Personal Information */}
+              {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    {t('bookPage.personalInformation', 'Personal Information')}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.firstName', 'First Name')} *
+                      </label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={wizardFormData.firstName}
+                        onChange={handleWizardInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.lastName', 'Last Name')} *
+                      </label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={wizardFormData.lastName}
+                        onChange={handleWizardInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.phoneNumber', 'Phone Number')} *
+                      </label>
+                      <input
+                        type="tel"
+                        name="phoneNumber"
+                        value={wizardFormData.phoneNumber}
+                        onChange={handleWizardInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="(123) 456-7890"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.email', 'Email')} *
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={wizardFormData.email}
+                        onChange={handleWizardInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.password', 'Password')} *
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={wizardFormData.password}
+                      onChange={handleWizardInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.confirmPassword', 'Confirm Password')} *
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={wizardFormData.confirmPassword}
+                      onChange={handleWizardInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={handleWizardPrevious}
+                      className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      disabled={wizardLoading}
+                    >
+                      <ArrowLeft className="h-4 w-4 inline mr-2" />
+                      {t('common.back', 'Back')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleWizardNext}
+                      className="flex-1 btn-primary py-2"
+                      disabled={wizardLoading}
+                    >
+                      {t('common.next', 'Next')}
+                      <ArrowRight className="h-4 w-4 inline ml-2" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Driver License Photos */}
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {t('bookPage.driverLicensePhotos', 'Driver License Photos')}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    {isMobile 
+                      ? t('bookPage.driverLicensePhotosHelper', 'Please upload clear photos of both sides of your driver\'s license')
+                      : t('bookPage.driverLicensePhotosHelperDesktop', 'Use your phone to take photos. Scan the QR code below or use the button to upload from your computer.')
+                    }
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.driverLicenseFront', 'Driver License Front')} *
+                      </label>
+                      {wizardImagePreviews.driverLicenseFront ? (
+                        <div className="relative">
+                          <img 
+                            src={wizardImagePreviews.driverLicenseFront} 
+                            alt="Driver license front" 
+                            className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeWizardImage('driverLicenseFront')}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture={isMobile ? "environment" : undefined}
+                            onChange={(e) => handleWizardFileChange(e, 'driverLicenseFront')}
+                            className="hidden"
+                          />
+                          <div className="text-center">
+                            {isMobile ? (
+                              <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            ) : (
+                              <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            )}
+                            <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
+                          </div>
+                        </label>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('bookPage.driverLicenseBack', 'Driver License Back')} *
+                      </label>
+                      {wizardImagePreviews.driverLicenseBack ? (
+                        <div className="relative">
+                          <img 
+                            src={wizardImagePreviews.driverLicenseBack} 
+                            alt="Driver license back" 
+                            className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeWizardImage('driverLicenseBack')}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture={isMobile ? "environment" : undefined}
+                            onChange={(e) => handleWizardFileChange(e, 'driverLicenseBack')}
+                            className="hidden"
+                          />
+                          <div className="text-center">
+                            {isMobile ? (
+                              <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            ) : (
+                              <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            )}
+                            <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop QR Code Button */}
+                  {!isMobile && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={handleShowWizardQRCode}
+                        className="w-full btn-primary flex items-center justify-center gap-2 py-3"
+                      >
+                        <QrCode className="h-5 w-5" />
+                        {t('bookPage.usePhoneCamera', 'Use Phone Camera')}
+                      </button>
+                      <p className="text-xs text-gray-600 mt-2 text-center">
+                        {t('bookPage.qrCodeHelper', 'Scan QR code with your phone to take photos with your camera')}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={handleWizardPrevious}
+                      className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      disabled={wizardLoading}
+                    >
+                      <ArrowLeft className="h-4 w-4 inline mr-2" />
+                      {t('common.back', 'Back')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleWizardNext}
+                      className="flex-1 btn-primary py-2"
+                      disabled={wizardLoading}
+                    >
+                      {t('common.next', 'Next')}
+                      <ArrowRight className="h-4 w-4 inline ml-2" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Confirmation */}
+              {wizardStep === 4 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    {t('bookPage.confirmRegistration', 'Confirm Your Registration')}
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    {t('bookPage.confirmRegistrationText', 'Please review your information before submitting.')}
+                  </p>
+
+                  <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.firstName', 'First Name')}:</span>
+                      <p className="text-gray-900">{wizardFormData.firstName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.lastName', 'Last Name')}:</span>
+                      <p className="text-gray-900">{wizardFormData.lastName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.email', 'Email')}:</span>
+                      <p className="text-gray-900">{wizardFormData.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.phoneNumber', 'Phone Number')}:</span>
+                      <p className="text-gray-900">{wizardFormData.phoneNumber}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.driverLicenseFront', 'Driver License Front')}:</span>
+                      {wizardImagePreviews.driverLicenseFront && (
+                        <img 
+                          src={wizardImagePreviews.driverLicenseFront} 
+                          alt="Driver license front" 
+                          className="mt-2 w-32 h-20 object-cover rounded border border-gray-300"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">{t('bookPage.driverLicenseBack', 'Driver License Back')}:</span>
+                      {wizardImagePreviews.driverLicenseBack && (
+                        <img 
+                          src={wizardImagePreviews.driverLicenseBack} 
+                          alt="Driver license back" 
+                          className="mt-2 w-32 h-20 object-cover rounded border border-gray-300"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={handleCloseWizard}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                      disabled={wizardLoading}
+                    >
+                      {t('common.cancel', 'Cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleWizardPrevious}
+                      className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      disabled={wizardLoading}
+                    >
+                      <ArrowLeft className="h-4 w-4 inline mr-2" />
+                      {t('common.back', 'Back')}
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 btn-primary py-2"
+                      disabled={wizardLoading}
+                    >
+                      {wizardLoading ? (
+                        <>
+                          <span className="animate-spin inline-block mr-2">⟳</span>
+                          {t('bookPage.creatingAccount', 'Creating Account...')}
+                        </>
+                      ) : (
+                        <>
+                          {t('bookPage.submitRegistration', 'Submit Registration')}
+                          <Check className="h-4 w-4 inline ml-2" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Wizard QR Code Modal */}
+      {showWizardQRCode && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowWizardQRCode(false)} />
+          <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowWizardQRCode(false)}
+              className="absolute right-4 top-4 rounded-full p-2 text-gray-500 hover:bg-gray-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {t('bookPage.scanQRCode', 'Scan QR Code')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {t('bookPage.scanQRCodeHelper', 'Scan this QR code with your phone to take photos with your camera')}
+              </p>
+              
+              <div className="flex justify-center mb-4 p-4 bg-white rounded-lg border border-gray-200">
+                <QRCodeSVG value={wizardQRUrl} size={256} level="M" includeMargin={true} />
+              </div>
+              
+              <p className="text-xs text-gray-500 mb-4">
+                {t('bookPage.qrCodeNote', 'Open your phone camera and point it at the QR code, or use a QR code scanner app')}
+              </p>
+              
+              <a
+                href={wizardQRUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                {t('bookPage.openLinkDirectly', 'Or open link directly')}
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
 

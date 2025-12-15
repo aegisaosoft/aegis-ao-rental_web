@@ -55,6 +55,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Locations from './pages/Locations';
 import QRCodePage from './pages/QRCodePage';
+import DriverLicensePhoto from './pages/DriverLicensePhoto';
 import VehicleLocations from './pages/VehicleLocations';
 import StripeOnboardingComplete from './pages/StripeOnboardingComplete';
 
@@ -112,6 +113,7 @@ const AppLayout = () => {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/locations" element={<Locations />} />
           <Route path="/qrcode" element={<QRCodePage />} />
+          <Route path="/driver-license-photo" element={<DriverLicensePhoto />} />
           <Route path="/vehicles/:id" element={<VehicleDetail />} />
           <Route path="/book" element={<BookPage />} />
           <Route path="/booking/:vehicleId" element={<Booking />} />
