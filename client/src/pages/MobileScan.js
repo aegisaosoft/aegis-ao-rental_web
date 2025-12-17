@@ -4,6 +4,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { Camera, X, CreditCard } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useCompany } from '../context/CompanyContext';
 
@@ -13,9 +14,15 @@ const MobileScan = () => {
   const { companyConfig } = useCompany();
   const [status, setStatus] = useState('prompt'); // prompt, ready, preview, uploading, success
   const [imagePreview, setImagePreview] = useState('');
+  const [frontImage, setFrontImage] = useState(null);
+  const [backImage, setBackImage] = useState(null);
+  const [frontPreview, setFrontPreview] = useState(null);
+  const [backPreview, setBackPreview] = useState(null);
+  const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back'
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
+  const frontInputRef = useRef(null);
+  const backInputRef = useRef(null);
   const isWizardMode = searchParams.get('wizard') === 'true';
   
   // Check if company has BlinkID key configured
@@ -254,7 +261,7 @@ const MobileScan = () => {
     }
   }, [searchParams]);
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = async (e, side) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -320,260 +327,95 @@ const MobileScan = () => {
         userId: { ref: userIdRef.current, localStorage: localStorage.getItem('userId') }
       });
       
-      setImagePreview(reader.result);
-      setStatus('preview');
+      if (side === 'front') {
+        setFrontImage(file);
+        setFrontPreview(reader.result);
+      } else {
+        setBackImage(file);
+        setBackPreview(reader.result);
+      }
+      
+      // Auto-upload after selecting
+      handleUpload(file, side).catch(err => {
+        console.error('Error in handleUpload:', err);
+      });
+      
       setError('');
     };
     reader.readAsDataURL(file);
   };
 
-  const handleUpload = async () => {
-    // Check authentication - token can come from URL (QR code) or session
-    // If token is in URL, it will be stored in session by the useEffect above
-    // For now, we'll check if we have a token from URL or if user is authenticated via session
-    const hasTokenFromUrl = !!tokenFromUrl;
-    if (!hasTokenFromUrl) {
-      const errorMsg = 'You must be logged in to upload a driver license. Please log in and try again.';
-      setError(errorMsg);
-      toast.error(errorMsg);
-      setStatus('ready');
+  const handleUpload = async (file, side) => {
+    // Get customer ID from userId (in this context, userId is the customerId)
+    const currentCustomerId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId');
+    
+    if (!currentCustomerId) {
+      // For wizard mode, store in sessionStorage if no customerId
+      const wizardId = searchParams.get('wizardId') || '';
+      if (wizardId) {
+        try {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            sessionStorage.setItem(`wizardImage-${wizardId}-${side}`, JSON.stringify({
+              side: side,
+              dataUrl: reader.result,
+              timestamp: Date.now()
+            }));
+            
+            toast.success(
+              side === 'front'
+                ? 'Front photo saved! Now take a photo of the back side.'
+                : 'Back photo saved! You can now return to the wizard.'
+            );
+          };
+          reader.readAsDataURL(file);
+        } catch (err) {
+          console.error(`Error saving ${side} image:`, err);
+          setError('Failed to save image. Please try again.');
+          toast.error('Failed to save image. Please try again.');
+        }
+      } else {
+        setError('User ID is required. Please ensure you are logged in.');
+        toast.error('User ID is required. Please ensure you are logged in.');
+      }
       return;
     }
 
-    // Read file directly from input (already in browser memory)
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) {
-      const errorMsg = 'Please select an image first';
-      setError(errorMsg);
-      toast.error(errorMsg);
-      return;
-    }
-
-    setStatus('uploading');
+    // Customer ID exists, upload directly to server
+    setUploadingSide(side);
+    setUploadProgress(0);
     setError('');
 
     try {
-      // CRITICAL: Re-sync from localStorage right before upload (defensive programming)
-      // This is the last chance to recover the values - ALWAYS update refs from localStorage
-      // ALSO: Restore to localStorage if refs have values but storage doesn't (protection)
-      let lastChanceCompanyId = localStorage.getItem('companyId');
-      let lastChanceUserId = localStorage.getItem('userId');
-      
-      // If refs have values but localStorage doesn't, restore first
-      if (companyIdRef.current && !lastChanceCompanyId) {
-        localStorage.setItem('companyId', companyIdRef.current);
-        lastChanceCompanyId = companyIdRef.current;
-        console.log('[Upload] Restored companyId to localStorage from ref before upload');
-      }
-      if (userIdRef.current && !lastChanceUserId) {
-        localStorage.setItem('userId', userIdRef.current);
-        lastChanceUserId = userIdRef.current;
-        console.log('[Upload] Restored userId to localStorage from ref before upload');
-      }
-      
-      // Now sync refs from localStorage (in case it was updated elsewhere)
-      if (lastChanceCompanyId) {
-        const wasDifferent = companyIdRef.current !== lastChanceCompanyId;
-        companyIdRef.current = lastChanceCompanyId;
-        if (wasDifferent) {
-          console.log('[Upload] Synced companyId from localStorage:', lastChanceCompanyId);
-        }
-      }
-      if (lastChanceUserId) {
-        const wasDifferent = userIdRef.current !== lastChanceUserId;
-        userIdRef.current = lastChanceUserId;
-        if (wasDifferent) {
-          console.log('[Upload] Synced userId from localStorage:', lastChanceUserId);
-        }
-      }
-      
-      // Use refs first (most reliable - won't be stale), then state, then localStorage, then URL
-      // This ensures we always have the values even if component re-rendered
-      const finalCompanyId = companyIdRef.current || companyId || localStorage.getItem('companyId') || searchParams.get('companyId');
-      const finalUserId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId');
-      
-      console.log('[Upload] CompanyId sources:', {
-        ref: companyIdRef.current,
-        state: companyId,
-        localStorage: localStorage.getItem('companyId'),
-        url: searchParams.get('companyId'),
-        final: finalCompanyId
-      });
-      console.log('[Upload] UserId sources:', {
-        ref: userIdRef.current,
-        state: userId,
-        localStorage: localStorage.getItem('userId'),
-        url: searchParams.get('userId'),
-        final: finalUserId
-      });
-      
-      // ALWAYS try to extract from token first (token is source of truth)
-      let extractedCompanyId = finalCompanyId;
-      let extractedUserId = finalUserId;
-      
-      const token = tokenFromUrl || searchParams.get('token');
-      if (token) {
-        try {
-          const tokenParts = token.split('.');
-          if (tokenParts.length >= 2) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            
-            // Log the entire payload for debugging
-            console.log('[Upload] Token payload:', payload);
-            console.log('[Upload] Available token claims:', Object.keys(payload));
-            
-            // Try multiple possible claim names for userId
-            const possibleUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] 
-              || payload.sub 
-              || payload.userId 
-              || payload.UserId
-              || payload.id
-              || payload.Id
-              || payload.nameid
-              || payload.unique_name
-              || payload.name;
-            
-            // Try multiple possible claim names for companyId
-            const possibleCompanyId = payload.companyId 
-              || payload.CompanyId
-              || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']
-              || payload.company_id
-              || payload.CompanyId
-              || payload.orgid
-              || payload.organizationId;
-            
-            console.log('[Upload] Extracted from token - userId:', possibleUserId, 'companyId:', possibleCompanyId);
-            
-            // Use token values if we found them (token is source of truth)
-            if (possibleUserId) {
-              extractedUserId = possibleUserId;
-              // Always update state, refs, and localStorage with token values
-              setUserId(String(possibleUserId));
-              userIdRef.current = String(possibleUserId);
-              localStorage.setItem('userId', String(possibleUserId));
-              console.log('[Upload] Using userId from token:', possibleUserId);
-            }
-            
-            if (possibleCompanyId) {
-              extractedCompanyId = possibleCompanyId;
-              // Always update state, refs, and localStorage with token values
-              setCompanyId(String(possibleCompanyId));
-              companyIdRef.current = String(possibleCompanyId);
-              localStorage.setItem('companyId', String(possibleCompanyId));
-              console.log('[Upload] Using companyId from token:', possibleCompanyId);
-            }
-          }
-        } catch (e) {
-          console.error('[Upload] Could not extract userId/companyId from token:', e);
-          if (token) {
-            console.error('[Upload] Token (first 50 chars):', token.substring(0, 50));
-          }
-        }
-      } else {
-        console.warn('[Upload] No token available for extraction');
-      }
-      
-      if (!extractedCompanyId || !extractedUserId) {
-        setError('Company ID and User ID are required. Please ensure you are logged in with a valid account.');
-        toast.error('Company ID and User ID are required');
-        setStatus('ready');
-        return;
-      }
-      
-      console.log('Uploading with companyId:', extractedCompanyId, 'userId:', extractedUserId);
-      console.log('File details:', {
-        name: file.name,
-        type: file.type,
-        size: file.size
-      });
-      
-      // Send file directly from memory (File object)
-      try {
-        const response = await apiService.uploadDriverLicense(file, extractedCompanyId, extractedUserId, (progress) => {
+      const response = await apiService.uploadCustomerLicenseImage(
+        currentCustomerId,
+        side,
+        file,
+        (progress) => {
           setUploadProgress(progress);
-        });
-        
-        console.log('Upload response:', response);
-        console.log('Upload successful!', response.data);
-        
-        setStatus('success');
-      } catch (uploadError) {
-        console.error('Upload error details:', uploadError);
-        console.error('Upload error response:', uploadError.response?.data);
-        throw uploadError; // Re-throw to be caught by outer catch block
+        }
+      );
+
+      toast.success(
+        side === 'front'
+          ? 'Front photo saved!'
+          : 'Back photo saved!'
+      );
+
+      // If both images are uploaded, navigate back after a delay
+      if (side === 'back' && frontImage) {
+        setTimeout(() => {
+          const returnTo = searchParams.get('returnTo') || '/';
+          navigate(returnTo);
+        }, 2000);
       }
-      
-      // Try to close the window/page after a short delay
-      setTimeout(() => {
-        // First, try to close the window directly (some mobile browsers allow this)
-        try {
-          window.close();
-        } catch (e) {
-          console.log('Could not close window:', e);
-        }
-        
-        // If window.close() didn't work, try navigating back
-        // Check if we can go back
-        if (window.history.length > 1) {
-          try {
-            navigate(-1);
-          } catch (e) {
-            console.log('Could not navigate back:', e);
-          }
-        }
-        
-        // If neither worked, the user will see the success message with instructions
-      }, 1500);
     } catch (err) {
-      console.error('Upload error:', err);
-      
-      // Extract detailed error information
-      let errorMessage = 'Failed to upload driver license';
-      let errorDetails = '';
-      
-      if (err.response) {
-        // Server responded with error
-        const status = err.response.status;
-        const data = err.response.data;
-        
-        errorMessage = data?.message || data?.error || `Server error (${status})`;
-        
-        // Add status code details
-        if (status === 400) {
-          errorDetails = 'Bad request - Please check your file and try again';
-        } else if (status === 401) {
-          const hasAuthHeader = data?.hasAuthHeader;
-          errorDetails = hasAuthHeader 
-            ? 'Your session has expired. Please log in again.'
-            : 'You are not logged in. Please log in and try again.';
-        } else if (status === 403) {
-          errorDetails = 'Forbidden - You do not have permission to upload';
-        } else if (status === 413) {
-          errorDetails = 'File too large - Maximum size is 10MB';
-        } else if (status === 500) {
-          errorDetails = 'Server error - Please try again later';
-        } else {
-          errorDetails = `HTTP ${status}: ${data?.message || 'Unknown error'}`;
-        }
-        
-        // Include additional error details if available
-        if (data?.reason) {
-          errorDetails += ` (Reason: ${data.reason})`;
-        }
-      } else if (err.request) {
-        // Request was made but no response received
-        errorMessage = 'Network error - Unable to connect to server';
-        errorDetails = 'Please check your internet connection and try again';
-      } else {
-        // Error setting up the request
-        errorMessage = err.message || 'Failed to upload driver license';
-        errorDetails = 'Please check the file and try again';
-      }
-      
-      const fullError = errorDetails ? `${errorMessage}. ${errorDetails}` : errorMessage;
-      setError(fullError);
-      toast.error(errorMessage);
-      setStatus('preview');
+      console.error(`Error uploading ${side} image:`, err);
+      setError(err.response?.data?.message || 'Failed to upload image. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingSide(null);
+      setUploadProgress(0);
     }
   };
 
@@ -582,9 +424,6 @@ const MobileScan = () => {
     setImagePreview('');
     setError('');
     setUploadProgress(0);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const handleStartBlinkIDScan = () => {
@@ -612,18 +451,10 @@ const MobileScan = () => {
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 relative">
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">
-          {isWizardMode ? 'Take Driver License Photo' : 'Driver License Scan'}
+          Driver License Photos
         </h1>
 
-        {/* File input - always in DOM so file remains accessible */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        {/* File inputs for front and back - always in DOM so files remain accessible */}
 
         {status === 'prompt' && (
           <div className="space-y-6">
@@ -658,7 +489,7 @@ const MobileScan = () => {
               onClick={() => setStatus('ready')}
               className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg"
             >
-              {hasBlinkKey ? 'Upload Photo Instead' : 'Upload Photo'}
+              {hasBlinkKey ? 'Upload Photos Instead' : 'Upload Photos'}
             </button>
             
             {error && (
@@ -670,34 +501,134 @@ const MobileScan = () => {
         )}
 
         {status === 'ready' && (
-          <div className="space-y-4">
-            <div className="bg-gray-800 rounded-lg p-6 text-center">
-              <p className="text-gray-300 mb-6">
-                {isWizardMode 
-                  ? 'Take a clear photo of your driver license. You\'ll need to take photos of both the front and back sides.'
-                  : 'Click the button below to open your camera and take a photo of your driver license.'}
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg"
-              >
-                Open Camera
-              </button>
-              {isWizardMode && (
+          <div className="space-y-6">
+            <p className="text-center text-gray-300 mb-4 text-sm">
+              Use your phone to take photos. Scan the QR code below or use the button to upload from your computer.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Front Image Placeholder */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Driver License Front *
+                </label>
+                {frontPreview ? (
+                  <div className="relative">
+                    <img
+                      src={frontPreview}
+                      alt="Driver license front"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-600"
+                    />
+                    {uploadingSide === 'front' && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
+                        <div className="text-center text-white">
+                          <div className="animate-spin h-6 w-6 border-4 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                          <p className="text-xs">{uploadProgress}%</p>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFrontImage(null);
+                        setFrontPreview(null);
+                        if (frontInputRef.current) {
+                          frontInputRef.current.value = '';
+                        }
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="block w-full h-48 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center bg-gray-800">
+                    <input
+                      ref={frontInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileChange(e, 'front')}
+                      className="hidden"
+                    />
+                    <div className="text-center">
+                      <CreditCard className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                      <span className="text-xs text-gray-400">Choose File</span>
+                    </div>
+                  </label>
+                )}
+              </div>
+
+              {/* Back Image Placeholder */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Driver License Back *
+                </label>
+                {backPreview ? (
+                  <div className="relative">
+                    <img
+                      src={backPreview}
+                      alt="Driver license back"
+                      className="w-full h-48 object-cover rounded-lg border border-gray-600"
+                    />
+                    {uploadingSide === 'back' && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
+                        <div className="text-center text-white">
+                          <div className="animate-spin h-6 w-6 border-4 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                          <p className="text-xs">{uploadProgress}%</p>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBackImage(null);
+                        setBackPreview(null);
+                        if (backInputRef.current) {
+                          backInputRef.current.value = '';
+                        }
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="block w-full h-48 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center bg-gray-800">
+                    <input
+                      ref={backInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileChange(e, 'back')}
+                      className="hidden"
+                    />
+                    <div className="text-center">
+                      <CreditCard className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                      <span className="text-xs text-gray-400">Choose File</span>
+                    </div>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
+            {frontPreview && backPreview && (
+              <div className="text-center">
                 <button
                   onClick={() => {
                     const returnTo = searchParams.get('returnTo') || '/';
                     navigate(returnTo);
                   }}
-                  className="w-full mt-3 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg"
                 >
-                  Close
+                  Done
                 </button>
-              )}
-            </div>
-            {error && (
-              <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
-                {error}
               </div>
             )}
           </div>
