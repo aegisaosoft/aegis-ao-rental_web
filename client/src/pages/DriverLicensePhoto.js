@@ -187,6 +187,23 @@ const DriverLicensePhoto = () => {
         setUploadedBackUrl(fullImageUrl);
       }
 
+      // Trigger refresh event for parent window (booking page) if in iframe or same origin
+      try {
+        // Use BroadcastChannel for cross-tab communication
+        const channel = new BroadcastChannel('license-upload');
+        channel.postMessage({ type: 'imageUploaded', side, customerId: currentCustomerId });
+        channel.close();
+        
+        // Also set a flag in localStorage for immediate detection
+        localStorage.setItem('licenseImageUploaded', JSON.stringify({
+          side,
+          customerId: currentCustomerId,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.log('BroadcastChannel not available:', e);
+      }
+
       toast.success(
         side === 'front'
           ? t('bookPage.frontPhotoSaved', 'Front photo saved!')

@@ -2780,6 +2780,7 @@ const BookPage = () => {
 
     const checkForWizardImages = () => {
       // Check all sessionStorage keys for wizard images
+      let foundNewImage = false;
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
         if (key && key.startsWith('wizardImage-')) {
@@ -2787,6 +2788,7 @@ const BookPage = () => {
             const imageData = JSON.parse(sessionStorage.getItem(key));
             
             if (imageData.side === 'front' && !wizardImagePreviews.driverLicenseFront) {
+              foundNewImage = true;
               // Convert base64 to blob
               fetch(imageData.dataUrl)
                 .then(res => res.blob())
@@ -2796,8 +2798,14 @@ const BookPage = () => {
                   setWizardFormData(prev => ({ ...prev, driverLicenseFront: file }));
                   setWizardImagePreviews(prev => ({ ...prev, driverLicenseFront: previewUrl }));
                   sessionStorage.removeItem(key);
+                  
+                  // Trigger server image refresh after a short delay (to allow upload to complete)
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('refreshLicenseImages'));
+                  }, 500);
                 });
             } else if (imageData.side === 'back' && !wizardImagePreviews.driverLicenseBack) {
+              foundNewImage = true;
               fetch(imageData.dataUrl)
                 .then(res => res.blob())
                 .then(blob => {
@@ -2806,6 +2814,11 @@ const BookPage = () => {
                   setWizardFormData(prev => ({ ...prev, driverLicenseBack: file }));
                   setWizardImagePreviews(prev => ({ ...prev, driverLicenseBack: previewUrl }));
                   sessionStorage.removeItem(key);
+                  
+                  // Trigger server image refresh after a short delay (to allow upload to complete)
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('refreshLicenseImages'));
+                  }, 500);
                 });
             }
           } catch (e) {
@@ -2865,6 +2878,28 @@ const BookPage = () => {
         }
       }
 
+      // Also check all wizard data in sessionStorage for customerId
+      if (!customerId) {
+        try {
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('wizardData-')) {
+              try {
+                const wizardData = JSON.parse(sessionStorage.getItem(key));
+                if (wizardData?.customerId) {
+                  customerId = wizardData.customerId;
+                  break;
+                }
+              } catch (e) {
+                // Skip invalid entries
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error checking wizard data:', e);
+        }
+      }
+
       if (!customerId) return;
 
       // Construct image URLs
@@ -2895,11 +2930,74 @@ const BookPage = () => {
 
     // Only fetch if we're on step 3 (license photos step)
     if (wizardStep === 3) {
+      // Immediate fetch
       fetchUploadedImages();
       
-      // Also check periodically in case images are uploaded from phone
-      const interval = setInterval(fetchUploadedImages, 2000);
-      return () => clearInterval(interval);
+      // Listen for storage events (when mobile page uploads images)
+      const handleStorageChange = (e) => {
+        if (e.key && (e.key.startsWith('wizardImage-') || e.key.startsWith('wizardData-') || e.key === 'licenseImageUploaded')) {
+          // Trigger immediate refresh when images are uploaded
+          setTimeout(fetchUploadedImages, 100);
+        }
+      };
+      
+      // Listen for custom refresh event
+      const handleRefreshEvent = () => {
+        fetchUploadedImages();
+      };
+      
+      // Listen for BroadcastChannel messages (cross-tab communication)
+      let broadcastChannel = null;
+      try {
+        broadcastChannel = new BroadcastChannel('license-upload');
+        broadcastChannel.onmessage = (event) => {
+          if (event.data && event.data.type === 'imageUploaded') {
+            // Immediate refresh when image is uploaded
+            setTimeout(fetchUploadedImages, 100);
+          }
+        };
+      } catch (e) {
+        console.log('BroadcastChannel not available:', e);
+      }
+      
+      // Check localStorage for upload flags
+      const checkUploadFlags = () => {
+        try {
+          const flag = localStorage.getItem('licenseImageUploaded');
+          if (flag) {
+            const data = JSON.parse(flag);
+            // Check if flag is recent (within last 10 seconds)
+            if (Date.now() - data.timestamp < 10000) {
+              fetchUploadedImages();
+            }
+            // Clear old flags
+            if (Date.now() - data.timestamp > 30000) {
+              localStorage.removeItem('licenseImageUploaded');
+            }
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      };
+      
+      window.addEventListener('storage', handleStorageChange);
+      window.addEventListener('refreshLicenseImages', handleRefreshEvent);
+      
+      // Check upload flags periodically
+      const flagCheckInterval = setInterval(checkUploadFlags, 300);
+      
+      // Also check periodically for faster updates (every 500ms for immediate feedback)
+      const interval = setInterval(fetchUploadedImages, 500);
+      
+      return () => {
+        clearInterval(interval);
+        clearInterval(flagCheckInterval);
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('refreshLicenseImages', handleRefreshEvent);
+        if (broadcastChannel) {
+          broadcastChannel.close();
+        }
+      };
     }
   }, [wizardStep, user, searchParams]);
 
