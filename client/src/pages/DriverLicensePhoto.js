@@ -115,100 +115,121 @@ const DriverLicensePhoto = () => {
     // Get current customer ID
     const currentCustomerId = getCurrentCustomerId();
     
-    // If no customer ID (new customer), store image in sessionStorage for wizard to pick up later
-    if (!currentCustomerId) {
-      if (!wizardId) {
-        setError(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
-        toast.error(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
-        return;
-      }
-
-      // Store image temporarily in sessionStorage for the wizard to pick up after registration
-      try {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          sessionStorage.setItem(`wizardImage-${wizardId}-${side}`, JSON.stringify({
-            side: side,
-            dataUrl: reader.result,
-            timestamp: Date.now()
-          }));
-          
-          toast.success(
-            side === 'front'
-              ? t('bookPage.frontPhotoSaved', 'Front photo saved! Now take a photo of the back side.')
-              : t('bookPage.backPhotoSaved', 'Back photo saved! You can now return to the wizard.')
-          );
-          
-          // If both images are saved, navigate back after a delay
-          if (side === 'back' && frontPreview) {
-            setTimeout(() => {
-              navigate(returnTo);
-            }, 2000);
-          }
-        };
-        reader.readAsDataURL(file);
-      } catch (err) {
-        console.error(`Error saving ${side} image:`, err);
-        setError(t('bookPage.saveError', 'Failed to save image. Please try again.'));
-        toast.error(t('bookPage.saveError', 'Failed to save image. Please try again.'));
-      }
-      return;
-    }
-
-    // Customer ID exists, upload directly to server
     setUploadingSide(side);
     setUploadProgress(0);
     setError('');
 
     try {
-      const response = await apiService.uploadCustomerLicenseImage(
-        currentCustomerId,
-        side,
-        file,
-        (progress) => {
-          setUploadProgress(progress);
-        }
-      );
+      let response;
+      let imageUrl;
+      let fullImageUrl;
 
-      // Get the image URL from response
-      const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
-      
-      // Construct full URL if relative path is returned
-      let fullImageUrl = imageUrl;
-      if (imageUrl && !imageUrl.startsWith('http')) {
-        const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
-        fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
-      }
-
-      // Store uploaded image URL
-      if (side === 'front') {
-        setUploadedFrontUrl(fullImageUrl);
-      } else {
-        setUploadedBackUrl(fullImageUrl);
-      }
-
-      // Trigger refresh event for parent window (booking page) if in iframe or same origin
-      try {
-        // Use BroadcastChannel for cross-tab communication
-        const channel = new BroadcastChannel('license-upload');
-        channel.postMessage({ type: 'imageUploaded', side, customerId: currentCustomerId });
-        channel.close();
-        
-        // Also set a flag in localStorage for immediate detection
-        localStorage.setItem('licenseImageUploaded', JSON.stringify({
+      if (!currentCustomerId && wizardId) {
+        // For wizard mode (new customer without customerId), upload to temporary wizard storage
+        response = await apiService.uploadWizardLicenseImage(
+          wizardId,
           side,
-          customerId: currentCustomerId,
-          timestamp: Date.now()
-        }));
-      } catch (e) {
-        console.log('BroadcastChannel not available:', e);
-      }
+          file,
+          (progress) => {
+            setUploadProgress(progress);
+          }
+        );
 
-      toast.success(
-        side === 'front'
-          ? t('bookPage.frontPhotoSaved', 'Front photo saved!')
-          : t('bookPage.backPhotoSaved', 'Back photo saved!')
-      );
+        // Get the image URL from response
+        imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+        
+        // Construct full URL if relative path is returned
+        fullImageUrl = imageUrl;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+          fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+        }
+
+        // Store uploaded image URL
+        if (side === 'front') {
+          setUploadedFrontUrl(fullImageUrl);
+        } else {
+          setUploadedBackUrl(fullImageUrl);
+        }
+
+        // Trigger refresh event for booking page
+        try {
+          // Use BroadcastChannel for cross-tab communication
+          const channel = new BroadcastChannel('license_images_channel');
+          channel.postMessage({ type: 'wizardImageUploaded', side, wizardId });
+          channel.close();
+          
+          // Also set a flag in localStorage for immediate detection
+          localStorage.setItem('licenseImagesUploaded', JSON.stringify({
+            side,
+            wizardId,
+            imageUrl: fullImageUrl,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.log('BroadcastChannel not available:', e);
+        }
+
+        toast.success(
+          side === 'front'
+            ? t('bookPage.frontPhotoSaved', 'Front photo saved! Now take a photo of the back side.')
+            : t('bookPage.backPhotoSaved', 'Back photo saved! You can now return to the wizard.')
+        );
+      } else if (currentCustomerId) {
+        // Customer ID exists, upload directly to server
+        response = await apiService.uploadCustomerLicenseImage(
+          currentCustomerId,
+          side,
+          file,
+          (progress) => {
+            setUploadProgress(progress);
+          }
+        );
+
+        // Get the image URL from response
+        imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+        
+        // Construct full URL if relative path is returned
+        fullImageUrl = imageUrl;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+          fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+        }
+
+        // Store uploaded image URL
+        if (side === 'front') {
+          setUploadedFrontUrl(fullImageUrl);
+        } else {
+          setUploadedBackUrl(fullImageUrl);
+        }
+
+        // Trigger refresh event for parent window (booking page) if in iframe or same origin
+        try {
+          // Use BroadcastChannel for cross-tab communication
+          const channel = new BroadcastChannel('license-upload');
+          channel.postMessage({ type: 'imageUploaded', side, customerId: currentCustomerId });
+          channel.close();
+          
+          // Also set a flag in localStorage for immediate detection
+          localStorage.setItem('licenseImageUploaded', JSON.stringify({
+            side,
+            customerId: currentCustomerId,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.log('BroadcastChannel not available:', e);
+        }
+
+        toast.success(
+          side === 'front'
+            ? t('bookPage.frontPhotoSaved', 'Front photo saved!')
+            : t('bookPage.backPhotoSaved', 'Back photo saved!')
+        );
+      } else {
+        setError(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
+        toast.error(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
+        return;
+      }
 
       // If both images are uploaded, navigate back after a delay
       if (side === 'back' && frontImage) {

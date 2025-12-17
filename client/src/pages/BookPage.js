@@ -2900,13 +2900,8 @@ const BookPage = () => {
         }
       }
 
-      if (!customerId) return;
-
-      // Construct image URLs
       const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
-      const frontUrl = `${apiBaseUrl}/customers/${customerId}/licenses/front.jpg`;
-      const backUrl = `${apiBaseUrl}/customers/${customerId}/licenses/back.jpg`;
-
+      
       // Check if images exist by trying to load them
       const checkImageExists = (url) => {
         return new Promise((resolve) => {
@@ -2917,15 +2912,43 @@ const BookPage = () => {
         });
       };
 
-      const [frontExists, backExists] = await Promise.all([
-        checkImageExists(frontUrl),
-        checkImageExists(backUrl)
-      ]);
+      if (customerId) {
+        // Customer exists, check customer license images
+        const frontUrl = `${apiBaseUrl}/customers/${customerId}/licenses/front.jpg`;
+        const backUrl = `${apiBaseUrl}/customers/${customerId}/licenses/back.jpg`;
 
-      setUploadedLicenseImages({
-        front: frontExists ? frontUrl : null,
-        back: backExists ? backUrl : null,
-      });
+        const [frontExists, backExists] = await Promise.all([
+          checkImageExists(frontUrl),
+          checkImageExists(backUrl)
+        ]);
+
+        setUploadedLicenseImages({
+          front: frontExists ? frontUrl : null,
+          back: backExists ? backUrl : null,
+        });
+      } else if (currentWizardId) {
+        // No customerId but have wizardId, check wizard temporary images
+        // Sanitize wizardId (same as backend)
+        const sanitizedWizardId = currentWizardId.replace(/[<>:"/\\|?*]/g, '_');
+        const frontUrl = `${apiBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
+        const backUrl = `${apiBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
+
+        const [frontExists, backExists] = await Promise.all([
+          checkImageExists(frontUrl),
+          checkImageExists(backUrl)
+        ]);
+
+        setUploadedLicenseImages({
+          front: frontExists ? frontUrl : null,
+          back: backExists ? backUrl : null,
+        });
+      } else {
+        // No customerId and no wizardId, clear images
+        setUploadedLicenseImages({
+          front: null,
+          back: null,
+        });
+      }
     };
 
     // Only fetch if we're on step 3 (license photos step)
@@ -2948,11 +2971,21 @@ const BookPage = () => {
       
       // Listen for BroadcastChannel messages (cross-tab communication)
       let broadcastChannel = null;
+      let wizardBroadcastChannel = null;
       try {
         broadcastChannel = new BroadcastChannel('license-upload');
         broadcastChannel.onmessage = (event) => {
           if (event.data && event.data.type === 'imageUploaded') {
             // Immediate refresh when image is uploaded
+            setTimeout(fetchUploadedImages, 100);
+          }
+        };
+        
+        // Also listen for wizard image uploads
+        wizardBroadcastChannel = new BroadcastChannel('license_images_channel');
+        wizardBroadcastChannel.onmessage = (event) => {
+          if (event.data && event.data.type === 'wizardImageUploaded') {
+            // Immediate refresh when wizard image is uploaded
             setTimeout(fetchUploadedImages, 100);
           }
         };
@@ -2973,6 +3006,20 @@ const BookPage = () => {
             // Clear old flags
             if (Date.now() - data.timestamp > 30000) {
               localStorage.removeItem('licenseImageUploaded');
+            }
+          }
+          
+          // Also check for wizard upload flags
+          const wizardFlag = localStorage.getItem('licenseImagesUploaded');
+          if (wizardFlag) {
+            const data = JSON.parse(wizardFlag);
+            // Check if flag is recent (within last 10 seconds)
+            if (Date.now() - data.timestamp < 10000) {
+              fetchUploadedImages();
+            }
+            // Clear old flags
+            if (Date.now() - data.timestamp > 30000) {
+              localStorage.removeItem('licenseImagesUploaded');
             }
           }
         } catch (e) {
@@ -2996,6 +3043,9 @@ const BookPage = () => {
         window.removeEventListener('refreshLicenseImages', handleRefreshEvent);
         if (broadcastChannel) {
           broadcastChannel.close();
+        }
+        if (wizardBroadcastChannel) {
+          wizardBroadcastChannel.close();
         }
       };
     }
@@ -4828,21 +4878,21 @@ const BookPage = () => {
                     }
                   </p>
 
-                  {/* Display uploaded images from server */}
-                  {(uploadedLicenseImages.front || uploadedLicenseImages.back) && (
+                  {/* Display uploaded images from server or sessionStorage */}
+                  {(uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack) && (
                     <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <h4 className="text-sm font-semibold text-green-800 mb-3">
                         {t('bookPage.uploadedImages', 'Uploaded Images')}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {uploadedLicenseImages.front && (
+                        {(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) && (
                           <div>
                             <label className="block text-xs font-medium text-green-700 mb-2">
                               {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
                             </label>
                             <div className="relative">
                               <img 
-                                src={uploadedLicenseImages.front} 
+                                src={uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront} 
                                 alt="Uploaded driver license front" 
                                 className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
                               />
@@ -4852,14 +4902,14 @@ const BookPage = () => {
                             </div>
                           </div>
                         )}
-                        {uploadedLicenseImages.back && (
+                        {(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) && (
                           <div>
                             <label className="block text-xs font-medium text-green-700 mb-2">
                               {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
                             </label>
                             <div className="relative">
                               <img 
-                                src={uploadedLicenseImages.back} 
+                                src={uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack} 
                                 alt="Uploaded driver license back" 
                                 className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
                               />
