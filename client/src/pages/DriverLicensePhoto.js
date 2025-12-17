@@ -159,7 +159,7 @@ const DriverLicensePhoto = () => {
     setError('');
 
     try {
-      const response = await apiService.uploadCustomerLicenseImage(
+      await apiService.uploadCustomerLicenseImage(
         currentCustomerId,
         side,
         file,
