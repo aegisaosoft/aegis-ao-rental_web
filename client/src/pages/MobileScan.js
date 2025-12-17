@@ -17,6 +17,8 @@ const MobileScan = () => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontPreview, setFrontPreview] = useState(null);
   const [backPreview, setBackPreview] = useState(null);
+  const [uploadedFrontUrl, setUploadedFrontUrl] = useState(null);
+  const [uploadedBackUrl, setUploadedBackUrl] = useState(null);
   const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back'
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
@@ -385,7 +387,7 @@ const MobileScan = () => {
     setError('');
 
     try {
-      await apiService.uploadCustomerLicenseImage(
+      const response = await apiService.uploadCustomerLicenseImage(
         currentCustomerId,
         side,
         file,
@@ -393,6 +395,23 @@ const MobileScan = () => {
           setUploadProgress(progress);
         }
       );
+
+      // Get the image URL from response
+      const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+      
+      // Construct full URL if relative path is returned
+      let fullImageUrl = imageUrl;
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+        fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+      }
+
+      // Store uploaded image URL
+      if (side === 'front') {
+        setUploadedFrontUrl(fullImageUrl);
+      } else {
+        setUploadedBackUrl(fullImageUrl);
+      }
 
       toast.success(
         side === 'front'
@@ -612,6 +631,51 @@ const MobileScan = () => {
             {error && (
               <div className="bg-red-900 text-red-100 p-3 rounded-lg text-sm">
                 {error}
+              </div>
+            )}
+
+            {/* Display uploaded images */}
+            {(uploadedFrontUrl || uploadedBackUrl) && (
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-semibold text-gray-200 text-center">
+                  Uploaded Images
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {uploadedFrontUrl && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Front (Uploaded)
+                      </label>
+                      <div className="relative">
+                        <img
+                          src={uploadedFrontUrl}
+                          alt="Uploaded driver license front"
+                          className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
+                        />
+                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                          ✓ Uploaded
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {uploadedBackUrl && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Back (Uploaded)
+                      </label>
+                      <div className="relative">
+                        <img
+                          src={uploadedBackUrl}
+                          alt="Uploaded driver license back"
+                          className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
+                        />
+                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                          ✓ Uploaded
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

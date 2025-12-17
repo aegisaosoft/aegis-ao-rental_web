@@ -30,6 +30,8 @@ const DriverLicensePhoto = () => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontPreview, setFrontPreview] = useState(null);
   const [backPreview, setBackPreview] = useState(null);
+  const [uploadedFrontUrl, setUploadedFrontUrl] = useState(null);
+  const [uploadedBackUrl, setUploadedBackUrl] = useState(null);
   const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back'
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
@@ -159,7 +161,7 @@ const DriverLicensePhoto = () => {
     setError('');
 
     try {
-      await apiService.uploadCustomerLicenseImage(
+      const response = await apiService.uploadCustomerLicenseImage(
         currentCustomerId,
         side,
         file,
@@ -167,6 +169,23 @@ const DriverLicensePhoto = () => {
           setUploadProgress(progress);
         }
       );
+
+      // Get the image URL from response
+      const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+      
+      // Construct full URL if relative path is returned
+      let fullImageUrl = imageUrl;
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+        fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+      }
+
+      // Store uploaded image URL
+      if (side === 'front') {
+        setUploadedFrontUrl(fullImageUrl);
+      } else {
+        setUploadedBackUrl(fullImageUrl);
+      }
 
       toast.success(
         side === 'front'
@@ -328,6 +347,51 @@ const DriverLicensePhoto = () => {
           {error && (
             <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
               {error}
+            </div>
+          )}
+
+          {/* Display uploaded images */}
+          {(uploadedFrontUrl || uploadedBackUrl) && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 text-center">
+                {t('bookPage.uploadedImages', 'Uploaded Images')}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {uploadedFrontUrl && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
+                    </label>
+                    <div className="relative">
+                      <img
+                        src={uploadedFrontUrl}
+                        alt="Uploaded driver license front"
+                        className="w-full h-64 object-cover rounded-lg border-2 border-green-500"
+                      />
+                      <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                        ✓ {t('bookPage.uploaded', 'Uploaded')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {uploadedBackUrl && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
+                    </label>
+                    <div className="relative">
+                      <img
+                        src={uploadedBackUrl}
+                        alt="Uploaded driver license back"
+                        className="w-full h-64 object-cover rounded-lg border-2 border-green-500"
+                      />
+                      <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                        ✓ {t('bookPage.uploaded', 'Uploaded')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
