@@ -4,7 +4,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Camera, X, CreditCard } from 'lucide-react';
+import { X, CreditCard } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useCompany } from '../context/CompanyContext';
 
@@ -15,7 +15,6 @@ const MobileScan = () => {
   const [status, setStatus] = useState('prompt'); // prompt, ready, preview, uploading, success
   const [imagePreview, setImagePreview] = useState('');
   const [frontImage, setFrontImage] = useState(null);
-  const [backImage, setBackImage] = useState(null);
   const [frontPreview, setFrontPreview] = useState(null);
   const [backPreview, setBackPreview] = useState(null);
   const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back'
@@ -331,7 +330,6 @@ const MobileScan = () => {
         setFrontImage(file);
         setFrontPreview(reader.result);
       } else {
-        setBackImage(file);
         setBackPreview(reader.result);
       }
       
@@ -387,7 +385,7 @@ const MobileScan = () => {
     setError('');
 
     try {
-      const response = await apiService.uploadCustomerLicenseImage(
+      await apiService.uploadCustomerLicenseImage(
         currentCustomerId,
         side,
         file,
@@ -582,7 +580,6 @@ const MobileScan = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setBackImage(null);
                         setBackPreview(null);
                         if (backInputRef.current) {
                           backInputRef.current.value = '';

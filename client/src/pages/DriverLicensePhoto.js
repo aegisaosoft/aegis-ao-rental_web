@@ -16,7 +16,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Camera, X, CreditCard } from 'lucide-react';
+import { Camera, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -28,13 +28,11 @@ const DriverLicensePhoto = () => {
   const { user } = useAuth();
   
   const [frontImage, setFrontImage] = useState(null);
-  const [backImage, setBackImage] = useState(null);
   const [frontPreview, setFrontPreview] = useState(null);
   const [backPreview, setBackPreview] = useState(null);
   const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back'
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState('ready'); // ready, saving
   const [customerId, setCustomerId] = useState('');
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
@@ -100,7 +98,6 @@ const DriverLicensePhoto = () => {
         setFrontImage(file);
         setFrontPreview(reader.result);
       } else {
-        setBackImage(file);
         setBackPreview(reader.result);
       }
       setError('');
@@ -145,14 +142,6 @@ const DriverLicensePhoto = () => {
             setTimeout(() => {
               navigate(returnTo);
             }, 2000);
-          } else if (side === 'front') {
-            // Reset for back side
-            setTimeout(() => {
-              setStatus('ready');
-              if (side === 'front' && frontInputRef.current) {
-                // Reset front input to allow taking back photo
-              }
-            }, 1500);
           }
         };
         reader.readAsDataURL(file);
@@ -179,7 +168,6 @@ const DriverLicensePhoto = () => {
         }
       );
 
-      const imageUrl = response.data?.imageUrl || response.data?.result?.imageUrl;
       toast.success(
         side === 'front'
           ? t('bookPage.frontPhotoSaved', 'Front photo saved!')
@@ -210,7 +198,6 @@ const DriverLicensePhoto = () => {
         frontInputRef.current.value = '';
       }
     } else {
-      setBackImage(null);
       setBackPreview(null);
       if (backInputRef.current) {
         backInputRef.current.value = '';
