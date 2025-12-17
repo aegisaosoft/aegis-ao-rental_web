@@ -580,6 +580,10 @@ const BookPage = () => {
     driverLicenseFront: null,
     driverLicenseBack: null,
   });
+  const [uploadedLicenseImages, setUploadedLicenseImages] = useState({
+    front: null,
+    back: null,
+  });
   const [wizardLoading, setWizardLoading] = useState(false);
   const [wizardError, setWizardError] = useState('');
   const [showWizardQRCode, setShowWizardQRCode] = useState(false);
@@ -2831,6 +2835,74 @@ const BookPage = () => {
     };
   }, [isCreateUserWizardOpen, wizardStep, wizardImagePreviews]);
 
+  // Fetch uploaded license images from server
+  React.useEffect(() => {
+    const fetchUploadedImages = async () => {
+      // Get customer ID from user or wizard data
+      let customerId = null;
+      
+      if (user) {
+        customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
+      }
+      
+      // Try to get from URL params
+      const customerIdParam = searchParams.get('customerId');
+      if (customerIdParam) {
+        customerId = customerIdParam;
+      }
+      
+      // Try to get from wizard data if no user
+      const currentWizardId = searchParams.get('wizardId');
+      if (!customerId && currentWizardId) {
+        try {
+          const wizardData = sessionStorage.getItem(`wizardData-${currentWizardId}`);
+          if (wizardData) {
+            const data = JSON.parse(wizardData);
+            customerId = data.customerId;
+          }
+        } catch (e) {
+          console.error('Error reading wizard data:', e);
+        }
+      }
+
+      if (!customerId) return;
+
+      // Construct image URLs
+      const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+      const frontUrl = `${apiBaseUrl}/customers/${customerId}/licenses/front.jpg`;
+      const backUrl = `${apiBaseUrl}/customers/${customerId}/licenses/back.jpg`;
+
+      // Check if images exist by trying to load them
+      const checkImageExists = (url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = url + '?t=' + Date.now(); // Add cache buster
+        });
+      };
+
+      const [frontExists, backExists] = await Promise.all([
+        checkImageExists(frontUrl),
+        checkImageExists(backUrl)
+      ]);
+
+      setUploadedLicenseImages({
+        front: frontExists ? frontUrl : null,
+        back: backExists ? backUrl : null,
+      });
+    };
+
+    // Only fetch if we're on step 3 (license photos step)
+    if (wizardStep === 3) {
+      fetchUploadedImages();
+      
+      // Also check periodically in case images are uploaded from phone
+      const interval = setInterval(fetchUploadedImages, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [wizardStep, user, searchParams]);
+
 
 
   if (!make || !model) {
@@ -4657,6 +4729,51 @@ const BookPage = () => {
                       : t('bookPage.driverLicensePhotosHelperDesktop', 'Use your phone to take photos. Scan the QR code below or use the button to upload from your computer.')
                     }
                   </p>
+
+                  {/* Display uploaded images from server */}
+                  {(uploadedLicenseImages.front || uploadedLicenseImages.back) && (
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-green-800 mb-3">
+                        {t('bookPage.uploadedImages', 'Uploaded Images')}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {uploadedLicenseImages.front && (
+                          <div>
+                            <label className="block text-xs font-medium text-green-700 mb-2">
+                              {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
+                            </label>
+                            <div className="relative">
+                              <img 
+                                src={uploadedLicenseImages.front} 
+                                alt="Uploaded driver license front" 
+                                className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
+                              />
+                              <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                                ✓ {t('bookPage.uploaded', 'Uploaded')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {uploadedLicenseImages.back && (
+                          <div>
+                            <label className="block text-xs font-medium text-green-700 mb-2">
+                              {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
+                            </label>
+                            <div className="relative">
+                              <img 
+                                src={uploadedLicenseImages.back} 
+                                alt="Uploaded driver license back" 
+                                className="w-full h-48 object-cover rounded-lg border-2 border-green-500"
+                              />
+                              <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                                ✓ {t('bookPage.uploaded', 'Uploaded')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
