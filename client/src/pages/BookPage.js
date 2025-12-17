@@ -2780,7 +2780,6 @@ const BookPage = () => {
 
     const checkForWizardImages = () => {
       // Check all sessionStorage keys for wizard images
-      let foundNewImage = false;
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
         if (key && key.startsWith('wizardImage-')) {
@@ -2788,7 +2787,6 @@ const BookPage = () => {
             const imageData = JSON.parse(sessionStorage.getItem(key));
             
             if (imageData.side === 'front' && !wizardImagePreviews.driverLicenseFront) {
-              foundNewImage = true;
               // Convert base64 to blob
               fetch(imageData.dataUrl)
                 .then(res => res.blob())
@@ -2805,7 +2803,6 @@ const BookPage = () => {
                   }, 500);
                 });
             } else if (imageData.side === 'back' && !wizardImagePreviews.driverLicenseBack) {
-              foundNewImage = true;
               fetch(imageData.dataUrl)
                 .then(res => res.blob())
                 .then(blob => {
