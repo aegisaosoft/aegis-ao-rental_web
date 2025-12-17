@@ -2897,7 +2897,19 @@ const BookPage = () => {
         }
       }
 
-      const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
+      // Get backend base URL - static files are served directly, not through /api proxy
+      let backendBaseUrl = window.location.origin;
+      if (process.env.REACT_APP_API_URL) {
+        // Extract backend origin from REACT_APP_API_URL (e.g., "https://backend.com/api" -> "https://backend.com")
+        const apiUrl = process.env.REACT_APP_API_URL;
+        try {
+          const urlObj = new URL(apiUrl);
+          backendBaseUrl = `${urlObj.protocol}//${urlObj.host}`;
+        } catch (e) {
+          // If REACT_APP_API_URL is relative (e.g., "/api"), use current origin
+          backendBaseUrl = window.location.origin;
+        }
+      }
       
       // Check if images exist by trying to load them
       const checkImageExists = (url) => {
@@ -2911,8 +2923,8 @@ const BookPage = () => {
 
       if (customerId) {
         // Customer exists, check customer license images
-        const frontUrl = `${apiBaseUrl}/customers/${customerId}/licenses/front.jpg`;
-        const backUrl = `${apiBaseUrl}/customers/${customerId}/licenses/back.jpg`;
+        const frontUrl = `${backendBaseUrl}/customers/${customerId}/licenses/front.jpg`;
+        const backUrl = `${backendBaseUrl}/customers/${customerId}/licenses/back.jpg`;
 
         const [frontExists, backExists] = await Promise.all([
           checkImageExists(frontUrl),
@@ -2927,8 +2939,8 @@ const BookPage = () => {
         // No customerId but have wizardId, check wizard temporary images
         // Sanitize wizardId (same as backend)
         const sanitizedWizardId = currentWizardId.replace(/[<>:"/\\|?*]/g, '_');
-        const frontUrl = `${apiBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
-        const backUrl = `${apiBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
+        const frontUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
+        const backUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
 
         const [frontExists, backExists] = await Promise.all([
           checkImageExists(frontUrl),

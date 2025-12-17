@@ -374,10 +374,23 @@ const MobileScan = () => {
         imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
         
         // Construct full URL if relative path is returned
+        // For static files (wizard/customers), use backend origin directly (not through /api proxy)
         fullImageUrl = imageUrl;
         if (imageUrl && !imageUrl.startsWith('http')) {
-          const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
-          fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+          // Get backend base URL - static files are served directly, not through /api proxy
+          let backendBaseUrl = window.location.origin;
+          if (process.env.REACT_APP_API_URL) {
+            // Extract backend origin from REACT_APP_API_URL (e.g., "https://backend.com/api" -> "https://backend.com")
+            const apiUrl = process.env.REACT_APP_API_URL;
+            try {
+              const urlObj = new URL(apiUrl);
+              backendBaseUrl = `${urlObj.protocol}//${urlObj.host}`;
+            } catch (e) {
+              // If REACT_APP_API_URL is relative (e.g., "/api"), use current origin
+              backendBaseUrl = window.location.origin;
+            }
+          }
+          fullImageUrl = `${backendBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
         }
 
         // Store uploaded image URL
