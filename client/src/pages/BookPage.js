@@ -3173,7 +3173,7 @@ const BookPage = () => {
         }
       };
     }
-  }, [wizardStep, user, searchParams]);
+  }, [wizardStep, user, searchParams, wizardFormData.customerId]);
 
 
 
