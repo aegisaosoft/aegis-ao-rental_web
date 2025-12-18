@@ -13,14 +13,15 @@
  *
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Car, Calendar, MapPin, Clock, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
+import RentalAgreementModal from '../components/RentalAgreementModal';
 import { toast } from 'react-toastify';
 
 const MyBookings = () => {
@@ -28,6 +29,8 @@ const MyBookings = () => {
   const { isAuthenticated, restoreUser } = useAuth();
   const { companyConfig, formatPrice } = useCompany();
   const companyId = companyConfig?.id || null;
+  const [viewAgreementBookingId, setViewAgreementBookingId] = useState(null);
+  const [agreementData, setAgreementData] = useState(null);
 
   const searchParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
   const bookingParam = React.useMemo(() => searchParams.get('booking'), [searchParams]);
@@ -270,6 +273,22 @@ const MyBookings = () => {
                     <button className="btn-outline text-sm">
                       {t('vehicleDetail.viewDetails')}
                     </button>
+                    <button 
+                      className="btn-outline text-sm flex items-center justify-center gap-2"
+                      onClick={async () => {
+                        try {
+                          const response = await apiService.getRentalAgreement(booking.id || booking.bookingId || booking.booking_id);
+                          setAgreementData(response.data);
+                          setViewAgreementBookingId(booking.id || booking.bookingId || booking.booking_id);
+                        } catch (error) {
+                          console.error('Error fetching rental agreement:', error);
+                          alert(t('myBookings.agreementNotFound', 'Rental agreement not found for this booking'));
+                        }
+                      }}
+                    >
+                      <FileText className="h-4 w-4" />
+                      {t('myBookings.viewAgreement', 'View Agreement')}
+                    </button>
                     {booking.status === 'confirmed' && (
                       <button className="btn-secondary text-sm">
                         {t('myBookings.cancelBooking')}
@@ -280,6 +299,29 @@ const MyBookings = () => {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Rental Agreement View Modal */}
+      {viewAgreementBookingId && agreementData && (
+        <RentalAgreementModal
+          isOpen={!!viewAgreementBookingId}
+          onClose={() => {
+            setViewAgreementBookingId(null);
+            setAgreementData(null);
+          }}
+          viewMode={true}
+          agreementData={agreementData}
+          language={agreementData.language || 'en'}
+          rentalInfo={{
+            vehicleName: agreementData.vehicleName || '',
+            pickupDate: agreementData.pickupDate ? new Date(agreementData.pickupDate).toLocaleDateString() : '',
+            returnDate: agreementData.returnDate ? new Date(agreementData.returnDate).toLocaleDateString() : '',
+            totalAmount: agreementData.rentalAmount || 0,
+            securityDeposit: agreementData.depositAmount || 0,
+          }}
+          formatPrice={formatPrice}
+          t={t}
+        />
       )}
     </PageContainer>
   );

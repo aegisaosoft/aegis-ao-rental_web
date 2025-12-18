@@ -165,7 +165,10 @@ router.post('/bookings', authenticateToken, async (req, res) => {
       vehicleId: req.body.vehicleId,
       companyId: req.body.companyId,
       pickupDate: req.body.pickupDate,
-      returnDate: req.body.returnDate
+      returnDate: req.body.returnDate,
+      hasAgreementData: !!req.body.agreementData,
+      hasSignature: !!req.body.agreementData?.signatureImage,
+      signatureLength: req.body.agreementData?.signatureImage?.length || 0
     });
     
     const response = await apiService.createBooking(token, req.body);

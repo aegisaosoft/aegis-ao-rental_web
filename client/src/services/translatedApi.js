@@ -230,6 +230,12 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  // Rental Agreements
+  getRentalAgreement: async (bookingId) => {
+    const response = await apiService.getRentalAgreement(bookingId);
+    return translateResponse(response);
+  },
+  
   cancelBooking: async (id) => {
     const response = await apiService.cancelBooking(id);
     return translateResponse(response);

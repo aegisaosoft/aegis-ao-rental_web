@@ -226,6 +226,9 @@ export const apiService = {
   }),
   createSecurityDepositPaymentIntent: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-payment-intent`),
   createSecurityDepositCheckout: (bookingId, language) => api.post(`/booking/bookings/${bookingId}/security-deposit-checkout${language ? `?language=${language}` : ''}`),
+  
+  // Rental Agreements
+  getRentalAgreement: (bookingId) => api.get(`/booking/bookings/${bookingId}/rental-agreement`),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),
