@@ -3,7 +3,7 @@
  * Copyright (c) 2025 Alexander Orlov.
  */
 
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, UserPlus, Check, ArrowLeft, ArrowRight, QrCode, Camera, CreditCard } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { translatedApiService as apiService } from '../services/translatedApi';
@@ -109,7 +109,6 @@ const BookingWizard = ({
         const response = await apiService.uploadCustomerLicenseImage(customerId, side, file);
         
         const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
-        const fileName = response?.data?.fileName || response?.data?.result?.fileName;
         
         if (imageUrl) {
           const backendBaseUrl = process.env.REACT_APP_API_URL 

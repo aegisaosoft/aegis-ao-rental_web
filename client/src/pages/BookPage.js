@@ -40,8 +40,7 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus } from 'lucide-react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
 
@@ -100,7 +99,7 @@ const BookPage = () => {
 
   // Check if Stripe account exists for this company (public endpoint, no auth required)
   // This is used to determine if booking button should be available
-  const { data: stripeAccountCheck, isLoading: isLoadingStripe } = useQuery(
+  const { data: stripeAccountCheck } = useQuery(
     ['stripeAccountCheck', companyId],
     async () => {
       if (!companyId) {
@@ -2407,7 +2406,11 @@ const BookPage = () => {
 
     checkDriverLicenseImagesExist,
 
-    openAgreementModal
+    openAgreementModal,
+
+    buildAgreementData,
+
+    getAgreementDebugInfo
 
   ]);
 
@@ -2721,10 +2724,9 @@ const BookPage = () => {
   // - handleCloseWizard
 
   // Delete customer license image (used outside wizard too, e.g., on QR code page)
-  const handleDeleteCustomerLicenseImage = async (side) => {
-    // This function is no longer used - image deletion is handled in BookingWizard
-    // Keeping for potential future use outside wizard context
-  };
+  // This function is no longer used - image deletion is handled in BookingWizard
+  // Keeping for potential future use outside wizard context
+  // const handleDeleteCustomerLicenseImage = async (side) => {};
 
   // Old wizard handlers - MOVED TO BookingWizard component
   // These functions are no longer used as wizard logic has been moved to BookingWizard
@@ -2942,7 +2944,7 @@ const BookPage = () => {
     }
     // Note: When uploadedLicenseImages changes and both images are found, the effect re-runs
     // and hasBothImages will be true, preventing a new interval from being created
-  }, [user, searchParams, uploadedLicenseImages.front, uploadedLicenseImages.back]);
+  }, [user, searchParams, uploadedLicenseImages.front, uploadedLicenseImages.back, isCreateUserWizardOpen]);
 
 
 

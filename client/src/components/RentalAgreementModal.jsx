@@ -3,8 +3,8 @@
  * Copyright (c) 2025 Alexander Orlov.
  */
 
-import React, { useRef, useState, useEffect } from 'react';
-import { X, FileText, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Check } from 'lucide-react';
 import { SignaturePad, ConsentCheckbox, getConsentTexts } from '../pages/RentalAgreementStep';
 
 const RentalAgreementModal = ({
