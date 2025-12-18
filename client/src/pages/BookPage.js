@@ -2975,9 +2975,17 @@ const BookPage = () => {
         // Backend uses: string.Join("_", wizardId.Split(Path.GetInvalidFileNameChars()))
         // Invalid filename chars: < > : " / \ | ? * and control chars
         // Note: C# Path.GetInvalidFileNameChars() includes: < > : " / \ | ? * and control chars (0x00-0x1F)
-        const invalidChars = /[<>:"/\\|?*\x00-\x1f]/g;
-        // Split by invalid chars and join with underscore (matching C# behavior)
-        const sanitizedWizardId = currentWizardId.split(invalidChars).filter(part => part.length > 0).join('_');
+        // Use character class without control chars directly - match them using character codes
+        const invalidChars = /[<>:"/\\|?*]/g;
+        // Also remove control characters (0x00-0x1F) by filtering them out
+        let sanitizedWizardId = currentWizardId.replace(invalidChars, '\0'); // Replace with null char first
+        // Remove control characters (0x00-0x1F) by filtering
+        sanitizedWizardId = sanitizedWizardId.split('').filter(char => {
+          const code = char.charCodeAt(0);
+          return code >= 32 || code === 0; // Keep space (32) and above, or null char (0) for splitting
+        }).join('');
+        // Split by null char and join with underscore (matching C# behavior)
+        sanitizedWizardId = sanitizedWizardId.split('\0').filter(part => part.length > 0).join('_');
         const frontUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
         const backUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
         
