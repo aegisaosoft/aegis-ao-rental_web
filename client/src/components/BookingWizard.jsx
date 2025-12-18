@@ -208,10 +208,12 @@ const BookingWizard = ({
             frontUrl = foundUrl;
             console.log(`[BookingWizard] ✅ Found front image: ${frontUrl}`);
             // Always update state, even if already exists (to ensure latest)
+            // Capture frontUrl in a const to avoid loop closure issue
+            const capturedFrontUrl = frontUrl;
             setUploadedLicenseImages(prev => {
-              if (prev.front !== frontUrl) {
-                console.log(`[BookingWizard] Updating front image in state: ${frontUrl}`);
-                return { ...prev, front: frontUrl };
+              if (prev.front !== capturedFrontUrl) {
+                console.log(`[BookingWizard] Updating front image in state: ${capturedFrontUrl}`);
+                return { ...prev, front: capturedFrontUrl };
               }
               return prev;
             });
@@ -233,10 +235,12 @@ const BookingWizard = ({
             backUrl = foundUrl;
             console.log(`[BookingWizard] ✅ Found back image: ${backUrl}`);
             // Always update state, even if already exists (to ensure latest)
+            // Capture backUrl in a const to avoid loop closure issue
+            const capturedBackUrl = backUrl;
             setUploadedLicenseImages(prev => {
-              if (prev.back !== backUrl) {
-                console.log(`[BookingWizard] Updating back image in state: ${backUrl}`);
-                return { ...prev, back: backUrl };
+              if (prev.back !== capturedBackUrl) {
+                console.log(`[BookingWizard] Updating back image in state: ${capturedBackUrl}`);
+                return { ...prev, back: capturedBackUrl };
               }
               return prev;
             });

@@ -1078,7 +1078,9 @@ const BookPage = () => {
   );
   
   const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
-  const allCompanyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  const allCompanyLocations = React.useMemo(() => {
+    return Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  }, [pickupLocationsData]);
   
   // State to track which locations have available vehicles
   const [locationsWithVehicles, setLocationsWithVehicles] = React.useState(new Set());
@@ -1194,7 +1196,7 @@ const BookPage = () => {
     };
     
     checkAvailability();
-  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model]);
+  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model, selectedLocationId]);
   
   // Filter locations to only show those with available vehicles
   const companyLocations = React.useMemo(() => {
@@ -3009,7 +3011,7 @@ const BookPage = () => {
             let normalizedUrl = currentUrl;
             // If URL contains direct backend path like /customers/... or https://localhost:7163/customers/...
             // Convert it to use /api proxy path
-            const directBackendPattern = /(https?:\/\/[^\/]+)?\/customers\/([^\/]+)\/licenses\/(front|back)(\.\w+)?/;
+            const directBackendPattern = /(https?:\/\/[^/]+)?\/customers\/([^/]+)\/licenses\/(front|back)(\.\w+)?/;
             const match = currentUrl.match(directBackendPattern);
             if (match) {
               // Extract customer ID and side from the URL

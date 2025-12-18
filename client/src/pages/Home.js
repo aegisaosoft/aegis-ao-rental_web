@@ -156,7 +156,9 @@ const Home = () => {
   );
   
   const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
-  const allCompanyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  const allCompanyLocations = React.useMemo(() => {
+    return Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  }, [pickupLocationsData]);
   
   // State to track which locations have available vehicles
   const [locationsWithVehicles, setLocationsWithVehicles] = React.useState(new Set());
