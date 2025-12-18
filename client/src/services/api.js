@@ -383,19 +383,17 @@ export const apiService = {
     const formData = new FormData();
     formData.append('image', file);
     
-    // URL encode wizardId to handle special characters
-    const encodedWizardId = encodeURIComponent(wizardId);
-    
+    // Axios will automatically URL encode path parameters
+    // Don't manually encode to avoid double-encoding issues
     console.log('[API] Uploading wizard license image:', {
       wizardId: wizardId,
-      encodedWizardId: encodedWizardId,
       side: side,
       fileName: file?.name,
       fileSize: file?.size,
       fileType: file?.type
     });
     
-    return api.post(`/Media/wizard/${encodedWizardId}/licenses/${side}`, formData, {
+    return api.post(`/Media/wizard/${wizardId}/licenses/${side}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

@@ -255,16 +255,35 @@ const DriverLicensePhoto = () => {
       }
     } catch (err) {
       console.error(`Error uploading ${side} image:`, err);
+      const errorResponse = err.response?.data;
       console.error(`Error details:`, {
         message: err.message,
-        response: err.response?.data,
+        response: errorResponse,
+        responseData: typeof errorResponse === 'string' ? errorResponse : JSON.stringify(errorResponse),
         status: err.response?.status,
         statusText: err.response?.statusText,
         url: err.config?.url,
         wizardId: wizardId,
-        side: side
+        side: side,
+        file: file ? { name: file.name, size: file.size, type: file.type } : 'no file'
       });
-      const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.uploadError', 'Failed to upload image. Please try again.');
+      
+      // Extract error message from response
+      let errorMessage = t('bookPage.uploadError', 'Failed to upload image. Please try again.');
+      if (errorResponse) {
+        if (typeof errorResponse === 'string') {
+          errorMessage = errorResponse;
+        } else if (errorResponse.message) {
+          errorMessage = errorResponse.message;
+        } else if (errorResponse.result?.message) {
+          errorMessage = errorResponse.result.message;
+        } else if (errorResponse.error) {
+          errorMessage = errorResponse.error;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
