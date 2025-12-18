@@ -40,7 +40,7 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon } from 'lucide-react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
 
@@ -1078,8 +1078,204 @@ const BookPage = () => {
   );
   
   const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
-  const companyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
-  const showLocationDropdown = companyLocations.length > 1;
+  const allCompanyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  
+  // State to track which locations have available vehicles
+  const [locationsWithVehicles, setLocationsWithVehicles] = React.useState(new Set());
+  const [isCheckingAvailability, setIsCheckingAvailability] = React.useState(false);
+  
+  // Check availability for each location
+  React.useEffect(() => {
+    if (allCompanyLocations.length <= 1 || !companyId) {
+      // If 1 or fewer locations, mark all as available
+      if (allCompanyLocations.length > 0) {
+        const locationIds = allCompanyLocations.map(loc => {
+          const id = loc.id || loc.Id || loc.locationId || loc.LocationId;
+          return id ? String(id) : null;
+        }).filter(Boolean);
+        setLocationsWithVehicles(new Set(locationIds));
+        setIsCheckingAvailability(false);
+      }
+      return;
+    }
+    
+    // Check availability for each location
+    const checkAvailability = async () => {
+      setIsCheckingAvailability(true);
+      const availableLocationIds = new Set();
+      
+      // Check each location in parallel
+      const availabilityChecks = allCompanyLocations.map(async (location) => {
+        const locationId = location.id || location.Id || location.locationId || location.LocationId;
+        if (!locationId) return null;
+        
+        try {
+          const response = await apiService.getModelsGroupedByCategory(
+            companyId,
+            locationId,
+            formData.pickupDate || null,
+            formData.returnDate || null
+          );
+          
+          const modelsData = response?.data || response;
+          const categories = Array.isArray(modelsData) ? modelsData : [];
+          
+          // Check if the SPECIFIC make/model is available at this location
+          // If make/model are specified, only check for that specific vehicle
+          let totalAvailable = 0;
+          let hasSpecificModel = false;
+          
+          for (const category of categories) {
+            const models = category.models || category.Models || [];
+            for (const modelItem of models) {
+              const modelMake = (modelItem.make || modelItem.Make || '').toLowerCase();
+              const modelName = (modelItem.modelName || modelItem.ModelName || '').toLowerCase();
+              const availableCount = modelItem.availableCount || modelItem.available_count || 0;
+              totalAvailable += availableCount;
+              
+              // If make/model are specified, only check for that specific make/model
+              if (make && model) {
+                const searchMake = (make || '').toLowerCase().trim();
+                const searchModel = (model || '').toLowerCase().trim();
+                
+                // Debug logging
+                if (modelMake === searchMake && modelName === searchModel) {
+                  console.log(`[BookPage] Found matching make/model at location ${locationId}: ${modelMake} ${modelName}, availableCount: ${availableCount}`);
+                }
+                
+                if (modelMake === searchMake && modelName === searchModel && availableCount > 0) {
+                  console.log(`[BookPage] ✅ Location ${locationId} has ${availableCount} available vehicles for ${make} ${model}`);
+                  hasSpecificModel = true;
+                  return String(locationId); // This location has the specific make/model available
+                }
+              } else {
+                // If no specific make/model, check for any available vehicles
+                if (availableCount > 0) {
+                  console.log(`[BookPage] Location ${locationId} has ${availableCount} available vehicles in model ${modelItem.make || ''} ${modelItem.modelName || ''}`);
+                  return String(locationId); // This location has available vehicles
+                }
+              }
+            }
+          }
+          
+          if (make && model && !hasSpecificModel) {
+            console.log(`[BookPage] Location ${locationId} has no available ${make} ${model} vehicles (total checked: ${totalAvailable})`);
+          } else {
+            console.log(`[BookPage] Location ${locationId} has no available vehicles (total checked: ${totalAvailable})`);
+          }
+          
+          return null; // No available vehicles
+        } catch (error) {
+          console.warn(`Error checking availability for location ${locationId}:`, error);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(availabilityChecks);
+      results.forEach(locationId => {
+        if (locationId) {
+          availableLocationIds.add(locationId);
+        }
+      });
+      
+      console.log('[BookPage] Locations with available vehicles:', Array.from(availableLocationIds));
+      setLocationsWithVehicles(availableLocationIds);
+      
+      // Clear selected location if it doesn't have vehicles available
+      if (selectedLocationId) {
+        const currentLocationIdStr = String(selectedLocationId);
+        if (!availableLocationIds.has(currentLocationIdStr)) {
+          console.log(`[BookPage] Clearing selected location ${currentLocationIdStr} - no vehicles available`);
+          setSelectedLocationId('');
+        }
+      }
+      
+      setIsCheckingAvailability(false);
+    };
+    
+    checkAvailability();
+  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model]);
+  
+  // Filter locations to only show those with available vehicles
+  const companyLocations = React.useMemo(() => {
+    if (allCompanyLocations.length <= 1) {
+      return allCompanyLocations; // If 1 or fewer locations, show all
+    }
+    
+    // If we're still checking availability, return empty array (will show loading state)
+    if (isCheckingAvailability) {
+      return [];
+    }
+    
+    // If no locations have vehicles after check completed, show all (fallback)
+    if (locationsWithVehicles.size === 0) {
+      console.warn('[BookPage] No locations with vehicles found, showing all locations as fallback');
+      return allCompanyLocations;
+    }
+    
+    // Filter to only locations with available vehicles
+    const filtered = allCompanyLocations.filter(location => {
+      const locationId = location.id || location.Id || location.locationId || location.LocationId;
+      if (!locationId) return false;
+      
+      // Convert both to strings for comparison (in case one is GUID and one is string)
+      const locationIdStr = String(locationId);
+      const hasVehicle = locationsWithVehicles.has(locationIdStr);
+      
+      if (!hasVehicle) {
+        console.log(`[BookPage] Filtering out location ${locationIdStr} - no vehicles available`);
+      }
+      
+      return hasVehicle;
+    });
+    
+    console.log(`[BookPage] Filtered ${filtered.length} locations with vehicles out of ${allCompanyLocations.length} total`);
+    
+    // If filtering resulted in no locations, show all (fallback)
+    // This handles edge cases where availability check failed
+    return filtered.length > 0 ? filtered : allCompanyLocations;
+  }, [allCompanyLocations, locationsWithVehicles, isCheckingAvailability]);
+  
+  const showLocationDropdown = companyLocations.length > 1; // Show dropdown if multiple locations with vehicles exist
+  
+  // Get the selected location details for display
+  const selectedLocation = React.useMemo(() => {
+    if (!selectedLocationId) return null;
+    return allCompanyLocations.find(location => {
+      const locationId = location.id || location.Id || location.locationId || location.LocationId;
+      return locationId && String(locationId) === String(selectedLocationId);
+    });
+  }, [selectedLocationId, allCompanyLocations]);
+  
+  // Auto-select first available location when locations with vehicles are found
+  React.useEffect(() => {
+    // Only auto-select if we have filtered locations (locations with vehicles) and no location is selected
+    // AND availability check is complete
+    if (companyLocations.length > 0 && !selectedLocationId && !isCheckingAvailability && locationsWithVehicles.size > 0) {
+      // Find the first location that has vehicles available (must be in locationsWithVehicles set)
+      const firstLocationWithVehicles = companyLocations.find(location => {
+        const locationId = location.id || location.Id || location.locationId || location.LocationId;
+        if (!locationId) return false;
+        const locationIdStr = String(locationId);
+        const hasVehicles = locationsWithVehicles.has(locationIdStr);
+        console.log(`[BookPage] Checking location ${locationIdStr} for auto-select: ${hasVehicles ? 'HAS VEHICLES' : 'NO VEHICLES'}`);
+        return hasVehicles;
+      });
+      
+      if (firstLocationWithVehicles) {
+        const firstLocationId = firstLocationWithVehicles.id || firstLocationWithVehicles.Id || firstLocationWithVehicles.locationId || firstLocationWithVehicles.LocationId;
+        if (firstLocationId) {
+          const locationName = firstLocationWithVehicles.locationName || firstLocationWithVehicles.location_name || firstLocationWithVehicles.LocationName || firstLocationId;
+          console.log(`[BookPage] ✅ Auto-selecting first location with vehicles: ${locationName} (${firstLocationId})`);
+          setSelectedLocationId(String(firstLocationId));
+        }
+      } else {
+        console.warn('[BookPage] ⚠️ No locations with vehicles found in filtered list, cannot auto-select');
+      }
+    } else if (companyLocations.length > 0 && !selectedLocationId && !isCheckingAvailability && locationsWithVehicles.size === 0) {
+      console.warn('[BookPage] ⚠️ Availability check complete but no locations have vehicles available');
+    }
+  }, [companyLocations, selectedLocationId, isCheckingAvailability, locationsWithVehicles]);
 
   // Fetch accurate available count using the models API (which uses the stored procedure)
   // Must have companyId to ensure rates are filtered by company
@@ -1998,31 +2194,49 @@ const BookPage = () => {
           });
           
           clearTimeout(timeoutId);
-          return response.ok;
+          return response.ok ? url : null;
         } catch (error) {
           // Silently handle 404s and other errors (expected when images don't exist)
-          return false;
+          return null;
         }
       };
       
       // Check sequentially and stop early when found
       let hasFront = false;
       let hasBack = false;
+      let frontUrl = null;
+      let backUrl = null;
       
-      // Check front image (use /api proxy path)
+      // Check front image (static files served from /customers/ path)
       for (const ext of possibleExtensions) {
         if (hasFront) break;
-        const frontUrl = `${apiBaseUrl}/api/customers/${customerId}/licenses/front${ext}`;
-        hasFront = await checkImageExists(frontUrl);
-        if (hasFront) break;
+        const url = `${apiBaseUrl}/customers/${customerId}/licenses/front${ext}`;
+        const foundUrl = await checkImageExists(url);
+        if (foundUrl) {
+          hasFront = true;
+          frontUrl = foundUrl;
+          break;
+        }
       }
       
-      // Check back image (use /api proxy path)
+      // Check back image (static files served from /customers/ path)
       for (const ext of possibleExtensions) {
         if (hasBack) break;
-        const backUrl = `${apiBaseUrl}/api/customers/${customerId}/licenses/back${ext}`;
-        hasBack = await checkImageExists(backUrl);
-        if (hasBack) break;
+        const url = `${apiBaseUrl}/customers/${customerId}/licenses/back${ext}`;
+        const foundUrl = await checkImageExists(url);
+        if (foundUrl) {
+          hasBack = true;
+          backUrl = foundUrl;
+          break;
+        }
+      }
+      
+      // Update state with found URLs
+      if (frontUrl && !uploadedLicenseImages.front) {
+        setUploadedLicenseImages(prev => ({ ...prev, front: frontUrl }));
+      }
+      if (backUrl && !uploadedLicenseImages.back) {
+        setUploadedLicenseImages(prev => ({ ...prev, back: backUrl }));
       }
       
       const result = hasFront && hasBack;
@@ -2040,7 +2254,7 @@ const BookPage = () => {
       console.warn('[BookPage] Error checking DL images:', error);
       return false;
     }
-  }, []);
+  }, [uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
   const proceedToCheckout = useCallback(async (overrideUser = null) => {
     // User must be authenticated to proceed
@@ -2055,15 +2269,18 @@ const BookPage = () => {
     // Get customerId
     const customerId = currentUser?.id || currentUser?.customer_id || currentUser?.customerId || currentUser?.CustomerId || currentUser?.customer?.id || null;
     
-    // Check if user needs to complete wizard steps
+    // Simple flow:
+    // 1. If user doesn't exist → wizard will show from page 1 (handled elsewhere)
+    // 2. If user exists but images don't exist → show wizard from page 3
+    // 3. If user exists and images exist → don't show wizard
     if (customerId) {
       try {
-        // First check if images are already in state (just uploaded in wizard)
+        // Check if both images exist (front and back)
         const hasImagesInState = uploadedLicenseImages.front && uploadedLicenseImages.back;
         
         let hasDLImages = hasImagesInState;
         
-        // If not in state, check via API (but clear cache first to get fresh data)
+        // If not in state, check server
         if (!hasDLImages) {
           // Clear cache to ensure we get fresh data
           if (dlImageCheckCache.current) {
@@ -2073,10 +2290,12 @@ const BookPage = () => {
         }
         
         if (!hasDLImages) {
-          // DL images don't exist - show wizard (it will handle its own state)
+          // User exists but images don't exist → show wizard from page 3
           setIsCreateUserWizardOpen(true);
           return;
         }
+        
+        // User exists and images exist → don't show wizard, proceed to next step
         
         // DL exists - check if agreement is signed
         if (!agreementSignature) {
@@ -2121,11 +2340,7 @@ const BookPage = () => {
 
     }
 
-    // Require location selection if multiple locations exist
-    if (showLocationDropdown && !selectedLocationId) {
-      toast.error(t('booking.selectLocationRequired') || 'Please select a location');
-      return;
-    }
+    // Location is auto-selected, no need to validate
 
     // Use overrideUser if provided (from login response), otherwise use user from state
     const userToUse = overrideUser || user;
@@ -2549,17 +2764,34 @@ const BookPage = () => {
       const customerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || null;
       
       if (customerId) {
-        // Check if Driver License images exist
-        const hasDLImages = await checkDriverLicenseImagesExist(customerId);
+        // Simple flow:
+        // 1. User exists (we have customerId)
+        // 2. Check if images exist
+        // 3. If images don't exist → show wizard from page 3
+        // 4. If images exist → don't show wizard, proceed to checkout
+        
+        // Check if both images exist
+        const hasImagesInState = uploadedLicenseImages.front && uploadedLicenseImages.back;
+        let hasDLImages = hasImagesInState;
+        
+        // If not in state, check server
+        if (!hasDLImages) {
+          if (dlImageCheckCache.current) {
+            dlImageCheckCache.current.delete(customerId);
+          }
+          hasDLImages = await checkDriverLicenseImagesExist(customerId);
+        }
         
         if (!hasDLImages) {
-          // DL images don't exist - show wizard from page 3 (license photos)
+          // User exists but images don't exist → show wizard from page 3
           setAuthModalOpen(false);
           resetAuthModal();
           setIsCreateUserWizardOpen(true);
           setAuthLoading(false);
           return;
         }
+        
+        // User exists and images exist → don't show wizard, proceed to checkout
         
         // DL exists - check if agreement is signed
         // Check if agreement signature exists (they haven't signed yet)
@@ -2771,17 +3003,32 @@ const BookPage = () => {
         const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
         
         const checkImageWithExtensions = async (side, currentUrl) => {
-          // If we already have a URL for this side, verify it still exists
+          // If we already have a URL for this side, normalize it to use /api proxy and verify it still exists
           if (currentUrl) {
-            const stillExists = await checkImageExists(currentUrl);
+            // Normalize URL to use /api proxy path (convert direct backend URLs to proxy URLs)
+            let normalizedUrl = currentUrl;
+            // If URL contains direct backend path like /customers/... or https://localhost:7163/customers/...
+            // Convert it to use /api proxy path
+            const directBackendPattern = /(https?:\/\/[^\/]+)?\/customers\/([^\/]+)\/licenses\/(front|back)(\.\w+)?/;
+            const match = currentUrl.match(directBackendPattern);
+            if (match) {
+              // Extract customer ID and side from the URL
+              const urlCustomerId = match[2];
+              const urlSide = match[3];
+              const urlExt = match[4] || '.png';
+              // Reconstruct using /api proxy path
+              normalizedUrl = `${apiBaseUrl}/customers/${urlCustomerId}/licenses/${urlSide}${urlExt}`;
+            }
+            
+            const stillExists = await checkImageExists(normalizedUrl);
             if (stillExists) {
-              return currentUrl; // Image still exists, no need to check other extensions
+              return normalizedUrl; // Image still exists, return normalized URL
             }
           }
           
           // Check extensions sequentially and stop early when found (use /api proxy path)
           for (const ext of extensions) {
-            const url = `${apiBaseUrl}/api/customers/${customerId}/licenses/${side}${ext}`;
+            const url = `${apiBaseUrl}/customers/${customerId}/licenses/${side}${ext}`;
             const exists = await checkImageExists(url);
             if (exists) {
               return url;
@@ -3061,27 +3308,6 @@ const BookPage = () => {
 
               </div>
 
-
-
-              {/* Create User section - shown when not authenticated */}
-              {!isAuthenticated && (
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                    {t('bookPage.createAccount', 'Create Account')}
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('bookPage.createAccountHelper', 'Please create an account to complete your booking.')}
-                  </p>
-                  <button
-                    onClick={() => setIsCreateUserWizardOpen(true)}
-                    className="w-full btn-primary flex items-center justify-center gap-2 py-3"
-                  >
-                    <UserPlus className="h-5 w-5" />
-                    {t('bookPage.createUser', 'Create User')}
-                  </button>
-                </div>
-              )}
-
               {/* TEMPORARILY HIDDEN: Driver License Information form */}
               {false && (
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -3229,9 +3455,12 @@ const BookPage = () => {
 
                 </div>
 
-                {/* Location Dropdown - Show only if multiple locations */}
+                {/* Location Dropdown - Show only locations with available vehicles */}
                 {showLocationDropdown && (
                   <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('booking.selectLocation') || 'Select Location'}
+                    </label>
                     <select
                       value={selectedLocationId}
                       onChange={(e) => setSelectedLocationId(e.target.value)}
@@ -3249,6 +3478,29 @@ const BookPage = () => {
                         );
                       })}
                     </select>
+                  </div>
+                )}
+                
+                {/* Display selected location (read-only) if only one location with vehicles */}
+                {!showLocationDropdown && selectedLocation && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-blue-800">
+                        {t('booking.availableAt') || 'Available at:'}
+                      </span>
+                      <span className="text-sm font-semibold text-blue-900">
+                        {selectedLocation.locationName || selectedLocation.location_name || selectedLocation.LocationName || 'Selected Location'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show message if checking availability */}
+                {isCheckingAvailability && (
+                  <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="text-sm text-gray-600">
+                      {t('booking.checkingAvailability') || 'Checking availability...'}
+                    </div>
                   </div>
                 )}
 
@@ -3410,7 +3662,7 @@ const BookPage = () => {
 
                       disabled={
                         checkoutLoading || 
-                        availableVehiclesCount === 0 || 
+                        availableVehiclesCount === 0 ||
                         (showLocationDropdown && !selectedLocationId)
                       }
 

@@ -348,6 +348,7 @@
     "enterPickupLocation": "Ingresa lugar de recogida",
     "enterReturnLocation": "Ingresa lugar de devolución",
     "chooseLocation": "Elige una ubicación",
+    "availableAt": "Disponible en",
     "statusPending": "Pendiente",
     "statusConfirmed": "Confirmado",
     "statusActive": "Activo",

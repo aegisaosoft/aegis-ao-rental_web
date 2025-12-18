@@ -156,7 +156,108 @@ const Home = () => {
   );
   
   const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
-  const companyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  const allCompanyLocations = Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
+  
+  // State to track which locations have available vehicles
+  const [locationsWithVehicles, setLocationsWithVehicles] = React.useState(new Set());
+  const [isCheckingAvailability, setIsCheckingAvailability] = React.useState(false);
+  
+  // Check availability for each location (for the selected dates)
+  React.useEffect(() => {
+    if (allCompanyLocations.length <= 1 || !effectiveCompanyId || !startDate || !endDate) {
+      // If 1 or fewer locations, or no dates selected, mark all as available
+      if (allCompanyLocations.length > 0) {
+        const locationIds = allCompanyLocations.map(loc => {
+          const id = loc.id || loc.Id || loc.locationId || loc.LocationId;
+          return id ? String(id) : null;
+        }).filter(Boolean);
+        setLocationsWithVehicles(new Set(locationIds));
+        setIsCheckingAvailability(false);
+      }
+      return;
+    }
+    
+    // Check availability for each location
+    const checkAvailability = async () => {
+      setIsCheckingAvailability(true);
+      const availableLocationIds = new Set();
+      
+      // Check each location in parallel
+      const availabilityChecks = allCompanyLocations.map(async (location) => {
+        const locationId = location.id || location.Id || location.locationId || location.LocationId;
+        if (!locationId) return null;
+        
+        try {
+          const response = await apiService.getModelsGroupedByCategory(
+            effectiveCompanyId,
+            locationId,
+            startDate || null,
+            endDate || null
+          );
+          
+          const modelsData = response?.data || response;
+          const categories = Array.isArray(modelsData) ? modelsData : [];
+          
+          // Check if any category has models with availableCount > 0
+          for (const category of categories) {
+            const models = category.models || category.Models || [];
+            for (const model of models) {
+              const availableCount = model.availableCount || model.available_count || 0;
+              if (availableCount > 0) {
+                return String(locationId); // This location has available vehicles
+              }
+            }
+          }
+          
+          return null; // No available vehicles
+        } catch (error) {
+          console.warn(`Error checking availability for location ${locationId}:`, error);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(availabilityChecks);
+      results.forEach(locationId => {
+        if (locationId) {
+          availableLocationIds.add(locationId);
+        }
+      });
+      
+      setLocationsWithVehicles(availableLocationIds);
+      setIsCheckingAvailability(false);
+    };
+    
+    checkAvailability();
+  }, [allCompanyLocations, effectiveCompanyId, startDate, endDate]);
+  
+  // Filter locations to only show those with available vehicles
+  const companyLocations = React.useMemo(() => {
+    if (allCompanyLocations.length <= 1) {
+      return allCompanyLocations; // If 1 or fewer locations, show all
+    }
+    
+    // If we're still checking availability, return all (to avoid flickering)
+    if (isCheckingAvailability) {
+      return allCompanyLocations;
+    }
+    
+    // If no locations have vehicles after check completed, show all (fallback)
+    if (locationsWithVehicles.size === 0) {
+      return allCompanyLocations;
+    }
+    
+    // Filter to only locations with available vehicles
+    const filtered = allCompanyLocations.filter(location => {
+      const locationId = location.id || location.Id || location.locationId || location.LocationId;
+      if (!locationId) return false;
+      
+      const locationIdStr = String(locationId);
+      return locationsWithVehicles.has(locationIdStr);
+    });
+    
+    // If filtering resulted in no locations, show all (fallback)
+    return filtered.length > 0 ? filtered : allCompanyLocations;
+  }, [allCompanyLocations, locationsWithVehicles, isCheckingAvailability]);
   
   const showLocationDropdown = companyLocations.length > 1;
   const [selectedLocationId, setSelectedLocationId] = useState('');

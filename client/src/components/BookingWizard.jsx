@@ -55,21 +55,205 @@ const BookingWizard = ({
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
-      // Wizard just opened - reset to step 1
-      setWizardStep(1);
+      // Wizard just opened
       setWizardError('');
       setShowWizardQRCode(false);
-      // Pre-fill email if provided (from auth modal)
-      if (initialEmail) {
+      
+      // Safety check: If DL images already exist in state, close wizard immediately
+      // (This should not happen as we check before opening, but it's a safety net)
+      const hasImagesInState = uploadedLicenseImages.front && uploadedLicenseImages.back;
+      if (hasImagesInState) {
+        // Images exist in state - close wizard immediately
+        if (onClose) {
+          onClose();
+        }
+        return;
+      }
+      
+      // If user already exists (authenticated), start from step 3 (license photos)
+      // If user is new (not authenticated), start from step 1 (welcome/registration)
+      if (user && (user.id || user.customerId || user.customer_id)) {
+        // User exists - start from step 3 (license photos)
+        setWizardStep(3);
+        // Pre-fill user data if available
         setWizardFormData(prev => ({
           ...prev,
-          email: initialEmail
+          firstName: user.firstName || prev.firstName,
+          lastName: user.lastName || prev.lastName,
+          email: user.email || initialEmail || prev.email,
+          phoneNumber: user.phone || user.phoneNumber || prev.phoneNumber,
+          customerId: user.id || user.customerId || user.customer_id || prev.customerId
         }));
+        
+        // Fetch existing images if they exist on server but not in state
+        const fetchExistingImages = async () => {
+          const customerId = user.id || user.customerId || user.customer_id;
+          if (!customerId) return;
+          
+          const apiBaseUrl = window.location.origin;
+          const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+          
+          const checkImageExists = async (url) => {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 1000);
+              const response = await fetch(url + '?t=' + Date.now(), {
+                method: 'HEAD',
+                cache: 'no-cache',
+                signal: controller.signal,
+                credentials: 'include'
+              });
+              clearTimeout(timeoutId);
+              return response.ok ? url : null;
+            } catch (error) {
+              return null;
+            }
+          };
+          
+          let frontUrl = null;
+          let backUrl = null;
+          
+          // Check for front image - static files are served from /customers/ (not /api/customers/)
+          if (!uploadedLicenseImages.front) {
+            for (const ext of extensions) {
+              const url = `${apiBaseUrl}/customers/${customerId}/licenses/front${ext}`;
+              frontUrl = await checkImageExists(url);
+              if (frontUrl) break;
+            }
+            if (frontUrl) {
+              setUploadedLicenseImages(prev => ({ ...prev, front: frontUrl }));
+            }
+          } else {
+            frontUrl = uploadedLicenseImages.front;
+          }
+          
+          // Check for back image - static files are served from /customers/ (not /api/customers/)
+          if (!uploadedLicenseImages.back) {
+            for (const ext of extensions) {
+              const url = `${apiBaseUrl}/customers/${customerId}/licenses/back${ext}`;
+              backUrl = await checkImageExists(url);
+              if (backUrl) break;
+            }
+            if (backUrl) {
+              setUploadedLicenseImages(prev => ({ ...prev, back: backUrl }));
+            }
+          } else {
+            backUrl = uploadedLicenseImages.back;
+          }
+          
+          // Don't close wizard here - always show images on step 3 if they exist
+          // User might want to see or replace them
+        };
+        
+        fetchExistingImages();
+      } else {
+        // New user - start from step 1 (welcome/registration)
+        setWizardStep(1);
+        // Pre-fill email if provided (from auth modal)
+        if (initialEmail) {
+          setWizardFormData(prev => ({
+            ...prev,
+            email: initialEmail
+          }));
+        }
       }
       // Don't reset other form data here - it might have been pre-filled from parent
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialEmail]);
+  }, [isOpen, initialEmail, user, uploadedLicenseImages.front, uploadedLicenseImages.back, onClose, setUploadedLicenseImages]);
+
+  // Always fetch and display existing images when on step 3 (license photos)
+  useEffect(() => {
+    if (wizardStep === 3 && user && (user.id || user.customerId || user.customer_id)) {
+      const customerId = user.id || user.customerId || user.customer_id;
+      if (!customerId) return;
+      
+      const apiBaseUrl = window.location.origin;
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      
+      const checkImageExists = async (url) => {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // Increased timeout
+          const testUrl = url + '?t=' + Date.now();
+          console.log(`[BookingWizard] Checking image exists: ${testUrl}`);
+          const response = await fetch(testUrl, {
+            method: 'HEAD',
+            cache: 'no-cache',
+            signal: controller.signal,
+            credentials: 'include'
+          });
+          clearTimeout(timeoutId);
+          const exists = response.ok;
+          console.log(`[BookingWizard] Image check result for ${url}: ${exists ? 'EXISTS' : 'NOT FOUND'} (status: ${response.status})`);
+          return exists ? url : null;
+        } catch (error) {
+          console.log(`[BookingWizard] Image check error for ${url}:`, error.message);
+          return null;
+        }
+      };
+      
+      const fetchImagesForStep3 = async () => {
+        console.log(`[BookingWizard] Step 3: ALWAYS fetching images for customer ${customerId}`);
+        console.log(`[BookingWizard] Current state - front: ${uploadedLicenseImages.front || 'missing'}, back: ${uploadedLicenseImages.back || 'missing'}`);
+        
+        // ALWAYS check for front image on step 3 (find first "front" file, any extension)
+        // Static files are served from /customers/ (not /api/customers/)
+        let frontUrl = null;
+        for (const ext of extensions) {
+          const url = `${apiBaseUrl}/customers/${customerId}/licenses/front${ext}`;
+          console.log(`[BookingWizard] Checking front image: ${url}`);
+          const foundUrl = await checkImageExists(url);
+          if (foundUrl) {
+            frontUrl = foundUrl;
+            console.log(`[BookingWizard] ✅ Found front image: ${frontUrl}`);
+            // Always update state, even if already exists (to ensure latest)
+            setUploadedLicenseImages(prev => {
+              if (prev.front !== frontUrl) {
+                console.log(`[BookingWizard] Updating front image in state: ${frontUrl}`);
+                return { ...prev, front: frontUrl };
+              }
+              return prev;
+            });
+            break; // Found first "front" file, stop checking
+          }
+        }
+        if (!frontUrl) {
+          console.log(`[BookingWizard] ❌ No front image found for customer ${customerId} - checked all extensions`);
+        }
+        
+        // ALWAYS check for back image on step 3 (find first "back" file, any extension)
+        // Static files are served from /customers/ (not /api/customers/)
+        let backUrl = null;
+        for (const ext of extensions) {
+          const url = `${apiBaseUrl}/customers/${customerId}/licenses/back${ext}`;
+          console.log(`[BookingWizard] Checking back image: ${url}`);
+          const foundUrl = await checkImageExists(url);
+          if (foundUrl) {
+            backUrl = foundUrl;
+            console.log(`[BookingWizard] ✅ Found back image: ${backUrl}`);
+            // Always update state, even if already exists (to ensure latest)
+            setUploadedLicenseImages(prev => {
+              if (prev.back !== backUrl) {
+                console.log(`[BookingWizard] Updating back image in state: ${backUrl}`);
+                return { ...prev, back: backUrl };
+              }
+              return prev;
+            });
+            break; // Found first "back" file, stop checking
+          }
+        }
+        if (!backUrl) {
+          console.log(`[BookingWizard] ❌ No back image found for customer ${customerId} - checked all extensions`);
+        }
+        
+        console.log(`[BookingWizard] Step 3 fetch complete - front: ${frontUrl || 'NOT FOUND'}, back: ${backUrl || 'NOT FOUND'}`);
+        console.log(`[BookingWizard] State after fetch - front: ${uploadedLicenseImages.front || 'missing'}, back: ${uploadedLicenseImages.back || 'missing'}`);
+      };
+      
+      fetchImagesForStep3();
+    }
+  }, [wizardStep, user, uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
   // Handlers
   const handleWizardInputChange = (e) => {
@@ -93,10 +277,25 @@ const BookingWizard = ({
         return;
       }
 
+      // Store file in form data for later upload if needed
+      setWizardFormData(prev => ({
+        ...prev,
+        [fieldName]: file
+      }));
+
+      // Create preview
+      const previewUrl = URL.createObjectURL(file);
+      const previewKey = fieldName === 'driverLicenseFront' ? 'driverLicenseFront' : 'driverLicenseBack';
+      setWizardImagePreviews(prev => ({
+        ...prev,
+        [previewKey]: previewUrl
+      }));
+
       const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
       
       if (!customerId) {
-        setWizardError(t('bookPage.mustCompletePersonalInfo', 'Please complete personal information first'));
+        // Don't upload yet if customerId is missing - will upload on Next click
+        setWizardError('');
         return;
       }
 
@@ -119,6 +318,17 @@ const BookingWizard = ({
           setUploadedLicenseImages(prev => ({
             ...prev,
             [side]: fullImageUrl
+          }));
+
+          // Clear local file and preview since it's now uploaded
+          setWizardFormData(prev => ({
+            ...prev,
+            [fieldName]: null
+          }));
+          URL.revokeObjectURL(previewUrl);
+          setWizardImagePreviews(prev => ({
+            ...prev,
+            [previewKey]: null
           }));
 
           // Trigger refresh event for other tabs
@@ -363,8 +573,132 @@ const BookingWizard = ({
         setWizardError(t('bookPage.driverLicenseBackRequired', 'Driver License Back Image is required'));
         return;
       }
-      // After license photos, go to confirmation (skip agreement step)
-      setWizardStep(4);
+      
+      // Upload any local files that haven't been uploaded yet
+      const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
+      
+      if (!customerId) {
+        setWizardError(t('bookPage.mustCompletePersonalInfo', 'Please complete personal information first'));
+        return;
+      }
+      
+      try {
+        setWizardLoading(true);
+        setWizardError('');
+        
+        // Upload front image if it's a local file (not already uploaded)
+        if (wizardFormData.driverLicenseFront && !uploadedLicenseImages.front) {
+          const frontFile = wizardFormData.driverLicenseFront;
+          const frontResponse = await apiService.uploadCustomerLicenseImage(customerId, 'front', frontFile);
+          const frontImageUrl = frontResponse?.data?.imageUrl || frontResponse?.data?.result?.imageUrl;
+          
+          if (frontImageUrl) {
+            const backendBaseUrl = process.env.REACT_APP_API_URL 
+              ? new URL(process.env.REACT_APP_API_URL).origin 
+              : window.location.origin;
+            const fullFrontImageUrl = `${backendBaseUrl}${frontImageUrl}`;
+            
+            setUploadedLicenseImages(prev => ({
+              ...prev,
+              front: fullFrontImageUrl
+            }));
+            
+            // Clean up local file and preview
+            if (wizardImagePreviews.driverLicenseFront) {
+              URL.revokeObjectURL(wizardImagePreviews.driverLicenseFront);
+            }
+            setWizardFormData(prev => ({
+              ...prev,
+              driverLicenseFront: null
+            }));
+            setWizardImagePreviews(prev => ({
+              ...prev,
+              driverLicenseFront: null
+            }));
+            
+            // Clear cache
+            if (dlImageCheckCache) {
+              dlImageCheckCache.current?.delete(customerId);
+            }
+            
+            // Trigger refresh event for other tabs
+            try {
+              const channel = new BroadcastChannel('license_images_channel');
+              channel.postMessage({ type: 'licenseImageUploaded', side: 'front', customerId, imageUrl: fullFrontImageUrl });
+              channel.close();
+            } catch (e) {
+              console.log('BroadcastChannel not available:', e);
+            }
+            
+            try {
+              localStorage.setItem('licenseImagesUploaded', Date.now().toString());
+            } catch (e) {
+              console.log('localStorage not available:', e);
+            }
+          }
+        }
+        
+        // Upload back image if it's a local file (not already uploaded)
+        if (wizardFormData.driverLicenseBack && !uploadedLicenseImages.back) {
+          const backFile = wizardFormData.driverLicenseBack;
+          const backResponse = await apiService.uploadCustomerLicenseImage(customerId, 'back', backFile);
+          const backImageUrl = backResponse?.data?.imageUrl || backResponse?.data?.result?.imageUrl;
+          
+          if (backImageUrl) {
+            const backendBaseUrl = process.env.REACT_APP_API_URL 
+              ? new URL(process.env.REACT_APP_API_URL).origin 
+              : window.location.origin;
+            const fullBackImageUrl = `${backendBaseUrl}${backImageUrl}`;
+            
+            setUploadedLicenseImages(prev => ({
+              ...prev,
+              back: fullBackImageUrl
+            }));
+            
+            // Clean up local file and preview
+            if (wizardImagePreviews.driverLicenseBack) {
+              URL.revokeObjectURL(wizardImagePreviews.driverLicenseBack);
+            }
+            setWizardFormData(prev => ({
+              ...prev,
+              driverLicenseBack: null
+            }));
+            setWizardImagePreviews(prev => ({
+              ...prev,
+              driverLicenseBack: null
+            }));
+            
+            // Clear cache
+            if (dlImageCheckCache) {
+              dlImageCheckCache.current?.delete(customerId);
+            }
+            
+            // Trigger refresh event for other tabs
+            try {
+              const channel = new BroadcastChannel('license_images_channel');
+              channel.postMessage({ type: 'licenseImageUploaded', side: 'back', customerId, imageUrl: fullBackImageUrl });
+              channel.close();
+            } catch (e) {
+              console.log('BroadcastChannel not available:', e);
+            }
+            
+            try {
+              localStorage.setItem('licenseImagesUploaded', Date.now().toString());
+            } catch (e) {
+              console.log('localStorage not available:', e);
+            }
+          }
+        }
+        
+        // After license photos are saved, go to confirmation (skip agreement step)
+        setWizardStep(4);
+        setWizardError('');
+      } catch (error) {
+        setWizardError(error.response?.data?.message || error.message || t('bookPage.uploadError', 'Failed to upload images. Please try again.'));
+      } finally {
+        setWizardLoading(false);
+      }
+      return;
     } else {
       setWizardStep(wizardStep + 1);
     }
@@ -732,14 +1066,15 @@ const BookingWizard = ({
                   }
                 </p>
 
-                {/* Display uploaded images */}
+                {/* Always display existing images on step 3 if they exist */}
                 {(uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack) && (
                   <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                     <h4 className="text-sm font-semibold text-green-800 mb-3">
                       {t('bookPage.uploadedImages', 'Uploaded Images')}
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) && (
+                      {/* Always show front image if it exists */}
+                      {(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) ? (
                         <div>
                           <label className="block text-xs font-medium text-green-700 mb-2">
                             {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
@@ -762,8 +1097,9 @@ const BookingWizard = ({
                             </button>
                           </div>
                         </div>
-                      )}
-                      {(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) && (
+                      ) : null}
+                      {/* Always show back image if it exists */}
+                      {(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) ? (
                         <div>
                           <label className="block text-xs font-medium text-green-700 mb-2">
                             {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
@@ -786,7 +1122,7 @@ const BookingWizard = ({
                             </button>
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 )}

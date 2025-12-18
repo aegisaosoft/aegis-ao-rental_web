@@ -957,6 +957,40 @@ if (fs.existsSync(modelsStaticPath)) {
   console.log(`⚠️ Models directory not found at: ${modelsStaticPath}`);
 }
 
+// Proxy /customers/ requests to backend (for license images)
+// Backend serves static files from wwwroot/customers at /customers/ path
+app.use('/customers', async (req, res) => {
+  const axios = require('axios');
+  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+  const backendUrl = `${apiBaseUrl}${req.originalUrl}`;
+  
+  try {
+    console.log(`[Static Proxy] ${req.method} ${req.originalUrl} -> ${backendUrl}`);
+    const response = await axios({
+      method: req.method,
+      url: backendUrl,
+      responseType: 'stream',
+      timeout: 10000,
+      httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false })
+    });
+    
+    // Forward content-type and other headers
+    res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+    if (response.headers['content-length']) {
+      res.setHeader('Content-Length', response.headers['content-length']);
+    }
+    
+    response.data.pipe(res);
+  } catch (error) {
+    console.error(`[Static Proxy] Error proxying ${req.originalUrl}:`, error.message);
+    if (error.response) {
+      res.status(error.response.status).send(error.response.data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch static file from backend' });
+    }
+  }
+});
+
 
 // Serve BlinkID resources - must come BEFORE the catch-all route
 // Serve from node_modules/@microblink/blinkid/dist/resources

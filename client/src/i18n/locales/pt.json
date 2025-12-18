@@ -348,6 +348,7 @@
     "enterPickupLocation": "Digite local de retirada",
     "enterReturnLocation": "Digite local de devolução",
     "chooseLocation": "Escolha um local",
+    "availableAt": "Disponível em",
     "statusPending": "Pendente",
     "statusConfirmed": "Confirmado",
     "statusActive": "Ativo",

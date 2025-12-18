@@ -348,6 +348,7 @@
     "enterPickupLocation": "Abholort eingeben",
     "enterReturnLocation": "Rückgabeort eingeben",
     "chooseLocation": "Wählen Sie einen Standort",
+    "availableAt": "Verfügbar bei",
     "statusPending": "Ausstehend",
     "statusConfirmed": "Bestätigt",
     "statusActive": "Aktiv",
