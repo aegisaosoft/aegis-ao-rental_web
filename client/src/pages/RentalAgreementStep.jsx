@@ -3,7 +3,7 @@
  * Copyright (c) 2025 Alexander Orlov.
  */
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { FileText, Check, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
 
 // Consent texts in multiple languages
@@ -170,7 +170,7 @@ const SignaturePad = ({ onSignatureChange, signatureData, disabled }) => {
       };
       img.src = signatureData;
     }
-  }, []);
+  }, [signatureData]);
 
   const getCoordinates = (e) => {
     const canvas = canvasRef.current;

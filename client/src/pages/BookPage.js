@@ -40,7 +40,7 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera, FileText } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
@@ -2265,6 +2265,8 @@ const BookPage = () => {
 
     companyConfig?.securityDeposit,
 
+    companyConfig?.language,
+
     companyId,
 
     ensureVehicleSelection,
@@ -2301,7 +2303,17 @@ const BookPage = () => {
 
     isAuthenticated,
 
-    isBookingAvailable
+    isBookingAvailable,
+
+    agreementSignature,
+
+    agreementConsents.termsAcceptedAt,
+
+    agreementConsents.nonRefundableAcceptedAt,
+
+    agreementConsents.damagePolicyAcceptedAt,
+
+    agreementConsents.cardAuthorizationAcceptedAt
 
   ]);
 
