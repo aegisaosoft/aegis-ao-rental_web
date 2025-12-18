@@ -40,7 +40,7 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon, UserPlus, Check, ArrowRight, QrCode, Camera, FileText } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
@@ -50,6 +50,8 @@ import { useTranslation } from 'react-i18next';
 import { countryToLanguage } from '../utils/countryLanguage';
 
 import { sanitizeFilterDates } from '../utils/rentalSearchFilters';
+
+import RentalAgreementStep, { getConsentTexts } from './RentalAgreementStep';
 
 
 
@@ -588,6 +590,19 @@ const BookPage = () => {
   const [wizardError, setWizardError] = useState('');
   const [showWizardQRCode, setShowWizardQRCode] = useState(false);
   const [wizardQRUrl, setWizardQRUrl] = useState('');
+  
+  // Rental Agreement state
+  const [agreementSignature, setAgreementSignature] = useState(null);
+  const [agreementConsents, setAgreementConsents] = useState({
+    terms: false,
+    termsAcceptedAt: null,
+    nonRefundable: false,
+    nonRefundableAcceptedAt: null,
+    damagePolicy: false,
+    damagePolicyAcceptedAt: null,
+    cardAuthorization: false,
+    cardAuthorizationAcceptedAt: null,
+  });
   
   // Mobile detection
   const isMobile = React.useMemo(() => {
@@ -2092,7 +2107,23 @@ const BookPage = () => {
 
         securityDeposit: companyConfig?.securityDeposit ?? 1000,
 
-        locationId: selectedLocationId || null
+        locationId: selectedLocationId || null,
+
+        // Rental agreement data
+        agreementData: agreementSignature ? {
+          signatureImage: agreementSignature,
+          language: i18n.language || companyConfig?.language || 'en',
+          consents: {
+            termsAcceptedAt: agreementConsents.termsAcceptedAt,
+            nonRefundableAcceptedAt: agreementConsents.nonRefundableAcceptedAt,
+            damagePolicyAcceptedAt: agreementConsents.damagePolicyAcceptedAt,
+            cardAuthorizationAcceptedAt: agreementConsents.cardAuthorizationAcceptedAt,
+          },
+          consentTexts: getConsentTexts(i18n.language || 'en'),
+          userAgent: navigator.userAgent,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          signedAt: new Date().toISOString(),
+        } : null
 
       };
 
@@ -2577,6 +2608,13 @@ const BookPage = () => {
         
         // Get the image URL from response
         const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+        const fileName = response?.data?.fileName || response?.data?.result?.fileName;
+        
+        console.log(`[BookPage] Upload response for ${side}:`, {
+          imageUrl,
+          fileName,
+          fullResponse: response?.data
+        });
         
         if (imageUrl) {
           // Construct full URL for display
@@ -2584,6 +2622,8 @@ const BookPage = () => {
             ? new URL(process.env.REACT_APP_API_URL).origin 
             : window.location.origin;
           const fullImageUrl = `${backendBaseUrl}${imageUrl}`;
+          
+          console.log(`[BookPage] Setting ${side} image URL:`, fullImageUrl);
           
           // Update uploadedLicenseImages state
           setUploadedLicenseImages(prev => ({
@@ -2845,6 +2885,19 @@ const BookPage = () => {
         return;
       }
     }
+
+    // Validate rental agreement (step 4)
+    if (wizardStep === 4) {
+      if (!agreementSignature) {
+        setWizardError(t('bookPage.signatureRequired', 'Please provide your signature'));
+        return;
+      }
+      if (!agreementConsents.terms || !agreementConsents.nonRefundable || 
+          !agreementConsents.damagePolicy || !agreementConsents.cardAuthorization) {
+        setWizardError(t('bookPage.allConsentsRequired', 'Please accept all terms and conditions'));
+        return;
+      }
+    }
     
     setWizardStep(wizardStep + 1);
     setWizardError('');
@@ -2924,6 +2977,18 @@ const BookPage = () => {
       confirmPassword: '',
       driverLicenseFront: null,
       driverLicenseBack: null,
+    });
+    // Reset rental agreement state
+    setAgreementSignature(null);
+    setAgreementConsents({
+      terms: false,
+      termsAcceptedAt: null,
+      nonRefundable: false,
+      nonRefundableAcceptedAt: null,
+      damagePolicy: false,
+      damagePolicyAcceptedAt: null,
+      cardAuthorization: false,
+      cardAuthorizationAcceptedAt: null,
     });
     // Clean up image previews
     if (wizardImagePreviews.driverLicenseFront) {
@@ -3073,26 +3138,51 @@ const BookPage = () => {
       const checkImageExists = (url) => {
         return new Promise((resolve) => {
           const img = new Image();
-          img.onload = () => resolve(true);
-          img.onerror = () => resolve(false);
+          let resolved = false;
+          
+          const resolveOnce = (value) => {
+            if (!resolved) {
+              resolved = true;
+              resolve(value);
+            }
+          };
+          
+          img.onload = () => resolveOnce(true);
+          img.onerror = () => resolveOnce(false);
+          
+          // Add timeout to prevent hanging (5 seconds)
+          setTimeout(() => resolveOnce(false), 5000);
+          
           img.src = url + '?t=' + Date.now(); // Add cache buster
         });
       };
 
       if (customerId) {
         // Customer exists, check customer license images
-        const frontUrl = `${backendBaseUrl}/customers/${customerId}/licenses/front.jpg`;
-        const backUrl = `${backendBaseUrl}/customers/${customerId}/licenses/back.jpg`;
+        // Try multiple extensions since backend saves with original file extension
+        const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        
+        const checkImageWithExtensions = async (side) => {
+          for (const ext of extensions) {
+            const url = `${backendBaseUrl}/customers/${customerId}/licenses/${side}${ext}`;
+            const exists = await checkImageExists(url);
+            if (exists) {
+              return url;
+            }
+          }
+          return null;
+        };
 
-        const [frontExists, backExists] = await Promise.all([
-          checkImageExists(frontUrl),
-          checkImageExists(backUrl)
+        const [frontUrl, backUrl] = await Promise.all([
+          checkImageWithExtensions('front'),
+          checkImageWithExtensions('back')
         ]);
 
-        setUploadedLicenseImages({
-          front: frontExists ? frontUrl : null,
-          back: backExists ? backUrl : null,
-        });
+        // Preserve existing images - only update if we find a new image or if we're certain it doesn't exist
+        setUploadedLicenseImages(prev => ({
+          front: frontUrl || (prev.front || null),
+          back: backUrl || (prev.back || null),
+        }));
       } else {
         // No customerId, clear images
         setUploadedLicenseImages({
@@ -4779,7 +4869,7 @@ const BookPage = () => {
             {/* Progress Indicator */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
               <div className="flex items-center justify-between">
-                {[1, 2, 3, 4].map((step) => (
+                {[1, 2, 3, 4, 5].map((step) => (
                   <React.Fragment key={step}>
                     <div className="flex flex-col items-center">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
@@ -4799,10 +4889,11 @@ const BookPage = () => {
                         {step === 1 ? t('bookPage.wizardStep1', 'Welcome') :
                          step === 2 ? t('bookPage.wizardStep2', 'Personal Info') :
                          step === 3 ? t('bookPage.wizardStep3', 'License Photos') :
-                         t('bookPage.wizardStep4', 'Confirm')}
+                         step === 4 ? t('bookPage.wizardStep4', 'Agreement') :
+                         t('bookPage.wizardStep5', 'Confirm')}
                       </span>
                     </div>
-                    {step < 4 && (
+                    {step < 5 && (
                       <div className={`flex-1 h-1 mx-2 ${
                         wizardStep > step ? 'bg-green-500' : 'bg-gray-200'
                       }`} />
@@ -5190,8 +5281,36 @@ const BookPage = () => {
                 </div>
               )}
 
-              {/* Step 4: Confirmation */}
+              {/* Step 4: Rental Agreement */}
               {wizardStep === 4 && (
+                <RentalAgreementStep
+                  language={i18n.language || companyConfig?.language || 'en'}
+                  rentalInfo={{
+                    vehicleName: `${make || ''} ${model || ''}`.trim() || t('bookPage.selectedVehicle', 'Selected Vehicle'),
+                    pickupDate: searchStartDate ? new Date(searchStartDate).toLocaleDateString() : '',
+                    returnDate: searchEndDate ? new Date(searchEndDate).toLocaleDateString() : '',
+                    totalAmount: calculateGrandTotal(),
+                    securityDeposit: companyConfig?.securityDeposit || 0,
+                  }}
+                  formatPrice={formatPrice}
+                  consents={agreementConsents}
+                  setConsents={setAgreementConsents}
+                  signatureData={agreementSignature}
+                  setSignatureData={setAgreementSignature}
+                  onNext={() => {
+                    setWizardStep(5);
+                    setWizardError('');
+                  }}
+                  onPrevious={handleWizardPrevious}
+                  onCancel={handleCloseWizard}
+                  loading={wizardLoading}
+                  error={wizardError}
+                  t={t}
+                />
+              )}
+
+              {/* Step 5: Confirmation */}
+              {wizardStep === 5 && (
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">
                     {t('bookPage.confirmRegistration', 'Confirm Your Registration')}
