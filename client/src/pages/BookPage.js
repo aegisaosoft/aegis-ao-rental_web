@@ -2587,6 +2587,7 @@ const BookPage = () => {
   };
 
   const handleDeleteWizardImage = async (side) => {
+    // This function only deletes images - it does NOT check or register accounts
     const currentWizardId = searchParams.get('wizardId');
     
     // Check if it's a server-uploaded image (uploadedLicenseImages) or local preview (wizardImagePreviews)
@@ -2630,8 +2631,14 @@ const BookPage = () => {
       }
     } catch (err) {
       console.error(`Error deleting ${side} image:`, err);
+      // Only show delete-specific errors, not registration errors
       const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
-      toast.error(errorMessage);
+      // Filter out registration-related errors
+      if (!errorMessage.toLowerCase().includes('email') && !errorMessage.toLowerCase().includes('registered') && !errorMessage.toLowerCase().includes('account')) {
+        toast.error(errorMessage);
+      } else {
+        toast.error(t('bookPage.deleteError', 'Failed to delete image. Please try again.'));
+      }
     }
   };
 
@@ -2694,25 +2701,63 @@ const BookPage = () => {
       setWizardLoading(true);
       setWizardError('');
 
-      // Register user
-      const registerResponse = await registerUser({
-        email: wizardFormData.email.trim().toLowerCase(),
-        password: wizardFormData.password,
-        firstName: wizardFormData.firstName.trim(),
-        lastName: wizardFormData.lastName.trim()
-      });
-
-      const userData = registerResponse?.result?.user || registerResponse?.user || null;
-      if (!userData) {
-        throw new Error('Register response missing user data');
+      const email = wizardFormData.email.trim().toLowerCase();
+      
+      // Check if customer with this email already exists
+      let existingCustomer = null;
+      try {
+        existingCustomer = await apiService.getCustomerByEmail(email);
+      } catch (error) {
+        // 404 is expected if customer doesn't exist - that's fine, we'll register
+        if (error.response?.status !== 404) {
+          console.error('Error checking for existing customer:', error);
+        }
       }
 
-      await handleAuthSuccess(userData);
+      let userData = null;
+      let registeredCustomerId = '';
+
+      if (existingCustomer) {
+        // Customer already exists - just login and add license images
+        try {
+          // Try to login with the provided password
+          const loginResponse = await loginUser({
+            email: email,
+            password: wizardFormData.password
+          });
+          
+          userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
+          if (!userData) {
+            throw new Error('Login failed - invalid credentials');
+          }
+          
+          await handleAuthSuccess(userData);
+          registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
+          
+          toast.success(t('bookPage.loggedInExistingAccount', 'Logged in to existing account. Adding license images...'));
+        } catch (loginError) {
+          // If login fails, show error but don't try to register
+          throw new Error(loginError.response?.data?.message || 'Account exists but password is incorrect. Please use the correct password or reset it.');
+        }
+      } else {
+        // Customer doesn't exist - register new account
+        const registerResponse = await registerUser({
+          email: email,
+          password: wizardFormData.password,
+          firstName: wizardFormData.firstName.trim(),
+          lastName: wizardFormData.lastName.trim()
+        });
+
+        userData = registerResponse?.result?.user || registerResponse?.user || null;
+        if (!userData) {
+          throw new Error('Register response missing user data');
+        }
+
+        await handleAuthSuccess(userData);
+        registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
+      }
       
-      // Get customer ID from registered user
-      const registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
-      
-      // Upload driver license images if we have them
+      // Upload driver license images if we have them (for both new and existing accounts)
       if (registeredCustomerId && (wizardFormData.driverLicenseFront || wizardFormData.driverLicenseBack)) {
         try {
           if (wizardFormData.driverLicenseFront) {
@@ -2733,8 +2778,8 @@ const BookPage = () => {
           }
         } catch (uploadError) {
           console.error('Error uploading license images:', uploadError);
-          // Don't fail the registration if image upload fails, just log it
-          toast.warning(t('bookPage.licenseUploadWarning', 'Account created but license images could not be uploaded. You can add them later.'));
+          // Don't fail the registration/login if image upload fails, just log it
+          toast.warning(t('bookPage.licenseUploadWarning', 'Account processed but license images could not be uploaded. You can add them later.'));
         }
       }
       
@@ -2763,7 +2808,7 @@ const BookPage = () => {
         driverLicenseBack: null,
       });
     } catch (error) {
-      setWizardError(error.response?.data?.message || t('auth.registrationFailed') || 'Unable to create account.');
+      setWizardError(error.response?.data?.message || error.message || t('auth.registrationFailed') || 'Unable to process account.');
     } finally {
       setWizardLoading(false);
     }
