@@ -405,6 +405,11 @@ export const apiService = {
       },
     });
   },
+  // Delete wizard license image
+  deleteWizardLicenseImage: (wizardId, side) => {
+    console.log('[API] Deleting wizard license image:', { wizardId, side });
+    return api.delete(`/Media/wizard/${wizardId}/licenses/${side}`);
+  },
 
   // Stripe Connect - using same API functions as admin app
   setupStripeAccount: (companyId) => api.post(`/companies/${companyId}/stripe/setup?source=web`),

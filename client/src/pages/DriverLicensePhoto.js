@@ -292,6 +292,54 @@ const DriverLicensePhoto = () => {
     }
   };
 
+  const handleDelete = async (side) => {
+    const currentCustomerId = getCurrentCustomerId();
+    
+    if (!currentCustomerId && !wizardId) {
+      toast.error(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
+      return;
+    }
+
+    try {
+      if (!currentCustomerId && wizardId) {
+        // Delete from wizard storage
+        await apiService.deleteWizardLicenseImage(wizardId, side);
+        
+        // Clear the uploaded URL
+        if (side === 'front') {
+          setUploadedFrontUrl(null);
+          setFrontImage(null);
+          setFrontPreview(null);
+        } else {
+          setUploadedBackUrl(null);
+          setBackPreview(null);
+        }
+        
+        // Trigger refresh event for booking page
+        try {
+          const channel = new BroadcastChannel('license_images_channel');
+          channel.postMessage({ type: 'wizardImageDeleted', side, wizardId });
+          channel.close();
+        } catch (e) {
+          console.log('BroadcastChannel not available:', e);
+        }
+        
+        toast.success(
+          side === 'front'
+            ? t('bookPage.frontPhotoDeleted', 'Front photo deleted successfully')
+            : t('bookPage.backPhotoDeleted', 'Back photo deleted successfully')
+        );
+      } else if (currentCustomerId) {
+        // TODO: Add delete endpoint for customer images if needed
+        toast.info(t('bookPage.deleteNotAvailable', 'Delete functionality for customer images is not yet available'));
+      }
+    } catch (err) {
+      console.error(`Error deleting ${side} image:`, err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
+      toast.error(errorMessage);
+    }
+  };
+
   const handleRemove = (side) => {
     if (side === 'front') {
       setFrontImage(null);
@@ -454,6 +502,13 @@ const DriverLicensePhoto = () => {
                       <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                         ✓ {t('bookPage.uploaded', 'Uploaded')}
                       </div>
+                      <button
+                        onClick={() => handleDelete('front')}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                        title={t('bookPage.deletePhoto', 'Delete photo')}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -471,6 +526,13 @@ const DriverLicensePhoto = () => {
                       <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                         ✓ {t('bookPage.uploaded', 'Uploaded')}
                       </div>
+                      <button
+                        onClick={() => handleDelete('back')}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                        title={t('bookPage.deletePhoto', 'Delete photo')}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
                 )}

@@ -503,6 +503,61 @@ const MobileScan = () => {
     setUploadProgress(0);
   };
 
+  const handleDelete = async (side) => {
+    const currentCustomerId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId');
+    const wizardId = searchParams.get('wizardId') || '';
+    
+    if (!currentCustomerId && !wizardId) {
+      toast.error('Wizard ID or User ID is required. Please ensure you are logged in or have a valid wizard ID.');
+      return;
+    }
+
+    try {
+      if (!currentCustomerId && wizardId) {
+        // Delete from wizard storage
+        await apiService.deleteWizardLicenseImage(wizardId, side);
+        
+        // Clear the uploaded URL and preview
+        if (side === 'front') {
+          setUploadedFrontUrl(null);
+          setFrontImage(null);
+          setFrontPreview(null);
+          if (frontInputRef.current) {
+            frontInputRef.current.value = '';
+          }
+        } else {
+          setUploadedBackUrl(null);
+          setBackPreview(null);
+          if (backInputRef.current) {
+            backInputRef.current.value = '';
+          }
+        }
+        
+        // Trigger refresh event for booking page
+        try {
+          const channel = new BroadcastChannel('license_images_channel');
+          channel.postMessage({ type: 'wizardImageDeleted', side, wizardId });
+          channel.close();
+        } catch (e) {
+          console.log('BroadcastChannel not available:', e);
+        }
+        
+        toast.success(
+          side === 'front'
+            ? 'Front photo deleted successfully'
+            : 'Back photo deleted successfully'
+        );
+      } else if (currentCustomerId) {
+        // TODO: Add delete endpoint for customer images if needed
+        toast.info('Delete functionality for customer images is not yet available');
+      }
+    } catch (err) {
+      console.error(`Error deleting ${side} image:`, err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || 'Failed to delete image. Please try again.';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleStartBlinkIDScan = () => {
     // Redirect to ScanLicense page with ALL parameters preserved
     const returnTo = searchParams.get('returnTo') || window.location.pathname;
@@ -715,6 +770,13 @@ const MobileScan = () => {
                         <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                           ✓ Uploaded
                         </div>
+                        <button
+                          onClick={() => handleDelete('front')}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                          title="Delete photo"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     </div>
                   )}
@@ -732,6 +794,13 @@ const MobileScan = () => {
                         <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                           ✓ Uploaded
                         </div>
+                        <button
+                          onClick={() => handleDelete('back')}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                          title="Delete photo"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     </div>
                   )}
