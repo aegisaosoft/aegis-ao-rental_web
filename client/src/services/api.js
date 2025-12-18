@@ -383,7 +383,19 @@ export const apiService = {
     const formData = new FormData();
     formData.append('image', file);
     
-    return api.post(`/Media/wizard/${wizardId}/licenses/${side}`, formData, {
+    // URL encode wizardId to handle special characters
+    const encodedWizardId = encodeURIComponent(wizardId);
+    
+    console.log('[API] Uploading wizard license image:', {
+      wizardId: wizardId,
+      encodedWizardId: encodedWizardId,
+      side: side,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    });
+    
+    return api.post(`/Media/wizard/${encodedWizardId}/licenses/${side}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

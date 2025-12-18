@@ -138,6 +138,8 @@ const DriverLicensePhoto = () => {
         // Get the image URL from response
         imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
         
+        console.log('[DriverLicensePhoto] Upload response imageUrl:', imageUrl);
+        
         // Construct full URL if relative path is returned
         // For static files (wizard/customers), use backend origin directly (not through /api proxy)
         fullImageUrl = imageUrl;
@@ -156,6 +158,7 @@ const DriverLicensePhoto = () => {
             }
           }
           fullImageUrl = `${backendBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+          console.log('[DriverLicensePhoto] Constructed fullImageUrl:', fullImageUrl);
         }
 
         // Store uploaded image URL
@@ -252,8 +255,18 @@ const DriverLicensePhoto = () => {
       }
     } catch (err) {
       console.error(`Error uploading ${side} image:`, err);
-      setError(err.response?.data?.message || t('bookPage.uploadError', 'Failed to upload image. Please try again.'));
-      toast.error(err.response?.data?.message || t('bookPage.uploadError', 'Failed to upload image. Please try again.'));
+      console.error(`Error details:`, {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        url: err.config?.url,
+        wizardId: wizardId,
+        side: side
+      });
+      const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.uploadError', 'Failed to upload image. Please try again.');
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setUploadingSide(null);
       setUploadProgress(0);
