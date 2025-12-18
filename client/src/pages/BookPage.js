@@ -2586,6 +2586,55 @@ const BookPage = () => {
     }));
   };
 
+  const handleDeleteWizardImage = async (side) => {
+    const currentWizardId = searchParams.get('wizardId');
+    
+    // Check if it's a server-uploaded image (uploadedLicenseImages) or local preview (wizardImagePreviews)
+    const isServerImage = side === 'front' ? uploadedLicenseImages.front : uploadedLicenseImages.back;
+    const isLocalPreview = side === 'front' ? wizardImagePreviews.driverLicenseFront : wizardImagePreviews.driverLicenseBack;
+    
+    try {
+      // If it's a server image and we have wizardId, delete from server
+      if (isServerImage && currentWizardId) {
+        await apiService.deleteWizardLicenseImage(currentWizardId, side);
+        
+        // Trigger refresh event for booking page
+        try {
+          const channel = new BroadcastChannel('license_images_channel');
+          channel.postMessage({ type: 'wizardImageDeleted', side, wizardId: currentWizardId });
+          channel.close();
+        } catch (e) {
+          console.log('BroadcastChannel not available:', e);
+        }
+        
+        // Clear from uploadedLicenseImages
+        setUploadedLicenseImages(prev => ({
+          ...prev,
+          [side]: null
+        }));
+        
+        toast.success(
+          side === 'front'
+            ? t('bookPage.frontPhotoDeleted', 'Front photo deleted successfully')
+            : t('bookPage.backPhotoDeleted', 'Back photo deleted successfully')
+        );
+      } else if (isLocalPreview) {
+        // If it's a local preview, just remove it
+        const fieldName = side === 'front' ? 'driverLicenseFront' : 'driverLicenseBack';
+        removeWizardImage(fieldName);
+        toast.success(
+          side === 'front'
+            ? t('bookPage.frontPhotoRemoved', 'Front photo removed')
+            : t('bookPage.backPhotoRemoved', 'Back photo removed')
+        );
+      }
+    } catch (err) {
+      console.error(`Error deleting ${side} image:`, err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
+      toast.error(errorMessage);
+    }
+  };
+
   const handleWizardNext = () => {
     if (wizardStep === 2) {
       // Validate personal information
@@ -4963,6 +5012,13 @@ const BookPage = () => {
                               <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                                 ✓ {t('bookPage.uploaded', 'Uploaded')}
                               </div>
+                              <button
+                                onClick={() => handleDeleteWizardImage('front')}
+                                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                                title={t('bookPage.deletePhoto', 'Delete photo')}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         )}
@@ -4980,6 +5036,13 @@ const BookPage = () => {
                               <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
                                 ✓ {t('bookPage.uploaded', 'Uploaded')}
                               </div>
+                              <button
+                                onClick={() => handleDeleteWizardImage('back')}
+                                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
+                                title={t('bookPage.deletePhoto', 'Delete photo')}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         )}
@@ -4987,7 +5050,10 @@ const BookPage = () => {
                     </div>
                   )}
 
+                  {/* Only show file inputs if the corresponding image is not already uploaded (max 2 images: front and back) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Front image input - only show if front is not uploaded */}
+                    {!(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {t('bookPage.driverLicenseFront', 'Driver License Front')} *
@@ -5027,7 +5093,10 @@ const BookPage = () => {
                         </label>
                       )}
                     </div>
+                    )}
 
+                    {/* Back image input - only show if back is not uploaded */}
+                    {!(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {t('bookPage.driverLicenseBack', 'Driver License Back')} *
@@ -5067,6 +5136,7 @@ const BookPage = () => {
                         </label>
                       )}
                     </div>
+                    )}
                   </div>
 
                   {/* Desktop QR Code Button */}

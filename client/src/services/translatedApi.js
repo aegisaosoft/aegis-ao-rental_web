@@ -654,6 +654,20 @@ export const translatedApiService = {
     return await apiService.deleteCompanyLogo(companyId);
   },
   
+  // Customer License Images (no translation needed for binary data)
+  uploadCustomerLicenseImage: async (customerId, side, file, onProgress) => {
+    return await apiService.uploadCustomerLicenseImage(customerId, side, file, onProgress);
+  },
+  
+  // Wizard License Images (temporary storage for new customers without customerId)
+  uploadWizardLicenseImage: async (wizardId, side, file, onProgress) => {
+    return await apiService.uploadWizardLicenseImage(wizardId, side, file, onProgress);
+  },
+  
+  deleteWizardLicenseImage: async (wizardId, side) => {
+    return await apiService.deleteWizardLicenseImage(wizardId, side);
+  },
+  
 };
 
 export default translatedApiService;
