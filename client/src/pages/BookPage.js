@@ -2546,7 +2546,7 @@ const BookPage = () => {
     setWizardError('');
   };
 
-  const handleWizardFileChange = (e, fieldName) => {
+  const handleWizardFileChange = async (e, fieldName) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -2557,17 +2557,73 @@ const BookPage = () => {
         setWizardError(t('bookPage.fileTooLarge', 'File size must be less than 5MB'));
         return;
       }
-      setWizardFormData(prev => ({
-        ...prev,
-        [fieldName]: file
-      }));
-      const previewUrl = URL.createObjectURL(file);
-      const previewKey = fieldName === 'driverLicenseFront' ? 'driverLicenseFront' : 'driverLicenseBack';
-      setWizardImagePreviews(prev => ({
-        ...prev,
-        [previewKey]: previewUrl
-      }));
-      setWizardError('');
+
+      // Get customerId from wizardFormData (set during step 2 authentication)
+      const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
+      
+      if (!customerId) {
+        setWizardError(t('bookPage.mustCompletePersonalInfo', 'Please complete personal information first'));
+        return;
+      }
+
+      const side = fieldName === 'driverLicenseFront' ? 'front' : 'back';
+      
+      try {
+        setWizardLoading(true);
+        setWizardError('');
+
+        // Upload directly to customer folder
+        const response = await apiService.uploadCustomerLicenseImage(customerId, side, file);
+        
+        // Get the image URL from response
+        const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+        
+        if (imageUrl) {
+          // Construct full URL for display
+          const backendBaseUrl = process.env.REACT_APP_API_URL 
+            ? new URL(process.env.REACT_APP_API_URL).origin 
+            : window.location.origin;
+          const fullImageUrl = `${backendBaseUrl}${imageUrl}`;
+          
+          // Update uploadedLicenseImages state
+          setUploadedLicenseImages(prev => ({
+            ...prev,
+            [side]: fullImageUrl
+          }));
+
+          // Trigger refresh event for other tabs
+          try {
+            const channel = new BroadcastChannel('license_images_channel');
+            channel.postMessage({ type: 'licenseImageUploaded', side, customerId, imageUrl: fullImageUrl });
+            channel.close();
+          } catch (e) {
+            console.log('BroadcastChannel not available:', e);
+          }
+
+          // Also set localStorage flag
+          try {
+            localStorage.setItem('licenseImagesUploaded', Date.now().toString());
+          } catch (e) {
+            console.log('localStorage not available:', e);
+          }
+
+          toast.success(
+            side === 'front'
+              ? t('bookPage.frontPhotoUploaded', 'Front photo uploaded successfully')
+              : t('bookPage.backPhotoUploaded', 'Back photo uploaded successfully')
+          );
+        }
+
+        // Clear the file input
+        e.target.value = '';
+      } catch (err) {
+        console.error(`Error uploading ${side} image:`, err);
+        const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.uploadError', 'Failed to upload image. Please try again.');
+        setWizardError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setWizardLoading(false);
+      }
     }
   };
 
@@ -2588,21 +2644,21 @@ const BookPage = () => {
 
   const handleDeleteWizardImage = async (side) => {
     // This function only deletes images - it does NOT check or register accounts
-    const currentWizardId = searchParams.get('wizardId');
+    const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
     
     // Check if it's a server-uploaded image (uploadedLicenseImages) or local preview (wizardImagePreviews)
     const isServerImage = side === 'front' ? uploadedLicenseImages.front : uploadedLicenseImages.back;
     const isLocalPreview = side === 'front' ? wizardImagePreviews.driverLicenseFront : wizardImagePreviews.driverLicenseBack;
     
     try {
-      // If it's a server image and we have wizardId, delete from server
-      if (isServerImage && currentWizardId) {
-        await apiService.deleteWizardLicenseImage(currentWizardId, side);
+      // If it's a server image and we have customerId, delete from server
+      if (isServerImage && customerId) {
+        await apiService.deleteCustomerLicenseImage(customerId, side);
         
         // Trigger refresh event for booking page
         try {
           const channel = new BroadcastChannel('license_images_channel');
-          channel.postMessage({ type: 'wizardImageDeleted', side, wizardId: currentWizardId });
+          channel.postMessage({ type: 'licenseImageDeleted', side, customerId });
           channel.close();
         } catch (e) {
           console.log('BroadcastChannel not available:', e);
@@ -2631,18 +2687,12 @@ const BookPage = () => {
       }
     } catch (err) {
       console.error(`Error deleting ${side} image:`, err);
-      // Only show delete-specific errors, not registration errors
       const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
-      // Filter out registration-related errors
-      if (!errorMessage.toLowerCase().includes('email') && !errorMessage.toLowerCase().includes('registered') && !errorMessage.toLowerCase().includes('account')) {
-        toast.error(errorMessage);
-      } else {
-        toast.error(t('bookPage.deleteError', 'Failed to delete image. Please try again.'));
-      }
+      toast.error(errorMessage);
     }
   };
 
-  const handleWizardNext = () => {
+  const handleWizardNext = async () => {
     if (wizardStep === 2) {
       // Validate personal information
       if (!wizardFormData.firstName.trim()) {
@@ -2674,18 +2724,128 @@ const BookPage = () => {
         setWizardError(t('bookPage.passwordMismatch', 'Passwords do not match'));
         return;
       }
+
+      // Authenticate/Register user at this step
+      try {
+        setWizardLoading(true);
+        setWizardError('');
+
+        const email = wizardFormData.email.trim().toLowerCase();
+        
+        // Check if customer with this email already exists
+        let existingCustomer = null;
+        try {
+          existingCustomer = await apiService.getCustomerByEmail(email);
+        } catch (error) {
+          // 404 is expected if customer doesn't exist - that's fine, we'll register
+          if (error.response?.status !== 404) {
+            console.error('Error checking for existing customer:', error);
+          }
+        }
+
+        let userData = null;
+        let customerId = '';
+
+        if (existingCustomer) {
+          // Customer already exists - verify password and update info
+          try {
+            // Try to login with the provided password
+            const loginResponse = await loginUser({
+              email: email,
+              password: wizardFormData.password
+            });
+            
+            userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
+            if (!userData) {
+              throw new Error('Login failed - invalid credentials');
+            }
+            
+            customerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
+            
+            // Update customer info (phone number, name if changed)
+            if (customerId) {
+              try {
+                await apiService.updateCustomer(customerId, {
+                  firstName: wizardFormData.firstName.trim(),
+                  lastName: wizardFormData.lastName.trim(),
+                  phoneNumber: wizardFormData.phoneNumber.trim()
+                });
+              } catch (updateError) {
+                console.error('Error updating customer info:', updateError);
+                // Don't fail the flow if update fails
+              }
+            }
+            
+            // Set user in context (but don't call handleAuthSuccess - we're still in wizard)
+            // The user is now authenticated and we can proceed to license photos
+          } catch (loginError) {
+            // Password is wrong - show error and stay on this step
+            setWizardError(t('bookPage.wrongPassword', 'Wrong Password'));
+            setWizardLoading(false);
+            return;
+          }
+        } else {
+          // Customer doesn't exist - register new account
+          const registerResponse = await registerUser({
+            email: email,
+            password: wizardFormData.password,
+            firstName: wizardFormData.firstName.trim(),
+            lastName: wizardFormData.lastName.trim()
+          });
+
+          userData = registerResponse?.result?.user || registerResponse?.user || null;
+          if (!userData) {
+            throw new Error('Register response missing user data');
+          }
+
+          customerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
+          
+          // Update customer with phone number
+          if (customerId) {
+            try {
+              await apiService.updateCustomer(customerId, {
+                phoneNumber: wizardFormData.phoneNumber.trim()
+              });
+            } catch (updateError) {
+              console.error('Error updating customer phone:', updateError);
+              // Don't fail the flow if update fails
+            }
+          }
+        }
+
+        // Store customerId for later use in image uploads
+        // We'll use it when uploading license images
+        if (customerId) {
+          // Store in a ref or state so we can use it in step 3
+          setWizardFormData(prev => ({
+            ...prev,
+            customerId: customerId
+          }));
+        }
+
+        // Success - proceed to next step (license photos)
+        setWizardStep(3);
+        setWizardError('');
+      } catch (error) {
+        setWizardError(error.response?.data?.message || error.message || t('auth.registrationFailed') || 'Unable to process account.');
+      } finally {
+        setWizardLoading(false);
+      }
+      return;
     }
+    
     if (wizardStep === 3) {
       // Validate driver license images
-      if (!wizardFormData.driverLicenseFront) {
+      if (!wizardFormData.driverLicenseFront && !uploadedLicenseImages.front) {
         setWizardError(t('bookPage.driverLicenseFrontRequired', 'Driver License Front Image is required'));
         return;
       }
-      if (!wizardFormData.driverLicenseBack) {
+      if (!wizardFormData.driverLicenseBack && !uploadedLicenseImages.back) {
         setWizardError(t('bookPage.driverLicenseBackRequired', 'Driver License Back Image is required'));
         return;
       }
     }
+    
     setWizardStep(wizardStep + 1);
     setWizardError('');
   };
@@ -2701,86 +2861,15 @@ const BookPage = () => {
       setWizardLoading(true);
       setWizardError('');
 
-      const email = wizardFormData.email.trim().toLowerCase();
+      // At this point, user is already authenticated (done on step 2)
+      // Images are already uploaded to customer folder (done on step 3)
+      // Just close the wizard and proceed to checkout
       
-      // Check if customer with this email already exists
-      let existingCustomer = null;
-      try {
-        existingCustomer = await apiService.getCustomerByEmail(email);
-      } catch (error) {
-        // 404 is expected if customer doesn't exist - that's fine, we'll register
-        if (error.response?.status !== 404) {
-          console.error('Error checking for existing customer:', error);
-        }
-      }
-
-      let userData = null;
-      let registeredCustomerId = '';
-
-      if (existingCustomer) {
-        // Customer already exists - just login and add license images
-        try {
-          // Try to login with the provided password
-          const loginResponse = await loginUser({
-            email: email,
-            password: wizardFormData.password
-          });
-          
-          userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
-          if (!userData) {
-            throw new Error('Login failed - invalid credentials');
-          }
-          
-          await handleAuthSuccess(userData);
-          registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
-          
-          toast.success(t('bookPage.loggedInExistingAccount', 'Logged in to existing account. Adding license images...'));
-        } catch (loginError) {
-          // If login fails, show error but don't try to register
-          throw new Error(loginError.response?.data?.message || 'Account exists but password is incorrect. Please use the correct password or reset it.');
-        }
-      } else {
-        // Customer doesn't exist - register new account
-        const registerResponse = await registerUser({
-          email: email,
-          password: wizardFormData.password,
-          firstName: wizardFormData.firstName.trim(),
-          lastName: wizardFormData.lastName.trim()
-        });
-
-        userData = registerResponse?.result?.user || registerResponse?.user || null;
-        if (!userData) {
-          throw new Error('Register response missing user data');
-        }
-
-        await handleAuthSuccess(userData);
-        registeredCustomerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
-      }
+      const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
       
-      // Upload driver license images if we have them (for both new and existing accounts)
-      if (registeredCustomerId && (wizardFormData.driverLicenseFront || wizardFormData.driverLicenseBack)) {
-        try {
-          if (wizardFormData.driverLicenseFront) {
-            await apiService.uploadCustomerLicenseImage(
-              registeredCustomerId,
-              'front',
-              wizardFormData.driverLicenseFront
-            );
-            toast.success(t('bookPage.frontPhotoSaved', 'Front photo saved!'));
-          }
-          if (wizardFormData.driverLicenseBack) {
-            await apiService.uploadCustomerLicenseImage(
-              registeredCustomerId,
-              'back',
-              wizardFormData.driverLicenseBack
-            );
-            toast.success(t('bookPage.backPhotoSaved', 'Back photo saved!'));
-          }
-        } catch (uploadError) {
-          console.error('Error uploading license images:', uploadError);
-          // Don't fail the registration/login if image upload fails, just log it
-          toast.warning(t('bookPage.licenseUploadWarning', 'Account processed but license images could not be uploaded. You can add them later.'));
-        }
+      if (customerId && user) {
+        // User is authenticated, proceed to checkout
+        await handleAuthSuccess(user);
       }
       
       setIsCreateUserWizardOpen(false);
@@ -2794,6 +2883,7 @@ const BookPage = () => {
         confirmPassword: '',
         driverLicenseFront: null,
         driverLicenseBack: null,
+        customerId: '',
       });
       
       // Clean up image previews
@@ -2807,8 +2897,13 @@ const BookPage = () => {
         driverLicenseFront: null,
         driverLicenseBack: null,
       });
+      
+      setUploadedLicenseImages({
+        front: null,
+        back: null,
+      });
     } catch (error) {
-      setWizardError(error.response?.data?.message || error.message || t('auth.registrationFailed') || 'Unable to process account.');
+      setWizardError(error.response?.data?.message || error.message || t('bookPage.wizardError', 'An error occurred. Please try again.'));
     } finally {
       setWizardLoading(false);
     }
@@ -2942,87 +3037,22 @@ const BookPage = () => {
   // Fetch uploaded license images from server
   React.useEffect(() => {
     const fetchUploadedImages = async () => {
-      // Get customer ID from user or wizard data
+      // Get customer ID from user, wizardFormData, or URL params
       let customerId = null;
       
       if (user) {
         customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
       }
       
+      // Also check wizardFormData (set during step 2 authentication)
+      if (!customerId && wizardFormData.customerId) {
+        customerId = wizardFormData.customerId;
+      }
+      
       // Try to get from URL params
       const customerIdParam = searchParams.get('customerId');
       if (customerIdParam) {
         customerId = customerIdParam;
-      }
-      
-      // Try to get wizardId from URL params first
-      let currentWizardId = searchParams.get('wizardId');
-      
-      // If not in URL, try to get from sessionStorage (from most recent wizard)
-      if (!currentWizardId) {
-        try {
-          // Find the most recent wizardId from sessionStorage
-          let mostRecentWizardId = null;
-          let mostRecentTimestamp = 0;
-          
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('wizardData-')) {
-              const wizardIdFromKey = key.replace('wizardData-', '');
-              // Extract timestamp from wizardId (format: wizard-{timestamp}-{random})
-              const match = wizardIdFromKey.match(/wizard-(\d+)-/);
-              if (match) {
-                const timestamp = parseInt(match[1], 10);
-                if (timestamp > mostRecentTimestamp) {
-                  mostRecentTimestamp = timestamp;
-                  mostRecentWizardId = wizardIdFromKey;
-                }
-              }
-            }
-          }
-          
-          if (mostRecentWizardId) {
-            currentWizardId = mostRecentWizardId;
-            console.log('[BookPage] Found wizardId from sessionStorage:', currentWizardId);
-          }
-        } catch (e) {
-          console.error('Error finding wizardId from sessionStorage:', e);
-        }
-      }
-      
-      // Try to get customerId from wizard data if we have a wizardId
-      if (!customerId && currentWizardId) {
-        try {
-          const wizardData = sessionStorage.getItem(`wizardData-${currentWizardId}`);
-          if (wizardData) {
-            const data = JSON.parse(wizardData);
-            customerId = data.customerId;
-          }
-        } catch (e) {
-          console.error('Error reading wizard data:', e);
-        }
-      }
-
-      // Also check all wizard data in sessionStorage for customerId
-      if (!customerId) {
-        try {
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('wizardData-')) {
-              try {
-                const wizardData = JSON.parse(sessionStorage.getItem(key));
-                if (wizardData?.customerId) {
-                  customerId = wizardData.customerId;
-                  break;
-                }
-              } catch (e) {
-                // Skip invalid entries
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Error checking wizard data:', e);
-        }
       }
 
       // Get backend base URL - static files are served directly, not through /api proxy
@@ -3063,45 +3093,8 @@ const BookPage = () => {
           front: frontExists ? frontUrl : null,
           back: backExists ? backUrl : null,
         });
-      } else if (currentWizardId) {
-        // No customerId but have wizardId, check wizard temporary images
-        // Sanitize wizardId (same as backend - replace invalid filename chars with underscore)
-        // Backend uses: string.Join("_", wizardId.Split(Path.GetInvalidFileNameChars()))
-        // Invalid filename chars: < > : " / \ | ? * and control chars
-        // Note: C# Path.GetInvalidFileNameChars() includes: < > : " / \ | ? * and control chars (0x00-0x1F)
-        // Use character class without control chars directly - match them using character codes
-        const invalidChars = /[<>:"/\\|?*]/g;
-        // Also remove control characters (0x00-0x1F) by filtering them out
-        let sanitizedWizardId = currentWizardId.replace(invalidChars, '\0'); // Replace with null char first
-        // Remove control characters (0x00-0x1F) by filtering
-        sanitizedWizardId = sanitizedWizardId.split('').filter(char => {
-          const code = char.charCodeAt(0);
-          return code >= 32 || code === 0; // Keep space (32) and above, or null char (0) for splitting
-        }).join('');
-        // Split by null char and join with underscore (matching C# behavior)
-        sanitizedWizardId = sanitizedWizardId.split('\0').filter(part => part.length > 0).join('_');
-        const frontUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
-        const backUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
-        
-        console.log('[BookPage] Checking wizard images:', {
-          wizardId: currentWizardId,
-          sanitizedWizardId: sanitizedWizardId,
-          frontUrl: frontUrl,
-          backUrl: backUrl,
-          backendBaseUrl: backendBaseUrl
-        });
-
-        const [frontExists, backExists] = await Promise.all([
-          checkImageExists(frontUrl),
-          checkImageExists(backUrl)
-        ]);
-
-        setUploadedLicenseImages({
-          front: frontExists ? frontUrl : null,
-          back: backExists ? backUrl : null,
-        });
       } else {
-        // No customerId and no wizardId, clear images
+        // No customerId, clear images
         setUploadedLicenseImages({
           front: null,
           back: null,
@@ -3116,7 +3109,7 @@ const BookPage = () => {
       
       // Listen for storage events (when mobile page uploads images)
       const handleStorageChange = (e) => {
-        if (e.key && (e.key.startsWith('wizardImage-') || e.key.startsWith('wizardData-') || e.key === 'licenseImageUploaded')) {
+        if (e.key && e.key === 'licenseImagesUploaded') {
           // Trigger immediate refresh when images are uploaded
           setTimeout(fetchUploadedImages, 100);
         }
@@ -3129,21 +3122,11 @@ const BookPage = () => {
       
       // Listen for BroadcastChannel messages (cross-tab communication)
       let broadcastChannel = null;
-      let wizardBroadcastChannel = null;
       try {
-        broadcastChannel = new BroadcastChannel('license-upload');
+        broadcastChannel = new BroadcastChannel('license_images_channel');
         broadcastChannel.onmessage = (event) => {
-          if (event.data && event.data.type === 'imageUploaded') {
-            // Immediate refresh when image is uploaded
-            setTimeout(fetchUploadedImages, 100);
-          }
-        };
-        
-        // Also listen for wizard image uploads
-        wizardBroadcastChannel = new BroadcastChannel('license_images_channel');
-        wizardBroadcastChannel.onmessage = (event) => {
-          if (event.data && event.data.type === 'wizardImageUploaded') {
-            // Immediate refresh when wizard image is uploaded
+          if (event.data && (event.data.type === 'licenseImageUploaded' || event.data.type === 'licenseImageDeleted')) {
+            // Immediate refresh when image is uploaded or deleted
             setTimeout(fetchUploadedImages, 100);
           }
         };
@@ -3154,29 +3137,15 @@ const BookPage = () => {
       // Check localStorage for upload flags
       const checkUploadFlags = () => {
         try {
-          const flag = localStorage.getItem('licenseImageUploaded');
+          const flag = localStorage.getItem('licenseImagesUploaded');
           if (flag) {
-            const data = JSON.parse(flag);
             // Check if flag is recent (within last 10 seconds)
-            if (Date.now() - data.timestamp < 10000) {
+            const timestamp = parseInt(flag, 10);
+            if (Date.now() - timestamp < 10000) {
               fetchUploadedImages();
             }
             // Clear old flags
-            if (Date.now() - data.timestamp > 30000) {
-              localStorage.removeItem('licenseImageUploaded');
-            }
-          }
-          
-          // Also check for wizard upload flags
-          const wizardFlag = localStorage.getItem('licenseImagesUploaded');
-          if (wizardFlag) {
-            const data = JSON.parse(wizardFlag);
-            // Check if flag is recent (within last 10 seconds)
-            if (Date.now() - data.timestamp < 10000) {
-              fetchUploadedImages();
-            }
-            // Clear old flags
-            if (Date.now() - data.timestamp > 30000) {
+            if (Date.now() - timestamp > 30000) {
               localStorage.removeItem('licenseImagesUploaded');
             }
           }
@@ -3201,9 +3170,6 @@ const BookPage = () => {
         window.removeEventListener('refreshLicenseImages', handleRefreshEvent);
         if (broadcastChannel) {
           broadcastChannel.close();
-        }
-        if (wizardBroadcastChannel) {
-          wizardBroadcastChannel.close();
         }
       };
     }

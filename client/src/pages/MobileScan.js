@@ -347,83 +347,25 @@ const MobileScan = () => {
 
   const handleUpload = async (file, side) => {
     // Get customer ID from userId (in this context, userId is the customerId)
-    const currentCustomerId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId');
-    const wizardId = searchParams.get('wizardId') || '';
+    const currentCustomerId = userIdRef.current || userId || localStorage.getItem('userId') || searchParams.get('userId') || searchParams.get('customerId');
     
     setUploadingSide(side);
     setUploadProgress(0);
     setError('');
+
+    if (!currentCustomerId) {
+      setError('Customer ID is required. Please complete personal information first.');
+      toast.error('Customer ID is required. Please complete personal information first.');
+      return;
+    }
 
     try {
       let response;
       let imageUrl;
       let fullImageUrl;
 
-      if (!currentCustomerId && wizardId) {
-        // For wizard mode (new customer without customerId), upload to temporary wizard storage
-        response = await apiService.uploadWizardLicenseImage(
-          wizardId,
-          side,
-          file,
-          (progress) => {
-            setUploadProgress(progress);
-          }
-        );
-
-        // Get the image URL from response
-        imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
-        
-        // Construct full URL if relative path is returned
-        // For static files (wizard/customers), use backend origin directly (not through /api proxy)
-        fullImageUrl = imageUrl;
-        if (imageUrl && !imageUrl.startsWith('http')) {
-          // Get backend base URL - static files are served directly, not through /api proxy
-          let backendBaseUrl = window.location.origin;
-          if (process.env.REACT_APP_API_URL) {
-            // Extract backend origin from REACT_APP_API_URL (e.g., "https://backend.com/api" -> "https://backend.com")
-            const apiUrl = process.env.REACT_APP_API_URL;
-            try {
-              const urlObj = new URL(apiUrl);
-              backendBaseUrl = `${urlObj.protocol}//${urlObj.host}`;
-            } catch (e) {
-              // If REACT_APP_API_URL is relative (e.g., "/api"), use current origin
-              backendBaseUrl = window.location.origin;
-            }
-          }
-          fullImageUrl = `${backendBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
-        }
-
-        // Store uploaded image URL
-        if (side === 'front') {
-          setUploadedFrontUrl(fullImageUrl);
-        } else {
-          setUploadedBackUrl(fullImageUrl);
-        }
-
-        // Trigger refresh event for booking page
-        try {
-          // Use BroadcastChannel for cross-tab communication
-          const channel = new BroadcastChannel('license_images_channel');
-          channel.postMessage({ type: 'wizardImageUploaded', side, wizardId });
-          channel.close();
-          
-          // Also set a flag in localStorage for immediate detection
-          localStorage.setItem('licenseImagesUploaded', JSON.stringify({
-            side,
-            wizardId,
-            imageUrl: fullImageUrl,
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.log('BroadcastChannel not available:', e);
-        }
-
-        toast.success(
-          side === 'front'
-            ? 'Front photo saved! Now take a photo of the back side.'
-            : 'Back photo saved! You can now return to the wizard.'
-        );
-      } else if (currentCustomerId) {
+      // Always upload to customer folder (user is authenticated by step 2)
+      if (currentCustomerId) {
         // Customer ID exists, upload directly to server
         response = await apiService.uploadCustomerLicenseImage(
           currentCustomerId,
@@ -547,9 +489,6 @@ const MobileScan = () => {
             ? 'Front photo deleted successfully'
             : 'Back photo deleted successfully'
         );
-      } else if (currentCustomerId) {
-        // TODO: Add delete endpoint for customer images if needed
-        toast.info('Delete functionality for customer images is not yet available');
       }
     } catch (err) {
       console.error(`Error deleting ${side} image:`, err);

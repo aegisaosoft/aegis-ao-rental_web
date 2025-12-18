@@ -378,6 +378,10 @@ export const apiService = {
       },
     });
   },
+  deleteCustomerLicenseImage: (customerId, side) => {
+    console.log('[API] Deleting customer license image:', { customerId, side });
+    return api.delete(`/Media/customers/${customerId}/licenses/${side}`);
+  },
   // Wizard License Images (temporary storage for new customers without customerId)
   uploadWizardLicenseImage: (wizardId, side, file, onProgress) => {
     const formData = new FormData();

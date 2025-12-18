@@ -119,133 +119,74 @@ const DriverLicensePhoto = () => {
     setUploadProgress(0);
     setError('');
 
+    if (!currentCustomerId) {
+      setError('Customer ID is required. Please complete personal information first.');
+      toast.error('Customer ID is required. Please complete personal information first.');
+      return;
+    }
+
     try {
       let response;
       let imageUrl;
       let fullImageUrl;
 
-      if (!currentCustomerId && wizardId) {
-        // For wizard mode (new customer without customerId), upload to temporary wizard storage
-        response = await apiService.uploadWizardLicenseImage(
-          wizardId,
-          side,
-          file,
-          (progress) => {
-            setUploadProgress(progress);
+      // Always upload to customer folder (user is authenticated by step 2)
+      response = await apiService.uploadCustomerLicenseImage(
+        currentCustomerId,
+        side,
+        file,
+        (progress) => {
+          setUploadProgress(progress);
+        }
+      );
+
+      // Get the image URL from response
+      imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
+      
+      // Construct full URL if relative path is returned
+      fullImageUrl = imageUrl;
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        // Get backend base URL - static files are served directly, not through /api proxy
+        let backendBaseUrl = window.location.origin;
+        if (process.env.REACT_APP_API_URL) {
+          // Extract backend origin from REACT_APP_API_URL (e.g., "https://backend.com/api" -> "https://backend.com")
+          const apiUrl = process.env.REACT_APP_API_URL;
+          try {
+            const urlObj = new URL(apiUrl);
+            backendBaseUrl = `${urlObj.protocol}//${urlObj.host}`;
+          } catch (e) {
+            // If REACT_APP_API_URL is relative (e.g., "/api"), use current origin
+            backendBaseUrl = window.location.origin;
           }
-        );
-
-        // Get the image URL from response
-        imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
-        
-        console.log('[DriverLicensePhoto] Upload response imageUrl:', imageUrl);
-        
-        // Construct full URL if relative path is returned
-        // For static files (wizard/customers), use backend origin directly (not through /api proxy)
-        fullImageUrl = imageUrl;
-        if (imageUrl && !imageUrl.startsWith('http')) {
-          // Get backend base URL - static files are served directly, not through /api proxy
-          let backendBaseUrl = window.location.origin;
-          if (process.env.REACT_APP_API_URL) {
-            // Extract backend origin from REACT_APP_API_URL (e.g., "https://backend.com/api" -> "https://backend.com")
-            const apiUrl = process.env.REACT_APP_API_URL;
-            try {
-              const urlObj = new URL(apiUrl);
-              backendBaseUrl = `${urlObj.protocol}//${urlObj.host}`;
-            } catch (e) {
-              // If REACT_APP_API_URL is relative (e.g., "/api"), use current origin
-              backendBaseUrl = window.location.origin;
-            }
-          }
-          fullImageUrl = `${backendBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
-          console.log('[DriverLicensePhoto] Constructed fullImageUrl:', fullImageUrl);
         }
-
-        // Store uploaded image URL
-        if (side === 'front') {
-          setUploadedFrontUrl(fullImageUrl);
-        } else {
-          setUploadedBackUrl(fullImageUrl);
-        }
-
-        // Trigger refresh event for booking page
-        try {
-          // Use BroadcastChannel for cross-tab communication
-          const channel = new BroadcastChannel('license_images_channel');
-          channel.postMessage({ type: 'wizardImageUploaded', side, wizardId });
-          channel.close();
-          
-          // Also set a flag in localStorage for immediate detection
-          localStorage.setItem('licenseImagesUploaded', JSON.stringify({
-            side,
-            wizardId,
-            imageUrl: fullImageUrl,
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.log('BroadcastChannel not available:', e);
-        }
-
-        toast.success(
-          side === 'front'
-            ? t('bookPage.frontPhotoSaved', 'Front photo saved! Now take a photo of the back side.')
-            : t('bookPage.backPhotoSaved', 'Back photo saved! You can now return to the wizard.')
-        );
-      } else if (currentCustomerId) {
-        // Customer ID exists, upload directly to server
-        response = await apiService.uploadCustomerLicenseImage(
-          currentCustomerId,
-          side,
-          file,
-          (progress) => {
-            setUploadProgress(progress);
-          }
-        );
-
-        // Get the image URL from response
-        imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
-        
-        // Construct full URL if relative path is returned
-        fullImageUrl = imageUrl;
-        if (imageUrl && !imageUrl.startsWith('http')) {
-          const apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || window.location.origin;
-          fullImageUrl = `${apiBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
-        }
-
-        // Store uploaded image URL
-        if (side === 'front') {
-          setUploadedFrontUrl(fullImageUrl);
-        } else {
-          setUploadedBackUrl(fullImageUrl);
-        }
-
-        // Trigger refresh event for parent window (booking page) if in iframe or same origin
-        try {
-          // Use BroadcastChannel for cross-tab communication
-          const channel = new BroadcastChannel('license-upload');
-          channel.postMessage({ type: 'imageUploaded', side, customerId: currentCustomerId });
-          channel.close();
-          
-          // Also set a flag in localStorage for immediate detection
-          localStorage.setItem('licenseImageUploaded', JSON.stringify({
-            side,
-            customerId: currentCustomerId,
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.log('BroadcastChannel not available:', e);
-        }
-
-        toast.success(
-          side === 'front'
-            ? t('bookPage.frontPhotoSaved', 'Front photo saved!')
-            : t('bookPage.backPhotoSaved', 'Back photo saved!')
-        );
-      } else {
-        setError(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
-        toast.error(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
-        return;
+        fullImageUrl = `${backendBaseUrl}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
       }
+
+      // Store uploaded image URL
+      if (side === 'front') {
+        setUploadedFrontUrl(fullImageUrl);
+      } else {
+        setUploadedBackUrl(fullImageUrl);
+      }
+
+      // Trigger refresh event for booking page
+      try {
+        // Use BroadcastChannel for cross-tab communication
+        const channel = new BroadcastChannel('license_images_channel');
+        channel.postMessage({ type: 'licenseImageUploaded', side, customerId: currentCustomerId, imageUrl: fullImageUrl });
+        channel.close();
+        
+        // Also set a flag in localStorage for immediate detection
+        localStorage.setItem('licenseImagesUploaded', Date.now().toString());
+      } catch (e) {
+        console.log('BroadcastChannel not available:', e);
+      }
+
+      toast.success(
+        side === 'front'
+          ? t('bookPage.frontPhotoSaved', 'Front photo saved!')
+          : t('bookPage.backPhotoSaved', 'Back photo saved!')
+      );
 
       // If both images are uploaded, navigate back after a delay
       if (side === 'back' && frontImage) {
@@ -295,44 +236,39 @@ const DriverLicensePhoto = () => {
   const handleDelete = async (side) => {
     const currentCustomerId = getCurrentCustomerId();
     
-    if (!currentCustomerId && !wizardId) {
-      toast.error(t('bookPage.wizardIdRequired', 'Wizard ID is required. Please scan the QR code from the registration wizard.'));
+    if (!currentCustomerId) {
+      toast.error(t('bookPage.customerIdRequired', 'Customer ID is required. Please ensure you are logged in.'));
       return;
     }
 
     try {
-      if (!currentCustomerId && wizardId) {
-        // Delete from wizard storage
-        await apiService.deleteWizardLicenseImage(wizardId, side);
-        
-        // Clear the uploaded URL
-        if (side === 'front') {
-          setUploadedFrontUrl(null);
-          setFrontImage(null);
-          setFrontPreview(null);
-        } else {
-          setUploadedBackUrl(null);
-          setBackPreview(null);
-        }
-        
-        // Trigger refresh event for booking page
-        try {
-          const channel = new BroadcastChannel('license_images_channel');
-          channel.postMessage({ type: 'wizardImageDeleted', side, wizardId });
-          channel.close();
-        } catch (e) {
-          console.log('BroadcastChannel not available:', e);
-        }
-        
-        toast.success(
-          side === 'front'
-            ? t('bookPage.frontPhotoDeleted', 'Front photo deleted successfully')
-            : t('bookPage.backPhotoDeleted', 'Back photo deleted successfully')
-        );
-      } else if (currentCustomerId) {
-        // TODO: Add delete endpoint for customer images if needed
-        toast.info(t('bookPage.deleteNotAvailable', 'Delete functionality for customer images is not yet available'));
+      // Always delete from customer folder
+      await apiService.deleteCustomerLicenseImage(currentCustomerId, side);
+      
+      // Clear the uploaded URL
+      if (side === 'front') {
+        setUploadedFrontUrl(null);
+        setFrontImage(null);
+        setFrontPreview(null);
+      } else {
+        setUploadedBackUrl(null);
+        setBackPreview(null);
       }
+      
+      // Trigger refresh event for booking page
+      try {
+        const channel = new BroadcastChannel('license_images_channel');
+        channel.postMessage({ type: 'licenseImageDeleted', side, customerId: currentCustomerId });
+        channel.close();
+      } catch (e) {
+        console.log('BroadcastChannel not available:', e);
+      }
+      
+      toast.success(
+        side === 'front'
+          ? t('bookPage.frontPhotoDeleted', 'Front photo deleted successfully')
+          : t('bookPage.backPhotoDeleted', 'Back photo deleted successfully')
+      );
     } catch (err) {
       console.error(`Error deleting ${side} image:`, err);
       const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
