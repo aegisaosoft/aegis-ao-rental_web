@@ -2861,8 +2861,42 @@ const BookPage = () => {
         customerId = customerIdParam;
       }
       
-      // Try to get from wizard data if no user
-      const currentWizardId = searchParams.get('wizardId');
+      // Try to get wizardId from URL params first
+      let currentWizardId = searchParams.get('wizardId');
+      
+      // If not in URL, try to get from sessionStorage (from most recent wizard)
+      if (!currentWizardId) {
+        try {
+          // Find the most recent wizardId from sessionStorage
+          let mostRecentWizardId = null;
+          let mostRecentTimestamp = 0;
+          
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('wizardData-')) {
+              const wizardIdFromKey = key.replace('wizardData-', '');
+              // Extract timestamp from wizardId (format: wizard-{timestamp}-{random})
+              const match = wizardIdFromKey.match(/wizard-(\d+)-/);
+              if (match) {
+                const timestamp = parseInt(match[1], 10);
+                if (timestamp > mostRecentTimestamp) {
+                  mostRecentTimestamp = timestamp;
+                  mostRecentWizardId = wizardIdFromKey;
+                }
+              }
+            }
+          }
+          
+          if (mostRecentWizardId) {
+            currentWizardId = mostRecentWizardId;
+            console.log('[BookPage] Found wizardId from sessionStorage:', currentWizardId);
+          }
+        } catch (e) {
+          console.error('Error finding wizardId from sessionStorage:', e);
+        }
+      }
+      
+      // Try to get customerId from wizard data if we have a wizardId
       if (!customerId && currentWizardId) {
         try {
           const wizardData = sessionStorage.getItem(`wizardData-${currentWizardId}`);
@@ -2937,10 +2971,23 @@ const BookPage = () => {
         });
       } else if (currentWizardId) {
         // No customerId but have wizardId, check wizard temporary images
-        // Sanitize wizardId (same as backend)
-        const sanitizedWizardId = currentWizardId.replace(/[<>:"/\\|?*]/g, '_');
+        // Sanitize wizardId (same as backend - replace invalid filename chars with underscore)
+        // Backend uses: string.Join("_", wizardId.Split(Path.GetInvalidFileNameChars()))
+        // Invalid filename chars: < > : " / \ | ? * and control chars
+        // Note: C# Path.GetInvalidFileNameChars() includes: < > : " / \ | ? * and control chars (0x00-0x1F)
+        const invalidChars = /[<>:"/\\|?*\x00-\x1f]/g;
+        // Split by invalid chars and join with underscore (matching C# behavior)
+        const sanitizedWizardId = currentWizardId.split(invalidChars).filter(part => part.length > 0).join('_');
         const frontUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/front.jpg`;
         const backUrl = `${backendBaseUrl}/wizard/${sanitizedWizardId}/licenses/back.jpg`;
+        
+        console.log('[BookPage] Checking wizard images:', {
+          wizardId: currentWizardId,
+          sanitizedWizardId: sanitizedWizardId,
+          frontUrl: frontUrl,
+          backUrl: backUrl,
+          backendBaseUrl: backendBaseUrl
+        });
 
         const [frontExists, backExists] = await Promise.all([
           checkImageExists(frontUrl),
