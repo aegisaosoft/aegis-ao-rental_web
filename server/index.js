@@ -584,9 +584,12 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
       const formData = new FormData();
       
       // Add files from multer
-      // IMPORTANT: Backend expects parameter name 'file', so always use 'file' as fieldname
+      // IMPORTANT: Preserve the original field name from the request (e.g., 'image', 'file', etc.)
+      // The backend expects specific field names (e.g., 'image' for license uploads, 'file' for others)
       req.files.forEach(file => {
-        formData.append('file', file.buffer, {
+        // Use the original fieldname from multer, or default to 'file' if not available
+        const fieldName = file.fieldname || 'file';
+        formData.append(fieldName, file.buffer, {
           filename: file.originalname,
           contentType: file.mimetype
         });
