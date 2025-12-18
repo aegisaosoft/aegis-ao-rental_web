@@ -2390,14 +2390,6 @@ const BookPage = () => {
 
     agreementSignature,
 
-    agreementConsents.termsAcceptedAt,
-
-    agreementConsents.nonRefundableAcceptedAt,
-
-    agreementConsents.damagePolicyAcceptedAt,
-
-    agreementConsents.cardAuthorizationAcceptedAt,
-
     uploadedLicenseImages.front,
 
     uploadedLicenseImages.back,
