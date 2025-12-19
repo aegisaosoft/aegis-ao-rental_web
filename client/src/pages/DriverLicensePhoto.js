@@ -51,8 +51,7 @@ const DriverLicensePhoto = () => {
 
   const upload = async (side, file) => {
     if (!canUpload) {
-      toast.info('Photos captured. Returning to site...');
-      setTimeout(() => navigate(returnTo), 800);
+      toast.error('Login required. QR must include customerId to upload.');
       return;
     }
     try {

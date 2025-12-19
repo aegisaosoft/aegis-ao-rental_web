@@ -833,20 +833,52 @@ const BookingWizard = ({
     }
   };
 
-  const handleShowWizardQRCode = () => {
-    const origin = window.location.origin;
-    const customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
-    
-    if (!customerId) {
-      setWizardError(t('bookPage.loginRequiredForScan', 'Please log in before scanning your driver license.'));
-      return;
+  const handleShowWizardQRCode = async () => {
+    if (wizardLoading) return;
+    setWizardError('');
+    setWizardLoading(true);
+    try {
+      const origin = window.location.origin;
+      
+      // Always resolve a real Customers.id by email
+      const emailFromState = (wizardFormData.email || '').trim().toLowerCase();
+      const emailFromUser = (user?.email || '').trim().toLowerCase();
+      const emailToUse = emailFromState || emailFromUser;
+      
+      if (!emailToUse) {
+        setWizardError(t('bookPage.emailRequiredForScan', 'Please enter your email before scanning your driver license.'));
+        return;
+      }
+      
+      let resolvedCustomerId = '';
+      try {
+        const resp = await apiService.getCustomerByEmail(emailToUse);
+        const data = resp?.data || resp;
+        resolvedCustomerId = data?.id || data?.customerId || data?.CustomerId || '';
+      } catch (e) {
+        // If customer not found by email, block QR until registration/login is complete
+        resolvedCustomerId = '';
+      }
+      
+      if (!resolvedCustomerId) {
+        setWizardError(
+          t(
+            'bookPage.customerNotFoundForEmail',
+            'Customer was not found for this email. Please complete registration and login first.'
+          )
+        );
+        return;
+      }
+      
+      // Build QR only with a real Customers.id
+      const returnTo = window.location.pathname + window.location.search;
+      const url = `${origin}/driver-license-photo?customerId=${encodeURIComponent(resolvedCustomerId)}&returnTo=${encodeURIComponent(returnTo)}`;
+      
+      setWizardQRUrl(url);
+      setShowWizardQRCode(true);
+    } finally {
+      setWizardLoading(false);
     }
-    
-    const returnTo = window.location.pathname + window.location.search;
-    const url = `${origin}/driver-license-photo?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(returnTo)}`;
-    
-    setWizardQRUrl(url);
-    setShowWizardQRCode(true);
   };
 
   if (!isOpen) return null;
