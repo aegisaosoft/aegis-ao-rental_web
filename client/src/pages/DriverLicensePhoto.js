@@ -78,7 +78,14 @@ const DriverLicensePhoto = () => {
       if (side === 'back') setIsUploadingBack(true);
 
       if (customerId) {
-        await apiService.uploadCustomerLicenseImage(customerId, side, file);
+        const resp = await apiService.uploadCustomerLicenseImage(customerId, side, file);
+        const data = resp?.data || resp;
+        const origin = window.location.origin;
+        const immediateUrl = data?.imageUrl ? `${origin}${data.imageUrl}?t=${Date.now()}` : null;
+        if (immediateUrl) {
+          if (side === 'front') setServerFrontUrl(immediateUrl);
+          else setServerBackUrl(immediateUrl);
+        }
       }
 
       toast.success(`${side === 'front' ? 'Front' : 'Back'} photo uploaded`);
@@ -102,7 +109,8 @@ const DriverLicensePhoto = () => {
         // Ignore
       }
 
-      await fetchStatus();
+      // Brief delay to avoid race with disk write, then refresh server status
+      setTimeout(fetchStatus, 300);
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Upload failed');
     } finally {
@@ -117,6 +125,8 @@ const DriverLicensePhoto = () => {
     const url = URL.createObjectURL(file);
     if (side === 'front') setFrontPreview(url);
     else setBackPreview(url);
+    // Reset input so selecting the same capture again still triggers change
+    try { e.target.value = ''; } catch {}
     upload(side, file);
   };
 
