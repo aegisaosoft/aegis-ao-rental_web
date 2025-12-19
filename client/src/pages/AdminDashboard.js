@@ -1368,8 +1368,6 @@ const AdminDashboard = () => {
         }
       }
       
-      const loadedCount = Number(result?.loadedCount ?? result?.loaded ?? 0);
-      const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
       const errors = Array.isArray(result?.errors) ? result.errors : [];
       const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
       
@@ -1560,8 +1558,6 @@ const AdminDashboard = () => {
       }
       
       // Get import statistics - try multiple possible field names
-      const loadedCount = Number(result?.loadedCount ?? result?.loaded ?? 0);
-      const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
       const errors = Array.isArray(result?.errors) ? result.errors : [];
       const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
       
