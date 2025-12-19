@@ -186,7 +186,7 @@ const BookingWizard = ({
             const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
             
             // Use API endpoint as it's more reliable (direct file serving)
-            frontUrl = apiUrl;
+            frontUrl = `${apiUrl}?t=${Date.now()}`;
             console.log(`[BookingWizard] ✅ Front image URL (API endpoint): ${frontUrl}`);
             console.log(`[BookingWizard] Static URL (fallback): ${staticUrl}`);
           }
@@ -198,7 +198,7 @@ const BookingWizard = ({
             const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
             
             // Use API endpoint as it's more reliable (direct file serving)
-            backUrl = apiUrl;
+            backUrl = `${apiUrl}?t=${Date.now()}`;
             console.log(`[BookingWizard] Static URL (fallback): ${staticUrl}`);
           }
           
@@ -232,6 +232,38 @@ const BookingWizard = ({
       };
       
       fetchImagesForStep3();
+      
+      // Refresh on focus/visibility or cross-tab signals
+      const onFocus = () => fetchImagesForStep3();
+      const onRefreshEvent = () => fetchImagesForStep3();
+      const onStorage = (e) => {
+        if (e.key === 'licenseImagesUploaded') {
+          setTimeout(fetchImagesForStep3, 100);
+        }
+      };
+      let channel = null;
+      try {
+        channel = new BroadcastChannel('license_images_channel');
+        channel.onmessage = (event) => {
+          if (event.data && event.data.type === 'licenseImageUploaded') {
+            setTimeout(fetchImagesForStep3, 100);
+          }
+        };
+      } catch (e) {
+        // BroadcastChannel not available
+      }
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('refreshLicenseImages', onRefreshEvent);
+      window.addEventListener('storage', onStorage);
+      
+      return () => {
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('refreshLicenseImages', onRefreshEvent);
+        window.removeEventListener('storage', onStorage);
+        if (channel) {
+          try { channel.close(); } catch {}
+        }
+      };
     }
   }, [wizardStep, user, uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
