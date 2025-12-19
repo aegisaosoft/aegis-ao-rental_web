@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { apiService } from '../services/api';
@@ -21,6 +21,14 @@ const DriverLicensePhoto = () => {
 
   const canUpload = Boolean(customerId);
 
+  // Auto-load existing server images on mount (so phone shows what wizard already uploaded)
+  useEffect(() => {
+    if (customerId) {
+      fetchStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId]);
+
   const fetchStatus = async () => {
     if (!customerId) {
       toast.info('No customerId in URL. Status check works after login/registration.');
@@ -32,12 +40,23 @@ const DriverLicensePhoto = () => {
       const origin = window.location.origin;
       let f = null;
       let b = null;
-      if (imageData?.front) {
+
+      // Prefer server-provided URLs (usually /customers/.../licenses/*.ext)
+      if (imageData?.frontUrl) {
+        f = `${origin}${imageData.frontUrl}?t=${Date.now()}`;
+      }
+      if (imageData?.backUrl) {
+        b = `${origin}${imageData.backUrl}?t=${Date.now()}`;
+      }
+
+      // Fallback to direct API file endpoint if URLs not provided
+      if (!f && imageData?.front) {
         f = `${origin}/api/Media/customers/${customerId}/licenses/file/${imageData.front}?t=${Date.now()}`;
       }
-      if (imageData?.back) {
+      if (!b && imageData?.back) {
         b = `${origin}/api/Media/customers/${customerId}/licenses/file/${imageData.back}?t=${Date.now()}`;
       }
+
       setServerFrontUrl(f);
       setServerBackUrl(b);
       setLastChecked(new Date());
@@ -109,8 +128,8 @@ const DriverLicensePhoto = () => {
         <div className="bg-gray-900 rounded-lg p-4">
           <div className="mb-3 font-medium">Front side</div>
           <div className="aspect-[16/9] bg-gray-800 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-            {frontPreview ? (
-              <img src={frontPreview} alt="Front preview" className="w-full h-full object-cover" />
+            {frontPreview || serverFrontUrl ? (
+              <img src={frontPreview || serverFrontUrl} alt="Front preview" className="w-full h-full object-cover" />
             ) : (
               <span className="text-gray-400">No photo yet</span>
             )}
@@ -132,8 +151,8 @@ const DriverLicensePhoto = () => {
         <div className="bg-gray-900 rounded-lg p-4">
           <div className="mb-3 font-medium">Back side</div>
           <div className="aspect-[16/9] bg-gray-800 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-            {backPreview ? (
-              <img src={backPreview} alt="Back preview" className="w-full h-full object-cover" />
+            {backPreview || serverBackUrl ? (
+              <img src={backPreview || serverBackUrl} alt="Back preview" className="w-full h-full object-cover" />
             ) : (
               <span className="text-gray-400">No photo yet</span>
             )}
