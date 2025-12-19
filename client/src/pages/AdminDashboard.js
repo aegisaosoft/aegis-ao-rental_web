@@ -1372,18 +1372,7 @@ const AdminDashboard = () => {
       const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
       const errors = Array.isArray(result?.errors) ? result.errors : [];
       const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
-      const totalLines = Number(result?.totalLines ?? result?.total ?? 0);
-      const totalImported = Number(result?.count ?? result?.importedCount ?? (loadedCount + updatedCount));
       
-      const finalLoadedCount = (loadedCount === 0 && updatedCount === 0 && ignoredCount === 0 && totalImported > 0) 
-        ? totalImported 
-        : loadedCount;
-      
-      const breakdownParts = [
-        `${finalLoadedCount} ${t('vehicles.loaded', 'loaded')}`,
-        `${updatedCount} ${t('vehicles.updated', 'updated')}`,
-        `${ignoredCount} ${t('vehicles.ignored', 'ignored')}`
-      ];
       
       // toast.success(
       //   totalLines > 0
@@ -1575,8 +1564,7 @@ const AdminDashboard = () => {
       const updatedCount = Number(result?.updatedCount ?? result?.updated ?? 0);
       const errors = Array.isArray(result?.errors) ? result.errors : [];
       const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
-      const totalLines = Number(result?.totalLines ?? result?.total ?? 0);
-      const totalImported = Number(result?.count ?? result?.importedCount ?? (loadedCount + updatedCount));
+      
       
       // Build and show a success message if needed (omitted to reduce noise)
       
