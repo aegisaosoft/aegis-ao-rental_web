@@ -1669,7 +1669,7 @@ const BookPage = () => {
 
       // Build base URL (we'll add token if available)
 
-      let baseUrl = `${origin.replace(/\/$/, '')}/scan-native?returnTo=${encodeURIComponent(returnTo)}`;
+      let baseUrl = `${origin.replace(/\/$/, '')}/driver-license-photo?returnTo=${encodeURIComponent(returnTo)}`;
 
       if (currentCompanyId) {
 
@@ -1857,7 +1857,7 @@ const BookPage = () => {
 
       const returnTo = window.location.pathname + window.location.search;
 
-      const fallbackUrl = `${origin.replace(/\/$/, '')}/scan-native?returnTo=${encodeURIComponent(returnTo)}`;
+      const fallbackUrl = `${origin.replace(/\/$/, '')}/driver-license-photo?returnTo=${encodeURIComponent(returnTo)}`;
 
       console.log('[QR Code] Error fallback - setting states');
 
@@ -4984,7 +4984,7 @@ const BookPage = () => {
 
                     }
 
-                    let url = `${origin}/scan-native?returnTo=${encodeURIComponent(returnTo)}`;
+                    let url = `${origin}/driver-license-photo?returnTo=${encodeURIComponent(returnTo)}`;
 
                     if (token && isAuthenticated) {
 

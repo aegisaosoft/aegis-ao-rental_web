@@ -818,7 +818,7 @@ const BookingWizard = ({
     sessionStorage.setItem(`wizardData-${wizardId}`, JSON.stringify(wizardData));
     
     const returnTo = window.location.pathname + window.location.search;
-    const url = `${origin}/scan-native?wizardId=${encodeURIComponent(wizardId)}&returnTo=${encodeURIComponent(returnTo)}`;
+    const url = `${origin}/driver-license-photo?wizardId=${encodeURIComponent(wizardId)}&returnTo=${encodeURIComponent(returnTo)}`;
     
     setWizardQRUrl(url);
     setShowWizardQRCode(true);
