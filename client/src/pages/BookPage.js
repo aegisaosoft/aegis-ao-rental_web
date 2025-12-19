@@ -1678,9 +1678,7 @@ const BookPage = () => {
       }
 
       if (currentUserId) {
-
-        baseUrl += `&userId=${encodeURIComponent(currentUserId)}`;
-
+        baseUrl += `&customerId=${encodeURIComponent(currentUserId)}`;
       }
 
       

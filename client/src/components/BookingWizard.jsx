@@ -835,22 +835,15 @@ const BookingWizard = ({
 
   const handleShowWizardQRCode = () => {
     const origin = window.location.origin;
-    const wizardId = `wizard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
     const customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
     
-    // Store wizard form data temporarily in sessionStorage for mobile page to retrieve
-    const wizardData = {
-      wizardId,
-      customerId,
-      email: wizardFormData.email,
-      firstName: wizardFormData.firstName,
-      lastName: wizardFormData.lastName,
-    };
-    sessionStorage.setItem(`wizardData-${wizardId}`, JSON.stringify(wizardData));
+    if (!customerId) {
+      setWizardError(t('bookPage.loginRequiredForScan', 'Please log in before scanning your driver license.'));
+      return;
+    }
     
     const returnTo = window.location.pathname + window.location.search;
-    const url = `${origin}/driver-license-photo?wizardId=${encodeURIComponent(wizardId)}&returnTo=${encodeURIComponent(returnTo)}`;
+    const url = `${origin}/driver-license-photo?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(returnTo)}`;
     
     setWizardQRUrl(url);
     setShowWizardQRCode(true);

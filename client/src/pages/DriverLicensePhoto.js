@@ -8,16 +8,46 @@ const DriverLicensePhoto = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const wizardId = searchParams.get('wizardId') || '';
-  const customerId = searchParams.get('customerId') || searchParams.get('userId') || '';
+  const customerId = searchParams.get('customerId') || '';
   const returnTo = searchParams.get('returnTo') || '/';
 
   const [frontPreview, setFrontPreview] = useState(null);
   const [backPreview, setBackPreview] = useState(null);
   const [isUploadingFront, setIsUploadingFront] = useState(false);
   const [isUploadingBack, setIsUploadingBack] = useState(false);
+  const [serverFrontUrl, setServerFrontUrl] = useState(null);
+  const [serverBackUrl, setServerBackUrl] = useState(null);
+  const [lastChecked, setLastChecked] = useState(null);
 
-  const canUpload = Boolean(wizardId || customerId);
+  const canUpload = Boolean(customerId);
+
+  const fetchStatus = async () => {
+    if (!customerId) {
+      toast.info('No customerId in URL. Status check works after login/registration.');
+      return;
+    }
+    try {
+      const res = await apiService.getCustomerLicenseImages(customerId);
+      const imageData = res?.data || res;
+      const origin = window.location.origin;
+      let f = null;
+      let b = null;
+      if (imageData?.front) {
+        f = `${origin}/api/Media/customers/${customerId}/licenses/file/${imageData.front}?t=${Date.now()}`;
+      }
+      if (imageData?.back) {
+        b = `${origin}/api/Media/customers/${customerId}/licenses/file/${imageData.back}?t=${Date.now()}`;
+      }
+      setServerFrontUrl(f);
+      setServerBackUrl(b);
+      setLastChecked(new Date());
+      if (!f && !b) {
+        toast.info('No server images found yet for this customer.');
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to check status');
+    }
+  };
 
   const upload = async (side, file) => {
     if (!canUpload) {
@@ -29,9 +59,7 @@ const DriverLicensePhoto = () => {
       if (side === 'front') setIsUploadingFront(true);
       if (side === 'back') setIsUploadingBack(true);
 
-      if (wizardId) {
-        await apiService.uploadWizardLicenseImage(wizardId, side, file);
-      } else if (customerId) {
+      if (customerId) {
         await apiService.uploadCustomerLicenseImage(customerId, side, file);
       }
 
@@ -40,7 +68,7 @@ const DriverLicensePhoto = () => {
       // Notify opener to refresh images
       try {
         const channel = new BroadcastChannel('license_images_channel');
-        channel.postMessage({ type: 'licenseImageUploaded', side, customerId: customerId || null, wizardId: wizardId || null });
+        channel.postMessage({ type: 'licenseImageUploaded', side, customerId: customerId || null });
         channel.close();
       } catch (e) {
         // Ignore if BroadcastChannel unsupported
@@ -55,6 +83,8 @@ const DriverLicensePhoto = () => {
       } catch (e) {
         // Ignore
       }
+
+      await fetchStatus();
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Upload failed');
     } finally {
@@ -129,6 +159,50 @@ const DriverLicensePhoto = () => {
         >
           Done
         </button>
+
+        <div className="bg-gray-900 rounded-lg p-4 mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-medium">Server status</div>
+            <button
+              onClick={fetchStatus}
+              className="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded"
+              disabled={!customerId}
+              title={!customerId ? 'Status check requires customerId' : 'Refresh status'}
+            >
+              {customerId ? 'Refresh' : 'Login required'}
+            </button>
+          </div>
+          {lastChecked && (
+            <div className="text-xs text-gray-400">Checked at {lastChecked.toLocaleTimeString()}</div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Front (server)</div>
+              <div className="aspect-[16/9] bg-gray-800 rounded flex items-center justify-center overflow-hidden">
+                {serverFrontUrl ? (
+                  <img src={serverFrontUrl} alt="Front (server)" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-gray-500 text-xs">Not found</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Back (server)</div>
+              <div className="aspect-[16/9] bg-gray-800 rounded flex items-center justify-center overflow-hidden">
+                {serverBackUrl ? (
+                  <img src={serverBackUrl} alt="Back (server)" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-gray-500 text-xs">Not found</span>
+                )}
+              </div>
+            </div>
+          </div>
+          {customerId && (
+            <div className="text-xs break-all text-gray-500">
+              API: /api/Media/customers/{customerId}/licenses
+            </div>
+          )}
+        </div>
 
         {!canUpload && (
           <p className="text-sm text-gray-400 text-center">
