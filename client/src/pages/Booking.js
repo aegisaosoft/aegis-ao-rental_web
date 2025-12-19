@@ -60,7 +60,7 @@ const Booking = () => {
     ['stripeStatus', companyId],
     async () => {
       try {
-        const response = await apiService.getStripeAccountStatus(companyId);
+        const response = await apiService.getStripeAccountStatus(companyId, { timeout: 5000 });
         // Unwrap the response - apiService methods return the axios response
         const responseData = response?.data || response;
         const statusData = responseData?.result || responseData;
@@ -72,7 +72,9 @@ const Booking = () => {
     },
     {
       enabled: !!companyId,
-      retry: false
+      retry: false,
+      staleTime: 300000,
+      refetchOnWindowFocus: false
     }
   );
 
@@ -166,7 +168,7 @@ const Booking = () => {
     }
   };
 
-  if (isLoading || isLoadingStripe) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -186,7 +188,7 @@ const Booking = () => {
   }
 
   // Show message if booking is unavailable due to missing Stripe account
-  if (!isBookingAvailable) {
+  if (!isLoadingStripe && !isBookingAvailable) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -312,7 +314,7 @@ const Booking = () => {
                 <button
                   type="submit"
                   className="w-full btn-primary"
-                  disabled={!isBookingAvailable}
+                  disabled={isLoadingStripe || !isBookingAvailable}
                 >
                   {t('booking.confirmBooking')}
                 </button>

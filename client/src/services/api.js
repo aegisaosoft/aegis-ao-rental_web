@@ -425,7 +425,7 @@ export const apiService = {
 
   // Stripe Connect - using same API functions as admin app
   setupStripeAccount: (companyId) => api.post(`/companies/${companyId}/stripe/setup?source=web`),
-  getStripeAccountStatus: (companyId) => api.get(`/companies/${companyId}/stripe/status?source=web`),
+  getStripeAccountStatus: (companyId, config = {}) => api.get(`/companies/${companyId}/stripe/status?source=web`, config),
   checkStripeAccount: (companyId) => api.get(`/companies/${companyId}/stripe/check-account`),
   getStripeOnboardingLink: (companyId) => api.get(`/companies/${companyId}/stripe/reauth?json=true&source=web`),
   syncStripeAccountStatus: (companyId) => api.post(`/companies/${companyId}/stripe/sync?source=web`),

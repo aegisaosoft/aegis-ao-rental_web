@@ -10,8 +10,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest",
-    "postinstall": "chmod +x node_modules/.bin/* 2>/dev/null || true"
+    "test": "jest"
   },
   "dependencies": {
     "@microblink/blinkid": "^7.6.0",
