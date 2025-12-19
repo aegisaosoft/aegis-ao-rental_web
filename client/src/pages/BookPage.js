@@ -2597,8 +2597,6 @@ const BookPage = () => {
 
     openAuthModal,
 
-    showLocationDropdown,
-
     selectedLocationId,
 
     isAuthenticated,
