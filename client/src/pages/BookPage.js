@@ -4796,8 +4796,7 @@ const BookPage = () => {
         onClose={() => {
           setIsCreateUserWizardOpen(false);
           setWizardInitialEmail(null); // Clear initial email when wizard closes
-          // Reset rental agreement state when wizard closes
-          resetAgreement();
+          // Do not reset rental agreement here; user may proceed to booking and needs the signature
         }}
         initialEmail={wizardInitialEmail} // Pre-fill email from auth modal
         onComplete={handleAuthSuccess}
@@ -4835,11 +4834,13 @@ const BookPage = () => {
         }}
         language={i18n.language || companyConfig?.language || 'en'}
         rentalInfo={{
-          vehicle: selectedVehicle,
+          vehicleName: (selectedVehicle?.make || make || '') && (selectedVehicle?.model || model || '')
+            ? `${selectedVehicle?.make || make || ''} ${selectedVehicle?.model || model || ''}`.trim()
+            : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
           pickupDate: formData.pickupDate,
           returnDate: formData.returnDate,
-          dailyRate: modelDailyRate,
-          total: calculateGrandTotal(),
+          totalAmount: calculateGrandTotal(),
+          securityDeposit: companyConfig?.securityDeposit ?? 0,
         }}
         formatPrice={formatPrice}
         consents={agreementConsents}

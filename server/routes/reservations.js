@@ -316,4 +316,23 @@ router.post('/bookings/:id/security-deposit-checkout', authenticateToken, async 
   }
 });
 
+// Get rental agreement for a booking
+router.get('/bookings/:id/rental-agreement', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    console.log(`[Proxy] Fetching rental agreement for booking ${id}`);
+    const response = await apiService.getRentalAgreement(token, id);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Rental agreement fetch error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      message: error.response?.data?.message || 'Rental agreement not found' 
+    });
+  }
+});
+
 module.exports = router;
