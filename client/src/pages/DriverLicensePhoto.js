@@ -9,7 +9,7 @@ const DriverLicensePhoto = () => {
   const navigate = useNavigate();
 
   const wizardId = searchParams.get('wizardId') || '';
-  const customerId = searchParams.get('customerId') || '';
+  const customerId = searchParams.get('customerId') || searchParams.get('userId') || '';
   const returnTo = searchParams.get('returnTo') || '/';
 
   const [frontPreview, setFrontPreview] = useState(null);
@@ -36,6 +36,25 @@ const DriverLicensePhoto = () => {
       }
 
       toast.success(`${side === 'front' ? 'Front' : 'Back'} photo uploaded`);
+
+      // Notify opener to refresh images
+      try {
+        const channel = new BroadcastChannel('license_images_channel');
+        channel.postMessage({ type: 'licenseImageUploaded', side, customerId: customerId || null, wizardId: wizardId || null });
+        channel.close();
+      } catch (e) {
+        // Ignore if BroadcastChannel unsupported
+      }
+      try {
+        localStorage.setItem('licenseImagesUploaded', Date.now().toString());
+      } catch (e) {
+        // Ignore storage errors
+      }
+      try {
+        window.dispatchEvent(new Event('refreshLicenseImages'));
+      } catch (e) {
+        // Ignore
+      }
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Upload failed');
     } finally {
