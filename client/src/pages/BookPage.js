@@ -1270,7 +1270,6 @@ const BookPage = () => {
       if (firstLocationWithVehicles) {
         const firstLocationId = firstLocationWithVehicles.id || firstLocationWithVehicles.Id || firstLocationWithVehicles.locationId || firstLocationWithVehicles.LocationId;
         if (firstLocationId) {
-          const locationName = firstLocationWithVehicles.locationName || firstLocationWithVehicles.location_name || firstLocationWithVehicles.LocationName || firstLocationId;
           setSelectedLocationId(String(firstLocationId));
         }
       } else {
@@ -2177,80 +2176,6 @@ const BookPage = () => {
     }
     
     try {
-      // Use /api proxy to avoid CORS issues (goes through Node.js proxy with CORS enabled)
-      const apiBaseUrl = window.location.origin;
-      
-      const possibleExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-      
-      const checkImageExists = async (url) => {
-        try {
-          // Use HEAD request through /customers proxy to check if image exists
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second timeout
-          
-          const testUrl = url + '?t=' + Date.now();
-          console.log('[BookPage] checkImageExists - Checking URL:', testUrl);
-          
-          const response = await fetch(testUrl, {
-            method: 'HEAD',
-            cache: 'no-cache',
-            signal: controller.signal,
-            credentials: 'include' // Include cookies for session
-          });
-          
-          clearTimeout(timeoutId);
-          
-          // Only consider it exists if status is exactly 200 AND content-type is an image
-          const status = response.status;
-          const contentLength = response.headers.get('content-length');
-          const contentType = response.headers.get('content-type') || '';
-          
-          // Check if content-type is actually an image (not HTML error page)
-          const isImageType = contentType.startsWith('image/') || 
-                             contentType.includes('jpeg') || 
-                             contentType.includes('jpg') || 
-                             contentType.includes('png') || 
-                             contentType.includes('gif') || 
-                             contentType.includes('webp');
-          
-          // Check if response is actually valid
-          // If status is 200 but content-length is 0 or missing, it's likely a false positive
-          // Also reject if content-type is HTML (backend returning error page as 200)
-          const hasValidContent = contentLength && parseInt(contentLength) > 0;
-          const exists = status === 200 && hasValidContent && isImageType;
-          
-          // Log status explicitly (not in object) so it's always visible
-          console.log(`[BookPage] checkImageExists - HTTP STATUS: ${status}`);
-          console.log(`[BookPage] checkImageExists - Content-Length: ${contentLength || 'missing'}`);
-          console.log(`[BookPage] checkImageExists - Content-Type: ${contentType || 'missing'}`);
-          console.log(`[BookPage] checkImageExists - Is image type: ${isImageType ? 'YES' : 'NO'}`);
-          console.log(`[BookPage] checkImageExists - Valid content: ${hasValidContent ? 'YES' : 'NO'}`);
-          console.log(`[BookPage] checkImageExists - Final exists check: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
-          
-          if (status === 404) {
-            console.log('[BookPage] checkImageExists - ❌ 404 - Image does not exist:', testUrl);
-          } else if (status === 200 && !isImageType) {
-            console.log(`[BookPage] checkImageExists - ❌ 200 but Content-Type is ${contentType} (not an image) - treating as 404:`, testUrl);
-          } else if (status === 200 && !hasValidContent) {
-            console.log('[BookPage] checkImageExists - ❌ 200 but no content - treating as 404:', testUrl);
-          } else if (status === 200 && hasValidContent && isImageType) {
-            console.log('[BookPage] checkImageExists - ✅ 200 with valid image content - Image exists:', testUrl);
-          } else {
-            console.warn(`[BookPage] checkImageExists - ⚠️ Unexpected status ${status} for URL:`, testUrl);
-          }
-          
-          return exists ? url : null;
-        } catch (error) {
-          // Log errors for debugging
-          console.log('[BookPage] checkImageExists - Error checking URL:', url, {
-            message: error.message,
-            name: error.name,
-            code: error.code
-          });
-          return null;
-        }
-      };
-      
       // Check sequentially and stop early when found
       // Use the new API endpoint to get actual image filenames and URLs
       console.log('[BookPage] checkDriverLicenseImagesExist - Checking images for customer:', customerId);

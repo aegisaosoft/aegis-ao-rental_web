@@ -413,7 +413,6 @@ const AdminDashboard = () => {
     }
     
     if (urlParams.get('deposit_success') === 'true') {
-      const bookingId = urlParams.get('booking_id');
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
       // Refresh bookings list
@@ -1386,11 +1385,12 @@ const AdminDashboard = () => {
         `${ignoredCount} ${t('vehicles.ignored', 'ignored')}`
       ];
       
-      const message = totalLines > 0
-        ? `${t('vehicles.importSuccess', 'Import completed')}: ${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`
-        : `${t('vehicles.importSuccess', 'Import completed')}: ${breakdownParts.join(', ')}`;
-      
-      // toast.success(message, { autoClose: 8000 });
+      // toast.success(
+      //   totalLines > 0
+      //     ? `${t('vehicles.importSuccess', 'Import completed')}: ${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`
+      //     : `${t('vehicles.importSuccess', 'Import completed')}: ${breakdownParts.join(', ')}`,
+      //   { autoClose: 8000 }
+      // );
       
       // Show error details if any
       if (ignoredCount > 0 && errors.length > 0) {
@@ -1578,38 +1578,7 @@ const AdminDashboard = () => {
       const totalLines = Number(result?.totalLines ?? result?.total ?? 0);
       const totalImported = Number(result?.count ?? result?.importedCount ?? (loadedCount + updatedCount));
       
-      // Build detailed success message showing complete breakdown
-      // Always show all three counts: loaded, updated, and ignored
-      let message = '';
-      
-      // Validate counts - if all are 0 but we have totalLines, something is wrong
-      // In that case, use totalImported as loadedCount
-      const finalLoadedCount = (loadedCount === 0 && updatedCount === 0 && ignoredCount === 0 && totalImported > 0) 
-        ? totalImported 
-        : loadedCount;
-      
-      // Always show all counts, even if zero
-      const breakdownParts = [
-        `${finalLoadedCount} ${t('vehicles.loaded', 'loaded')}`,
-        `${updatedCount} ${t('vehicles.updated', 'updated')}`,
-        `${ignoredCount} ${t('vehicles.ignored', 'ignored')}`
-      ];
-      
-      if (totalLines > 0) {
-        // Show complete breakdown: "50 total - 40 loaded, 5 updated, 5 ignored"
-        message = `${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`;
-      } else if (totalImported > 0) {
-        // Fallback: use totalImported as totalLines if totalLines not available
-        message = `${totalImported} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`;
-      } else {
-        // Last resort: just show breakdown
-        message = breakdownParts.join(', ');
-      }
-      
-      // Prepend success label
-      message = `${t('vehicles.importSuccess', 'Import completed')}: ${message}`;
-      
-      // Show success message
+      // Build and show a success message if needed (omitted to reduce noise)
       
       // Show error details if any
       if (ignoredCount > 0 && errors.length > 0) {

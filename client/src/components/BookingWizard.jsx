@@ -162,44 +162,6 @@ const BookingWizard = ({
       const customerId = user.id || user.customerId || user.customer_id;
       if (!customerId) return;
       
-      const apiBaseUrl = window.location.origin;
-      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-      
-      const checkImageExists = async (url) => {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // Increased timeout
-          const testUrl = url + '?t=' + Date.now();
-          console.log(`[BookingWizard] Checking image exists: ${testUrl}`);
-          const response = await fetch(testUrl, {
-            method: 'HEAD',
-            cache: 'no-cache',
-            signal: controller.signal,
-            credentials: 'include'
-          });
-          clearTimeout(timeoutId);
-          
-          const status = response.status;
-          const contentType = response.headers.get('content-type') || '';
-          const isImageType = contentType.startsWith('image/');
-          
-          // Only consider it exists if status is 200 AND content-type is an image
-          const exists = status === 200 && isImageType;
-          
-          console.log(`[BookingWizard] Image check result for ${url}:`, {
-            status,
-            contentType,
-            isImageType,
-            exists: exists ? 'EXISTS ✅' : 'NOT FOUND ❌'
-          });
-          
-          return exists ? url : null;
-        } catch (error) {
-          console.log(`[BookingWizard] Image check error for ${url}:`, error.message);
-          return null;
-        }
-      };
-      
       const fetchImagesForStep3 = async () => {
         console.log(`[BookingWizard] Step 3: Fetching images for customer ${customerId}`);
         console.log(`[BookingWizard] Current state - front: ${uploadedLicenseImages.front || 'missing'}, back: ${uploadedLicenseImages.back || 'missing'}`);
