@@ -168,6 +168,7 @@ const BookPage = () => {
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   
   const [selectedLocationId, setSelectedLocationId] = useState(searchParams.get('locationId') || '');
+  const [userSelectedLocation, setUserSelectedLocation] = useState(false);
 
 
 
@@ -1187,7 +1188,8 @@ const BookPage = () => {
       setLocationsWithVehicles(availableLocationIds);
       
       // Clear selected location if it doesn't have vehicles available
-      if (selectedLocationId) {
+      // Do not clear if user explicitly picked a location (avoid bouncing selection)
+      if (selectedLocationId && !userSelectedLocation) {
         const currentLocationIdStr = String(selectedLocationId);
         if (!availableLocationIds.has(currentLocationIdStr)) {
           console.log(`[BookPage] Clearing selected location ${currentLocationIdStr} - no vehicles available`);
@@ -1199,7 +1201,7 @@ const BookPage = () => {
     };
     
     checkAvailability();
-  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model, selectedLocationId]);
+  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model, selectedLocationId, userSelectedLocation]);
   
   // Filter locations to only show those with available vehicles
   const companyLocations = React.useMemo(() => {
@@ -1271,6 +1273,7 @@ const BookPage = () => {
         const firstLocationId = firstLocationWithVehicles.id || firstLocationWithVehicles.Id || firstLocationWithVehicles.locationId || firstLocationWithVehicles.LocationId;
         if (firstLocationId) {
           setSelectedLocationId(String(firstLocationId));
+          setUserSelectedLocation(false);
         }
       } else {
         console.warn('[BookPage] ⚠️ No locations with vehicles found in filtered list, cannot auto-select');
@@ -3470,7 +3473,7 @@ const BookPage = () => {
                     </label>
                     <select
                       value={selectedLocationId}
-                      onChange={(e) => setSelectedLocationId(e.target.value)}
+                      onChange={(e) => { setSelectedLocationId(e.target.value); setUserSelectedLocation(true); }}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                       required
                     >
