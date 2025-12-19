@@ -66,7 +66,6 @@ router.post('/validate', upload.single('file'), async (req, res) => {
 
       if (response.data && response.data.result) {
         const result = response.data.result;
-        console.log('[License] BlinkID recognition successful');
         
         // Map BlinkID result to our format
         const parsedData = {

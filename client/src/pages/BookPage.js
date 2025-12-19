@@ -569,6 +569,11 @@ const BookPage = () => {
 
   // Wizard state for Create User
   const [isCreateUserWizardOpen, setIsCreateUserWizardOpen] = useState(false);
+  
+  // Debug: Log when wizard state changes
+  React.useEffect(() => {
+    console.log('[BookPage] isCreateUserWizardOpen changed to:', isCreateUserWizardOpen);
+  }, [isCreateUserWizardOpen]);
   const [wizardInitialEmail, setWizardInitialEmail] = useState(null); // Email to pre-fill wizard when opened from auth modal
   
   // Uploaded license images (shared between wizard and main page)
@@ -702,7 +707,6 @@ const BookPage = () => {
           // Restore user data in AuthContext - this ensures role and all user info is current
           if (userData) {
             restoreUser(userData);
-            console.log('[BookPage] ✅ User data restored after Stripe return, role:', userData.role);
           }
         } catch (error) {
           if (error.response?.status === 401) {
@@ -1146,7 +1150,6 @@ const BookPage = () => {
                 }
                 
                 if (modelMake === searchMake && modelName === searchModel && availableCount > 0) {
-                  console.log(`[BookPage] ✅ Location ${locationId} has ${availableCount} available vehicles for ${make} ${model}`);
                   hasSpecificModel = true;
                   return String(locationId); // This location has the specific make/model available
                 }
@@ -1268,7 +1271,6 @@ const BookPage = () => {
         const firstLocationId = firstLocationWithVehicles.id || firstLocationWithVehicles.Id || firstLocationWithVehicles.locationId || firstLocationWithVehicles.LocationId;
         if (firstLocationId) {
           const locationName = firstLocationWithVehicles.locationName || firstLocationWithVehicles.location_name || firstLocationWithVehicles.LocationName || firstLocationId;
-          console.log(`[BookPage] ✅ Auto-selecting first location with vehicles: ${locationName} (${firstLocationId})`);
           setSelectedLocationId(String(firstLocationId));
         }
       } else {
@@ -1736,7 +1738,6 @@ const BookPage = () => {
 
               const token = tokenResponse.token || tokenResponse.data.token;
 
-              console.log('[QR Code] ✅ Token retrieved from /session-token endpoint');
 
               return token;
 
@@ -1774,7 +1775,6 @@ const BookPage = () => {
 
               const urlWithToken = baseUrl + `&token=${encodeURIComponent(token)}`;
 
-              console.log('[QR Code] ✅ Token retrieved, generating QR code with token');
 
               setQrUrl(urlWithToken);
 
@@ -2184,11 +2184,14 @@ const BookPage = () => {
       
       const checkImageExists = async (url) => {
         try {
-          // Use HEAD request through /api proxy to avoid CORS errors
+          // Use HEAD request through /customers proxy to check if image exists
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1000); // 1-second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2-second timeout
           
-          const response = await fetch(url + '?t=' + Date.now(), {
+          const testUrl = url + '?t=' + Date.now();
+          console.log('[BookPage] checkImageExists - Checking URL:', testUrl);
+          
+          const response = await fetch(testUrl, {
             method: 'HEAD',
             cache: 'no-cache',
             signal: controller.signal,
@@ -2196,52 +2199,115 @@ const BookPage = () => {
           });
           
           clearTimeout(timeoutId);
-          return response.ok ? url : null;
+          
+          // Only consider it exists if status is exactly 200 AND content-type is an image
+          const status = response.status;
+          const contentLength = response.headers.get('content-length');
+          const contentType = response.headers.get('content-type') || '';
+          
+          // Check if content-type is actually an image (not HTML error page)
+          const isImageType = contentType.startsWith('image/') || 
+                             contentType.includes('jpeg') || 
+                             contentType.includes('jpg') || 
+                             contentType.includes('png') || 
+                             contentType.includes('gif') || 
+                             contentType.includes('webp');
+          
+          // Check if response is actually valid
+          // If status is 200 but content-length is 0 or missing, it's likely a false positive
+          // Also reject if content-type is HTML (backend returning error page as 200)
+          const hasValidContent = contentLength && parseInt(contentLength) > 0;
+          const exists = status === 200 && hasValidContent && isImageType;
+          
+          // Log status explicitly (not in object) so it's always visible
+          console.log(`[BookPage] checkImageExists - HTTP STATUS: ${status}`);
+          console.log(`[BookPage] checkImageExists - Content-Length: ${contentLength || 'missing'}`);
+          console.log(`[BookPage] checkImageExists - Content-Type: ${contentType || 'missing'}`);
+          console.log(`[BookPage] checkImageExists - Is image type: ${isImageType ? 'YES' : 'NO'}`);
+          console.log(`[BookPage] checkImageExists - Valid content: ${hasValidContent ? 'YES' : 'NO'}`);
+          console.log(`[BookPage] checkImageExists - Final exists check: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+          
+          if (status === 404) {
+            console.log('[BookPage] checkImageExists - ❌ 404 - Image does not exist:', testUrl);
+          } else if (status === 200 && !isImageType) {
+            console.log(`[BookPage] checkImageExists - ❌ 200 but Content-Type is ${contentType} (not an image) - treating as 404:`, testUrl);
+          } else if (status === 200 && !hasValidContent) {
+            console.log('[BookPage] checkImageExists - ❌ 200 but no content - treating as 404:', testUrl);
+          } else if (status === 200 && hasValidContent && isImageType) {
+            console.log('[BookPage] checkImageExists - ✅ 200 with valid image content - Image exists:', testUrl);
+          } else {
+            console.warn(`[BookPage] checkImageExists - ⚠️ Unexpected status ${status} for URL:`, testUrl);
+          }
+          
+          return exists ? url : null;
         } catch (error) {
-          // Silently handle 404s and other errors (expected when images don't exist)
+          // Log errors for debugging
+          console.log('[BookPage] checkImageExists - Error checking URL:', url, {
+            message: error.message,
+            name: error.name,
+            code: error.code
+          });
           return null;
         }
       };
       
       // Check sequentially and stop early when found
+      // Use the new API endpoint to get actual image filenames and URLs
+      console.log('[BookPage] checkDriverLicenseImagesExist - Checking images for customer:', customerId);
+      
+      const response = await apiService.getCustomerLicenseImages(customerId);
+      const imageData = response?.data || response;
+      
+      console.log('[BookPage] checkDriverLicenseImagesExist - API response:', imageData);
+      
+      // Construct frontend URLs using window.location.origin (frontend server)
+      const frontendBaseUrl = window.location.origin;
+      
       let hasFront = false;
       let hasBack = false;
       let frontUrl = null;
       let backUrl = null;
       
-      // Check front image (static files served from /customers/ path)
-      for (const ext of possibleExtensions) {
-        if (hasFront) break;
-        const url = `${apiBaseUrl}/customers/${customerId}/licenses/front${ext}`;
-        const foundUrl = await checkImageExists(url);
-        if (foundUrl) {
-          hasFront = true;
-          frontUrl = foundUrl;
-          break;
-        }
+      if (imageData.frontUrl && imageData.front) {
+        hasFront = true;
+        // Use API endpoint for direct file serving (more reliable than static files)
+        frontUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
+        console.log('[BookPage] checkDriverLicenseImagesExist - Static URL (fallback):', `${frontendBaseUrl}${imageData.frontUrl}`);
+      } else {
+        console.log('[BookPage] checkDriverLicenseImagesExist - ❌ No front image found');
       }
       
-      // Check back image (static files served from /customers/ path)
-      for (const ext of possibleExtensions) {
-        if (hasBack) break;
-        const url = `${apiBaseUrl}/customers/${customerId}/licenses/back${ext}`;
-        const foundUrl = await checkImageExists(url);
-        if (foundUrl) {
-          hasBack = true;
-          backUrl = foundUrl;
-          break;
-        }
+      if (imageData.backUrl && imageData.back) {
+        hasBack = true;
+        // Use API endpoint for direct file serving (more reliable than static files)
+        backUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
+        console.log('[BookPage] checkDriverLicenseImagesExist - ✅ Back image URL (API):', backUrl);
+        console.log('[BookPage] checkDriverLicenseImagesExist - Static URL (fallback):', `${frontendBaseUrl}${imageData.backUrl}`);
+      } else {
+        console.log('[BookPage] checkDriverLicenseImagesExist - ❌ No back image found');
       }
       
       // Update state with found URLs
-      if (frontUrl && !uploadedLicenseImages.front) {
+      if (frontUrl) {
         setUploadedLicenseImages(prev => ({ ...prev, front: frontUrl }));
+      } else if (uploadedLicenseImages.front) {
+        console.log('[BookPage] checkDriverLicenseImagesExist - Clearing invalid front image URL from state');
+        setUploadedLicenseImages(prev => ({ ...prev, front: null }));
       }
-      if (backUrl && !uploadedLicenseImages.back) {
+      
+      if (backUrl) {
         setUploadedLicenseImages(prev => ({ ...prev, back: backUrl }));
+      } else if (uploadedLicenseImages.back) {
+        console.log('[BookPage] checkDriverLicenseImagesExist - Clearing invalid back image URL from state');
+        setUploadedLicenseImages(prev => ({ ...prev, back: null }));
       }
       
       const result = hasFront && hasBack;
+      
+      // Log the results explicitly
+      console.log('[BookPage] checkDriverLicenseImagesExist - hasFront:', hasFront, 'hasBack:', hasBack);
+      console.log('[BookPage] checkDriverLicenseImagesExist - frontUrl:', frontUrl || 'NOT FOUND');
+      console.log('[BookPage] checkDriverLicenseImagesExist - backUrl:', backUrl || 'NOT FOUND');
       
       // Cache the result
       dlImageCheckCache.current.set(cacheKey, {
@@ -2249,6 +2315,7 @@ const BookPage = () => {
         timestamp: Date.now()
       });
       
+      console.log('[BookPage] checkDriverLicenseImagesExist - Returning:', result);
       return result;
     } catch (error) {
       // If there's an error checking images, assume they don't exist
@@ -2277,24 +2344,41 @@ const BookPage = () => {
     // 3. If user exists and images exist → don't show wizard
     if (customerId) {
       try {
-        // Check if both images exist (front and back)
-        const hasImagesInState = uploadedLicenseImages.front && uploadedLicenseImages.back;
+        // Always check server to ensure images actually exist (don't trust state alone)
+        // State might have invalid URLs from previous checks
+        console.log('[BookPage] proceedToCheckout - Checking images in state:', { 
+          front: uploadedLicenseImages.front || 'null',
+          back: uploadedLicenseImages.back || 'null'
+        });
         
-        let hasDLImages = hasImagesInState;
-        
-        // If not in state, check server
-        if (!hasDLImages) {
-          // Clear cache to ensure we get fresh data
-          if (dlImageCheckCache.current) {
-            dlImageCheckCache.current.delete(customerId);
-          }
-          hasDLImages = await checkDriverLicenseImagesExist(customerId);
+        // Clear cache to ensure we get fresh data
+        if (dlImageCheckCache.current) {
+          dlImageCheckCache.current.delete(customerId);
+          console.log('[BookPage] proceedToCheckout - Cleared cache for customer:', customerId);
         }
+        
+        // Always check server - don't trust state (state might have invalid URLs)
+        console.log('[BookPage] proceedToCheckout - Calling checkDriverLicenseImagesExist for customer:', customerId);
+        const hasDLImages = await checkDriverLicenseImagesExist(customerId);
+        console.log('[BookPage] proceedToCheckout - checkDriverLicenseImagesExist returned:', hasDLImages);
+        console.log('[BookPage] proceedToCheckout - Server check result:', hasDLImages ? '✅ IMAGES EXIST' : '❌ IMAGES NOT FOUND');
         
         if (!hasDLImages) {
           // User exists but images don't exist → show wizard from page 3
+          console.log('[BookPage] proceedToCheckout - ❌ No DL images found, opening wizard');
+          console.log('[BookPage] proceedToCheckout - hasDLImages is:', hasDLImages);
+          console.log('[BookPage] proceedToCheckout - Setting isCreateUserWizardOpen to TRUE');
           setIsCreateUserWizardOpen(true);
+          
+          // Verify the state was set
+          setTimeout(() => {
+            console.log('[BookPage] proceedToCheckout - Verifying wizard state after setting...');
+          }, 100);
+          
+          console.log('[BookPage] proceedToCheckout - Wizard should now be open - returning early');
           return;
+        } else {
+          console.log('[BookPage] proceedToCheckout - hasDLImages is:', hasDLImages);
         }
         
         // User exists and images exist → don't show wizard, proceed to next step

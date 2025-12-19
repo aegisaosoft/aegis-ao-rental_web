@@ -176,7 +176,7 @@ const authenticateToken = async (req, res, next) => {
           if (err) {
             console.error('[Auth] Error saving role to session:', err);
           } else {
-            console.log('[Auth] ✅ Role and user info stored/updated in session from token:', {
+            console.log('[Auth] Role and user info stored/updated in session from token:', {
               role: role,
               customerId: customerId,
               email: email

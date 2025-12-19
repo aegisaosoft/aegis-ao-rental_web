@@ -80,7 +80,7 @@ router.post('/register', [
           createdAt: userInfo.createdAt || userInfo.CreatedAt,
           updatedAt: userInfo.updatedAt || userInfo.UpdatedAt
         };
-        console.log('[Register] ✅ User info stored in session:', {
+        console.log('[Register] User info stored in session:', {
           customerId: req.session.user.customerId,
           email: req.session.user.email,
           role: req.session.user.role
@@ -97,7 +97,6 @@ router.post('/register', [
         if (err) {
           console.error('[Register] Error saving session:', err);
         } else {
-          console.log('[Register] ✅ Session saved with token and user info');
         }
       });
     }
@@ -167,7 +166,7 @@ router.post('/login', [
           createdAt: userInfo.createdAt || userInfo.CreatedAt,
           updatedAt: userInfo.updatedAt || userInfo.UpdatedAt
         };
-        console.log('[Login] ✅ User info stored in session:', {
+        console.log('[Login] User info stored in session:', {
           customerId: req.session.user.customerId,
           email: req.session.user.email,
           role: req.session.user.role
@@ -199,7 +198,6 @@ router.post('/login', [
             console.error('[Login] ❌ Error saving session:', err);
             reject(err);
           } else {
-            console.log('[Login] ✅ Session saved successfully');
             console.log('[Login] Set-Cookie header will be sent:', !!res.getHeader('Set-Cookie'));
             resolve();
           }
@@ -285,7 +283,6 @@ router.get('/profile', async (req, res) => {
     
     // ALWAYS return from session - never re-read from backend
     if (req.session?.user) {
-      console.log('[Profile] ✅ Returning user info from session (no backend call)');
       const userData = { ...req.session.user };
       
       // Include token in response if requested (for QR code generation)
@@ -348,7 +345,6 @@ router.post('/session-token', async (req, res) => {
     // Ensure session is initialized
     req.session.touch();
     
-    console.log('[Auth Route] ✅ Token stored in session');
     console.log('[Auth Route] Session ID:', req.sessionID);
     
     // Explicitly save session to ensure cookie is set
@@ -380,7 +376,6 @@ router.post('/session-token', async (req, res) => {
         userId
       };
       
-      console.log('[Auth Route] Sending success response');
       return res.json(response);
     });
   } catch (error) {
@@ -504,7 +499,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       }
     }
     
-    console.log('[Profile Update] Success:', response.status);
     return res.status(response.status).json(response.data);
   } catch (error) {
     console.error('[Profile Update] Error:', error.message);

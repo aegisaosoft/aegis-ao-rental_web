@@ -59,7 +59,6 @@ const MyBookings = () => {
           // Restore user data in AuthContext - this ensures role and all user info is current
           if (userData) {
             restoreUser(userData);
-            console.log('[MyBookings] ✅ User data restored after Stripe return, role:', userData.role);
           }
         } catch (error) {
           if (error.response?.status === 401) {

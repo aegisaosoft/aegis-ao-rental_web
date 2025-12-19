@@ -622,6 +622,77 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
       console.error(`[Proxy] File upload detected but no files found in req.files`);
     }
     
+    // Check if this is an image/file request - handle binary responses differently
+    const isImageRequest = proxyPath.includes('/Media/') && (
+      proxyPath.includes('/licenses/file/') || 
+      proxyPath.includes('/file/') ||
+      proxyPath.endsWith('.png') || 
+      proxyPath.endsWith('.jpg') || 
+      proxyPath.endsWith('.jpeg') || 
+      proxyPath.endsWith('.gif') || 
+      proxyPath.endsWith('.webp')
+    );
+    
+    // For license image file requests, check local folders first before forwarding to API
+    if (isImageRequest && proxyPath.includes('/Media/customers/') && proxyPath.includes('/licenses/file/')) {
+      const fs = require('fs');
+      // Extract customerId and fileName from path like /api/Media/customers/{customerId}/licenses/file/{fileName}
+      const match = proxyPath.match(/\/Media\/customers\/([^/]+)\/licenses\/file\/(.+)$/);
+      if (match) {
+        const [, customerId, fileName] = match;
+        const relativePath = `customers/${customerId}/licenses/${fileName}`;
+        
+        // Check local client/server folders first
+        const possibleLocalPaths = [
+          path.join(__dirname, 'public', relativePath), // server/public/customers/...
+          path.join(__dirname, '../client/public', relativePath), // client/public/customers/...
+          path.join(__dirname, '../client/build', relativePath) // client/build/customers/... (production)
+        ];
+        
+        // Try to find file locally first
+        for (const localPath of possibleLocalPaths) {
+          if (fs.existsSync(localPath)) {
+            const stats = fs.statSync(localPath);
+            if (stats.isFile()) {
+              
+              // Determine content type from file extension
+              const ext = path.extname(localPath).toLowerCase();
+              const contentType = ext === '.png' ? 'image/png' :
+                                ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                                ext === '.gif' ? 'image/gif' :
+                                ext === '.webp' ? 'image/webp' :
+                                'application/octet-stream';
+              
+              // Set headers
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Content-Length', stats.size);
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+              
+              // For HEAD requests, just send headers
+              if (req.method === 'HEAD') {
+                return res.status(200).end();
+              }
+              
+              // For GET requests, stream the file
+              const fileStream = fs.createReadStream(localPath);
+              fileStream.on('error', (err) => {
+                console.error(`[Proxy] Error reading local license image file: ${err.message}`);
+                if (!res.headersSent) {
+                  res.status(500).json({ error: 'Error reading file' });
+                }
+              });
+              
+              fileStream.pipe(res);
+              return; // Exit early - file served locally
+            }
+          }
+        }
+        console.log(`[Proxy] License image not found locally, forwarding to API: ${proxyPath}`);
+      }
+    }
+    
+    // For image requests, use arraybuffer response type to handle binary data
     const response = await apiClient({
       method: req.method,
       url: proxyPath,
@@ -630,15 +701,34 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
       headers: headers,
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: () => true // Don't throw on any status code
+      validateStatus: () => true, // Don't throw on any status code
+      responseType: isImageRequest ? 'arraybuffer' : 'text' // Use arraybuffer for images, text for others
     });
     
-    console.log(`[Proxy] Response status: ${response.status}, content-type: ${response.headers['content-type']}`);
+    console.log(`[Proxy] Response status: ${response.status}, content-type: ${response.headers['content-type']}, isImage: ${isImageRequest}`);
     
     // Handle 204 No Content responses - don't try to parse
     if (response.status === 204 || response.status === 304) {
       console.log('[Proxy] Returning 204 No Content');
       return res.status(response.status).end();
+    }
+    
+    // For image requests, forward binary data directly with proper headers
+    if (isImageRequest && response.status === 200) {
+      console.log('[Proxy] Forwarding image response as binary');
+      // Set content type from backend response
+      if (response.headers['content-type']) {
+        res.setHeader('Content-Type', response.headers['content-type']);
+      }
+      // Forward CORS headers if present
+      if (response.headers['access-control-allow-origin']) {
+        res.setHeader('Access-Control-Allow-Origin', response.headers['access-control-allow-origin']);
+      }
+      if (response.headers['access-control-allow-methods']) {
+        res.setHeader('Access-Control-Allow-Methods', response.headers['access-control-allow-methods']);
+      }
+      // Send binary data
+      return res.status(response.status).send(Buffer.from(response.data));
     }
     
     // Handle empty responses (no data or empty string)
@@ -713,7 +803,6 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
       }
     
     // Success response with data
-    console.log('[Proxy] Success response');
     res.status(response.status).json(jsonData);
       } catch (error) {
       console.error(`[Proxy Error] ${req.method} ${req.originalUrl}:`, error.message);
@@ -940,6 +1029,204 @@ app.get('/api/lan-ip', (req, res) => {
   }
 });
 
+// Proxy /customers/ requests to backend (for license images)
+// First checks if file exists locally in client/server folder, then forwards to API if not found
+// IMPORTANT: This must be BEFORE static file middleware to intercept /customers/ requests
+app.use('/customers', async (req, res) => {
+  const axios = require('axios');
+  const fs = require('fs');
+  
+  // Check local client/server folders first
+  const possibleLocalPaths = [
+    path.join(__dirname, 'public', req.originalUrl.replace(/^\//, '')), // server/public/customers/...
+    path.join(__dirname, '../client/public', req.originalUrl.replace(/^\//, '')), // client/public/customers/...
+    path.join(__dirname, '../client/build', req.originalUrl.replace(/^\//, '')) // client/build/customers/... (production)
+  ];
+  
+  // Try to find file locally first
+  for (const localPath of possibleLocalPaths) {
+    if (fs.existsSync(localPath)) {
+      const stats = fs.statSync(localPath);
+      if (stats.isFile()) {
+        
+        // Determine content type from file extension
+        const ext = path.extname(localPath).toLowerCase();
+        const contentType = ext === '.png' ? 'image/png' :
+                          ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                          ext === '.gif' ? 'image/gif' :
+                          ext === '.webp' ? 'image/webp' :
+                          'application/octet-stream';
+        
+        // Set headers
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        
+        // For HEAD requests, just send headers
+        if (req.method === 'HEAD') {
+          return res.status(200).end();
+        }
+        
+        // For GET requests, stream the file
+        const fileStream = fs.createReadStream(localPath);
+        fileStream.on('error', (err) => {
+          console.error(`[Static Proxy] Error reading local file: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Error reading file' });
+          }
+        });
+        
+        fileStream.pipe(res);
+        return; // Exit early - file served locally
+      }
+    }
+  }
+  
+  // File not found locally, forward to API server
+  console.log(`[Static Proxy] File not found locally, forwarding to API: ${req.originalUrl}`);
+  const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:7163';
+  const backendUrl = `${apiBaseUrl}${req.originalUrl}`;
+  
+  try {
+    console.log(`[Static Proxy] ${req.method} ${req.originalUrl} -> ${backendUrl}`);
+    console.log(`[Static Proxy] Content-Type will be checked from backend response`);
+    
+    // For HEAD requests, use HEAD method; for GET, use GET
+    const axiosConfig = {
+      method: req.method,
+      url: backendUrl,
+      responseType: req.method === 'HEAD' ? undefined : 'stream', // HEAD doesn't need stream
+      timeout: 10000,
+      validateStatus: () => true // Don't throw on any status code
+    };
+    
+    // Only add httpsAgent if using HTTPS
+    if (backendUrl.startsWith('https://')) {
+      axiosConfig.httpsAgent = new (require('https')).Agent({ rejectUnauthorized: false });
+    }
+    
+    const response = await axios(axiosConfig);
+    
+    console.log(`[Static Proxy] Backend response status: ${response.status} for ${req.method} ${req.originalUrl}`);
+    console.log(`[Static Proxy] Backend URL was: ${backendUrl}`);
+    
+    // If backend returns 404, forward 404 to client
+    if (response.status === 404) {
+      console.log(`[Static Proxy] ❌ 404 - File not found on backend: ${backendUrl}`);
+      return res.status(404).json({ error: 'File not found', path: req.originalUrl, backendUrl });
+    }
+    
+    // If backend returns any error status, forward it
+    if (response.status >= 400) {
+      console.error(`[Static Proxy] ❌ Error ${response.status} from backend: ${backendUrl}`);
+      return res.status(response.status).json({ error: 'Failed to fetch file', status: response.status });
+    }
+    
+    // Only proceed if status is 200
+    if (response.status !== 200) {
+      console.warn(`[Static Proxy] ⚠️ Unexpected status ${response.status}, treating as error`);
+      return res.status(404).json({ error: 'File not found', status: response.status });
+    }
+    
+    // For HEAD requests, check content-length header
+    // If content-length is 0 or missing, the file probably doesn't exist
+    const contentLength = response.headers['content-length'];
+    if (req.method === 'HEAD') {
+      console.log(`[Static Proxy] HEAD request - Content-Length: ${contentLength || 'missing'}`);
+      
+      // If content-length is 0 or very small, it might be an empty response (file doesn't exist)
+      if (!contentLength || parseInt(contentLength) === 0) {
+        console.log(`[Static Proxy] ⚠️ HEAD returned 200 but content-length is 0 or missing - treating as 404`);
+        return res.status(404).json({ error: 'File not found', path: req.originalUrl });
+      }
+      
+      // Forward headers
+      res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+      res.setHeader('Content-Length', contentLength);
+      return res.status(200).end();
+    }
+    
+    // Check if response is actually an image (not HTML error page)
+    const contentType = response.headers['content-type'] || '';
+    const isImage = contentType.startsWith('image/');
+    
+    console.log(`[Static Proxy] Content-Length: ${contentLength || 'missing'}`);
+    console.log(`[Static Proxy] Content-Type: ${contentType}, isImage: ${isImage}`);
+    console.log(`[Static Proxy] Response headers:`, JSON.stringify(response.headers, null, 2));
+    
+    // If backend returns HTML instead of image, treat as 404
+    if (!isImage && contentType.includes('text/html')) {
+      console.error(`[Static Proxy] ❌ Backend returned HTML instead of image - treating as 404`);
+      console.error(`[Static Proxy] Backend URL was: ${backendUrl}`);
+      console.error(`[Static Proxy] This usually means the backend static file middleware isn't working or file doesn't exist`);
+      return res.status(404).json({ error: 'File not found', path: req.originalUrl, reason: 'Backend returned HTML instead of image', backendUrl });
+    }
+    
+    // Forward content-type and other headers
+    res.setHeader('Content-Type', contentType || 'application/octet-stream');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+    
+    // Add CORS headers for images
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    
+    // For GET requests, pipe the stream
+    // Handle stream errors
+    response.data.on('error', (streamError) => {
+      console.error(`[Static Proxy] ❌ Stream error:`, streamError.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error', message: streamError.message });
+      }
+    });
+    
+    // Handle client disconnect
+    req.on('close', () => {
+      if (response.data && typeof response.data.destroy === 'function') {
+        response.data.destroy();
+      }
+    });
+    
+    response.data.pipe(res);
+  } catch (error) {
+    console.error(`[Static Proxy] ❌ Error proxying ${req.originalUrl}:`, error.message);
+    console.error(`[Static Proxy] Error details:`, {
+      code: error.code,
+      response: error.response?.status,
+      message: error.message,
+      backendUrl,
+      stack: error.stack
+    });
+    
+    // If it's a 404 from backend, return 404
+    if (error.response?.status === 404) {
+      return res.status(404).json({ error: 'File not found', path: req.originalUrl });
+    }
+    
+    // Handle connection errors (backend not reachable)
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' || error.code === 'ECONNRESET') {
+      console.error(`[Static Proxy] ❌ Cannot connect to backend at ${apiBaseUrl}`);
+      console.error(`[Static Proxy] Error code: ${error.code}, Message: ${error.message}`);
+      console.error(`[Static Proxy] Attempted URL: ${backendUrl}`);
+      console.error(`[Static Proxy] Make sure backend is running and accessible at ${apiBaseUrl}`);
+      return res.status(503).json({ 
+        error: 'Backend unavailable', 
+        message: `Cannot connect to backend at ${apiBaseUrl}`,
+        code: error.code,
+        attemptedUrl: backendUrl
+      });
+    }
+    
+    if (error.response) {
+      res.status(error.response.status).send(error.response.data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch static file from backend', message: error.message });
+    }
+  }
+});
+
 // Serve static files from the React app build directory
 // Also serve from client/public in development
 if (fs.existsSync(clientPublicPath)) {
@@ -952,44 +1239,9 @@ app.use(express.static(serverPublicPath, { fallthrough: true }));
 const modelsStaticPath = path.join(serverPublicPath, 'models');
 if (fs.existsSync(modelsStaticPath)) {
   app.use('/models', express.static(modelsStaticPath));
-  console.log(`✅ Model images served as static files from: ${modelsStaticPath}`);
 } else {
   console.log(`⚠️ Models directory not found at: ${modelsStaticPath}`);
 }
-
-// Proxy /customers/ requests to backend (for license images)
-// Backend serves static files from wwwroot/customers at /customers/ path
-app.use('/customers', async (req, res) => {
-  const axios = require('axios');
-  const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
-  const backendUrl = `${apiBaseUrl}${req.originalUrl}`;
-  
-  try {
-    console.log(`[Static Proxy] ${req.method} ${req.originalUrl} -> ${backendUrl}`);
-    const response = await axios({
-      method: req.method,
-      url: backendUrl,
-      responseType: 'stream',
-      timeout: 10000,
-      httpsAgent: new (require('https')).Agent({ rejectUnauthorized: false })
-    });
-    
-    // Forward content-type and other headers
-    res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-    if (response.headers['content-length']) {
-      res.setHeader('Content-Length', response.headers['content-length']);
-    }
-    
-    response.data.pipe(res);
-  } catch (error) {
-    console.error(`[Static Proxy] Error proxying ${req.originalUrl}:`, error.message);
-    if (error.response) {
-      res.status(error.response.status).send(error.response.data);
-    } else {
-      res.status(500).json({ error: 'Failed to fetch static file from backend' });
-    }
-  }
-});
 
 
 // Serve BlinkID resources - must come BEFORE the catch-all route
@@ -1002,7 +1254,6 @@ const blinkidResourcesPath = fs.existsSync(serverNodeModules) ? serverNodeModule
 
 if (blinkidResourcesPath) {
   app.use('/resources', express.static(blinkidResourcesPath));
-  console.log(`✅ BlinkID resources served from: ${blinkidResourcesPath}`);
 } else {
   console.warn(`⚠️  BlinkID resources directory not found. Checked:`);
   console.warn(`   - ${serverNodeModules}`);
@@ -1038,7 +1289,6 @@ const startServer = async () => {
     // HTTP server (production uses Azure HTTPS)
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log('='.repeat(60));
-      console.log(`✅ Node.js Proxy Server is running!`);
       console.log(`   Local:   http://localhost:${PORT}`);
       console.log(`   Network: http://0.0.0.0:${PORT}`);
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);

@@ -98,7 +98,6 @@ router.get('/companies/:companyId/bookings', authenticateToken, async (req, res)
       return res.status(401).json({ message: 'Authentication required' });
     }
     
-    console.log('[Company Bookings] ✅ Using token from session via middleware (token length:', token.length + ')');
     console.log('[Company Bookings] Making request to backend with:', {
       companyId: companyId,
       query: req.query,
@@ -107,7 +106,7 @@ router.get('/companies/:companyId/bookings', authenticateToken, async (req, res)
     
     try {
       const response = await apiService.getCompanyBookings(token, companyId, req.query);
-      console.log('[Company Bookings] ✅ Backend response received:', {
+      console.log('[Company Bookings] Backend response received:', {
         status: response.status,
         dataLength: response.data ? JSON.stringify(response.data).length : 0
       });
@@ -172,7 +171,6 @@ router.post('/bookings', authenticateToken, async (req, res) => {
     });
     
     const response = await apiService.createBooking(token, req.body);
-    console.log('[Booking] Booking created successfully:', response.data?.id || response.data?.Id);
     res.status(201).json(response.data);
   } catch (error) {
     console.error('[Booking] Reservation creation error:', error.message);

@@ -46,7 +46,6 @@ export const AuthProvider = ({ children }) => {
       if (userData) {
         // Use user data from login response directly - NO profile call needed
         setUser(userData);
-        console.log('[AuthContext] ✅ User data set from login response - NO profile call');
         return response.data;
       } else {
         // This should not happen - login response should always include user data
@@ -70,7 +69,6 @@ export const AuthProvider = ({ children }) => {
       if (userDataFromResponse) {
         // Use user data from register response directly - NO profile call needed
         setUser(userDataFromResponse);
-        console.log('[AuthContext] ✅ User data set from register response - NO profile call');
       } else {
         // This should not happen - register response should always include user data
         console.error('[AuthContext] ❌ No user data in register response - this is unexpected');
@@ -113,7 +111,6 @@ export const AuthProvider = ({ children }) => {
   const restoreUser = (userData) => {
     if (userData) {
       setUser(userData);
-      console.log('[AuthContext] ✅ User data restored, role:', userData.role);
     }
   };
 

@@ -665,6 +665,11 @@ export const translatedApiService = {
     return await apiService.uploadCustomerLicenseImage(customerId, side, file, onProgress);
   },
   
+  // Get list of customer license images (returns actual filenames and URLs)
+  getCustomerLicenseImages: async (customerId) => {
+    return await apiService.getCustomerLicenseImages(customerId);
+  },
+  
   // Wizard License Images (temporary storage for new customers without customerId)
   uploadWizardLicenseImage: async (wizardId, side, file, onProgress) => {
     return await apiService.uploadWizardLicenseImage(wizardId, side, file, onProgress);

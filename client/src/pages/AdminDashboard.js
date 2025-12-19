@@ -366,7 +366,6 @@ const AdminDashboard = () => {
           // Restore user data in AuthContext - this ensures role and all user info is current
           if (userData) {
             restoreUser(userData);
-            console.log('[AdminDashboard] ✅ User data restored after Stripe return, role:', userData.role);
           }
         } catch (error) {
           if (error.response?.status === 401) {
@@ -387,7 +386,6 @@ const AdminDashboard = () => {
                     // After restoring token, get profile to restore full user data
                     const profileResponse = await apiService.getProfile();
                     restoreUser(profileResponse.data);
-                    console.log('[AdminDashboard] ✅ Session restored from backup');
                     // Clean up backups
                     sessionStorage.removeItem('stripeUserBackup');
                     sessionStorage.removeItem('stripeTokenBackup');
@@ -416,7 +414,6 @@ const AdminDashboard = () => {
     
     if (urlParams.get('deposit_success') === 'true') {
       const bookingId = urlParams.get('booking_id');
-      console.log('✅ Security deposit payment successful for booking:', bookingId);
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
       // Refresh bookings list
@@ -1393,7 +1390,7 @@ const AdminDashboard = () => {
         ? `${t('vehicles.importSuccess', 'Import completed')}: ${totalLines} ${t('vehicles.totalProcessed', 'total')} - ${breakdownParts.join(', ')}`
         : `${t('vehicles.importSuccess', 'Import completed')}: ${breakdownParts.join(', ')}`;
       
-      toast.success(message, { autoClose: 8000 });
+      // toast.success(message, { autoClose: 8000 });
       
       // Show error details if any
       if (ignoredCount > 0 && errors.length > 0) {
@@ -1613,9 +1610,6 @@ const AdminDashboard = () => {
       message = `${t('vehicles.importSuccess', 'Import completed')}: ${message}`;
       
       // Show success message
-      toast.success(message, {
-        autoClose: 8000,
-      });
       
       // Show error details if any
       if (ignoredCount > 0 && errors.length > 0) {
@@ -2701,7 +2695,7 @@ const AdminDashboard = () => {
             intervalId = null;
           }
           if (isMounted) {
-            toast.success(t('admin.violationsFound', 'Violations found successfully'));
+            // toast.success(t('admin.violationsFound', 'Violations found successfully'));
             setViolationsSearchTrigger(prev => prev + 1);
             // Clear progress
             setTimeout(() => {
@@ -2965,7 +2959,6 @@ const AdminDashboard = () => {
             !!selectedBooking.stripePaymentIntentId;
           
           if (isPaid && update.status === 'Confirmed') {
-            console.log('✅ Payment confirmed via webhook, updating booking status to Confirmed');
             updateBookingStatusMutation.mutate({
               bookingId: bookingId,
               status: 'Confirmed'
@@ -3200,7 +3193,6 @@ const AdminDashboard = () => {
       
       if (!isAlreadyPaid) {
         // Show payment modal to collect booking payment
-        console.log('✅ Opening booking payment modal for pending booking');
         setPendingConfirmedStatus(nextStatus);
         setShowBookingPaymentModal(true);
         return;
@@ -3255,7 +3247,6 @@ const AdminDashboard = () => {
       // Check if security deposit is unpaid
       // Only show modal if deposit is mandatory, amount > 0, AND not already paid
       if (isDepositMandatory && depositAmount > 0 && !isDepositAlreadyPaid) {
-        console.log('✅ Opening security deposit modal with amount:', depositAmount);
         setPendingActiveStatus(nextStatus);
         setShowSecurityDepositModal(true);
         return;
@@ -3691,7 +3682,7 @@ const AdminDashboard = () => {
 
       // Show final results
       console.log(
-        `✅ ${t('admin.syncPaymentsSuccess', 
+        `${t('admin.syncPaymentsSuccess', 
           `Synced ${successCount} of ${totalBookings} bookings`)}` +
         (failureCount > 0 
           ? `\n⚠️ ${t('admin.syncPaymentsFailed', `${failureCount} failed`)}` 
@@ -3965,11 +3956,11 @@ const AdminDashboard = () => {
         const data = response?.data || response;
         
         if (data?.onboardingUrl) {
-          toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
+          // toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
           // Redirect to Stripe onboarding in the same window
           window.location.href = data.onboardingUrl;
         } else {
-          toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
+          // toast.success(t('admin.stripeAccountCreated', 'Stripe account created successfully!'));
         }
         
         // Invalidate queries to refresh company data and Stripe status
@@ -5054,7 +5045,7 @@ const AdminDashboard = () => {
           // Copy to clipboard
           try {
             await navigator.clipboard.writeText(violationNumber);
-            toast.success(t('admin.violationNumberCopied', 'Violation number copied to clipboard'));
+            // toast.success(t('admin.violationNumberCopied', 'Violation number copied to clipboard'));
           } catch (err) {
             console.error('Failed to copy:', err);
             toast.error(t('admin.copyFailed', 'Failed to copy to clipboard'));
@@ -6939,7 +6930,7 @@ const AdminDashboard = () => {
                                     }));
                                     
                                     if (isComplete) {
-                                      toast.success(t('admin.violationsFound', 'Violations found successfully'));
+                                      // toast.success(t('admin.violationsFound', 'Violations found successfully'));
                                       setViolationsSearchTrigger(prev => prev + 1);
                                     }
                                   } catch (error) {

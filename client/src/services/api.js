@@ -381,6 +381,11 @@ export const apiService = {
       },
     });
   },
+  
+  // Get list of customer license images (returns actual filenames and URLs)
+  getCustomerLicenseImages: (customerId) => {
+    return api.get(`/Media/customers/${customerId}/licenses`);
+  },
   deleteCustomerLicenseImage: (customerId, side) => {
     console.log('[API] Deleting customer license image:', { customerId, side });
     return api.delete(`/Media/customers/${customerId}/licenses/${side}`);
