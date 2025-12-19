@@ -556,7 +556,7 @@ const ScanLicense = () => {
       <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: 'white', padding: '20px' }}>
         <div style={{ backgroundColor: 'rgba(220, 53, 69, 0.95)', padding: '20px', borderRadius: '12px', maxWidth: '400px', textAlign: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>Error</h2>
-          <p style={{ margin: '0', fontSize: '16px' }}>{error}</p>
+          <p style={{ margin: '0', fontSize: '16px' }}>{typeof error === 'string' ? error : (error?.message || JSON.stringify(error))}</p>
         </div>
         <button onClick={handleCancel} style={{ backgroundColor: '#6c757d', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
           Go Back

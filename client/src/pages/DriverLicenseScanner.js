@@ -351,7 +351,7 @@ function DriverLicenseScanner() {
       {error && (
         <div style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)',
           backgroundColor: 'rgba(220, 53, 69, 0.95)', color: 'white', padding: '15px 20px', borderRadius: '8px', zIndex: 1000, maxWidth: '90%', textAlign: 'center' }}>
-          {error}
+          {typeof error === 'string' ? error : (error?.message || JSON.stringify(error))}
         </div>
       )}
 
