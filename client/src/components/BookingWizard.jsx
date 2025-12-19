@@ -332,7 +332,7 @@ const BookingWizard = ({
           // Backend returns path like /customers/.../licenses/front.png
           // Convert to full frontend URL (use window.location.origin for frontend server)
           const frontendBaseUrl = window.location.origin;
-          const fullImageUrl = `${frontendBaseUrl}${imageUrl}`;
+          const fullImageUrl = `${frontendBaseUrl}${imageUrl}?t=${Date.now()}`;
           
           console.log(`[BookingWizard] handleWizardFileChange - Full image URL (frontend):`, fullImageUrl);
           console.log(`[BookingWizard] handleWizardFileChange - Setting ${side} image in state`);
@@ -618,7 +618,7 @@ const BookingWizard = ({
             // Backend returns path like /customers/.../licenses/front.png
             // Convert to full frontend URL
             const frontendBaseUrl = window.location.origin;
-            const fullFrontImageUrl = `${frontendBaseUrl}${frontImageUrl}`;
+            const fullFrontImageUrl = `${frontendBaseUrl}${frontImageUrl}?t=${Date.now()}`;
             
             console.log('[BookingWizard] handleWizardNext - Full front image URL (frontend):', fullFrontImageUrl);
             console.log('[BookingWizard] handleWizardNext - Setting front image in state');
@@ -678,7 +678,7 @@ const BookingWizard = ({
             // Backend returns path like /customers/.../licenses/back.png
             // Convert to full frontend URL
             const frontendBaseUrl = window.location.origin;
-            const fullBackImageUrl = `${frontendBaseUrl}${backImageUrl}`;
+            const fullBackImageUrl = `${frontendBaseUrl}${backImageUrl}?t=${Date.now()}`;
             
             console.log('[BookingWizard] handleWizardNext - Full back image URL (frontend):', fullBackImageUrl);
             console.log('[BookingWizard] handleWizardNext - Setting back image in state');
