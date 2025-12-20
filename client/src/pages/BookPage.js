@@ -591,7 +591,6 @@ const BookPage = () => {
     setAgreementSignature,
     agreementConsents,
     setAgreementConsents,
-    resetAgreement,
     openAgreementModal,
     buildAgreementData,
     getAgreementDebugInfo,
