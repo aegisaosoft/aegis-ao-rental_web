@@ -52,6 +52,7 @@ const terminalRoutes = require('./routes/terminal');
 const webhooksRoutes = require('./routes/webhooks');
 const violationsRoutes = require('./routes/violations');
 const findersListRoutes = require('./routes/findersList');
+const { apiClient } = require('./config/api');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -229,6 +230,35 @@ app.use('/api/finderslist', findersListRoutes);
 
 // Mock routes for development (fallback when external API fails)
 app.use('/api/mock', mockRoutes);
+
+// Stream static files from backend for agreements and customers folders
+app.get(['/api/agreements/*', '/api/customers/*'], async (req, res) => {
+  try {
+    // Map /api/agreements/... -> /agreements/..., /api/customers/... -> /customers/...
+    const backendPath = req.originalUrl.replace(/^\/api/, '');
+    console.log('[Static Proxy] Streaming', backendPath);
+    const response = await apiClient.get(backendPath, {
+      responseType: 'stream'
+    });
+    // Forward content type and length
+    if (response.headers['content-type']) {
+      res.setHeader('Content-Type', response.headers['content-type']);
+    }
+    if (response.headers['content-length']) {
+      res.setHeader('Content-Length', response.headers['content-length']);
+    }
+    // Allow inline viewing
+    if (response.headers['content-disposition']) {
+      res.setHeader('Content-Disposition', response.headers['content-disposition']);
+    }
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('[Static Proxy] Error streaming', req.originalUrl, error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to fetch file'
+    });
+  }
+});
 
 // Middleware to preserve original hostname early in the request
 // This ensures we capture the hostname before any proxies modify it

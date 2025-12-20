@@ -2859,6 +2859,29 @@ const AdminDashboard = () => {
     ? Math.max(1, Math.ceil(totalBookings / bookingsData.pageSize))
     : 1;
 
+  const handleViewContract = async (booking) => {
+    try {
+      const bookingId = booking.id || booking.Id || booking.bookingId || booking.BookingId;
+      if (!bookingId) {
+        toast.error(t('admin.bookingIdMissing', 'Booking ID is missing.'));
+        return;
+      }
+      const response = await apiService.getRentalAgreement(bookingId);
+      const data = response?.data || response;
+      const pdfUrl = data?.pdfUrl || data?.PdfUrl;
+      if (pdfUrl) {
+        // Open via Node proxy so it works in dev and production
+        const url = `${window.location.origin}/api${pdfUrl}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.info(t('admin.agreementPdfNotReady', 'Agreement PDF not generated yet. Please try again shortly.'));
+      }
+    } catch (error) {
+      console.error('[AdminDashboard] View contract error:', error);
+      toast.error(error.response?.data?.message || t('admin.agreementFetchFailed', 'Failed to fetch rental agreement.'));
+    }
+  };
+
   useEffect(() => {
     if (bookingPage > totalBookingPages) {
       setBookingPage(totalBookingPages || 1);
@@ -7734,6 +7757,9 @@ const AdminDashboard = () => {
                           {t('admin.securityDeposit', 'Security Deposit')}
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {t('admin.contract', 'Contract')}
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           {t('admin.status', 'Status')}
                         </th>
                       </tr>
@@ -7767,6 +7793,15 @@ const AdminDashboard = () => {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatPrice(booking.securityDeposit)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <button
+                              onClick={() => handleViewContract(booking)}
+                              className="btn-outline text-xs"
+                              title={t('admin.viewContract', 'View Contract')}
+                            >
+                              {t('admin.view', 'View')}
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span
