@@ -267,6 +267,68 @@ const BookingWizard = ({
     }
   }, [wizardStep, user, uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
+  // Polling mechanism: when QR code is shown, poll server every 3 seconds for new images
+  // This is needed because phone and PC are different devices - localStorage/BroadcastChannel won't work
+  useEffect(() => {
+    if (!showWizardQRCode) return;
+    
+    const customerId = user?.id || user?.customerId || user?.customer_id || wizardFormData.customerId;
+    if (!customerId) return;
+    
+    console.log('[BookingWizard] QR code shown, starting polling for images...');
+    
+    const pollForImages = async () => {
+      try {
+        const response = await apiService.getCustomerLicenseImages(customerId);
+        const imageData = response?.data || response;
+        
+        const frontendBaseUrl = window.location.origin;
+        let frontUrl = null;
+        let backUrl = null;
+        
+        if (imageData.frontUrl && imageData.front) {
+          const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
+          frontUrl = `${apiUrl}?t=${Date.now()}`;
+        }
+        
+        if (imageData.backUrl && imageData.back) {
+          const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
+          backUrl = `${apiUrl}?t=${Date.now()}`;
+        }
+        
+        // Only update if we found new images
+        if (frontUrl || backUrl) {
+          setUploadedLicenseImages(prev => {
+            const needsUpdate = 
+              (frontUrl && !prev.front) || 
+              (backUrl && !prev.back);
+            
+            if (needsUpdate) {
+              console.log('[BookingWizard] Polling found new images:', { frontUrl, backUrl });
+              return {
+                front: frontUrl || prev.front,
+                back: backUrl || prev.back
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        // Silently ignore polling errors
+        console.log('[BookingWizard] Polling error (ignored):', error.message);
+      }
+    };
+    
+    // Poll immediately and then every 3 seconds
+    pollForImages();
+    const intervalId = setInterval(pollForImages, 3000);
+    
+    return () => {
+      console.log('[BookingWizard] QR code closed, stopping polling');
+      clearInterval(intervalId);
+    };
+  }, [showWizardQRCode, user, wizardFormData.customerId, setUploadedLicenseImages]);
+
   // Handlers
   const handleWizardInputChange = (e) => {
     const { name, value } = e.target;
@@ -582,17 +644,7 @@ const BookingWizard = ({
     }
     
     if (wizardStep === 3) {
-      // Validate driver license images
-      if (!wizardFormData.driverLicenseFront && !uploadedLicenseImages.front) {
-        setWizardError(t('bookPage.driverLicenseFrontRequired', 'Driver License Front Image is required'));
-        return;
-      }
-      if (!wizardFormData.driverLicenseBack && !uploadedLicenseImages.back) {
-        setWizardError(t('bookPage.driverLicenseBackRequired', 'Driver License Back Image is required'));
-        return;
-      }
-      
-      // Upload any local files that haven't been uploaded yet
+      // Get customerId for server check
       const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
       
       if (!customerId) {
@@ -604,6 +656,7 @@ const BookingWizard = ({
         setWizardLoading(true);
         setWizardError('');
         
+        // First, check if there are local files to upload
         // Upload front image if it's a local file (not already uploaded)
         if (wizardFormData.driverLicenseFront && !uploadedLicenseImages.front) {
           console.log('[BookingWizard] handleWizardNext - Uploading front image on Next click');
@@ -612,54 +665,19 @@ const BookingWizard = ({
           console.log('[BookingWizard] handleWizardNext - Front upload response:', frontResponse);
           
           const frontImageUrl = frontResponse?.data?.imageUrl || frontResponse?.data?.result?.imageUrl;
-          console.log('[BookingWizard] handleWizardNext - Front image URL:', frontImageUrl);
-          
           if (frontImageUrl) {
-            // Backend returns path like /customers/.../licenses/front.png
-            // Convert to full frontend URL
             const frontendBaseUrl = window.location.origin;
             const fullFrontImageUrl = `${frontendBaseUrl}${frontImageUrl}?t=${Date.now()}`;
+            setUploadedLicenseImages(prev => ({ ...prev, front: fullFrontImageUrl }));
             
-            console.log('[BookingWizard] handleWizardNext - Full front image URL (frontend):', fullFrontImageUrl);
-            console.log('[BookingWizard] handleWizardNext - Setting front image in state');
-            
-            setUploadedLicenseImages(prev => {
-              const newState = { ...prev, front: fullFrontImageUrl };
-              console.log('[BookingWizard] handleWizardNext - Updated state:', newState);
-              return newState;
-            });
-            
-            // Clean up local file and preview
             if (wizardImagePreviews.driverLicenseFront) {
               URL.revokeObjectURL(wizardImagePreviews.driverLicenseFront);
             }
-            setWizardFormData(prev => ({
-              ...prev,
-              driverLicenseFront: null
-            }));
-            setWizardImagePreviews(prev => ({
-              ...prev,
-              driverLicenseFront: null
-            }));
+            setWizardFormData(prev => ({ ...prev, driverLicenseFront: null }));
+            setWizardImagePreviews(prev => ({ ...prev, driverLicenseFront: null }));
             
-            // Clear cache
             if (dlImageCheckCache) {
               dlImageCheckCache.current?.delete(customerId);
-            }
-            
-            // Trigger refresh event for other tabs
-            try {
-              const channel = new BroadcastChannel('license_images_channel');
-              channel.postMessage({ type: 'licenseImageUploaded', side: 'front', customerId, imageUrl: fullFrontImageUrl });
-              channel.close();
-            } catch (e) {
-              console.log('BroadcastChannel not available:', e);
-            }
-            
-            try {
-              localStorage.setItem('licenseImagesUploaded', Date.now().toString());
-            } catch (e) {
-              console.log('localStorage not available:', e);
             }
           }
         }
@@ -672,67 +690,67 @@ const BookingWizard = ({
           console.log('[BookingWizard] handleWizardNext - Back upload response:', backResponse);
           
           const backImageUrl = backResponse?.data?.imageUrl || backResponse?.data?.result?.imageUrl;
-          console.log('[BookingWizard] handleWizardNext - Back image URL:', backImageUrl);
-          
           if (backImageUrl) {
-            // Backend returns path like /customers/.../licenses/back.png
-            // Convert to full frontend URL
             const frontendBaseUrl = window.location.origin;
             const fullBackImageUrl = `${frontendBaseUrl}${backImageUrl}?t=${Date.now()}`;
+            setUploadedLicenseImages(prev => ({ ...prev, back: fullBackImageUrl }));
             
-            console.log('[BookingWizard] handleWizardNext - Full back image URL (frontend):', fullBackImageUrl);
-            console.log('[BookingWizard] handleWizardNext - Setting back image in state');
-            
-            setUploadedLicenseImages(prev => {
-              const newState = { ...prev, back: fullBackImageUrl };
-              console.log('[BookingWizard] handleWizardNext - Updated state:', newState);
-              return newState;
-            });
-            
-            // Clean up local file and preview
             if (wizardImagePreviews.driverLicenseBack) {
               URL.revokeObjectURL(wizardImagePreviews.driverLicenseBack);
             }
-            setWizardFormData(prev => ({
-              ...prev,
-              driverLicenseBack: null
-            }));
-            setWizardImagePreviews(prev => ({
-              ...prev,
-              driverLicenseBack: null
-            }));
+            setWizardFormData(prev => ({ ...prev, driverLicenseBack: null }));
+            setWizardImagePreviews(prev => ({ ...prev, driverLicenseBack: null }));
             
-            // Clear cache
             if (dlImageCheckCache) {
               dlImageCheckCache.current?.delete(customerId);
-            }
-            
-            // Trigger refresh event for other tabs
-            try {
-              const channel = new BroadcastChannel('license_images_channel');
-              channel.postMessage({ type: 'licenseImageUploaded', side: 'back', customerId, imageUrl: fullBackImageUrl });
-              channel.close();
-            } catch (e) {
-              console.log('BroadcastChannel not available:', e);
-            }
-            
-            try {
-              localStorage.setItem('licenseImagesUploaded', Date.now().toString());
-            } catch (e) {
-              console.log('localStorage not available:', e);
             }
           }
         }
         
-        // After license photos are saved, go to confirmation (skip agreement step)
-        setWizardStep(4);
-        setWizardError('');
-      } catch (error) {
-        setWizardError(error.response?.data?.message || error.message || t('bookPage.uploadError', 'Failed to upload images. Please try again.'));
-      } finally {
+        // NOW CHECK SERVER for actual images (not local state)
+        console.log('[BookingWizard] handleWizardNext - Checking server for images...');
+        const response = await apiService.getCustomerLicenseImages(customerId);
+        const imageData = response?.data || response;
+        
+        console.log('[BookingWizard] handleWizardNext - Server response:', imageData);
+        
+        const hasFrontOnServer = !!(imageData.front && imageData.frontUrl);
+        const hasBackOnServer = !!(imageData.back && imageData.backUrl);
+        
+        if (!hasFrontOnServer) {
+          setWizardError(t('bookPage.driverLicenseFrontRequired', 'Driver License Front Image is required'));
+          setWizardLoading(false);
+          return;
+        }
+        
+        if (!hasBackOnServer) {
+          setWizardError(t('bookPage.driverLicenseBackRequired', 'Driver License Back Image is required'));
+          setWizardLoading(false);
+          return;
+        }
+        
+        // Update local state with server URLs
+        const frontendBaseUrl = window.location.origin;
+        if (hasFrontOnServer) {
+          const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
+          setUploadedLicenseImages(prev => ({ ...prev, front: `${apiUrl}?t=${Date.now()}` }));
+        }
+        if (hasBackOnServer) {
+          const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
+          setUploadedLicenseImages(prev => ({ ...prev, back: `${apiUrl}?t=${Date.now()}` }));
+        }
+        
+        console.log('[BookingWizard] handleWizardNext - Images verified on server, proceeding to step 4');
         setWizardLoading(false);
+        setWizardStep(4);
+        return;
+        
+      } catch (error) {
+        console.error('[BookingWizard] handleWizardNext - Error:', error);
+        setWizardError(error?.response?.data?.message || t('bookPage.uploadError', 'Error uploading images. Please try again.'));
+        setWizardLoading(false);
+        return;
       }
-      return;
     } else {
       setWizardStep(wizardStep + 1);
     }
