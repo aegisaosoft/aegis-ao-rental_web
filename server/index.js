@@ -98,7 +98,7 @@ app.use(helmet({
         "https://*.azurewebsites.net",
         "https://*.aegis-rental.com"
       ],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
       workerSrc: ["'self'", "blob:", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       childSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://fonts.googleapis.com"]
@@ -279,6 +279,13 @@ app.use((req, res, next) => {
 // Middleware to detect company from domain and add X-Company-Id header
 // This helps the backend middleware identify the company
 app.use('/api/*', async (req, res, next) => {
+  // Early debug logging for ALL API requests
+  console.log(`[API Request] ${req.method} ${req.originalUrl}`);
+  if (req.originalUrl.includes('/Media/')) {
+    console.log(`[Media Early] Request received: ${req.method} ${req.originalUrl}`);
+    console.log(`[Media Early] Content-Type: ${req.headers['content-type']}`);
+  }
+  
   // Skip company detection for session-token endpoint (it's fast and doesn't need it)
   if (req.originalUrl === '/api/auth/session-token' || req.path === '/auth/session-token') {
     console.log('[Company Detection] Skipping for /session-token endpoint');
@@ -414,6 +421,12 @@ const getTokenFromSession = (req, res, next) => {
 app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
   const axios = require('axios');
   const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+  
+  // Debug logging for Media requests
+  if (req.originalUrl.includes('/Media/')) {
+    console.log(`[Media Debug] Received request: ${req.method} ${req.originalUrl}`);
+    console.log(`[Media Debug] Headers:`, JSON.stringify(req.headers, null, 2));
+  }
   
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
