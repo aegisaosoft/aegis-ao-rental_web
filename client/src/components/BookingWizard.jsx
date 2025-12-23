@@ -319,9 +319,9 @@ const BookingWizard = ({
       }
     };
     
-    // Poll immediately and then every 3 seconds
+    // Poll immediately and then every 300ms for faster sync
     pollForImages();
-    const intervalId = setInterval(pollForImages, 3000);
+    const intervalId = setInterval(pollForImages, 300);
     
     return () => {
       console.log('[BookingWizard] QR code closed, stopping polling');
