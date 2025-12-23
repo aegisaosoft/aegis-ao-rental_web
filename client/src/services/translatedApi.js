@@ -670,6 +670,11 @@ export const translatedApiService = {
     return await apiService.getCustomerLicenseImages(customerId);
   },
   
+  // Delete customer license image
+  deleteCustomerLicenseImage: async (customerId, side) => {
+    return await apiService.deleteCustomerLicenseImage(customerId, side);
+  },
+  
   // Wizard License Images (temporary storage for new customers without customerId)
   uploadWizardLicenseImage: async (wizardId, side, file, onProgress) => {
     return await apiService.uploadWizardLicenseImage(wizardId, side, file, onProgress);
