@@ -491,12 +491,6 @@ const BookingWizard = ({
           ...prev,
           [side]: null
         }));
-        
-        toast.success(
-          side === 'front'
-            ? t('bookPage.frontPhotoDeleted', 'Front photo deleted successfully')
-            : t('bookPage.backPhotoDeleted', 'Back photo deleted successfully')
-        );
       } else if (isLocalPreview) {
         const fieldName = side === 'front' ? 'driverLicenseFront' : 'driverLicenseBack';
         removeWizardImage(fieldName);

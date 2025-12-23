@@ -31,7 +31,6 @@ const DriverLicensePhoto = () => {
 
   const fetchStatus = async () => {
     if (!customerId) {
-      toast.info('No customerId in URL. Status check works after login/registration.');
       return;
     }
     try {
@@ -60,9 +59,6 @@ const DriverLicensePhoto = () => {
       setServerFrontUrl(f);
       setServerBackUrl(b);
       setLastChecked(new Date());
-      if (!f && !b) {
-        toast.info('No server images found yet for this customer.');
-      }
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to check status');
     }
@@ -87,8 +83,6 @@ const DriverLicensePhoto = () => {
           else setServerBackUrl(immediateUrl);
         }
       }
-
-      toast.success(`${side === 'front' ? 'Front' : 'Back'} photo uploaded`);
 
       // Notify opener to refresh images
       try {
