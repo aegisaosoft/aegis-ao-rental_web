@@ -18,15 +18,12 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { translateCategory } from '../i18n/translateHelpers';
-import { Building2, Save, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronDown, ChevronRight, Plus, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronRight as ChevronRightIcon, ChevronsRight, Search, Upload, Pencil, Trash, MapPin, CreditCard, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Building2, X, LayoutDashboard, Car, Users, TrendingUp, Calendar, ChevronRight, Edit, Trash2, Search, Pencil, Trash, MapPin, AlertTriangle } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
 import { getStatesForCountry } from '../utils/statesByCountry';
-import MultiLanguageTipTapEditor from '../components/MultiLanguageTipTapEditor';
-import VehicleLocations from './VehicleLocations';
 import {
   ReportsSection,
   ViolationsSection,
@@ -42,7 +39,6 @@ import {
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
-  flexRender,
 } from '@tanstack/react-table';
 
 const initialServicePricingModalState = {
@@ -279,9 +275,7 @@ const AdminDashboard = () => {
   });
   const [bookingPage, setBookingPage] = useState(1);
   const [bookingPageSize, setBookingPageSize] = useState(10);
-  const [syncingPayments, setSyncingPayments] = useState(false);
   const [showSyncConfirmModal, setShowSyncConfirmModal] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   
   // Reservation wizard state
   const [showReservationWizard, setShowReservationWizard] = useState(false);
@@ -3692,26 +3686,14 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleSyncPaymentsFromStripe = async () => {
-    if (!filteredBookings || filteredBookings.length === 0) {
-      toast.error(t('admin.noBookingsToSync', 'No bookings to sync'));
-      return;
-    }
-
-    setShowSyncConfirmModal(true);
-  };
-
   const confirmSyncPayments = async () => {
     setShowSyncConfirmModal(false);
-    setSyncingPayments(true);
 
     const bookingIds = filteredBookings.map(b => b.id);
     const totalBookings = bookingIds.length;
-    setSyncProgress({ current: 0, total: totalBookings });
 
     let successCount = 0;
     let failureCount = 0;
-    const results = [];
 
     try {
       console.log('Starting async sync for', totalBookings, 'bookings');
@@ -3725,18 +3707,8 @@ const AdminDashboard = () => {
           
           if (response.data.success) {
             successCount++;
-            results.push({
-              bookingId,
-              success: true,
-              status: response.data.status
-            });
           } else {
             failureCount++;
-            results.push({
-              bookingId,
-              success: false,
-              error: 'Sync failed'
-            });
           }
         } catch (error) {
           // Check if error is due to no payment found in Stripe (skip silently)
@@ -3749,39 +3721,25 @@ const AdminDashboard = () => {
           } else {
             // Real error - count as failure
             failureCount++;
-            results.push({
-              bookingId,
-              success: false,
-              error: errorMessage
-            });
             console.error(`Error syncing booking ${bookingId}:`, error);
           }
         }
-
-        // Update progress
-        setSyncProgress({ current: i + 1, total: totalBookings });
       }
 
       // Show final results
-      console.log(
-        `${t('admin.syncPaymentsSuccess', 
-          `Synced ${successCount} of ${totalBookings} bookings`)}` +
-        (failureCount > 0 
-          ? `\n⚠️ ${t('admin.syncPaymentsFailed', `${failureCount} failed`)}` 
-          : '')
-      );
-
-      console.log('Sync completed:', { successCount, failureCount, results });
+      if (successCount > 0) {
+        toast.success(t('admin.syncPaymentsSuccess', `Synced ${successCount} of ${totalBookings} bookings`));
+      }
+      if (failureCount > 0) {
+        toast.warning(t('admin.syncPaymentsFailed', `${failureCount} failed`));
+      }
 
       // Refresh bookings list
       queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
 
     } catch (error) {
       console.error('Error in sync process:', error);
-      toast.error(`❌ ${t('admin.syncPaymentsError', 'Failed to sync payments from Stripe')}`);
-    } finally {
-      setSyncingPayments(false);
-      setSyncProgress({ current: 0, total: 0 });
+      toast.error(t('admin.syncPaymentsError', 'Failed to sync payments from Stripe'));
     }
   };
 

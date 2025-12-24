@@ -7,14 +7,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Link2, 
   Unlink, 
-  Send, 
   RefreshCw, 
   ExternalLink, 
   Clock, 
-  Eye, 
   CheckCircle2, 
-  AlertTriangle,
-  Image as ImageIcon
+  AlertTriangle
 } from 'lucide-react';
 import { Card, LoadingSpinner } from '../../components/common';
 

@@ -4,11 +4,10 @@
  */
 
 import React from 'react';
-import { Building2, MapPin, Save, X, ChevronDown, ChevronRight, Edit, Trash2, ChevronLeft, ChevronsLeft, ChevronsRight, CreditCard } from 'lucide-react';
+import { Building2, MapPin, Save, X, ChevronLeft, ChevronsLeft, ChevronsRight, CreditCard } from 'lucide-react';
 import { ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { flexRender } from '@tanstack/react-table';
 import { Card, LoadingSpinner } from '../../components/common';
-import { getStatesForCountry } from '../../utils/statesByCountry';
 import MultiLanguageTipTapEditor from '../../components/MultiLanguageTipTapEditor';
 import VehicleLocations from '../VehicleLocations';
 
@@ -79,9 +78,6 @@ const CompanySection = ({
   canAccessDashboard,
   countriesByContinent,
 }) => {
-  const companyCountry = companyConfig?.country || actualCompanyData?.country || '';
-  const statesForCountry = getStatesForCountry(companyCountry);
-
   return (
     <Card
       title={
