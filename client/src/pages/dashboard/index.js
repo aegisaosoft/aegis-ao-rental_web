@@ -14,3 +14,4 @@ export { default as AdditionalServicesSection } from './AdditionalServicesSectio
 export { default as VehicleManagementSection } from './VehicleManagementSection';
 export { default as ReportsSection } from './ReportsSection';
 export { default as MetaSection } from './MetaSection';
+export { default as InstagramCampaignSection } from './InstagramCampaignSection';

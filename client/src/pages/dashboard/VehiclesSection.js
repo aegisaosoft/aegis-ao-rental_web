@@ -1,49 +1,104 @@
 /*
- *
+ * VehiclesSection - Self-contained vehicle fleet management section
+ * Shows models grouped by category with bulk rate update functionality
+ * 
  * Copyright (c) 2025 Alexander Orlov.
- * 34 Middletown Ave Atlantic Highlands NJ 07716
- *
- * THIS SOFTWARE IS THE CONFIDENTIAL AND PROPRIETARY INFORMATION OF
- * Alexander Orlov. ("CONFIDENTIAL INFORMATION").
- *
- * Author: Alexander Orlov Aegis AO Soft
- *
+ * Aegis AO Soft
  */
 
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from 'react-query';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, LoadingSpinner } from '../../components/common';
 import { translateCategory } from '../../i18n/translateHelpers';
-import { toast } from 'react-toastify';
+import { translatedApiService as apiService } from '../../services/translatedApi';
+import { useCompany } from '../../context/CompanyContext';
 
 const VehiclesSection = ({
-  t,
-  // Data
-  vehicleCount,
-  availableCount,
-  isLoadingModels,
-  modelsGrouped,
-  // Expand state
-  expandedCategories,
-  setExpandedCategories,
-  expandedMakes,
-  setExpandedMakes,
-  // Rate editing
-  dailyRateInputs,
-  setDailyRateInputs,
-  isUpdatingRate,
-  setIsUpdatingRate,
-  // Utilities
-  formatRate,
-  // Services
-  apiService,
-  queryClient,
   currentCompanyId,
+  isAuthenticated,
+  canAccessDashboard,
 }) => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { formatPrice } = useCompany();
+
+  // ============== STATE ==============
+  
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedMakes, setExpandedMakes] = useState({});
+  const [dailyRateInputs, setDailyRateInputs] = useState({});
+  const [isUpdatingRate, setIsUpdatingRate] = useState(false);
+
+  // ============== QUERIES ==============
+
+  // Fetch models grouped by category
+  const { data: modelsGroupedData, isLoading: isLoadingModels } = useQuery(
+    ['modelsGroupedByCategory', currentCompanyId],
+    () => apiService.getModelsGroupedByCategory(currentCompanyId),
+    {
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  // ============== DATA PROCESSING ==============
+
+  const modelsGrouped = useMemo(() => {
+    let allModels = modelsGroupedData;
+    if (allModels?.data) allModels = allModels.data;
+    if (allModels?.result) allModels = allModels.result;
+    if (!Array.isArray(allModels)) return [];
+    return allModels;
+  }, [modelsGroupedData]);
+
+  // Calculate vehicle counts
+  const { vehicleCount, availableCount } = useMemo(() => {
+    let totalVehicles = 0;
+    let totalAvailable = 0;
+    
+    if (modelsGrouped && Array.isArray(modelsGrouped)) {
+      modelsGrouped.forEach(categoryGroup => {
+        const models = categoryGroup.models || categoryGroup.Models || [];
+        models.forEach(model => {
+          const vCount = (model.vehicleCount || model.VehicleCount || 0);
+          const aCount = (model.availableCount || model.AvailableCount || 0);
+          totalVehicles += vCount;
+          totalAvailable += aCount;
+        });
+      });
+    }
+    
+    return { vehicleCount: totalVehicles, availableCount: totalAvailable };
+  }, [modelsGrouped]);
+
+  // ============== HELPERS ==============
+
+  const formatRate = useCallback(
+    (value, options = {}) => {
+      if (value === null || value === undefined || value === '') return '—';
+      if (typeof value === 'string' && value.toLowerCase() === 'different') return value;
+      const numeric = Number(value);
+      if (Number.isNaN(numeric)) return value;
+      const {
+        minimumFractionDigits = 2,
+        maximumFractionDigits = 2,
+        ...rest
+      } = options || {};
+      return formatPrice(numeric, { minimumFractionDigits, maximumFractionDigits, ...rest });
+    },
+    [formatPrice]
+  );
+
+  // ============== HANDLERS ==============
+
   const handleBulkUpdateRate = async (params, inputKey) => {
     const rate = dailyRateInputs[inputKey];
     if (!rate) {
-      toast.error('Please enter a daily rate');
+      toast.error(t('vehicles.enterDailyRate', 'Please enter a daily rate'));
       return;
     }
     setIsUpdatingRate(true);
@@ -55,6 +110,7 @@ const VehiclesSection = ({
       });
       queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
       setDailyRateInputs(prev => ({ ...prev, [inputKey]: '' }));
+      toast.success(t('vehicles.rateUpdated', 'Rate updated successfully'));
     } catch (error) {
       console.error('Error updating models:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
@@ -63,6 +119,8 @@ const VehiclesSection = ({
       setIsUpdatingRate(false);
     }
   };
+
+  // ============== RENDER ==============
 
   return (
     <div className="space-y-8">
@@ -150,7 +208,7 @@ const VehiclesSection = ({
                       <input
                         type="number"
                         step="0.01"
-                        placeholder="Daily Rate"
+                        placeholder={t('vehicles.dailyRate', 'Daily Rate')}
                         value={dailyRateInputs[`category_${categoryId}`] || ''}
                         onChange={(e) => setDailyRateInputs(prev => ({
                           ...prev,
@@ -164,7 +222,7 @@ const VehiclesSection = ({
                         disabled={isUpdatingRate || !categoryId}
                         className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
                       >
-                        Update
+                        {t('common.update', 'Update')}
                       </button>
                     </div>
                   </div>
@@ -212,7 +270,7 @@ const VehiclesSection = ({
                                 <input
                                   type="number"
                                   step="0.01"
-                                  placeholder="Daily Rate"
+                                  placeholder={t('vehicles.dailyRate', 'Daily Rate')}
                                   value={dailyRateInputs[`make_${makeExpandedKey}`] || ''}
                                   onChange={(e) => setDailyRateInputs(prev => ({
                                     ...prev,
@@ -226,7 +284,7 @@ const VehiclesSection = ({
                                   disabled={isUpdatingRate}
                                   className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
                                 >
-                                  Update
+                                  {t('common.update', 'Update')}
                                 </button>
                               </div>
                             </div>
@@ -253,7 +311,7 @@ const VehiclesSection = ({
                                           <input
                                             type="number"
                                             step="0.01"
-                                            placeholder="Daily Rate"
+                                            placeholder={t('vehicles.dailyRate', 'Daily Rate')}
                                             value={dailyRateInputs[`model_${modelExpandedKey}`] || ''}
                                             onChange={(e) => setDailyRateInputs(prev => ({
                                               ...prev,
@@ -270,7 +328,7 @@ const VehiclesSection = ({
                                             disabled={isUpdatingRate}
                                             className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
                                           >
-                                            Update
+                                            {t('common.update', 'Update')}
                                           </button>
                                         </div>
                                       </div>
@@ -281,11 +339,11 @@ const VehiclesSection = ({
                                           {modelGroup.models.map(model => {
                                             const year = model.year || 0;
                                             const yearRate = model.dailyRate;
-                                            const vehicleCount = model.vehicleCount || 0;
+                                            const vCount = model.vehicleCount || 0;
                                             return (
                                               <div key={model.id || year} className="flex items-center gap-1">
                                                 <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                                                  {year} ({vehicleCount})
+                                                  {year} ({vCount})
                                                 </span>
                                                 <span className="text-xs font-medium text-gray-600 min-w-[45px]">
                                                   {yearRate != null && yearRate !== '' ? formatRate(yearRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
@@ -293,7 +351,7 @@ const VehiclesSection = ({
                                                 <input
                                                   type="number"
                                                   step="0.01"
-                                                  placeholder="Rate"
+                                                  placeholder={t('vehicles.rate', 'Rate')}
                                                   value={dailyRateInputs[`year_${year}_${modelExpandedKey}`] || ''}
                                                   onChange={(e) => setDailyRateInputs(prev => ({
                                                     ...prev,

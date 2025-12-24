@@ -58,6 +58,7 @@ import QRCodePage from './pages/QRCodePage';
 import DriverLicensePhoto from './pages/DriverLicensePhoto';
 import VehicleLocations from './pages/VehicleLocations';
 import StripeOnboardingComplete from './pages/StripeOnboardingComplete';
+import ReservationWizardPage from './pages/ReservationWizardPage';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
@@ -125,6 +126,7 @@ const AppLayout = () => {
           <Route path="/my-bookings" element={<MyBookings />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/reservation/new" element={<ReservationWizardPage />} />
           <Route path="/companies/:companyId/stripe/complete" element={<StripeOnboardingComplete />} />
           <Route path="/vehicle-locations" element={<VehicleLocations />} />
           <Route path="/settings" element={<Settings />} />
