@@ -47,11 +47,11 @@ const companyLocationsRoutes = require('./routes/companyLocations');
 const scanRoutes = require('./routes/scan');
 const licenseRoutes = require('./routes/license');
 const modelsRoutes = require('./routes/models');
-const mockRoutes = require('./routes/mock');
 const terminalRoutes = require('./routes/terminal');
 const webhooksRoutes = require('./routes/webhooks');
 const violationsRoutes = require('./routes/violations');
 const findersListRoutes = require('./routes/findersList');
+const metaRoutes = require('./routes/meta');
 const { apiClient } = require('./config/api');
 
 const app = express();
@@ -227,9 +227,8 @@ app.use('/api/terminal', terminalRoutes);
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/violations', violationsRoutes);
 app.use('/api/finderslist', findersListRoutes);
-
-// Mock routes for development (fallback when external API fails)
-app.use('/api/mock', mockRoutes);
+app.use('/api/companies', metaRoutes); // Meta integration routes (mounted on /api/companies/:companyId/meta/*)
+app.use('/api/meta', metaRoutes); // OAuth routes (mounted on /api/meta/oauth/*)
 
 // Stream static files from backend for agreements and customers folders
 app.get(['/api/agreements/*', '/api/customers/*'], async (req, res) => {
@@ -430,7 +429,7 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
   
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
-    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/mock', '/api/violations', '/api/finderslist'];
+    const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/violations', '/api/finderslist', '/api/meta'];
     // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
     if (req.originalUrl.startsWith('/api/DriverLicense') ||
         skipPaths.some(path => req.originalUrl.startsWith(path))) {

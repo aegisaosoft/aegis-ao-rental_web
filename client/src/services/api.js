@@ -462,6 +462,20 @@ export const apiService = {
   
   // Booking Services
   addServiceToBooking: (data) => api.post('/BookingServices', data),
+
+  // Meta Integration
+  getMetaConnectionStatus: (companyId) => api.get(`/companies/${companyId}/meta/status`),
+  getMetaAvailablePages: (companyId) => api.get(`/companies/${companyId}/meta/pages`),
+  disconnectMeta: (companyId) => api.post(`/companies/${companyId}/meta/disconnect`),
+  selectMetaPage: (companyId, pageId) => api.post(`/companies/${companyId}/meta/select-page`, { pageId }),
+  refreshInstagram: (companyId) => api.post(`/companies/${companyId}/meta/refresh-instagram`),
+  publishMetaPost: (companyId, data) => api.post(`/companies/${companyId}/meta/publish`, data),
+  getInstagramAccount: (companyId) => api.get(`/companies/${companyId}/meta/instagram/account`),
+  getInstagramPosts: (companyId, limit = 12) => api.get(`/companies/${companyId}/meta/instagram/posts?limit=${limit}`),
+  publishInstagramPhoto: (companyId, data) => api.post(`/companies/${companyId}/meta/instagram/publish`, data),
+  getCatalogStatus: (companyId) => api.get(`/companies/${companyId}/meta/catalog/status`),
+  createCatalog: (companyId) => api.post(`/companies/${companyId}/meta/catalog/create`),
+  syncProductsToCatalog: (companyId) => api.post(`/companies/${companyId}/meta/catalog/sync`),
 };
 
 // Export the axios instance for direct API calls (e.g., translation service)

@@ -684,6 +684,67 @@ export const translatedApiService = {
     return await apiService.deleteWizardLicenseImage(wizardId, side);
   },
   
+  // Meta Integration (no translation needed for these)
+  getMetaConnectionStatus: async (companyId) => {
+    const response = await apiService.getMetaConnectionStatus(companyId);
+    return response.data || response;
+  },
+  
+  getMetaAvailablePages: async (companyId) => {
+    const response = await apiService.getMetaAvailablePages(companyId);
+    return response.data || response;
+  },
+  
+  disconnectMeta: async (companyId) => {
+    const response = await apiService.disconnectMeta(companyId);
+    return response.data || response;
+  },
+  
+  selectMetaPage: async (companyId, pageId) => {
+    const response = await apiService.selectMetaPage(companyId, pageId);
+    return response.data || response;
+  },
+  
+  refreshInstagram: async (companyId) => {
+    const response = await apiService.refreshInstagram(companyId);
+    return response.data || response;
+  },
+  
+  publishMetaPost: async (companyId, data) => {
+    const response = await apiService.publishMetaPost(companyId, data);
+    return response.data || response;
+  },
+  
+  getInstagramAccount: async (companyId) => {
+    const response = await apiService.getInstagramAccount(companyId);
+    return response.data || response;
+  },
+  
+  getInstagramPosts: async (companyId, limit = 12) => {
+    const response = await apiService.getInstagramPosts(companyId, limit);
+    return response.data || response;
+  },
+  
+  publishInstagramPhoto: async (companyId, data) => {
+    const response = await apiService.publishInstagramPhoto(companyId, data);
+    return response.data || response;
+  },
+  
+  getCatalogStatus: async (companyId) => {
+    const response = await apiService.getCatalogStatus(companyId);
+    return response.data || response;
+  },
+  
+  createCatalog: async (companyId) => {
+    const response = await apiService.createCatalog(companyId);
+    return response.data || response;
+  },
+  
+  syncProductsToCatalog: async (companyId) => {
+    const response = await apiService.syncProductsToCatalog(companyId);
+    return response.data || response;
+  },
+  
 };
 
 export default translatedApiService;

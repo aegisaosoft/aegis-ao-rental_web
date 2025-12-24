@@ -28,6 +28,17 @@ import { getStatesForCountry } from '../utils/statesByCountry';
 import MultiLanguageTipTapEditor from '../components/MultiLanguageTipTapEditor';
 import VehicleLocations from './VehicleLocations';
 import {
+  ReportsSection,
+  ViolationsSection,
+  VehiclesSection,
+  ReservationsSection,
+  EmployeesSection,
+  AdditionalServicesSection,
+  VehicleManagementSection,
+  CompanySection,
+  MetaSection,
+} from './dashboard';
+import {
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
@@ -140,6 +151,26 @@ const AdminDashboard = () => {
       setActiveSection('company');
     }
   }, [activeSection, companyConfig?.country]);
+
+  // Handle Meta OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const metaSuccess = params.get('meta_success');
+    const metaError = params.get('meta_error');
+
+    if (metaSuccess === 'true') {
+      toast.success(t('meta.connected', 'Connected to Facebook successfully'));
+      queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
+      setActiveSection('meta');
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (metaError) {
+      toast.error(metaError);
+      setActiveSection('meta');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [currentCompanyId, queryClient, t]);
+
   const tabCaptions = useMemo(
     () => ({
       info: t(
@@ -747,6 +778,81 @@ const AdminDashboard = () => {
 
   // Extract Stripe status - data is already unwrapped from the query function
   const stripeStatus = stripeStatusData || {};
+
+  // Meta Integration queries and mutations
+  const { data: metaConnectionStatus, isLoading: isLoadingMetaStatus, error: metaStatusError } = useQuery(
+    ['metaStatus', currentCompanyId],
+    async () => {
+      const response = await apiService.getMetaConnectionStatus(currentCompanyId);
+      return response;
+    },
+    {
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && activeSection === 'meta',
+      retry: false,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const { data: metaAvailablePages } = useQuery(
+    ['metaPages', currentCompanyId],
+    () => apiService.getMetaAvailablePages(currentCompanyId),
+    {
+      enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && metaConnectionStatus?.isConnected,
+      retry: false,
+    }
+  );
+
+  const connectMetaMutation = useMutation(
+    () => {
+      // Redirect to OAuth - use the proxy server endpoint
+      const lang = document.documentElement.lang || 'en';
+      window.location.href = `/api/meta/oauth/connect/${currentCompanyId}?lang=${lang}`;
+      return Promise.resolve();
+    }
+  );
+
+  const disconnectMetaMutation = useMutation(
+    () => apiService.disconnectMeta(currentCompanyId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
+        toast.success(t('meta.disconnected', 'Disconnected from Facebook'));
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || t('meta.disconnectError', 'Failed to disconnect'));
+      },
+    }
+  );
+
+  const selectMetaPageMutation = useMutation(
+    (pageId) => apiService.selectMetaPage(currentCompanyId, pageId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
+        toast.success(t('meta.pageSelected', 'Page selected successfully'));
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || t('meta.pageSelectError', 'Failed to select page'));
+      },
+    }
+  );
+
+  const refreshInstagramMutation = useMutation(
+    () => apiService.refreshInstagram(currentCompanyId),
+    {
+      onSuccess: (result) => {
+        if (result.success) {
+          queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
+          toast.success(t('meta.instagramRefreshed', `Instagram @${result.instagramUsername} connected!`));
+        } else {
+          toast.error(result.message || t('meta.instagramNotFound', 'Instagram not found'));
+        }
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.error || t('meta.refreshError', 'Failed to refresh Instagram'));
+      },
+    }
+  );
 
   // Fetch company locations
   const { data: companyLocationsData, isLoading: isLoadingCompanyLocations } = useQuery(
@@ -5422,6 +5528,26 @@ const AdminDashboard = () => {
                   <span className="text-xs text-center">{t('admin.viewReports')}</span>
                 </button>
               )}
+              
+              {/* Meta Integration - Admin and MainAdmin only */}
+              {(isAdmin || isMainAdmin) && (
+                <button
+                  onClick={() => setActiveSection('meta')}
+                  className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+                    activeSection === 'meta'
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  disabled={isEditing}
+                  title={t('admin.metaIntegration', 'Meta')}
+                  aria-label={t('admin.metaIntegration', 'Meta')}
+                >
+                  <svg className="h-5 w-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.04c-5.5 0-10 4.49-10 10.02 0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02z"/>
+                  </svg>
+                  <span className="text-xs text-center">{t('admin.metaIntegration', 'Meta')}</span>
+                </button>
+              )}
             </div>
           </Card>
         </div>
@@ -5430,3474 +5556,279 @@ const AdminDashboard = () => {
         <div className="col-span-4">
           {/* Company Profile Section */}
           {activeSection === 'company' && (
-            <Card
-              title={
-              <div className="flex items-center">
-                  {activeTab === 'locations' ? (
-                    <>
-                      <MapPin className="h-6 w-6 text-blue-600 mr-2" />
-                      <span>{t('admin.locations', 'Locations')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-                      <span>
-                        {!currentCompanyId && isEditingCompany 
-                          ? t('admin.createCompany') || 'Create Company'
-                          : t('admin.companyProfile')
-                        }
-                      </span>
-                    </>
-                  )}
-                </div>
-              }
-            >
-          <div>
-          {isLoadingCompany && currentCompanyId ? (
-            <LoadingSpinner text={t('common.loading')} />
-          ) : companyError && currentCompanyId ? (
-            <div className="text-center py-8">
-              <p className="text-red-600 font-medium">{t('admin.companyLoadFailed')}</p>
-              <p className="text-sm text-gray-600 mt-2">{companyError.message}</p>
-                </div>
-          ) : (!companyData && currentCompanyId) ? (
-            <div className="text-center py-8">
-              <p className="text-gray-600">{t('admin.noCompanyData')}</p>
-              </div>
-          ) : activeTab === 'locations' ? (
-              // Locations Tab - Always show locations content
-              <div className="space-y-6">
-                {/* Sub-tab Navigation */}
-                <div className="border-b border-gray-200">
-                  <nav className="-mb-px flex space-x-8" aria-label="Sub-tabs">
-                    <button
-                      type="button"
-                      onClick={() => setActiveLocationSubTab('company')}
-                      className={`
-                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-                        ${activeLocationSubTab === 'company'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.companyLocations', 'Company Locations')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveLocationSubTab('pickup')}
-                      className={`
-                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-                        ${activeLocationSubTab === 'pickup'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.pickupLocations', 'Pickup Locations')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveLocationSubTab('management')}
-                      className={`
-                        whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-                        ${activeLocationSubTab === 'management'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.manageLocations', 'Manage Locations')}
-                    </button>
-                  </nav>
-                </div>
-
-                {/* Add Location Button - Admin only (only show for company and pickup tabs) */}
-                {!isEditingLocation && isAdmin && activeLocationSubTab !== 'management' && (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleAddLocation}
-                      className="btn-primary"
-                    >
-                      + {t('admin.addLocation')}
-                    </button>
-                  </div>
-                )}
-
-                {/* Management Tab - Vehicle Location Assignment */}
-                {activeLocationSubTab === 'management' ? (
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        {t('admin.manageLocationsDescription', 'Assign vehicles to locations by dragging and dropping. This helps organize your fleet across different pickup and return locations.')}
-                      </p>
-                    </div>
-                    <VehicleLocations embedded={true} />
-                  </div>
-                ) : (
-                  <>
-                {/* Location Form */}
-                {isEditingLocation ? (
-                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                    <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                      {editingLocationId ? t('admin.editLocation') : t('admin.addLocation')}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.locationName')} *
-                        </label>
-                        <input
-                          type="text"
-                          name="locationName"
-                          value={locationFormData.locationName}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                          required
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.address')}
-                        </label>
-                        <input
-                          type="text"
-                          name="address"
-                          value={locationFormData.address}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.city')}
-                        </label>
-                        <input
-                          type="text"
-                          name="city"
-                          value={locationFormData.city}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.state')}
-                        </label>
-                        <input
-                          type="text"
-                          name="state"
-                          value={locationFormData.state}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.country')}
-                        </label>
-                        <input
-                          type="text"
-                          name="country"
-                          value={locationFormData.country}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.postalCode')}
-                        </label>
-                        <input
-                          type="text"
-                          name="postalCode"
-                          value={locationFormData.postalCode}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.phone')}
-                        </label>
-                        <input
-                          type="tel"
-                          name="phone"
-                          value={locationFormData.phone}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.email')}
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={locationFormData.email}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.latitude')}
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          name="latitude"
-                          value={locationFormData.latitude}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                          placeholder="40.7128"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.longitude')}
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          name="longitude"
-                          value={locationFormData.longitude}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                          placeholder="-74.0060"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('admin.openingHours')}
-                        </label>
-                        <textarea
-                          name="openingHours"
-                          value={locationFormData.openingHours}
-                          onChange={handleLocationInputChange}
-                          className="input-field"
-                          rows="3"
-                          placeholder='{"Mon": "9-5", "Tue": "9-5"}'
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          JSON format optional
-                        </p>
-                      </div>
-
-                      <div className="md:col-span-2 flex items-center space-x-6">
-                        {activeLocationSubTab === 'pickup' && (
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="isPickupLocation"
-                              checked={locationFormData.isPickupLocation}
-                              onChange={handleLocationInputChange}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-700">{t('admin.isPickupLocation')}</span>
-                          </label>
-                        )}
-
-                        {activeLocationSubTab === 'company' && (
-                          <>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                name="isPickupLocation"
-                                checked={locationFormData.isPickupLocation}
-                                onChange={handleLocationInputChange}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-700">{t('admin.isPickupLocation')}</span>
-                            </label>
-
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                name="isReturnLocation"
-                                checked={locationFormData.isReturnLocation}
-                                onChange={handleLocationInputChange}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-700">{t('admin.isReturnLocation')}</span>
-                            </label>
-
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                name="isOffice"
-                                checked={locationFormData.isOffice}
-                                onChange={handleLocationInputChange}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-700">{t('admin.isOffice') || 'Is Office'}</span>
-                            </label>
-                          </>
-                        )}
-
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            name="isActive"
-                            checked={locationFormData.isActive}
-                            onChange={handleLocationInputChange}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">{t('admin.isActive')}</span>
-                        </label>
-                      </div>
-
-                      <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
-                        <button
-                          type="button"
-                          onClick={handleCancelLocationEdit}
-                          className="btn-outline"
-                        >
-                          {t('common.cancel')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveLocation}
-                          className="btn-primary"
-                        >
-                          {t('common.save')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Locations Table */
-                  <div className="overflow-x-auto">
-                    {isLoadingLocations ? (
-                      <div className="text-center py-8">
-                        <LoadingSpinner />
-                      </div>
-                    ) : locations.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-gray-600">{t('admin.noLocations')}</p>
-                      </div>
-                    ) : (
-                      <>
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            {locationTable.getHeaderGroups().map(headerGroup => (
-                              <tr key={headerGroup.id}>
-                                {headerGroup.headers.map(header => (
-                                  <th
-                                    key={header.id}
-                                    className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                                      header.id === 'actions' ? 'text-right' : ''
-                                    }`}
-                                  >
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext()
-                                        )}
-                                  </th>
-                                ))}
-                              </tr>
-                            ))}
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {locationTable.getRowModel().rows.map(row => (
-                              <tr key={row.id} className="hover:bg-gray-50">
-                                {row.getVisibleCells().map(cell => (
-                                  <td
-                                    key={cell.id}
-                                    className={`px-6 py-4 whitespace-nowrap ${
-                                      cell.column.id === 'actions' ? 'text-right text-sm font-medium' : ''
-                                    }`}
-                                  >
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-
-                        {/* Pagination */}
-                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
-                          <div className="flex flex-1 justify-between sm:hidden">
-                            <button
-                              onClick={() => locationTable.previousPage()}
-                              disabled={!locationTable.getCanPreviousPage()}
-                              className="btn-secondary"
-                            >
-                              {t('previous')}
-                            </button>
-                            <button
-                              onClick={() => locationTable.nextPage()}
-                              disabled={!locationTable.getCanNextPage()}
-                              className="btn-secondary ml-3"
-                            >
-                              {t('next')}
-                            </button>
-                          </div>
-                          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                            <div>
-                              <p className="text-sm text-gray-700">
-                                {t('admin.showing')} <span className="font-medium">{locationPage * locationPageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((locationPage + 1) * locationPageSize, locations.length)}</span> {t('admin.of')} <span className="font-medium">{locations.length}</span> {t('results')}
-                              </p>
-                            </div>
-                            <div>
-                              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                                <button
-                                  onClick={() => locationTable.setPageIndex(0)}
-                                  disabled={!locationTable.getCanPreviousPage()}
-                                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                >
-                                  <ChevronsLeft className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={() => locationTable.previousPage()}
-                                  disabled={!locationTable.getCanPreviousPage()}
-                                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                >
-                                  <ChevronLeft className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={() => locationTable.nextPage()}
-                                  disabled={!locationTable.getCanNextPage()}
-                                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                >
-                                  <ChevronRightIcon className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={() => locationTable.setPageIndex(locationTable.getPageCount() - 1)}
-                                  disabled={!locationTable.getCanNextPage()}
-                                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                                >
-                                  <ChevronsRight className="h-5 w-5" />
-                                </button>
-                              </nav>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-                </>
-                )}
-              </div>
-          ) : isEditingCompany || (!currentCompanyId && isMainAdmin) ? (
-              <form onSubmit={handleSaveCompany} className="space-y-6">
-                {/* Tab Navigation */}
-                <div className="border-b border-gray-200 mb-6">
-                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('info')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeTab === 'info'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.companyInfo')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('design')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeTab === 'design'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.design')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('locations')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeTab === 'locations'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.locations')}
-                    </button>
-                  </nav>
-            </div>
-                <p className="text-sm text-gray-500 mb-6">
-                  {tabCaptions[activeTab]}
-                </p>
-
-                {/* Company Info Tab */}
-                {activeTab === 'info' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Basic Information */}
-                  <div className="md:col-span-2">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="isTestCompany"
-                        checked={companyFormData.isTestCompany ?? true}
-                        disabled
-                        readOnly
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-not-allowed opacity-60"
-                      />
-                      <span className="block text-sm font-medium text-gray-700">
-                        {t('admin.isTestCompany', 'Test Company')}
-                      </span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1 ml-6">
-                      {t('admin.isTestCompanyHelp', 'Mark this company as a test company')} (Read-only)
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.companyName')}
-                    </label>
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={companyFormData.companyName || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      required
-                    />
-        </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.email')}
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={companyFormData.email || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      required
-                    />
-            </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.website')}
-                    </label>
-                    <input
-                      type="text"
-                      name="website"
-                      value={companyFormData.website || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="www.example.com or https://example.com"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Protocol (https://) will be added automatically if not provided
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.country') || 'Country'}
-                    </label>
-                    <select
-                      name="country"
-                      value={companyFormData.country || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                    >
-                      <option value="">Select Country</option>
-                      {Object.entries(countriesByContinent).map(([continent, countries]) => (
-                        <optgroup key={continent} label={continent}>
-                          {countries.map((country) => (
-                            <option key={country} value={country}>
-                              {country}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.securityDeposit', 'Security Deposit')}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        name="securityDeposit"
-                        min="0"
-                        step="0.01"
-                        value={
-                          companyFormData.securityDeposit === '' ||
-                          companyFormData.securityDeposit == null
-                            ? ''
-                            : companyFormData.securityDeposit
-                        }
-                        onChange={handleCompanyInputChange}
-                        className="input-field pr-14"
-                        placeholder="1000"
-                      />
-                      <span className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-500">
-                        {companyFormData.currency || 'USD'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {t(
-                        'admin.securityDepositHelp',
-                        'Default deposit amount required for bookings created under this company.'
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Media Links */}
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
-                      {t('admin.mediaLinks')}
-                    </h4>
-                  </div>
-
-                  {/* Logo Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.logoLink')}
-                    </label>
-                    {companyFormData.logoLink ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <img 
-                            src={companyFormData.logoLink} 
-                            alt="Logo" 
-                            className="h-20 w-20 object-contain border border-gray-300 rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleLogoDelete}
-                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoUpload}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                          disabled={isUploading.logo}
-                        />
-                        {isUploading.logo && (
-                          <div className="mt-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress.logo}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.logo}%</p>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Max 5 MB (JPG, PNG, SVG, WebP)
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Banner Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.bannerLink')}
-                    </label>
-                    {companyFormData.bannerLink ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <img 
-                            src={companyFormData.bannerLink} 
-                            alt="Banner" 
-                            className="h-20 w-40 object-cover border border-gray-300 rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleBannerDelete}
-                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleBannerUpload}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                          disabled={isUploading.banner}
-                        />
-                        {isUploading.banner && (
-                          <div className="mt-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress.banner}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.banner}%</p>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Max 10 MB (JPG, PNG, GIF, WebP)
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Video Upload */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.videoLink')}
-                    </label>
-                    {companyFormData.videoLink ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <video 
-                            src={companyFormData.videoLink} 
-                            className="h-32 w-56 border border-gray-300 rounded"
-                            controls
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVideoDelete}
-                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="file"
-                          accept="video/*"
-                          onChange={handleVideoUpload}
-                          className="block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-blue-50 file:text-blue-700
-                            hover:file:bg-blue-100"
-                          disabled={isUploading.video}
-                        />
-                        {isUploading.video && (
-                          <div className="mt-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress.video}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">{uploadProgress.video}%</p>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Max 500 MB (MP4, AVI, MOV, WMV, WebM, MKV)
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Additional Content Fields */}
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4 mt-4">
-                      {t('admin.additionalContent')}
-                    </h4>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.about')}
-                    </label>
-                    <textarea
-                      name="about"
-                      value={companyFormData.about || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      rows="5"
-                      placeholder="Tell us about your company..."
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.termsOfUse', 'Terms of Use')}
-                    </label>
-                    <MultiLanguageTipTapEditor
-                      content={companyFormData.termsOfUse || companyFormData.TermsOfUse || ''}
-                      onChange={(jsonString) => {
-                        setCompanyFormData(prev => ({
-                          ...prev,
-                          termsOfUse: jsonString,
-                          TermsOfUse: jsonString
-                        }));
-                      }}
-                      placeholder="Enter terms of use. You can paste formatted text from clipboard..."
-                    />
-                    <p className="text-xs text-gray-500 mt-2">
-                      {t('admin.termsOfUseHelp', 'Use the editor to format your terms of use in 5 languages (English, Spanish, Portuguese, French, German). You can paste formatted text from your clipboard. Switch between language tabs to edit each version.')}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.backgroundLink')}
-                    </label>
-                    <input
-                      type="text"
-                      name="backgroundLink"
-                      value={companyFormData.backgroundLink || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://example.com/background.jpg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.companyPath')}
-                    </label>
-                    <input
-                      type="text"
-                      name="companyPath"
-                      value={companyFormData.companyPath || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="my-company"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.bookingIntegrated')}
-                    </label>
-                    <textarea
-                      name="bookingIntegrated"
-                      value={companyFormData.bookingIntegrated || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      rows="3"
-                      placeholder="Booking integration code or information..."
-                    />
-                  </div>
-
-                </div>
-                )}
-
-                {/* Design Tab */}
-                {activeTab === 'design' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Branding Fields */}
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-semibold text-gray-800 mb-4">
-                      {t('admin.branding')}
-                    </h4>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.subdomain')}
-                    </label>
-                    {(companyConfig?.subdomain || actualCompanyData?.subdomain) ? (
-                      <div>
-                        <input
-                          type="text"
-                          value={companyConfig?.subdomain || actualCompanyData?.subdomain || ''}
-                          className="input-field bg-gray-100 cursor-not-allowed"
-                          readOnly
-                          disabled
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Used for: {(companyConfig?.subdomain || actualCompanyData?.subdomain)}.aegis-rental.com
-                        </p>
-                        <p className="text-xs text-amber-600 mt-1">
-                          {t('admin.subdomainCannotBeChanged', 'Subdomain cannot be changed once set')}
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <input
-                          type="text"
-                          name="subdomain"
-                          value={companyFormData.subdomain || ''}
-                          onChange={handleCompanyInputChange}
-                          className="input-field"
-                          placeholder="mycompany"
-                          maxLength="100"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Used for: [subdomain].aegis-rental.com
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-2"></div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.primaryColor')}
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="color"
-                        name="primaryColor"
-                        value={companyFormData.primaryColor || '#3B82F6'}
-                        onChange={handleCompanyInputChange}
-                        className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        name="primaryColor"
-                        value={companyFormData.primaryColor || ''}
-                        onChange={handleCompanyInputChange}
-                        className="input-field flex-1"
-                        placeholder="#FF5733"
-                        maxLength="7"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.secondaryColor')}
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="color"
-                        name="secondaryColor"
-                        value={companyFormData.secondaryColor || '#10B981'}
-                        onChange={handleCompanyInputChange}
-                        className="h-10 w-20 border border-gray-300 rounded cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        name="secondaryColor"
-                        value={companyFormData.secondaryColor || ''}
-                        onChange={handleCompanyInputChange}
-                        className="input-field flex-1"
-                        placeholder="#33C1FF"
-                        maxLength="7"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.logoUrl')}
-                    </label>
-                    <input
-                      type="text"
-                      name="logoUrl"
-                      value={companyFormData.logoUrl || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://example.com/logo.png"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.faviconUrl')}
-                    </label>
-                    <input
-                      type="text"
-                      name="faviconUrl"
-                      value={companyFormData.faviconUrl || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field"
-                      placeholder="https://example.com/favicon.ico"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('admin.customCss')}
-                    </label>
-                    <textarea
-                      name="customCss"
-                      value={companyFormData.customCss || ''}
-                      onChange={handleCompanyInputChange}
-                      className="input-field font-mono text-sm"
-                      rows="6"
-                      placeholder=".custom-class { color: #FF5733; }"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Add custom CSS styles for your company's branding
-                    </p>
-                  </div>
-                </div>
-                )}
-
-                {/* Locations Tab - Removed duplicate, now handled at top level */}
-
-                {/* Action Buttons */}
-                {activeTab !== 'locations' && (
-                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="btn-outline flex items-center"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    {t('common.cancel')}
-                  </button>
-                  {/* Show save button if: creating new company (main admin only) OR updating existing company */}
-                  {((!currentCompanyId && isEditingCompany && isMainAdmin) || currentCompanyId) && (
-                    <button
-                      type="submit"
-                      disabled={updateCompanyMutation.isLoading || isCreatingCompany}
-                      className="btn-primary flex items-center"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {(updateCompanyMutation.isLoading || isCreatingCompany) 
-                        ? t('common.saving') || 'Saving...' 
-                        : (!currentCompanyId ? t('admin.createCompany') || 'Create Company' : t('common.save'))
-                      }
-                    </button>
-                  )}
-                </div>
-                )}
-              </form>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Display Mode */}
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.companyName')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.companyName || '-'}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{t('admin.email')}</p>
-                  <p className="text-base text-gray-900">{actualCompanyData?.email || '-'}</p>
-                </div>
-
-                <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">
-                    {t('admin.financialSettings', 'Financial Settings')}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    {t('admin.currency', 'Currency')}
-                  </p>
-                  <p className="text-base text-gray-900">
-                    {(actualCompanyData?.currency || 'USD').toUpperCase()}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    {t('admin.securityDeposit', 'Security Deposit')}
-                  </p>
-                  {isEditingDeposit ? (
-                    <div className="flex flex-col gap-2 mt-1">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={securityDepositDraft}
-                          onChange={(e) => setSecurityDepositDraft(e.target.value)}
-                          className="input-field h-10"
-                          disabled={isSavingDeposit}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSecurityDepositSave}
-                          disabled={isSavingDeposit}
-                          className="btn-primary px-3 py-2 text-sm"
-                        >
-                          {isSavingDeposit ? t('common.saving') || 'Saving…' : t('common.save')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelSecurityDepositEdit}
-                          disabled={isSavingDeposit}
-                          className="btn-outline px-3 py-2 text-sm"
-                        >
-                          {t('common.cancel')}
-                        </button>
-                      </div>
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={isSecurityDepositMandatoryDraft}
-                          onChange={(e) => setIsSecurityDepositMandatoryDraft(e.target.checked)}
-                          disabled={isSavingDeposit}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span>{t('admin.isSecurityDepositMandatory', 'Security deposit is mandatory')}</span>
-                      </label>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 mt-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-base text-gray-900">
-                          {actualCompanyData?.securityDeposit != null
-                            ? new Intl.NumberFormat(undefined, {
-                                style: 'currency',
-                                currency: (actualCompanyData?.currency || 'USD').toUpperCase(),
-                                minimumFractionDigits: 0,
-                              }).format(actualCompanyData.securityDeposit)
-                            : '-'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={beginSecurityDepositEdit}
-                          disabled={isEditingCompany}
-                          className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-                        >
-                          {t('common.edit')}
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <span className={(actualCompanyData?.isSecurityDepositMandatory ?? actualCompanyData?.IsSecurityDepositMandatory ?? true) ? 'text-green-600 font-medium' : 'text-gray-500'}>
-                          {(actualCompanyData?.isSecurityDepositMandatory ?? actualCompanyData?.IsSecurityDepositMandatory ?? true)
-                            ? t('admin.mandatory', 'Mandatory') 
-                            : t('admin.optional', 'Optional')}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Create Stripe Account Button - Visible to all authenticated users, but only admin/mainadmin can create */}
-                {isAuthenticated && canAccessDashboard && currentCompanyId && (
-                  <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-gray-700">
-                        {t('admin.stripeAccount', 'Stripe Account')}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {t('admin.stripeAccountDescription', 'Connect a Stripe account to accept payments and receive payouts for your rental business.')}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleCreateStripeAccount}
-                        disabled={isCreatingStripeAccount || isEditingCompany || !(isAdmin || isMainAdmin)}
-                        className="btn-primary px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px] justify-center"
-                        title={!(isAdmin || isMainAdmin) ? t('admin.adminOnly', 'Admin access required') : ''}
-                      >
-                        {isCreatingStripeAccount ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            {t('common.creating', 'Creating...')}
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="h-4 w-4" />
-                            {stripeStatus?.StripeAccountId || stripeStatus?.stripeAccountId 
-                              ? t('admin.stripe', 'Stripe')
-                              : t('admin.createStripeAccount', 'Create Stripe Account')
-                            }
-                          </>
-                        )}
-                      </button>
-                      {!(isAdmin || isMainAdmin) && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          {t('admin.readOnlyAccess', 'Read-only access. Admin or Main Admin role required to create accounts.')}
-                        </p>
-                      )}
-                      {/* Status Indicators - Visible to all authenticated users */}
-                      <div className="flex items-center gap-3 mt-3">
-                        {isLoadingStripeStatus ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-                        ) : (
-                          <>
-                            {/* 1. Is Active */}
-                            <div className="flex flex-col items-center gap-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                (stripeStatus?.AccountStatus || stripeStatus?.accountStatus || '').toLowerCase() === 'active' 
-                                  ? 'bg-green-500' 
-                                  : 'bg-red-500'
-                              }`}></div>
-                              <span className="text-xs text-gray-600 whitespace-nowrap">Active</span>
-                            </div>
-                            {/* 2. Charges Enabled */}
-                            <div className="flex flex-col items-center gap-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                stripeStatus?.ChargesEnabled === true || stripeStatus?.chargesEnabled === true
-                                  ? 'bg-green-500' 
-                                  : 'bg-red-500'
-                              }`}></div>
-                              <span className="text-xs text-gray-600 whitespace-nowrap">Charges</span>
-                            </div>
-                            {/* 3. Payouts Enabled */}
-                            <div className="flex flex-col items-center gap-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                stripeStatus?.PayoutsEnabled === true || stripeStatus?.payoutsEnabled === true
-                                  ? 'bg-green-500' 
-                                  : 'bg-red-500'
-                              }`}></div>
-                              <span className="text-xs text-gray-600 whitespace-nowrap">Payouts</span>
-                            </div>
-                            {/* 4. Onboarding Completed */}
-                            <div className="flex flex-col items-center gap-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                stripeStatus?.OnboardingCompleted === true || stripeStatus?.onboardingCompleted === true
-                                  ? 'bg-green-500' 
-                                  : 'bg-red-500'
-                              }`}></div>
-                              <span className="text-xs text-gray-600 whitespace-nowrap">Onboarded</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Terms of Use Section - Always Editable for Admins */}
-                {(isAdmin || isMainAdmin) && currentCompanyId && (
-                  <div className="md:col-span-2 pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-gray-700">
-                        {t('admin.termsOfUse', 'Terms of Use')}
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <MultiLanguageTipTapEditor
-                        content={termsOfUseDraft || actualCompanyData?.termsOfUse || actualCompanyData?.TermsOfUse || companyFormData?.termsOfUse || companyFormData?.TermsOfUse || ''}
-                        onChange={(jsonString) => {
-                          setTermsOfUseDraft(jsonString);
-                        }}
-                        placeholder="Enter terms of use. You can paste formatted text from clipboard..."
-                      />
-                      <div className="flex justify-end space-x-4 pt-2">
-                        <button
-                          type="button"
-                          onClick={handleTermsOfUseSave}
-                          disabled={isSavingTermsOfUse}
-                          className="btn-primary px-4 py-2 text-sm"
-                        >
-                          {isSavingTermsOfUse 
-                            ? t('common.saving') || 'Saving…' 
-                            : t('common.save', 'Save Terms')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-          )}
-        </div>
-            </Card>
+            <CompanySection
+              t={t}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              activeLocationSubTab={activeLocationSubTab}
+              setActiveLocationSubTab={setActiveLocationSubTab}
+              currentCompanyId={currentCompanyId}
+              isLoadingCompany={isLoadingCompany}
+              companyError={companyError}
+              companyData={companyData}
+              actualCompanyData={actualCompanyData}
+              companyConfig={companyConfig}
+              isEditingCompany={isEditingCompany}
+              isCreatingCompany={isCreatingCompany}
+              companyFormData={companyFormData}
+              setCompanyFormData={setCompanyFormData}
+              handleCompanyInputChange={handleCompanyInputChange}
+              handleSaveCompany={handleSaveCompany}
+              handleCancelEdit={handleCancelEdit}
+              isAdmin={isAdmin}
+              isMainAdmin={isMainAdmin}
+              isEditingLocation={isEditingLocation}
+              editingLocationId={editingLocationId}
+              locationFormData={locationFormData}
+              handleLocationInputChange={handleLocationInputChange}
+              handleSaveLocation={handleSaveLocation}
+              handleCancelLocationEdit={handleCancelLocationEdit}
+              handleAddLocation={handleAddLocation}
+              handleEditLocation={handleEditLocation}
+              handleDeleteLocation={handleDeleteLocation}
+              isLoadingLocations={isLoadingLocations}
+              locations={locations}
+              pickupLocations={pickupLocations}
+              locationTable={locationTable}
+              locationPage={locationPage}
+              locationPageSize={locationPageSize}
+              handleLogoUpload={handleLogoUpload}
+              handleLogoDelete={handleLogoDelete}
+              handleBannerUpload={handleBannerUpload}
+              handleBannerDelete={handleBannerDelete}
+              handleVideoUpload={handleVideoUpload}
+              handleVideoDelete={handleVideoDelete}
+              isUploading={isUploading}
+              uploadProgress={uploadProgress}
+              securityDepositDraft={securityDepositDraft}
+              setSecurityDepositDraft={setSecurityDepositDraft}
+              isSecurityDepositMandatoryDraft={isSecurityDepositMandatoryDraft}
+              setIsSecurityDepositMandatoryDraft={setIsSecurityDepositMandatoryDraft}
+              isEditingDeposit={isEditingDeposit}
+              beginSecurityDepositEdit={beginSecurityDepositEdit}
+              cancelSecurityDepositEdit={cancelSecurityDepositEdit}
+              handleSecurityDepositSave={handleSecurityDepositSave}
+              isSavingDeposit={isSavingDeposit}
+              termsOfUseDraft={termsOfUseDraft}
+              setTermsOfUseDraft={setTermsOfUseDraft}
+              handleTermsOfUseSave={handleTermsOfUseSave}
+              isSavingTermsOfUse={isSavingTermsOfUse}
+              isLoadingStripeStatus={isLoadingStripeStatus}
+              stripeStatus={stripeStatus}
+              isCreatingStripeAccount={isCreatingStripeAccount}
+              handleCreateStripeAccount={handleCreateStripeAccount}
+              updateCompanyMutation={updateCompanyMutation}
+              tabCaptions={tabCaptions}
+              isAuthenticated={isAuthenticated}
+              canAccessDashboard={canAccessDashboard}
+              countriesByContinent={countriesByContinent}
+            />
           )}
 
           {/* Violations Section - Only show for USA companies */}
+          {/* Violations Section - Only show for USA companies */}
           {activeSection === 'violations' && isUSCompany && (
-            <div className="space-y-6">
-              <Card title={t('admin.violations', 'Violations')}>
-                {/* Tab Navigation */}
-                <div className="border-b border-gray-200 mb-6">
-                  <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                      type="button"
-                      onClick={() => setActiveViolationsTab('list')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeViolationsTab === 'list'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.violationsList', 'Violations List')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveViolationsTab('finders')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeViolationsTab === 'finders'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.configureFinders', 'Configure Finders')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveViolationsTab('payment')}
-                      className={`
-                        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                        ${activeViolationsTab === 'payment'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {t('admin.payment', 'Payment')}
-                    </button>
-                  </nav>
-                </div>
-
-                {/* Tab Content */}
-                {activeViolationsTab === 'list' && (
-                  <div className="py-6">
-                    {/* Date Filters and Search */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-                        <input
-                          type="date"
-                          className="input-field border border-gray-300"
-                          value={violationsDateFrom}
-                          onChange={(e) => setViolationsDateFrom(e.target.value)}
-                        />
-                        <input
-                          type="date"
-                          className="input-field border border-gray-300"
-                          value={violationsDateTo}
-                          onChange={(e) => setViolationsDateTo(e.target.value)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        className="btn-primary px-6"
-                        onClick={() => setViolationsSearchTrigger(prev => prev + 1)}
-                        disabled={isLoadingViolations}
-                      >
-                        {isLoadingViolations ? (
-                          <>
-                            <span className="animate-spin inline-block mr-2">⟳</span>
-                            {t('common.loading', 'Loading...')}
-                          </>
-                        ) : (
-                          <>
-                            <Search className="h-4 w-4 inline-block mr-2" />
-                            {t('common.search', 'Search')}
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-primary px-6 bg-blue-600 hover:bg-blue-700"
-                        onClick={async () => {
-                          if (!currentCompanyId) {
-                            toast.error(t('admin.companyIdRequired', 'Company ID is required'));
-                            return;
-                          }
-                          
-                          // Get states from finders list
-                          const findersList = findersListData?.findersList || findersListData?.FindersList || [];
-                          const states = Array.isArray(findersList) && findersList.length > 0 
-                            ? findersList 
-                            : Array.from(selectedStates);
-                          
-                          if (!states || states.length === 0) {
-                            toast.warning(t('admin.noStatesSelected', 'Please configure states in Configure Finders tab first'));
-                            return;
-                          }
-                          
-                          // Use selected dates or default to last 30 days
-                          const dateFrom = violationsDateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                          const dateTo = violationsDateTo || new Date().toISOString().split('T')[0];
-                          
-                          findViolationsMutation.mutate({
-                            companyId: currentCompanyId,
-                            states,
-                            dateFrom,
-                            dateTo,
-                          });
-                        }}
-                        disabled={findViolationsMutation.isLoading || !currentCompanyId || (violationsFindingProgress && violationsFindingProgress.status !== 'completed' && violationsFindingProgress.status !== 'error')}
-                      >
-                        {findViolationsMutation.isLoading ? (
-                          <>
-                            <span className="animate-spin inline-block mr-2">⟳</span>
-                            {t('common.loading', 'Loading...')}
-                          </>
-                        ) : (
-                          <>
-                            <Search className="h-4 w-4 inline-block mr-2" />
-                            {t('admin.findViolations', 'Find Violations')}
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Progress Bar for Finding Violations */}
-                    {violationsFindingProgress && (
-                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-blue-900">
-                            {violationsFindingProgress.status === 'completed' 
-                              ? t('admin.violationsFindingCompleted', 'Finding violations completed')
-                              : violationsFindingProgress.status === 'error'
-                              ? t('admin.violationsFindingError', 'Finding violations failed')
-                              : violationsFindingProgress.status === 'uncertain'
-                              ? t('admin.violationsFindingUncertain', 'Finding violations in progress (status unknown)')
-                              : violationsFindingProgress.status === 'pending'
-                              ? t('admin.violationsFindingInProgress', 'Finding violations in progress...')
-                              : t('admin.violationsFindingInProgress', 'Finding violations in progress...')}
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-blue-700">
-                              {violationsFindingProgress.status === 'uncertain' 
-                                ? '...' 
-                                : `${Math.round(violationsFindingProgress.progress)}%`}
-                            </span>
-                            {violationsFindingProgress && violationsFindingProgress.status !== 'completed' && violationsFindingProgress.status !== 'error' && currentCompanyId && (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!currentCompanyId) {
-                                    toast.error(t('admin.companyIdRequired', 'Company ID is required'));
-                                    return;
-                                  }
-                                  try {
-                                    const response = await apiService.getViolationsProgress(currentCompanyId);
-                                    const progressData = response?.data;
-                                    const progress = progressData?.progress ?? progressData?.Progress ?? progressData?.ProgressPercentage ?? 0;
-                                    const status = progressData?.status ?? progressData?.Status ?? progressData?.state ?? 'processing';
-                                    const isComplete = status?.toLowerCase() === 'completed' || status?.toLowerCase() === 'complete' || progress >= 100;
-                                    const isError = status?.toLowerCase() === 'error' || status?.toLowerCase() === 'failed' || status?.toLowerCase() === 'failure';
-                                    
-                                    setViolationsFindingProgress(prev => ({
-                                      ...prev,
-                                      progress: Math.min(100, Math.max(0, progress)),
-                                      status: isComplete ? 'completed' : isError ? 'error' : 'processing',
-                                    }));
-                                    
-                                    if (isComplete) {
-                                      // toast.success(t('admin.violationsFound', 'Violations found successfully'));
-                                      setViolationsSearchTrigger(prev => prev + 1);
-                                    }
-                                  } catch (error) {
-                                    console.error('Error checking progress:', error);
-                                    toast.error(t('admin.progressCheckError', 'Failed to check progress. Please try again.'));
-                                  }
-                                }}
-                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1"
-                                title={t('admin.checkProgress', 'Check Progress')}
-                              >
-                                <RefreshCw className="h-3 w-3" />
-                                {t('admin.checkProgress', 'Check')}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w-full bg-blue-200 rounded-full h-2.5">
-                          <div
-                            className={`h-2.5 rounded-full transition-all duration-300 ${
-                              violationsFindingProgress.status === 'completed'
-                                ? 'bg-green-500'
-                                : violationsFindingProgress.status === 'error'
-                                ? 'bg-red-500'
-                                : violationsFindingProgress.status === 'uncertain'
-                                ? 'bg-yellow-500'
-                                : 'bg-blue-600'
-                            }`}
-                            style={{ 
-                              width: violationsFindingProgress.status === 'uncertain' 
-                                ? '100%' 
-                                : violationsFindingProgress.status === 'pending'
-                                ? '0%'
-                                : `${Math.min(100, Math.max(0, violationsFindingProgress.progress))}%` 
-                            }}
-                          ></div>
-                        </div>
-                        {violationsFindingProgress.status === 'processing' && (
-                          <p className="text-xs text-blue-600 mt-2">
-                            {t('admin.violationsFindingPleaseWait', 'Please wait while we search for violations in the background...')}
-                          </p>
-                        )}
-                        {violationsFindingProgress.status === 'uncertain' && (
-                          <p className="text-xs text-yellow-600 mt-2">
-                            {t('admin.violationsFindingUncertainMessage', 'Progress check unavailable. The search may still be running in the background.')}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Violations Table */}
-                    {isLoadingViolations ? (
-                      <div className="text-center py-12">
-                        <LoadingSpinner />
-                        <p className="mt-4 text-gray-600">{t('common.loading', 'Loading...')}</p>
-                      </div>
-                    ) : violationsError ? (
-                      <div className="text-center py-12">
-                        <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                        <p className="text-red-600">{t('admin.violationsLoadError', 'Failed to load violations')}</p>
-                      </div>
-                    ) : violationsData.length === 0 ? (
-                      <div className="text-center py-12">
-                        <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500">{t('admin.noViolations', 'No violations found for the selected period')}</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            {violationsTable.getHeaderGroups().map(headerGroup => (
-                              <tr key={headerGroup.id}>
-                                {headerGroup.headers.map(header => (
-                                  <th
-                                    key={header.id}
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                  >
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext()
-                                        )}
-                                  </th>
-                                ))}
-                              </tr>
-                            ))}
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {violationsTable.getRowModel().rows.map(row => (
-                              <tr key={row.id} className="hover:bg-gray-50">
-                                {row.getVisibleCells().map(cell => (
-                                  <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-
-                        {/* Pagination */}
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-700">
-                              {t('common.showing', 'Showing')} {violationsTable.getState().pagination.pageIndex * violationsPageSize + 1} - {Math.min((violationsTable.getState().pagination.pageIndex + 1) * violationsPageSize, violationsTotalCount)} {t('common.of', 'of')} {violationsTotalCount}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => violationsTable.previousPage()}
-                              disabled={!violationsTable.getCanPreviousPage()}
-                              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('common.previous', 'Previous')}
-                            </button>
-                            <span className="text-sm text-gray-700">
-                              {t('common.page', 'Page')} {violationsTable.getState().pagination.pageIndex + 1} {t('common.of', 'of')} {violationsTable.getPageCount()}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => violationsTable.nextPage()}
-                              disabled={!violationsTable.getCanNextPage()}
-                              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('common.next', 'Next')}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeViolationsTab === 'finders' && (() => {
-                  const companyCountry = companyConfig?.country || '';
-                  const states = getStatesForCountry(companyCountry);
-                  const allSelected = states.length > 0 && selectedStates.size === states.length;
-                  const someSelected = selectedStates.size > 0 && selectedStates.size < states.length;
-                  
-                  // Debug log when finders tab is rendered
-                  console.log('[Finders Tab] Rendering with:', {
-                    selectedStates: Array.from(selectedStates),
-                    selectedStatesSize: selectedStates.size,
-                    statesCount: states.length,
-                    findersListData,
-                    companyCountry
-                  });
-
-                  const handleStateToggle = (stateCode) => {
-                    setSelectedStates(prev => {
-                      const newSet = new Set(prev);
-                      if (newSet.has(stateCode)) {
-                        newSet.delete(stateCode);
-                      } else {
-                        newSet.add(stateCode);
-                      }
-                      
-                      // Auto-save after state change (async, don't block UI)
-                      if (currentCompanyId) {
-                        const stateCodesArray = Array.from(newSet);
-                        // Use setTimeout to ensure state is updated first
-                        setTimeout(() => {
-                          saveFindersListMutation.mutate(stateCodesArray);
-                        }, 0);
-                      }
-                      
-                      return newSet;
-                    });
-                  };
-
-                  const handleSelectAll = () => {
-                    const newSet = allSelected 
-                      ? new Set() 
-                      : new Set(states.map(s => s.code));
-                    
-                    setSelectedStates(newSet);
-                    
-                    // Auto-save after select all/deselect all
-                    if (currentCompanyId) {
-                      const stateCodesArray = Array.from(newSet);
-                      // Use setTimeout to ensure state is updated first
-                      setTimeout(() => {
-                        saveFindersListMutation.mutate(stateCodesArray);
-                      }, 0);
-                    }
-                  };
-
-                  return (
-                    <div className="py-6">
-                      <div className="mb-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {t('admin.configureFinders', 'Configure Finders')}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          {t('admin.selectStatesForFinders', 'Select the states where violation finders should be active for {{country}}.', { country: companyCountry || 'your country' })}
-                        </p>
-                        
-                        {isLoadingFindersList ? (
-                          <div className="flex items-center justify-center py-12">
-                            <LoadingSpinner size="md" text={t('common.loading', 'Loading...')} />
-                          </div>
-                        ) : states.length === 0 ? (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <p className="text-yellow-800">
-                              {companyCountry 
-                                ? t('admin.noStatesForCountry', 'No states/provinces are defined for {{country}}. Please configure states in the system.', { country: companyCountry })
-                                : t('admin.noCountryConfigured', 'No country is configured for this company. Please set a country in company settings.')}
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center justify-between mb-4">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={handleSelectAll}
-                                  className="text-sm font-medium text-blue-600 hover:text-blue-700 focus:outline-none focus:underline"
-                                >
-                                  {allSelected 
-                                    ? t('admin.deselectAll', 'Deselect All')
-                                    : t('admin.selectAll', 'Select All')}
-                                </button>
-                                {someSelected && (
-                                  <span className="text-sm text-gray-500">
-                                    ({selectedStates.size} {t('admin.selected', 'selected')})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {selectedStates.size} / {states.length} {t('admin.selected', 'selected')}
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                              {states.map((state) => {
-                                const isChecked = selectedStates.has(state.code);
-                                return (
-                                  <label
-                                    key={state.code}
-                                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                                      isChecked
-                                        ? 'bg-blue-50 border-blue-300 text-blue-900'
-                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => handleStateToggle(state.code)}
-                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                                    />
-                                    <span className="text-sm font-medium flex-1">
-                                      {state.name}
-                                    </span>
-                                    <span className="text-xs text-gray-500">
-                                      ({state.code})
-                                    </span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-
-                            <div className="mt-6 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {saveFindersListMutation.isLoading && (
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <LoadingSpinner size="sm" />
-                                    <span>{t('admin.saving', 'Saving...')}</span>
-                                  </div>
-                                )}
-                                {saveFindersListMutation.isSuccess && !saveFindersListMutation.isLoading && (
-                                  <span className="text-sm text-green-600">
-                                    {t('admin.saved', 'Saved')}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex gap-3">
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setSelectedStates(new Set());
-                                    if (currentCompanyId) {
-                                      saveFindersListMutation.mutate([]);
-                                    }
-                                  }}
-                                  disabled={saveFindersListMutation.isLoading || isLoadingFindersList}
-                                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {t('admin.clear', 'Clear')}
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {activeViolationsTab === 'payment' && (
-                  <div className="py-6">
-                    <div className="text-center py-12">
-                      <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">{t('admin.paymentComingSoon', 'Payment configuration coming soon...')}</p>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            </div>
+            <ViolationsSection
+              t={t}
+              activeViolationsTab={activeViolationsTab}
+              setActiveViolationsTab={setActiveViolationsTab}
+              violationsDateFrom={violationsDateFrom}
+              setViolationsDateFrom={setViolationsDateFrom}
+              violationsDateTo={violationsDateTo}
+              setViolationsDateTo={setViolationsDateTo}
+              setViolationsSearchTrigger={setViolationsSearchTrigger}
+              isLoadingViolations={isLoadingViolations}
+              violationsError={violationsError}
+              violationsData={violationsData}
+              violationsTable={violationsTable}
+              violationsPageSize={violationsPageSize}
+              violationsTotalCount={violationsTotalCount}
+              findViolationsMutation={findViolationsMutation}
+              violationsFindingProgress={violationsFindingProgress}
+              setViolationsFindingProgress={setViolationsFindingProgress}
+              currentCompanyId={currentCompanyId}
+              findersListData={findersListData}
+              selectedStates={selectedStates}
+              apiService={apiService}
+              companyConfig={companyConfig}
+              isLoadingFindersList={isLoadingFindersList}
+              setSelectedStates={setSelectedStates}
+              saveFindersListMutation={saveFindersListMutation}
+            />
           )}
 
           {/* Vehicles Section */}
+          {/* Vehicles Section */}
           {activeSection === 'vehicles' && (
-            <div className="space-y-8">
-              <Card title={t('vehicles.title')} headerActions={
-                <span className="text-sm font-normal text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                  {vehicleCount} / {availableCount}
-                </span>
-              }>
-                {isLoadingModels ? (
-                  <div className="text-center py-12">
-                    <LoadingSpinner />
-                    <p className="mt-4 text-gray-600">{t('home.loadingModels')}</p>
-                  </div>
-                ) : !modelsGrouped || modelsGrouped.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {modelsGrouped.map((categoryGroup) => {
-                      const categoryId = categoryGroup.categoryId || categoryGroup.category_id;
-                      const categoryName = categoryGroup.categoryName || categoryGroup.category_name || 'Uncategorized';
-                      const isCategoryExpanded = expandedCategories[categoryId];
-                      
-                      // Group models by make first, then by modelName
-                      // Normalize make and model names: uppercase and trim spaces for grouping
-                      const makeGroups = {};
-                      (categoryGroup.models || categoryGroup.Models || []).forEach(model => {
-                        const make = (model.make || model.Make || '').toString().toUpperCase().trim();
-                        const modelName = (model.modelName || model.model_name || model.ModelName || '').toString().toUpperCase().trim();
-                        
-                        // Group by make
-                        if (!makeGroups[make]) {
-                          makeGroups[make] = {
-                            make,
-                            models: {} // Will contain model groups
-                          };
-                        }
-                        
-                        // Group by model within make
-                        if (!makeGroups[make].models[modelName]) {
-                          makeGroups[make].models[modelName] = {
-                            modelName,
-                            models: [] // Store full model objects
-                          };
-                        }
-                        
-                        makeGroups[make].models[modelName].models.push(model);
-                      });
-                      
-                      // Sort years descending in each model group
-                      Object.values(makeGroups).forEach(makeGroup => {
-                        Object.values(makeGroup.models).forEach(modelGroup => {
-                          modelGroup.models.sort((a, b) => (b.year || 0) - (a.year || 0));
-                        });
-                      });
-                      
-                      // Calculate rates for category display
-                      const allModelsInCategory = (categoryGroup.models || []);
-                      const categoryRates = allModelsInCategory
-                        .map(m => m.dailyRate)
-                        .filter(r => r != null && r !== undefined && r !== '');
-                      const isCategoryUniform = categoryRates.length > 0 && 
-                        categoryRates.every(r => r === categoryRates[0]);
-                      const categoryDisplayRate = isCategoryUniform ? categoryRates[0] : 'different';
-                      
-                      return (
-                        <div key={categoryId} className="border border-gray-200 rounded-lg">
-                          {/* Category Header */}
-                          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                            <button
-                              onClick={() => setExpandedCategories(prev => ({
-                                ...prev,
-                                [categoryId]: !prev[categoryId]
-                              }))}
-                              className="flex items-center flex-1"
-                            >
-                              <div className="flex items-center">
-                                {isCategoryExpanded ? (
-                                  <ChevronDown className="h-5 w-5 text-gray-600 mr-2" />
-                                ) : (
-                                  <ChevronRight className="h-5 w-5 text-gray-600 mr-2" />
-                                )}
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                  {translateCategory(t, categoryName)}
-                                </h3>
-                      </div>
-                              <span className="text-sm text-gray-600 ml-2">
-                                {Object.keys(makeGroups).length} {Object.keys(makeGroups).length === 1 ? 'make' : 'makes'}
-                      </span>
-                            </button>
-                            <div className="flex items-center gap-2 ml-4">
-                              <span className="text-sm font-medium text-gray-700 min-w-[80px] text-right">
-                                {categoryDisplayRate !== 'different' ? formatRate(categoryDisplayRate) : categoryDisplayRate}
-                              </span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                placeholder="Daily Rate"
-                                value={dailyRateInputs[`category_${categoryId}`] || ''}
-                                onChange={(e) => setDailyRateInputs(prev => ({
-                                  ...prev,
-                                  [`category_${categoryId}`]: e.target.value
-                                }))}
-                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                                disabled={isUpdatingRate}
-                              />
-                              <button
-                                onClick={async () => {
-                                  const rate = dailyRateInputs[`category_${categoryId}`];
-                                  if (!rate) {
-                                    toast.error('Please enter a daily rate');
-                                    return;
-                                  }
-                                  if (!categoryId) {
-                                    toast.error('Invalid category');
-                                    console.error('categoryId is null/undefined');
-                                    return;
-                                  }
-                                  setIsUpdatingRate(true);
-                                  try {
-                                    await apiService.bulkUpdateModelDailyRate({
-                                      dailyRate: parseFloat(rate),
-                                      categoryId: categoryId,
-                                      companyId: currentCompanyId
-                                    });
-                                    queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                    setDailyRateInputs(prev => ({ ...prev, [`category_${categoryId}`]: '' }));
-                                  } catch (error) {
-                                    console.error('Error updating models:', error);
-                                    const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
-                                    toast.error(errorMessage);
-                                  } finally {
-                                    setIsUpdatingRate(false);
-                                  }
-                                }}
-                                disabled={isUpdatingRate || !categoryId}
-                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-400"
-                              >
-                                Update
-                              </button>
-                    </div>
-                </div>
-                          
-                          {/* Category Content */}
-                          {isCategoryExpanded && (
-                            <div className="p-4 space-y-2">
-                              {Object.entries(makeGroups).map(([make, makeGroup]) => {
-                                const makeExpandedKey = `${categoryId}_${make}`;
-                                const isMakeExpanded = expandedMakes[makeExpandedKey];
-                                
-                                // Calculate rates for all models in this make
-                                const allMakeModels = Object.values(makeGroup.models).flatMap(mg => mg.models);
-                                const makeRates = allMakeModels.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
-                                const isMakeUniform = makeRates.length > 0 && makeRates.every(r => r === makeRates[0]);
-                                const makeDisplayRate = isMakeUniform ? makeRates[0] : 'different';
-                                
-                                // Count total models
-                                const totalModels = Object.keys(makeGroup.models).length;
-                                
-                                return (
-                                  <div key={make} className="border border-gray-200 rounded-lg">
-                                    {/* Make Header */}
-                                    <div className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                      <button
-                                        onClick={() => setExpandedMakes(prev => ({
-                                          ...prev,
-                                          [makeExpandedKey]: !prev[makeExpandedKey]
-                                        }))}
-                                        className="flex items-center flex-1"
-                                      >
-                                        <div className="flex items-center">
-                                          {isMakeExpanded ? (
-                                            <ChevronDown className="h-4 w-4 text-gray-600 mr-2" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4 text-gray-600 mr-2" />
-                                          )}
-                                          <span className="font-medium text-gray-800">
-                                            {make}
-                                          </span>
-                                        </div>
-                                        <span className="text-sm text-gray-600 ml-2">
-                                          {totalModels} {totalModels === 1 ? 'model' : 'models'}
-                                        </span>
-                                      </button>
-                                      <div className="flex items-center gap-2 ml-4">
-                                        <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
-                                          {makeDisplayRate !== 'different' ? formatRate(makeDisplayRate) : makeDisplayRate}
-                                        </span>
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="Daily Rate"
-                                          value={dailyRateInputs[`make_${makeExpandedKey}`] || ''}
-                                          onChange={(e) => setDailyRateInputs(prev => ({
-                                            ...prev,
-                                            [`make_${makeExpandedKey}`]: e.target.value
-                                          }))}
-                                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                          disabled={isUpdatingRate}
-                                        />
-                                        <button
-                                          onClick={async () => {
-                                            const rate = dailyRateInputs[`make_${makeExpandedKey}`];
-                                            if (!rate) {
-                                              toast.error('Please enter a daily rate');
-                                              return;
-                                            }
-                                            setIsUpdatingRate(true);
-                                            try {
-                                              await apiService.bulkUpdateModelDailyRate({
-                                                dailyRate: parseFloat(rate),
-                                                categoryId: categoryId,
-                                                make: makeGroup.make,
-                                                companyId: currentCompanyId
-                                              });
-                                              queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                              setDailyRateInputs(prev => ({ ...prev, [`make_${makeExpandedKey}`]: '' }));
-                                            } catch (error) {
-                                              console.error('Error updating models:', error);
-                                              const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
-                                              toast.error(errorMessage);
-                                            } finally {
-                                              setIsUpdatingRate(false);
-                                            }
-                                          }}
-                                          disabled={isUpdatingRate}
-                                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
-                                        >
-                                          Update
-                                        </button>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Make Content - Show all models */}
-                                    {isMakeExpanded && (
-                                      <div className="p-4 space-y-2">
-                                        {Object.entries(makeGroup.models).map(([modelName, modelGroup]) => {
-                                          const modelExpandedKey = `${makeExpandedKey}_${modelName}`;
-                                          
-                                          // Calculate rates for this model
-                                          const modelRates = modelGroup.models.map(m => m.dailyRate).filter(r => r != null && r !== undefined && r !== '');
-                                          const isModelUniform = modelRates.length > 0 && modelRates.every(r => r === modelRates[0]);
-                                          const modelDisplayRate = isModelUniform ? modelRates[0] : 'different';
-                                          
-                                          return (
-                                            <div key={modelName} className="border border-gray-200 rounded-lg">
-                                              {/* Model Header */}
-                                              <div className="flex items-center justify-between px-4 py-2 bg-gray-50">
-                                                <span className="font-medium text-gray-800">{modelGroup.modelName}</span>
-                                                <div className="flex items-center gap-2">
-                                                  <span className="text-sm font-medium text-gray-700 min-w-[60px] text-right">
-                                                    {modelDisplayRate !== 'different' ? formatRate(modelDisplayRate) : modelDisplayRate}
-                                                  </span>
-                                                  <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="Daily Rate"
-                                                    value={dailyRateInputs[`model_${modelExpandedKey}`] || ''}
-                                                    onChange={(e) => setDailyRateInputs(prev => ({
-                                                      ...prev,
-                                                      [`model_${modelExpandedKey}`]: e.target.value
-                                                    }))}
-                                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                                                    disabled={isUpdatingRate}
-                                                  />
-                                                  <button
-                                                    onClick={async () => {
-                                                      const rate = dailyRateInputs[`model_${modelExpandedKey}`];
-                                                      if (!rate) {
-                                                        toast.error('Please enter a daily rate');
-                                                        return;
-                                                      }
-                                                      setIsUpdatingRate(true);
-                                                      try {
-                                                        await apiService.bulkUpdateModelDailyRate({
-                                                          dailyRate: parseFloat(rate),
-                                                          categoryId: categoryId,
-                                                          make: makeGroup.make,
-                                                          modelName: modelGroup.modelName,
-                                                          companyId: currentCompanyId
-                                                        });
-                                                        queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                                        setDailyRateInputs(prev => ({ ...prev, [`model_${modelExpandedKey}`]: '' }));
-                                                      } catch (error) {
-                                                        console.error('Error updating models:', error);
-                                                        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
-                                                        toast.error(errorMessage);
-                                                      } finally {
-                                                        setIsUpdatingRate(false);
-                                                      }
-                                                    }}
-                                                    disabled={isUpdatingRate}
-                                                    className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
-                                                  >
-                                                    Update
-                                                  </button>
-                                                </div>
-                                              </div>
-                                              
-                                              {/* Years */}
-                                              <div className="p-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                  {modelGroup.models.map(model => {
-                                                    const year = model.year || 0;
-                                                    const yearRate = model.dailyRate;
-                                                    const vehicleCount = model.vehicleCount || 0;
-                                                    return (
-                                                      <div key={model.id || year} className="flex items-center gap-1">
-                                                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                                                          {year} ({vehicleCount})
-                                                        </span>
-                                                        <span className="text-xs font-medium text-gray-600 min-w-[45px]">
-                                                          {yearRate != null && yearRate !== '' ? formatRate(yearRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-                                                        </span>
-                                                        <input
-                                                          type="number"
-                                                          step="0.01"
-                                                          placeholder="Rate"
-                                                          value={dailyRateInputs[`year_${year}_${modelExpandedKey}`] || ''}
-                                                          onChange={(e) => setDailyRateInputs(prev => ({
-                                                            ...prev,
-                                                            [`year_${year}_${modelExpandedKey}`]: e.target.value
-                                                          }))}
-                                                          className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs"
-                                                          disabled={isUpdatingRate}
-                                                        />
-                                                        <button
-                                                          onClick={async () => {
-                                                            const rate = dailyRateInputs[`year_${year}_${modelExpandedKey}`];
-                                                            if (!rate) {
-                                                              toast.error('Please enter a daily rate');
-                                                              return;
-                                                            }
-                                                            setIsUpdatingRate(true);
-                                                            try {
-                                                              await apiService.bulkUpdateModelDailyRate({
-                                                                dailyRate: parseFloat(rate),
-                                                                categoryId: categoryId,
-                                                                make: makeGroup.make,
-                                                                modelName: modelGroup.modelName,
-                                                                year: year,
-                                                                companyId: currentCompanyId
-                                                              });
-                                                              queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
-                                                              setDailyRateInputs(prev => ({ ...prev, [`year_${year}_${modelExpandedKey}`]: '' }));
-                                                            } catch (error) {
-                                                              console.error('Error updating models:', error);
-                                                              const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
-                                                              toast.error(errorMessage);
-                                                            } finally {
-                                                              setIsUpdatingRate(false);
-                                                            }
-                                                          }}
-                                                          disabled={isUpdatingRate}
-                                                          className="px-1 py-0.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:bg-gray-400"
-                                                        >
-                                                          ✓
-                                                        </button>
-                                                      </div>
-                                                    );
-                                                  })}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-          </div>
+            <VehiclesSection
+              t={t}
+              vehicleCount={vehicleCount}
+              availableCount={availableCount}
+              isLoadingModels={isLoadingModels}
+              modelsGrouped={modelsGrouped}
+              expandedCategories={expandedCategories}
+              setExpandedCategories={setExpandedCategories}
+              expandedMakes={expandedMakes}
+              setExpandedMakes={setExpandedMakes}
+              dailyRateInputs={dailyRateInputs}
+              setDailyRateInputs={setDailyRateInputs}
+              isUpdatingRate={isUpdatingRate}
+              setIsUpdatingRate={setIsUpdatingRate}
+              formatRate={formatRate}
+              apiService={apiService}
+              queryClient={queryClient}
+              currentCompanyId={currentCompanyId}
+            />
           )}
 
           {/* Reservations Section */}
+          {/* Reservations Section */}
           {activeSection === 'reservations' && (
-            <Card title={t('admin.bookings', 'Bookings')}>
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <input
-                      type="date"
-                      className="input-field border border-gray-300"
-                      value={bookingDateFrom}
-                      onChange={(e) => setBookingDateFrom(e.target.value)}
-                    />
-                    <input
-                      type="date"
-                      className="input-field border border-gray-300"
-                      value={bookingDateTo}
-                      onChange={(e) => setBookingDateTo(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <select
-                      value={bookingStatusFilter}
-                      onChange={(e) => setBookingStatusFilter(e.target.value)}
-                      className="input-field border border-gray-300"
-                    >
-                      <option value="">{t('admin.allStatuses', 'All statuses')}</option>
-                      <option value="Pending">{t('booking.statusPending', 'Pending')}</option>
-                      <option value="Confirmed">{t('booking.statusConfirmed', 'Confirmed')}</option>
-                      <option value="Active">{t('booking.statusActive', 'Active')}</option>
-                      <option value="Completed">{t('booking.statusCompleted', 'Completed')}</option>
-                      <option value="Cancelled">{t('booking.statusCancelled', 'Cancelled')}</option>
-                    </select>
-                    <input
-                      type="text"
-                      className="input-field border border-gray-300"
-                      placeholder={t('admin.employeeSearch', 'Employee name or email')}
-                      value={bookingCustomerFilter}
-                      onChange={(e) => setBookingCustomerFilter(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm text-gray-600">
-                    {t('admin.bookingCount', { count: totalBookings })}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn-outline"
-                      onClick={() => {
-                        setBookingStatusFilter('');
-                        setBookingCustomerFilter('');
-                        const today = new Date();
-                        setBookingDateFrom(today.toISOString().split('T')[0]);
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        setBookingDateTo(tomorrow.toISOString().split('T')[0]);
-                      }}
-                    >
-                      {t('admin.resetFilters', 'Reset Filters')}
-                    </button>
-                    {/* Temporarily hidden */}
-                    {false && (
-                      <button
-                        type="button"
-                        className="btn-primary relative"
-                        onClick={handleSyncPaymentsFromStripe}
-                        disabled={syncingPayments || !filteredBookings || filteredBookings.length === 0}
-                      >
-                        {syncingPayments ? (
-                          <>
-                            <span className="animate-spin inline-block mr-2">⟳</span>
-                            {t('admin.syncingPayments', 'Syncing...')}
-                            {syncProgress.total > 0 && (
-                              <span className="ml-2 text-xs opacity-75">
-                                ({syncProgress.current}/{syncProgress.total})
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <span className="mr-2">🔄</span>
-                            {t('admin.syncPayments', 'Sync Payments from Stripe')}
-                          </>
-                        )}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => {
-                        setShowReservationWizard(true);
-                        setWizardStep(1);
-                        setWizardCustomerEmail('');
-                        setWizardCustomer(null);
-                        setWizardSelectedCategory(null);
-                        setWizardSelectedMake(null);
-                        setWizardSelectedModel(null);
-                        setWizardPickupDate(() => {
-                          const today = new Date();
-                          return today.toISOString().split('T')[0];
-                        });
-                        setWizardReturnDate(() => {
-                          const tomorrow = new Date();
-                          tomorrow.setDate(tomorrow.getDate() + 1);
-                          return tomorrow.toISOString().split('T')[0];
-                        });
-                        setWizardSelectedCategory(null);
-                        setWizardSelectedMake(null);
-                        setWizardSelectedModel(null);
-                      }}
-                    >
-                      {t('admin.createReservation', 'Create Reservation')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {isLoadingBookings ? (
-                <div className="py-8 text-center text-gray-500">
-                  {t('common.loading')}
-                </div>
-              ) : bookingsError ? (
-                <div className="py-8 text-center text-red-500">
-                  {t('admin.bookingsLoadError', 'Unable to load bookings.')}
-                </div>
-              ) : !filteredBookings.length ? (
-                <div className="py-8 text-center text-gray-500">
-                  {t('admin.noBookingsFound', 'No bookings found for the selected filters.')}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.bookingNumber', 'Booking #')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.customer', 'Customer')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.vehicle', 'Vehicle')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.pickupDate', 'Pickup Date')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.returnDate', 'Return Date')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.totalAmount', 'Total')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.securityDeposit', 'Security Deposit')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.contract', 'Contract')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.status', 'Status')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredBookings.map((booking) => (
-                        <tr key={booking.id}>
-                          <td className="px-4 py-3 text-sm">
-                            <button
-                              onClick={() => handleOpenBookingDetails(booking)}
-                              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                            >
-                              {booking.bookingNumber}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {booking.customerName}
-                            <div className="text-xs text-gray-500">{booking.customerEmail}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{booking.vehicleName}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDate(booking.pickupDate)}
-                            <div className="text-xs text-gray-500">{booking.pickupLocation}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatDate(booking.returnDate)}
-                            <div className="text-xs text-gray-500">{booking.returnLocation}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatPrice(booking.totalAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatPrice(booking.securityDeposit)}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <button
-                              onClick={() => handleViewContract(booking)}
-                              className="btn-outline text-xs"
-                              title={t('admin.viewContract', 'View Contract')}
-                            >
-                              {t('admin.view', 'View')}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingStatusColor(
-                                booking.status || ''
-                              )}`}
-                            >
-                              {formatBookingStatus(booking.status)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
-                    <div className="text-sm text-gray-600">
-                      {totalBookings > 0
-                        ? `Showing ${(bookingPage - 1) * bookingPageSize + 1}-${Math.min(bookingPage * bookingPageSize, totalBookings)} of ${totalBookings}`
-                        : t('admin.showingRangeEmpty', 'No bookings to display.')}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
-                      <select
-                        value={bookingPageSize}
-                        onChange={(e) => {
-                          setBookingPageSize(Number(e.target.value) || 10);
-                          setBookingPage(1);
-                        }}
-                        className="input-field w-24"
-                      >
-                        {[10, 25, 50].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setBookingPage(1)}
-                        disabled={bookingPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBookingPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={bookingPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        {bookingPage} / {totalBookingPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setBookingPage((prev) => Math.min(prev + 1, totalBookingPages))}
-                        disabled={bookingPage >= totalBookingPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronRightIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBookingPage(totalBookingPages)}
-                        disabled={bookingPage >= totalBookingPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
+            <ReservationsSection
+              t={t}
+              filteredBookings={filteredBookings}
+              totalBookings={totalBookings}
+              isLoadingBookings={isLoadingBookings}
+              bookingsError={bookingsError}
+              bookingDateFrom={bookingDateFrom}
+              setBookingDateFrom={setBookingDateFrom}
+              bookingDateTo={bookingDateTo}
+              setBookingDateTo={setBookingDateTo}
+              bookingStatusFilter={bookingStatusFilter}
+              setBookingStatusFilter={setBookingStatusFilter}
+              bookingCustomerFilter={bookingCustomerFilter}
+              setBookingCustomerFilter={setBookingCustomerFilter}
+              bookingPage={bookingPage}
+              setBookingPage={setBookingPage}
+              bookingPageSize={bookingPageSize}
+              setBookingPageSize={setBookingPageSize}
+              totalBookingPages={totalBookingPages}
+              setShowReservationWizard={setShowReservationWizard}
+              setWizardStep={setWizardStep}
+              setWizardCustomerEmail={setWizardCustomerEmail}
+              setWizardCustomer={setWizardCustomer}
+              setWizardSelectedCategory={setWizardSelectedCategory}
+              setWizardSelectedMake={setWizardSelectedMake}
+              setWizardSelectedModel={setWizardSelectedModel}
+              setWizardPickupDate={setWizardPickupDate}
+              setWizardReturnDate={setWizardReturnDate}
+              handleOpenBookingDetails={handleOpenBookingDetails}
+              handleViewContract={handleViewContract}
+              formatDate={formatDate}
+              formatPrice={formatPrice}
+              getBookingStatusColor={getBookingStatusColor}
+              formatBookingStatus={formatBookingStatus}
+            />
           )}
 
           {/* Employees Section */}
           {activeSection === 'employees' && (
-            <Card title={t('admin.employees', 'Employees')}>
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <input
-                    type="text"
-                    className="input-field border border-gray-300"
-                    placeholder={t('admin.employeeSearch', 'Search by name or email')}
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      setCustomerPage(1);
-                    }}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn-primary flex items-center gap-2"
-                      onClick={() => setShowAddEmployeeModal(true)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t('admin.addEmployee', 'Add Employee')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
-                      onClick={() => {
-                        setCustomerSearch('');
-                        setCustomerPage(1);
-                      }}
-                      disabled={!customerSearch}
-                    >
-                      {t('admin.resetFilters', 'Reset Filters')}
-                    </button>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {`${totalCustomers} ${totalCustomers === 1 ? 'employee' : 'employees'}`}
-                </div>
-              </div>
-
-              {isLoadingCustomers ? (
-                <div className="py-8 text-center text-gray-500">
-                  <LoadingSpinner />
-                </div>
-              ) : customersError ? (
-                <div className="py-8 text-center text-red-500">
-                  {t('admin.employeesLoadError', 'Unable to load employees.')}
-                </div>
-              ) : !customers.length ? (
-                <div className="py-8 text-center text-gray-500">
-                  {t('admin.noEmployeesFound', 'No employees found.')}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.name', 'Name')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.email', 'Email')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.phone', 'Phone')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.location', 'Location')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.verified', 'Verified')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.role', 'Role')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.createdAt', 'Created')}
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {t('admin.actions', 'Actions')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {customers.map((customer) => {
-                        const role = customer.role || customer.Role || 'customer';
-                        return (
-                          <tr key={customer.customerId || customer.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {customer.firstName || customer.FirstName} {customer.lastName || customer.LastName}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {customer.email || customer.Email}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {customer.phone || customer.Phone || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {customer.city || customer.City || '-'}
-                              {(customer.state || customer.State) && `, ${customer.state || customer.State}`}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  customer.isVerified || customer.IsVerified
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {customer.isVerified || customer.IsVerified
-                                  ? t('admin.verified', 'Verified')
-                                  : t('admin.notVerified', 'Not Verified')}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  role === 'admin' || role === 'mainadmin'
-                                    ? 'bg-purple-100 text-purple-800'
-                                    : role === 'worker'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {role.charAt(0).toUpperCase() + role.slice(1)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {customer.createdAt || customer.CreatedAt
-                                ? new Date(customer.createdAt || customer.CreatedAt).toLocaleDateString()
-                                : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditEmployee(customer)}
-                                  className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
-                                  title={t('admin.editEmployee', 'Edit Employee')}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteEmployee(customer)}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
-                                  title={t('admin.deleteEmployee', 'Remove Employee')}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
-                    <div className="text-sm text-gray-600">
-                      {totalCustomers > 0
-                        ? `Showing ${(customerPage - 1) * customerPageSize + 1}-${Math.min(customerPage * customerPageSize, totalCustomers)} of ${totalCustomers}`
-                        : t('admin.showingRangeEmpty', 'No employees to display.')}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">{t('admin.pageSize', 'Page Size')}</span>
-                      <select
-                        value={customerPageSize}
-                        onChange={(e) => {
-                          setCustomerPageSize(Number(e.target.value) || 20);
-                          setCustomerPage(1);
-                        }}
-                        className="input-field w-24"
-                      >
-                        {[10, 20, 50, 100].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCustomerPage(1)}
-                        disabled={customerPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={customerPage <= 1}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        {customerPage} / {totalCustomerPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerPage((prev) => Math.min(prev + 1, totalCustomerPages))}
-                        disabled={customerPage >= totalCustomerPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronRightIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerPage(totalCustomerPages)}
-                        disabled={customerPage >= totalCustomerPages}
-                        className="btn-outline px-2 py-1 disabled:opacity-50"
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
+            <EmployeesSection
+              t={t}
+              customers={customers}
+              totalCustomers={totalCustomers}
+              isLoadingCustomers={isLoadingCustomers}
+              customersError={customersError}
+              customerSearch={customerSearch}
+              setCustomerSearch={setCustomerSearch}
+              customerPage={customerPage}
+              setCustomerPage={setCustomerPage}
+              customerPageSize={customerPageSize}
+              setCustomerPageSize={setCustomerPageSize}
+              totalCustomerPages={totalCustomerPages}
+              setShowAddEmployeeModal={setShowAddEmployeeModal}
+              handleEditEmployee={handleEditEmployee}
+              handleDeleteEmployee={handleDeleteEmployee}
+            />
           )}
 
           {/* Additional Services Section */}
           {activeSection === 'additionalServices' && (
-            <Card 
-              title={t('admin.additionalServices')}
-              headerActions={
-                !isEditingService && (
-                  <button
-                    onClick={handleAddService}
-                    className="btn-primary text-sm"
-                  >
-                    + {t('admin.addService')}
-                  </button>
-                )
-              }
-            >
-              <div className="space-y-6">
-                {isEditingService ? (
-                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      {editingServiceId ? t('admin.editService') : t('admin.addService')}
-                    </h3>
-                    <form onSubmit={handleSaveService} className="space-y-4">
-                      {editingCompanyServiceId ? (
-                        // Editing company service - show base info as read-only, only edit company-specific fields
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceName')}
-                            </label>
-                            <input
-                              type="text"
-                              value={serviceFormData.name}
-                              className="input-field bg-gray-100"
-                              readOnly
-                              disabled
-                            />
-                          </div>
-
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceDescription')}
-                            </label>
-                            <textarea
-                              value={serviceFormData.description}
-                              className="input-field bg-gray-100"
-                              rows="3"
-                              readOnly
-                              disabled
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceType')}
-                            </label>
-                            <input
-                              type="text"
-                              value={serviceFormData.serviceType}
-                              className="input-field bg-gray-100"
-                              readOnly
-                              disabled
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.maxQuantity')}
-                            </label>
-                            <input
-                              type="number"
-                              value={serviceFormData.maxQuantity}
-                              className="input-field bg-gray-100"
-                              readOnly
-                              disabled
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.servicePrice')} ({t('admin.companyPrice')} · {currencySymbol}{currencyCode})
-                            </label>
-                            <input
-                              type="number"
-                              name="price"
-                              value={serviceFormData.price}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              step="0.01"
-                              min="0"
-                              placeholder={editingServiceBaseInfo ? `Base: ${formatRate(editingServiceBaseInfo.price || editingServiceBaseInfo.Price || 0, { currency: 'USD' })}` : ''}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              {t('admin.companyPriceHint')} ({currencySymbol}{currencyCode})
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        // Creating new additional service - show all fields
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceName')} *
-                            </label>
-                            <input
-                              type="text"
-                              name="name"
-                              value={serviceFormData.name}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              required
-                            />
-                          </div>
-
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceDescription')}
-                            </label>
-                            <textarea
-                              name="description"
-                              value={serviceFormData.description}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              rows="3"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.servicePrice')} * (USD)
-                            </label>
-                            <input
-                              type="number"
-                              name="price"
-                              value={serviceFormData.price}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              step="0.01"
-                              min="0"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.serviceType')} *
-                            </label>
-                            <select
-                              name="serviceType"
-                              value={serviceFormData.serviceType}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              required
-                            >
-                              <option value="Insurance">{t('admin.serviceTypeInsurance')}</option>
-                              <option value="GPS">{t('admin.serviceTypeGPS')}</option>
-                              <option value="ChildSeat">{t('admin.serviceTypeChildSeat')}</option>
-                              <option value="AdditionalDriver">{t('admin.serviceTypeAdditionalDriver')}</option>
-                              <option value="FuelPrepay">{t('admin.serviceTypeFuelPrepay')}</option>
-                              <option value="Cleaning">{t('admin.serviceTypeCleaning')}</option>
-                              <option value="Delivery">{t('admin.serviceTypeDelivery')}</option>
-                              <option value="Other">{t('admin.serviceTypeOther')}</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {t('admin.maxQuantity')} *
-                            </label>
-                            <input
-                              type="number"
-                              name="maxQuantity"
-                              value={serviceFormData.maxQuantity}
-                              onChange={handleServiceInputChange}
-                              className="input-field"
-                              min="1"
-                              required
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="md:col-span-2 flex items-center space-x-6">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            name="isMandatory"
-                            checked={serviceFormData.isMandatory}
-                            onChange={handleServiceInputChange}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {editingServiceId && !editingCompanyServiceId ? `${t('admin.default')} ` : ''}{t('admin.isMandatory')} {editingCompanyServiceId ? `(${t('admin.forCompany')})` : ''}
-                          </span>
-                        </label>
-
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            name="isActive"
-                            checked={serviceFormData.isActive}
-                            onChange={handleServiceInputChange}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">
-                            {t('admin.isActive')} {editingCompanyServiceId ? `(${t('admin.forCompany')})` : ''}
-                          </span>
-                        </label>
-                      </div>
-
-                      <div className="md:col-span-2 flex justify-end space-x-3 pt-4">
-                        <button
-                          type="button"
-                          onClick={handleCancelServiceEdit}
-                          className="btn-outline"
-                        >
-                          {t('common.cancel')}
-                        </button>
-                        <button
-                          type="submit"
-                          className="btn-primary"
-                          disabled={createServiceMutation.isLoading || updateCompanyServiceMutation.isLoading || updateAdditionalServiceMutation.isLoading}
-                        >
-                          {(createServiceMutation.isLoading || updateCompanyServiceMutation.isLoading || updateAdditionalServiceMutation.isLoading)
-                            ? t('common.saving') 
-                            : t('common.save')}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                ) : (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('admin.additionalServices')}</h3>
-                    {(isLoadingAllServices || isLoadingCompanyServices) ? (
-                      <div className="text-center py-8">
-                        <LoadingSpinner />
-                      </div>
-                    ) : allAdditionalServices.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-gray-600">{t('admin.noServices')}</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                                {t('admin.inCompany')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.serviceName')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.serviceType')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.servicePrice')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.maxQuantity')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.isMandatory')}
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('admin.isActive')}
-                              </th>
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {t('common.actions')}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {allAdditionalServices.map((service) => {
-                              const serviceId = getServiceIdentifier(service);
-                              const baseAssigned = assignedServiceIds.has(serviceId);
-                              const hasOverride = Object.prototype.hasOwnProperty.call(
-                                assignmentOverrides,
-                                serviceId
-                              );
-                              const isAssigned = hasOverride
-                                ? assignmentOverrides[serviceId]
-                                : baseAssigned;
-                              const companyServiceRaw = companyServicesMap.get(serviceId);
-                              const companyService = isAssigned ? companyServiceRaw : null;
-                              const basePrice =
-                                service.price !== undefined && service.price !== null
-                                  ? service.price
-                                  : service.Price ?? 0;
-                              const companyPrice =
-                                companyService &&
-                                (companyService.price ?? companyService.Price ?? basePrice);
-                              const displayPrice = isAssigned ? companyPrice ?? basePrice : basePrice;
-                              const formattedPrice = isAssigned
-                                ? formatRate(displayPrice)
-                                : formatRate(displayPrice, { currency: 'USD' });
-                              const displayMaxQuantity = isAssigned
-                                ? companyService?.maxQuantity ??
-                                  companyService?.MaxQuantity ??
-                                  service.maxQuantity ??
-                                  service.MaxQuantity ??
-                                  1
-                                : service.maxQuantity || service.MaxQuantity || 1;
-                              const isMandatory = isAssigned
-                                ? companyService?.isMandatory ??
-                                  companyService?.IsMandatory ??
-                                  false
-                                : service.isMandatory ?? service.IsMandatory ?? false;
-                              const isActive = isAssigned
-                                ? companyService?.isActive ??
-                                  companyService?.IsActive ??
-                                  true
-                                : service.isActive ?? service.IsActive ?? true;
-                              return (
-                              <tr key={serviceId} className={`hover:bg-gray-50 ${isAssigned ? 'bg-green-50' : ''}`}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <label className="flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={isAssigned}
-                                      onChange={() => handleToggleServiceAssignment(service)}
-                                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                      title={isAssigned ? t('admin.removeFromCompany') : t('admin.addToCompany')}
-                                    />
-                                  </label>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {service.name || service.Name}
-                                    </div>
-                                    {service.description || service.Description ? (
-                                      <div className="text-sm text-gray-500 truncate max-w-xs">
-                                        {service.description || service.Description}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="text-sm text-gray-900">
-                                    {service.serviceType || service.ServiceType}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {formattedPrice}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="text-sm text-gray-900">
-                                    {displayMaxQuantity}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <label className="flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!isMandatory}
-                                      onChange={() => handleToggleServiceField(service, 'isMandatory')}
-                                      className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
-                                      title={t('admin.isMandatory')}
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">
-                                      {isMandatory ? t('common.yes') : t('common.no')}
-                                    </span>
-                                  </label>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <label className="flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!isActive}
-                                      onChange={() => handleToggleServiceField(service, 'isActive')}
-                                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
-                                      title={t('admin.isActive')}
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">
-                                      {isActive ? t('status.active') : t('status.inactive')}
-                                    </span>
-                                  </label>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <button
-                                    onClick={() => handleEditService(service)}
-                                    className="text-blue-600 hover:text-blue-900 mr-4"
-                                  >
-                                    {t('common.edit')}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteService(service.id || service.Id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    {t('common.delete')}
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </Card>
+            <AdditionalServicesSection
+              t={t}
+              isEditingService={isEditingService}
+              editingServiceId={editingServiceId}
+              editingCompanyServiceId={editingCompanyServiceId}
+              editingServiceBaseInfo={editingServiceBaseInfo}
+              serviceFormData={serviceFormData}
+              allAdditionalServices={allAdditionalServices}
+              assignedServiceIds={assignedServiceIds}
+              assignmentOverrides={assignmentOverrides}
+              companyServicesMap={companyServicesMap}
+              isLoadingServices={isLoadingAllServices || isLoadingCompanyServices}
+              handleAddService={handleAddService}
+              handleSaveService={handleSaveService}
+              handleServiceInputChange={handleServiceInputChange}
+              handleCancelServiceEdit={handleCancelServiceEdit}
+              handleToggleServiceAssignment={handleToggleServiceAssignment}
+              handleToggleServiceField={handleToggleServiceField}
+              handleEditService={handleEditService}
+              handleDeleteService={handleDeleteService}
+              getServiceIdentifier={getServiceIdentifier}
+              formatRate={formatRate}
+              currencySymbol={currencySymbol}
+              currencyCode={currencyCode}
+            />
           )}
 
           {/* Vehicle Management Section */}
           {activeSection === 'vehicleManagement' && (
-            <Card title={t('admin.vehicles')} headerActions={
-              <div className="flex gap-2">
-                {/* Import and Add buttons - Admin and MainAdmin */}
-                {(isAdmin || isMainAdmin) && (
-                  <>
-                    <label className={`btn-secondary text-sm ${isImportingVehicles ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`} style={{ margin: 0 }}>
-                      {isImportingVehicles ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2 inline-block"></div>
-                          {t('vehicles.importing') || 'Importing...'}
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2 inline" />
-                          {t('admin.importVehicles', 'Import Vehicles')}
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        onChange={handleVehicleImport}
-                        disabled={isImportingVehicles}
-                        className="hidden"
-                      />
-                    </label>
-                    <button
-                      onClick={() => {
-                        setIsCreatingVehicle(true);
-                        setVehicleCreateForm({
-                          make: '',
-                          model: '',
-                          year: '',
-                          licensePlate: '',
-                          color: '',
-                          vin: '',
-                          mileage: 0,
-                          transmission: '',
-                          seats: '',
-                          dailyRate: '',
-                          status: 'Available',
-                          state: '',
-                          location: '',
-                          features: null
-                        });
-                      }}
-                      className="btn-primary text-sm"
-                    >
-                      <Plus className="h-4 w-4 mr-2 inline" />
-                      {t('admin.addVehicle')}
-                    </button>
-                  </>
-                )}
-                {/* Manage Locations - All roles */}
-                <button
-                  onClick={() => navigate(`/vehicle-locations?companyId=${currentCompanyId}`)}
-                  className="btn-outline text-sm flex items-center gap-2"
-                >
-                  <MapPin className="h-4 w-4" />
-                  {t('admin.manageLocations', 'Manage Locations')}
-                </button>
-              </div>
-            }>
-              {/* Filters: Make, Model, Year, License Plate, and Location (if > 1) - Always visible */}
-              <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    {/* Make Filter */}
-                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('vehicles.make') || 'Make'}
-                      </label>
-                      <select
-                        value={vehicleMakeFilter}
-                        onChange={(e) => {
-                          setVehicleMakeFilter(e.target.value);
-                          setVehiclePage(0);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">{t('vehicles.allMakes') || 'All Makes'}</option>
-                        {uniqueMakes.map((make) => (
-                          <option key={make} value={make}>
-                            {make}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Model Filter */}
-                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('vehicles.model') || 'Model'}
-                      </label>
-                      <select
-                        value={vehicleModelFilter}
-                        onChange={(e) => {
-                          setVehicleModelFilter(e.target.value);
-                          setVehiclePage(0);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        disabled={vehicleMakeFilter && filteredModels.length === 0}
-                      >
-                        <option value="">
-                          {vehicleMakeFilter 
-                            ? (filteredModels.length === 0 
-                                ? t('vehicles.noModelsForMake', `No models for ${vehicleMakeFilter}`)
-                                : t('vehicles.allModels', 'All Models'))
-                            : t('vehicles.allModels', 'All Models')
-                          }
-                        </option>
-                        {filteredModels.map((model) => (
-                          <option key={model} value={model}>
-                            {model}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Year Filter - Editable Input Field */}
-                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('vehicles.year') || 'Year'}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t('vehicles.yearPlaceholder') || 'Year (e.g. 2025)'}
-                        value={vehicleYearFilter}
-                        onChange={(e) => {
-                          // Allow only numbers
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          setVehicleYearFilter(value);
-                          setVehiclePage(0);
-                        }}
-                        onBlur={(e) => {
-                          // Validate year range (reasonable years)
-                          const year = parseInt(e.target.value);
-                          if (e.target.value && (year < 1900 || year > 2100)) {
-                            // Reset if invalid
-                            setVehicleYearFilter('');
-                            toast.error(t('vehicles.invalidYear') || 'Please enter a valid year (1900-2100)');
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* License Plate Filter - Text Input Field */}
-                    <div className={pickupLocations.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {t('vehicles.licensePlate') || 'License Plate'}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t('vehicles.licensePlate') || 'License Plate'}
-                        value={vehicleLicensePlateFilter}
-                        onChange={(e) => {
-                          setVehicleLicensePlateFilter(e.target.value);
-                          setVehiclePage(0);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Location Filter - Only show if company has more than 1 location */}
-                    {pickupLocations.length > 1 && (
-                      <div className="md:col-span-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {t('admin.location') || 'Location'}
-                        </label>
-                        <select
-                          value={vehicleLocationFilter}
-                          onChange={(e) => {
-                            console.log('[AdminDashboard] Location filter changed to:', e.target.value);
-                            setVehicleLocationFilter(e.target.value);
-                            setVehiclePage(0);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="">{t('admin.allLocations') || 'All Locations'}</option>
-                          {pickupLocations.map((location) => {
-                            const locationId = location.LocationId || location.locationId || location.id || location.Id;
-                            const locationName = location.LocationName || location.locationName || location.location_name || '';
-                            return (
-                              <option key={locationId} value={locationId}>
-                                {locationName}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Clear Filters Button */}
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => {
-                        setVehicleMakeFilter('');
-                        setVehicleModelFilter('');
-                        setVehicleYearFilter('');
-                        setVehicleLicensePlateFilter('');
-                        setVehicleLocationFilter('');
-                        setVehicleSearchTerm('');
-                        setVehiclePage(0);
-                      }}
-                      disabled={!vehicleMakeFilter && !vehicleModelFilter && !vehicleYearFilter && !vehicleLicensePlateFilter && !vehicleLocationFilter && !vehicleSearchTerm}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    >
-                      {t('clearFilters') || 'Clear Filters'}
-                    </button>
-                  </div>
-
-                  {/* Search Field */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder={t('search') || 'Search vehicles...'}
-                      value={vehicleSearchTerm}
-                      onChange={(e) => {
-                        setVehicleSearchTerm(e.target.value);
-                        setVehiclePage(0); // Reset to first page when searching
-                      }}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {vehicleSearchTerm && (
-                      <button
-                        onClick={() => {
-                          setVehicleSearchTerm('');
-                          setVehiclePage(0);
-                        }}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-              </div>
-
-              {isLoadingVehiclesList ? (
-                <div className="text-center py-12">
-                  <LoadingSpinner />
-                  <p className="mt-4 text-gray-600">{t('loading')}</p>
-                </div>
-              ) : vehiclesList.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">{t('vehicles.noVehicles')}</p>
-              ) : filteredVehiclesList.length === 0 && (vehicleSearchTerm || vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter || vehicleLicensePlateFilter) ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 mb-4">{t('noResults') || 'No vehicles found matching your filters'}</p>
-                  <button
-                    onClick={() => {
-                      setVehicleMakeFilter('');
-                      setVehicleModelFilter('');
-                      setVehicleYearFilter('');
-                      setVehicleLicensePlateFilter('');
-                      setVehicleSearchTerm('');
-                      setVehiclePage(0);
-                    }}
-                    className="btn-secondary"
-                  >
-                    {t('clearSearch') || 'Clear Filters'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Show filtered count */}
-                  {(vehicleSearchTerm || vehicleMakeFilter || vehicleModelFilter || vehicleYearFilter || vehicleLicensePlateFilter) && (
-                    <p className="text-sm text-gray-600">
-                      {t('admin.showing')} {filteredVehiclesList.length} {t('admin.of')} {vehiclesList.length} {t('vehicles')}
-                    </p>
-                  )}
-                  
-                  {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        {vehicleTable.getHeaderGroups().map(headerGroup => (
-                          <tr key={headerGroup.id}>
-                            {headerGroup.headers.map(header => (
-                              <th
-                                key={header.id}
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(
-                                      header.column.columnDef.header,
-                                      header.getContext()
-                                    )}
-                              </th>
-                            ))}
-                          </tr>
-                        ))}
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {vehicleTable.getRowModel().rows.map(row => (
-                          <tr key={row.id} className="hover:bg-gray-50">
-                            {row.getVisibleCells().map(cell => (
-                              <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
-                    <div className="flex flex-1 justify-between sm:hidden">
-                      <button
-                        onClick={() => vehicleTable.previousPage()}
-                        disabled={!vehicleTable.getCanPreviousPage()}
-                        className="btn-secondary"
-                      >
-                        {t('previous')}
-                      </button>
-                      <button
-                        onClick={() => vehicleTable.nextPage()}
-                        disabled={!vehicleTable.getCanNextPage()}
-                        className="btn-secondary ml-3"
-                      >
-                        {t('next')}
-                      </button>
-                    </div>
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm text-gray-700">
-                          {vehicleSearchTerm ? (
-                            <>
-                              {t('admin.showing')} <span className="font-medium">{Math.min(vehiclePage * vehiclePageSize + 1, filteredVehiclesList.length)}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, filteredVehiclesList.length)}</span> {t('admin.of')} <span className="font-medium">{filteredVehiclesList.length}</span> {t('results')}
-                            </>
-                          ) : (
-                            <>
-                              {t('admin.showing')} <span className="font-medium">{vehiclePage * vehiclePageSize + 1}</span> {t('admin.to')} <span className="font-medium">{Math.min((vehiclePage + 1) * vehiclePageSize, vehiclesTotalCount)}</span> {t('admin.of')} <span className="font-medium">{vehiclesTotalCount}</span> {t('results')}
-                            </>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                          <button
-                            onClick={() => vehicleTable.setPageIndex(0)}
-                            disabled={!vehicleTable.getCanPreviousPage()}
-                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <ChevronsLeft className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => vehicleTable.previousPage()}
-                            disabled={!vehicleTable.getCanPreviousPage()}
-                            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => vehicleTable.nextPage()}
-                            disabled={!vehicleTable.getCanNextPage()}
-                            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <ChevronRightIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => vehicleTable.setPageIndex(vehicleTable.getPageCount() - 1)}
-                            disabled={!vehicleTable.getCanNextPage()}
-                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <ChevronsRight className="h-5 w-5" />
-                          </button>
-                        </nav>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
+            <VehicleManagementSection
+              t={t}
+              isAdmin={isAdmin}
+              isMainAdmin={isMainAdmin}
+              isImportingVehicles={isImportingVehicles}
+              handleVehicleImport={handleVehicleImport}
+              setIsCreatingVehicle={setIsCreatingVehicle}
+              setVehicleCreateForm={setVehicleCreateForm}
+              navigate={navigate}
+              currentCompanyId={currentCompanyId}
+              pickupLocations={pickupLocations}
+              vehicleMakeFilter={vehicleMakeFilter}
+              setVehicleMakeFilter={setVehicleMakeFilter}
+              vehicleModelFilter={vehicleModelFilter}
+              setVehicleModelFilter={setVehicleModelFilter}
+              vehicleYearFilter={vehicleYearFilter}
+              setVehicleYearFilter={setVehicleYearFilter}
+              vehicleLicensePlateFilter={vehicleLicensePlateFilter}
+              setVehicleLicensePlateFilter={setVehicleLicensePlateFilter}
+              vehicleLocationFilter={vehicleLocationFilter}
+              setVehicleLocationFilter={setVehicleLocationFilter}
+              vehicleSearchTerm={vehicleSearchTerm}
+              setVehicleSearchTerm={setVehicleSearchTerm}
+              uniqueMakes={uniqueMakes}
+              filteredModels={filteredModels}
+              vehiclePage={vehiclePage}
+              setVehiclePage={setVehiclePage}
+              vehiclePageSize={vehiclePageSize}
+              vehiclesTotalCount={vehiclesTotalCount}
+              isLoadingVehiclesList={isLoadingVehiclesList}
+              vehiclesList={vehiclesList}
+              filteredVehiclesList={filteredVehiclesList}
+              vehicleTable={vehicleTable}
+            />
           )}
 
           {activeSection === 'reports' && (
-            <Card title={t('admin.viewReports')}>
-              <p className="text-gray-500 text-center py-4">{t('admin.reportsComingSoon')}</p>
-            </Card>
+            <ReportsSection t={t} />
+          )}
+
+          {/* Meta Integration Section */}
+          {activeSection === 'meta' && (
+            <MetaSection
+              t={t}
+              currentCompanyId={currentCompanyId}
+              metaConnectionStatus={metaConnectionStatus}
+              isLoadingMetaStatus={isLoadingMetaStatus}
+              metaStatusError={metaStatusError}
+              connectMetaMutation={connectMetaMutation}
+              disconnectMetaMutation={disconnectMetaMutation}
+              selectMetaPageMutation={selectMetaPageMutation}
+              refreshInstagramMutation={refreshInstagramMutation}
+              availablePages={metaAvailablePages}
+              apiService={apiService}
+              queryClient={queryClient}
+            />
           )}
         </div>
       </div>
