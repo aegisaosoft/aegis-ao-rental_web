@@ -1,23 +1,22 @@
 /*
  * Image path utilities for model images
- * Uses /models/ path which is served by:
- * - React dev server (from client/public/models/) in development
- * - Express static file serving (from server/public/models/) in production
+ * Uses Azure Blob Storage for model images
  */
 
+// Azure Blob Storage base URL for model images
+const AZURE_MODELS_BASE_URL = 'https://aegisaorentalstorage.blob.core.windows.net/models';
+
 /**
- * Get the path to a model image
+ * Get the URL to a model image from Azure Blob Storage
  * @param {string} make - Vehicle make (e.g., "Toyota")
  * @param {string} model - Vehicle model (e.g., "Camry")
- * @returns {string} Path to the model image
+ * @returns {string} URL to the model image
  */
 export const getModelImagePath = (make, model) => {
   const makeUpper = (make || '').toUpperCase();
   const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
   
-  // Use /models/ path - served by React dev server in development (from client/public/models/)
-  // and by Express static file serving in production (from server/public/models/)
-  return `/models/${makeUpper}_${modelUpper}.png`;
+  return `${AZURE_MODELS_BASE_URL}/${makeUpper}_${modelUpper}.png`;
 };
 
 /**
@@ -33,5 +32,3 @@ export const getDefaultCategoryImage = (category) => {
   if (cat.includes('compact')) return '/compact.jpg';
   return '/economy.jpg'; // default fallback
 };
-
-

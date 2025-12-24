@@ -65,7 +65,7 @@ const MobileBooking = () => {
   const title = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim();
   const makeUpper = (vehicle.make || '').toUpperCase();
   const modelUpper = (vehicle.model || '').toUpperCase().replace(/\s+/g, '_');
-  const img = `/models/${makeUpper}_${modelUpper}.png`;
+  const img = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">

@@ -389,11 +389,11 @@ const VehicleList = () => {
               const vehicleId = vehicle.vehicle_id || vehicle.VehicleId || vehicle.vehicleId || vehicle.id;
               const categoryName = vehicle.category_name || vehicle.CategoryName || vehicle.categoryName || '';
               
-              // Construct model image path: /models/MAKE_MODEL.png
+              // Construct model image path from Azure Blob Storage
               const makeUpper = (make || '').toUpperCase();
               const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-              // Use /models/ path - served statically by Express in both dev and production
-              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
+              // Use Azure Blob Storage URL
+              const modelImagePath = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
               
               // Determine default image based on category (fallback)
               const getDefaultImage = (category) => {

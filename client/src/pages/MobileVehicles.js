@@ -54,7 +54,7 @@ const MobileVehicles = () => {
             const title = `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim();
             const makeUpper = (v.make || '').toUpperCase();
             const modelUpper = (v.model || '').toUpperCase().replace(/\s+/g, '_');
-            const img = `/models/${makeUpper}_${modelUpper}.png`;
+            const img = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
             return (
               <button key={id} onClick={() => select(id)} className="w-full bg-white rounded-md shadow p-3 flex items-center">
                 <img src={img} alt={title} className="w-20 h-14 object-cover rounded mr-3"

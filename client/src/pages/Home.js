@@ -1033,11 +1033,11 @@ const Home = () => {
                                   : `${Math.min(...group.years)}-${Math.max(...group.years)}`
                                 : '';
                               
-                              // Construct model image path: use direct /models/ path (served by Create React App from public/)
+                              // Construct model image path from Azure Blob Storage
                               const makeUpper = (group.make || '').toUpperCase();
                               const modelUpper = (group.modelName || '').toUpperCase().replace(/\s+/g, '_');
-                              // Use /models/ path - served statically by Express in both dev and production
-                              const modelImagePath = `/models/${makeUpper}_${modelUpper}.png`;
+                              // Use Azure Blob Storage URL
+                              const modelImagePath = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
                               
                               const bookingParams = new URLSearchParams();
                               if (categoryId) bookingParams.set('category', categoryId);

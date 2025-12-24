@@ -876,9 +876,9 @@ const BookPage = () => {
 
     const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
 
-    // Use /models/ path - served statically by Express in both dev and production
+    // Use Azure Blob Storage URL
 
-    const url = `/models/${makeUpper}_${modelUpper}.png`;
+    const url = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
 
     if (!makeUpper || !modelUpper) {
 
