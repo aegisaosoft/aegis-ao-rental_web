@@ -183,7 +183,6 @@ const useBookingModals = () => {
     setDamageAmount,
     pendingCompletedStatus,
     setPendingCompletedStatus,
-    setPendingCompletedStatus,
     openDamageConfirmationModal,
     closeDamageConfirmationModal,
     

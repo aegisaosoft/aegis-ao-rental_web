@@ -14,15 +14,15 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from 'react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
-import { X, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import { PageContainer, PageHeader, Card, EmptyState, LoadingSpinner } from '../components/common';
+import { PageContainer, PageHeader, EmptyState, LoadingSpinner } from '../components/common';
 import {
   ReportsSection,
   ViolationsSection,
@@ -37,18 +37,8 @@ import {
 } from './dashboard';
 import { AdminSidebar } from './dashboard/components';
 
-const getServiceIdentifier = (service) =>
-  service?.additionalServiceId ||
-  service?.AdditionalServiceId ||
-  service?.additional_service_id ||
-  service?.id ||
-  service?.Id ||
-  service?.serviceId ||
-  service?.ServiceId ||
-  null;
-
 const AdminDashboard = () => {
-  const { t: i18nT, i18n } = useTranslation();
+  const { t: i18nT } = useTranslation();
   const translate = useCallback(
     (key, fallback) => {
       if (!key) return String(fallback ?? '');
@@ -92,10 +82,9 @@ const AdminDashboard = () => {
   );
 
   const t = translate;
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated, isAdmin, isMainAdmin, canAccessDashboard, restoreUser } = useAuth();
-  const { companyConfig, formatPrice, currencySymbol, currencyCode, isSubdomainAccess } = useCompany();
+  const { companyConfig, isSubdomainAccess } = useCompany();
   const queryClient = useQueryClient();
   
   // Check if company is in USA - violations are only available for USA companies
@@ -256,7 +245,7 @@ const AdminDashboard = () => {
   }, [companyConfig?.id, queryClient, getCompanyId, isSubdomainAccess]);
 
   // Fetch current user's company data
-  const { data: companyData, isLoading: isLoadingCompany, error: companyError } = useQuery(
+  const { isLoading: isLoadingCompany } = useQuery(
     ['company', currentCompanyId],
     () => apiService.getCompany(currentCompanyId),
     {
@@ -272,7 +261,7 @@ const AdminDashboard = () => {
   );
 
   // Fetch Stripe account status - using same pattern as admin app
-  const { data: stripeStatusData, isLoading: isLoadingStripeStatus, refetch: refetchStripeStatus } = useQuery(
+  useQuery(
     ['stripeStatus', currentCompanyId],
     async () => {
       try {
@@ -348,12 +337,6 @@ const AdminDashboard = () => {
       // Allow all authenticated users to see status, but backend will enforce admin privileges for actions
     }
   );
-
-  // Extract Stripe status - data is already unwrapped from the query function
-  const stripeStatus = stripeStatusData || {};
-
-  // Extract actual company data from response
-  const actualCompanyData = companyData?.data || companyData;
 
   if (!isAuthenticated) {
     return (

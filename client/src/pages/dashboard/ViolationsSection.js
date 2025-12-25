@@ -303,6 +303,7 @@ const ViolationsSection = ({
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCompanyId, isUSCompany, violationsFindingProgress?.status, t, queryClient]);
 
   // ============== DATA PROCESSING ==============

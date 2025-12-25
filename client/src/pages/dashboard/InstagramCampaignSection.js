@@ -5,29 +5,27 @@
  * Instagram Campaign Management Component
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Calendar,
   Clock,
   Send,
   Image,
-  Hash,
   TrendingUp,
-  Settings,
   Plus,
   Trash2,
   Edit2,
-  Eye,
   RefreshCw,
   CheckCircle2,
-  AlertTriangle,
   ExternalLink,
   Copy,
   Layers,
   Zap
 } from 'lucide-react';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common';
+import { translatedApiService as apiService } from '../../services/translatedApi';
+import { useMetaIntegration } from './hooks';
 
 // Instagram Icon Component
 const InstagramIcon = ({ className }) => (
@@ -39,9 +37,7 @@ const InstagramIcon = ({ className }) => (
 const InstagramCampaignSection = ({
   t,
   currentCompanyId,
-  apiService,
-  vehicles = [],
-  metaConnectionStatus
+  isAuthenticated,
 }) => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -51,8 +47,34 @@ const InstagramCampaignSection = ({
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
 
+  // Get Meta connection status
+  const { metaConnectionStatus } = useMetaIntegration({
+    currentCompanyId,
+    isAuthenticated,
+    enabled: true,
+  });
+
   // Check if Instagram is connected
   const isConnected = metaConnectionStatus?.instagramAccountId;
+
+  // Fetch vehicles for this company
+  const { data: vehiclesData } = useQuery(
+    ['vehicles', currentCompanyId],
+    () => apiService.getVehicles({ companyId: currentCompanyId, pageSize: 1000 }),
+    {
+      enabled: isAuthenticated && !!currentCompanyId && isConnected,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  // Extract vehicles list
+  const vehicles = useMemo(() => {
+    let data = vehiclesData;
+    if (data?.data) data = data.data;
+    if (data?.result) data = data.result;
+    const list = data?.Vehicles || data?.vehicles || (Array.isArray(data) ? data : []);
+    return Array.isArray(list) ? list : [];
+  }, [vehiclesData]);
 
   // Fetch dashboard data
   const { data: dashboard, isLoading: isDashboardLoading } = useQuery(
@@ -776,7 +798,7 @@ const PublishModal = ({
   const [caption, setCaption] = useState('');
   const [includePrice, setIncludePrice] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [previewCaption, setPreviewCaption] = useState(null);
+  const [, setPreviewCaption] = useState(null);
 
   const availableVehicles = vehicles.filter(v => v.imageUrl && v.status !== 3);
 

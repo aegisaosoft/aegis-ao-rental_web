@@ -41,7 +41,7 @@ const AdditionalServicesSection = ({
     maxQuantity: 1,
     isActive: true
   });
-  const [assignmentOverrides, setAssignmentOverrides] = useState({});
+  const [assignmentOverrides] = useState({});
 
   // ============== QUERIES ==============
 
@@ -78,9 +78,9 @@ const AdditionalServicesSection = ({
     return Array.isArray(raw) ? raw : [];
   }, [companyServicesResponse]);
 
-  const assignedServiceIds = new Set(
+  const assignedServiceIds = useMemo(() => new Set(
     companyServices.map((cs) => getServiceIdentifier(cs))
-  );
+  ), [companyServices]);
 
   const companyServicesMap = useMemo(() => {
     const map = new Map();

@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from 'react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import { X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
 import { PageContainer, LoadingSpinner } from '../components/common';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';

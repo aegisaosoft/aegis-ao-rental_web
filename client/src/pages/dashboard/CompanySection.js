@@ -81,10 +81,10 @@ const CompanySection = ({
   const [companyFormData, setCompanyFormData] = useState({});
   
   // Security deposit
-  const [isEditingDeposit, setIsEditingDeposit] = useState(false);
+  const [, setIsEditingDeposit] = useState(false);
   const [securityDepositDraft, setSecurityDepositDraft] = useState('');
   const [isSecurityDepositMandatoryDraft, setIsSecurityDepositMandatoryDraft] = useState(true);
-  const [isSavingDeposit, setIsSavingDeposit] = useState(false);
+  const [, setIsSavingDeposit] = useState(false);
   
   // Terms of use
   const [termsOfUseDraft, setTermsOfUseDraft] = useState('');
@@ -135,7 +135,7 @@ const CompanySection = ({
   }, [companyData]);
 
   // Fetch Stripe status
-  const { data: stripeStatusData, isLoading: isLoadingStripeStatus, refetch: refetchStripeStatus } = useQuery(
+  const { data: stripeStatusData, isLoading: isLoadingStripeStatus } = useQuery(
     ['stripeStatus', currentCompanyId],
     async () => {
       try {
@@ -391,6 +391,8 @@ const CompanySection = ({
     }
   }, [actualCompanyData]);
 
+  // NOTE: These security deposit edit functions are defined for future use
+  // eslint-disable-next-line no-unused-vars
   const beginSecurityDepositEdit = useCallback(() => {
     if (isEditingCompany || !currentCompanyId) return;
     const currentDeposit = companyFormData.securityDeposit ?? actualCompanyData?.securityDeposit ?? 1000;
@@ -400,6 +402,7 @@ const CompanySection = ({
     setIsEditingDeposit(true);
   }, [isEditingCompany, currentCompanyId, companyFormData, actualCompanyData]);
 
+  // eslint-disable-next-line no-unused-vars
   const cancelSecurityDepositEdit = useCallback(() => {
     setIsEditingDeposit(false);
     setSecurityDepositDraft('');
@@ -407,6 +410,7 @@ const CompanySection = ({
     setIsSavingDeposit(false);
   }, []);
 
+  // eslint-disable-next-line no-unused-vars
   const handleSecurityDepositSave = useCallback(async () => {
     const numericValue = parseFloat(securityDepositDraft);
     if (Number.isNaN(numericValue) || numericValue < 0) {
@@ -584,6 +588,7 @@ const CompanySection = ({
     if (file) handleFileUpload(file, 'banner');
   }, [handleFileUpload]);
 
+  // eslint-disable-next-line no-unused-vars
   const handleVideoUpload = useCallback((e) => {
     const file = e.target.files?.[0];
     if (file) handleFileUpload(file, 'video');
@@ -615,6 +620,7 @@ const CompanySection = ({
     }
   }, [currentCompanyId, queryClient, t]);
 
+  // eslint-disable-next-line no-unused-vars
   const handleVideoDelete = useCallback(async () => {
     if (!window.confirm(t('admin.confirmDeleteVideo', 'Are you sure you want to delete the video?'))) return;
     try {

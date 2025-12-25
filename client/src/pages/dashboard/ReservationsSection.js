@@ -76,7 +76,6 @@ const ReservationsSection = ({
     setPendingCancelStatus,
     showSecurityDepositModal,
     setShowSecurityDepositModal,
-    pendingActiveStatus,
     setPendingActiveStatus,
     payingSecurityDeposit,
     setPayingSecurityDeposit,
@@ -181,7 +180,7 @@ const ReservationsSection = ({
     return { items, totalCount, page: bookingPage, pageSize: bookingPageSize };
   }, [companyBookingsResponse, bookingPage, bookingPageSize]);
 
-  const filteredBookings = bookingsData.items || [];
+  const filteredBookings = useMemo(() => bookingsData.items || [], [bookingsData.items]);
   const totalBookings = bookingsData.totalCount || 0;
   const totalBookingPages = Math.ceil(totalBookings / bookingPageSize) || 1;
 
