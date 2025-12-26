@@ -128,17 +128,21 @@ app.use(cors({
   credentials: true
 }));
 
+// Trust proxy for Azure (needed for secure cookies behind load balancer)
+app.set('trust proxy', 1);
+
 // Session configuration
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(session({
   secret: process.env.JWT_SECRET || 'development-secret-key-that-should-be-at-least-32-characters-long',
   resave: true, // Force save session even if not modified (helps with cookie setting)
   saveUninitialized: true, // Save uninitialized sessions (needed for login flow)
   name: 'connect.sid', // Explicit session cookie name
   cookie: {
-    secure: false, // Always false for local development (HTTP)
+    secure: isProduction, // true in production (HTTPS), false in development
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax', // Use 'lax' for local development to ensure cookies work
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site Stripe redirects in production
     path: '/', // Ensure cookie is available for all paths
     domain: undefined // Don't set domain - let browser handle it
   },

@@ -92,6 +92,8 @@ const CompanySection = ({
   
   // Stripe
   const [isCreatingStripeAccount, setIsCreatingStripeAccount] = useState(false);
+  const [selectedStripeEnvironment, setSelectedStripeEnvironment] = useState(null);
+  const [isSavingStripeEnvironment, setIsSavingStripeEnvironment] = useState(false);
   
   // Locations
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -158,6 +160,42 @@ const CompanySection = ({
   );
 
   const stripeStatus = stripeStatusData || {};
+
+  // Fetch Stripe environments (for environment selection dropdown)
+  const { data: stripeEnvironmentsData } = useQuery(
+    ['stripeSettings'],
+    async () => {
+      try {
+        const response = await apiService.getStripeSettings();
+        const settings = response?.data || [];
+        // Transform to simple format with isTestMode flag
+        return settings.map(s => ({
+          id: s.id,
+          name: s.name,
+          isTestMode: s.name?.toLowerCase().includes('test') || 
+                      s.name?.toLowerCase().includes('dev') || 
+                      s.name?.toLowerCase().includes('sandbox')
+        }));
+      } catch (error) {
+        console.error('[CompanySection] Error fetching Stripe settings:', error);
+        return [];
+      }
+    },
+    {
+      enabled: isAuthenticated && canAccessDashboard,
+      retry: false,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const stripeEnvironments = stripeEnvironmentsData || [];
+
+  // Sync selectedStripeEnvironment with company data
+  useEffect(() => {
+    if (actualCompanyData?.stripeSettingsId && stripeEnvironments.length > 0) {
+      setSelectedStripeEnvironment(actualCompanyData.stripeSettingsId);
+    }
+  }, [actualCompanyData?.stripeSettingsId, stripeEnvironments]);
 
   // Fetch company locations
   const { data: companyLocationsData, isLoading: isLoadingCompanyLocations } = useQuery(
@@ -458,8 +496,22 @@ const CompanySection = ({
 
   const handleCreateStripeAccount = useCallback(async () => {
     if (!currentCompanyId) return;
+    
+    // If there are multiple environments and none selected, show warning
+    if (stripeEnvironments.length > 1 && !selectedStripeEnvironment) {
+      toast.warning(t('admin.selectStripeEnvironment', 'Please select a Stripe environment first'));
+      return;
+    }
+    
     setIsCreatingStripeAccount(true);
     try {
+      // First save the stripe environment to company if it changed
+      const stripeSettingsId = selectedStripeEnvironment || (stripeEnvironments.length === 1 ? stripeEnvironments[0].id : null);
+      if (stripeSettingsId && stripeSettingsId !== actualCompanyData?.stripeSettingsId) {
+        await apiService.updateCompany(currentCompanyId, { stripeSettingsId });
+      }
+      
+      // Then setup Stripe account
       const response = await apiService.setupStripeAccount(currentCompanyId);
       const onboardingUrl = response?.data?.url || response?.data?.onboardingUrl || response?.url;
       if (onboardingUrl) {
@@ -473,7 +525,30 @@ const CompanySection = ({
       toast.error(error.response?.data?.message || t('admin.stripeAccountCreateFailed', 'Failed to create Stripe account'));
       setIsCreatingStripeAccount(false);
     }
-  }, [currentCompanyId, t]);
+  }, [currentCompanyId, selectedStripeEnvironment, stripeEnvironments, actualCompanyData?.stripeSettingsId, t]);
+
+  // Handler to change Stripe environment
+  const handleStripeEnvironmentChange = useCallback(async (newEnvId) => {
+    if (!currentCompanyId || !newEnvId) return;
+    
+    setSelectedStripeEnvironment(newEnvId);
+    
+    // If already connected to Stripe, save immediately
+    if (stripeStatus?.accountId) {
+      setIsSavingStripeEnvironment(true);
+      try {
+        await apiService.updateCompany(currentCompanyId, { stripeSettingsId: newEnvId });
+        queryClient.invalidateQueries(['company', currentCompanyId]);
+        queryClient.invalidateQueries(['stripeStatus', currentCompanyId]);
+        toast.success(t('admin.stripeEnvironmentChanged', 'Stripe environment updated'));
+      } catch (error) {
+        console.error('Error changing Stripe environment:', error);
+        toast.error(t('admin.stripeEnvironmentChangeFailed', 'Failed to change Stripe environment'));
+      } finally {
+        setIsSavingStripeEnvironment(false);
+      }
+    }
+  }, [currentCompanyId, stripeStatus?.accountId, queryClient, t]);
 
   // Location handlers
   const handleLocationInputChange = useCallback((e) => {
@@ -1111,6 +1186,37 @@ const CompanySection = ({
                 <CreditCard className="h-5 w-5 mr-2" />
                 {t('admin.stripeConnect', 'Stripe Connect')}
               </h3>
+              
+              {/* Stripe Environment Selection - always visible when there are multiple environments */}
+              {stripeEnvironments.length > 0 && (
+                <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('admin.stripeEnvironment', 'Stripe Environment')}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={selectedStripeEnvironment || ''}
+                      onChange={(e) => handleStripeEnvironmentChange(e.target.value || null)}
+                      disabled={isSavingStripeEnvironment}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">{t('admin.chooseEnvironment', '-- Choose Environment --')}</option>
+                      {stripeEnvironments.map((env) => (
+                        <option key={env.id} value={env.id}>
+                          {env.name} {env.isTestMode ? '(Test)' : '(Live)'}
+                        </option>
+                      ))}
+                    </select>
+                    {isSavingStripeEnvironment && (
+                      <span className="text-sm text-gray-500">{t('common.saving')}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {t('admin.environmentHint', 'Select Test for development or Live for production payments')}
+                  </p>
+                </div>
+              )}
+              
               {isLoadingStripeStatus ? (
                 <LoadingSpinner text={t('common.loading')} />
               ) : stripeStatus?.chargesEnabled && stripeStatus?.payoutsEnabled ? (
@@ -1175,11 +1281,16 @@ const CompanySection = ({
                   <button
                     type="button"
                     onClick={handleCreateStripeAccount}
-                    disabled={isCreatingStripeAccount}
+                    disabled={isCreatingStripeAccount || (stripeEnvironments.length > 0 && !selectedStripeEnvironment)}
                     className="btn-primary"
                   >
                     {isCreatingStripeAccount ? t('common.loading') : t('admin.connectStripe', 'Connect Stripe')}
                   </button>
+                  {stripeEnvironments.length > 0 && !selectedStripeEnvironment && (
+                    <p className="text-xs text-amber-600">
+                      {t('admin.selectEnvironmentFirst', 'Please select a Stripe environment above first')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

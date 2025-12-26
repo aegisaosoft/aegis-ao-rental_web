@@ -32,7 +32,11 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const returnTo = location.state?.returnTo;
+  
+  // Support redirect from both state (returnTo) and query parameter (redirect)
+  const searchParams = new URLSearchParams(location.search);
+  const queryRedirect = searchParams.get('redirect');
+  const returnTo = location.state?.returnTo || queryRedirect;
   const redirectTarget =
     (typeof returnTo === 'string' && returnTo.trim().length > 0 ? returnTo : '/') || '/';
 

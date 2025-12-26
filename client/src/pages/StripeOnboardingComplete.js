@@ -18,11 +18,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useQueryClient } from 'react-query';
 import { translatedApiService as apiService } from '../services/translatedApi';
+import { useAuth } from '../context/AuthContext';
 
 const StripeOnboardingComplete = () => {
   const { companyId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
   const [status, setStatus] = React.useState('loading');
 
   useEffect(() => {
@@ -30,11 +32,13 @@ const StripeOnboardingComplete = () => {
     const syncStatus = async () => {
       if (companyId) {
         try {
-          // Sync account status from Stripe
-          await apiService.syncStripeAccountStatus(companyId);
-          // Invalidate queries to refresh status
-          await queryClient.invalidateQueries(['stripeStatus', companyId]);
-          await queryClient.invalidateQueries(['company', companyId]);
+          // Try to sync account status from Stripe (this may fail if not authenticated)
+          if (isAuthenticated) {
+            await apiService.syncStripeAccountStatus(companyId);
+            // Invalidate queries to refresh status
+            await queryClient.invalidateQueries(['stripeStatus', companyId]);
+            await queryClient.invalidateQueries(['company', companyId]);
+          }
           setStatus('success');
         } catch (error) {
           console.error('[StripeOnboardingComplete] Error syncing status:', error);
@@ -48,14 +52,17 @@ const StripeOnboardingComplete = () => {
 
     // Wait a moment to show the success message, then redirect
     const timer = setTimeout(() => {
-      // Redirect to admin dashboard (Stripe section is part of AdminDashboard in web app)
-      navigate('/admin', { 
-        replace: true
-      });
+      // If not authenticated, redirect to login first, then to admin
+      if (!isAuthenticated) {
+        navigate('/login?redirect=/admin', { replace: true });
+      } else {
+        // Redirect to admin dashboard (Stripe section is part of AdminDashboard in web app)
+        navigate('/admin', { replace: true });
+      }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [companyId, navigate, queryClient]);
+  }, [companyId, navigate, queryClient, isAuthenticated]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
