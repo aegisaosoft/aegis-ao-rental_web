@@ -326,6 +326,14 @@ const CompanySection = ({
     
     const originalSubdomain = companyConfig?.subdomain || actualCompanyData?.subdomain;
     
+    // Convert bookingIntegrated to proper boolean
+    let bookingIntegratedValue = null;
+    if (companyFormData.bookingIntegrated === true || companyFormData.bookingIntegrated === 'true') {
+      bookingIntegratedValue = true;
+    } else if (companyFormData.bookingIntegrated === false || companyFormData.bookingIntegrated === 'false') {
+      bookingIntegratedValue = false;
+    }
+    
     const data = {
       companyName: companyFormData.companyName,
       email: companyFormData.email || null,
@@ -337,7 +345,7 @@ const CompanySection = ({
       backgroundLink: companyFormData.backgroundLink || null,
       about: companyFormData.about || null,
       termsOfUse: companyFormData.termsOfUse || companyFormData.TermsOfUse || null,
-      bookingIntegrated: companyFormData.bookingIntegrated || null,
+      bookingIntegrated: bookingIntegratedValue,
       companyPath: companyFormData.companyPath || null,
       ...(originalSubdomain ? {} : { subdomain: companyFormData.subdomain?.trim() || null }),
       primaryColor: companyFormData.primaryColor || null,
@@ -452,8 +460,8 @@ const CompanySection = ({
     if (!currentCompanyId) return;
     setIsCreatingStripeAccount(true);
     try {
-      const response = await apiService.createStripeConnectAccount(currentCompanyId);
-      const onboardingUrl = response?.data?.url || response?.url;
+      const response = await apiService.setupStripeAccount(currentCompanyId);
+      const onboardingUrl = response?.data?.url || response?.data?.onboardingUrl || response?.url;
       if (onboardingUrl) {
         window.location.href = onboardingUrl;
       } else {
@@ -1097,7 +1105,7 @@ const CompanySection = ({
               </div>
             </div>
 
-            {/* Stripe Status */}
+            {/* Stripe Connect Status */}
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <CreditCard className="h-5 w-5 mr-2" />
@@ -1105,15 +1113,63 @@ const CompanySection = ({
               </h3>
               {isLoadingStripeStatus ? (
                 <LoadingSpinner text={t('common.loading')} />
-              ) : stripeStatus?.chargesEnabled ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              ) : stripeStatus?.chargesEnabled && stripeStatus?.payoutsEnabled ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
                   <p className="text-green-800 font-medium">
                     ✓ {t('admin.stripeConnected', 'Stripe account connected and active')}
                   </p>
+                  <div className="text-sm text-green-700 space-y-1">
+                    <p>✓ {t('admin.chargesEnabled', 'Charges enabled')}</p>
+                    <p>✓ {t('admin.payoutsEnabled', 'Payouts enabled')}</p>
+                    {stripeStatus?.accountId && (
+                      <p className="text-gray-600 mt-2">Account ID: {stripeStatus.accountId}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await apiService.getStripeOnboardingLink(currentCompanyId);
+                        const dashboardUrl = response?.data?.url || response?.data?.dashboardUrl;
+                        if (dashboardUrl) {
+                          window.open(dashboardUrl, '_blank');
+                        }
+                      } catch (error) {
+                        console.error('Error getting Stripe dashboard:', error);
+                      }
+                    }}
+                    className="btn-secondary text-sm"
+                  >
+                    {t('admin.openStripeDashboard', 'Open Stripe Dashboard')}
+                  </button>
+                </div>
+              ) : stripeStatus?.accountId ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+                  <p className="text-yellow-800 font-medium">
+                    ⚠ {t('admin.stripeIncomplete', 'Stripe account setup incomplete')}
+                  </p>
+                  <div className="text-sm text-yellow-700 space-y-1">
+                    <p>{stripeStatus?.chargesEnabled ? '✓' : '✗'} {t('admin.chargesEnabled', 'Charges enabled')}</p>
+                    <p>{stripeStatus?.payoutsEnabled ? '✓' : '✗'} {t('admin.payoutsEnabled', 'Payouts enabled')}</p>
+                    <p>{stripeStatus?.detailsSubmitted ? '✓' : '✗'} {t('admin.detailsSubmitted', 'Details submitted')}</p>
+                    {stripeStatus?.requirements?.currently_due?.length > 0 && (
+                      <p className="text-red-600 mt-2">
+                        {t('admin.requirementsPending', 'Requirements pending:')} {stripeStatus.requirements.currently_due.length}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCreateStripeAccount}
+                    disabled={isCreatingStripeAccount}
+                    className="btn-primary"
+                  >
+                    {isCreatingStripeAccount ? t('common.loading') : t('admin.continueSetup', 'Continue Setup')}
+                  </button>
                 </div>
               ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-yellow-800 mb-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+                  <p className="text-gray-700">
                     {t('admin.stripeNotConnected', 'Connect your Stripe account to accept payments')}
                   </p>
                   <button
