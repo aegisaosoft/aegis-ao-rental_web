@@ -188,7 +188,7 @@ const CompanySection = ({
     }
   );
 
-  const stripeEnvironments = stripeEnvironmentsData || [];
+  const stripeEnvironments = useMemo(() => stripeEnvironmentsData || [], [stripeEnvironmentsData]);
 
   // Sync selectedStripeEnvironment with company data
   useEffect(() => {

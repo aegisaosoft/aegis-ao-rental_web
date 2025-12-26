@@ -870,44 +870,23 @@ const BookPage = () => {
 
   React.useEffect(() => {
 
-    const abort = new AbortController();
-
     const makeUpper = (make || '').toUpperCase();
 
     const modelUpper = (model || '').toUpperCase().replace(/\s+/g, '_');
-
-    // Use Azure Blob Storage URL
-
-    const url = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
 
     if (!makeUpper || !modelUpper) {
 
       setModelImageSrc('/economy.jpg');
 
-      return () => abort.abort();
+      return;
 
     }
 
-    (async () => {
-
-      try {
-
-        const res = await fetch(url, { method: 'HEAD', signal: abort.signal });
-
-        setModelImageSrc(res.ok ? url : '/economy.jpg');
-
-      } catch {
-
-        setModelImageSrc('/economy.jpg');
-
-      }
-
-    })();
-
-    return () => abort.abort();
+    // Set URL directly - let img onError handle fallback (avoids CORS issues)
+    const url = `https://aegisaorentalstorage.blob.core.windows.net/models/${makeUpper}_${modelUpper}.png`;
+    setModelImageSrc(url);
 
   }, [make, model]);
-
 
 
   // Fetch existing license if customer is logged in
@@ -3259,6 +3238,12 @@ const BookPage = () => {
                     alt={`${make} ${model}`}
 
                     className="w-full h-64 object-cover"
+
+                    onError={(e) => {
+                      if (e.target.src !== window.location.origin + '/economy.jpg') {
+                        e.target.src = '/economy.jpg';
+                      }
+                    }}
 
                   />
 
