@@ -327,6 +327,16 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  getStripeSettings: async () => {
+    const response = await apiService.getStripeSettings();
+    return translateResponse(response);
+  },
+  
+  testStripeConnection: async (settingsId) => {
+    const response = await apiService.testStripeConnection(settingsId);
+    return translateResponse(response);
+  },
+  
   getStripeAccountStatus: async (companyId) => {
     const response = await apiService.getStripeAccountStatus(companyId);
     return translateResponse(response);

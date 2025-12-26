@@ -527,14 +527,47 @@ const CompanySection = ({
     }
   }, [currentCompanyId, selectedStripeEnvironment, stripeEnvironments, actualCompanyData?.stripeSettingsId, t]);
 
-  // Handler to change Stripe environment
+  // Stripe connection test result state
+  const [stripeConnectionStatus, setStripeConnectionStatus] = useState(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  // Handler to change Stripe environment with connection test
   const handleStripeEnvironmentChange = useCallback(async (newEnvId) => {
     if (!currentCompanyId || !newEnvId) return;
     
-    setSelectedStripeEnvironment(newEnvId);
+    // First, test the API keys validity for the new environment
+    setIsTestingConnection(true);
+    setStripeConnectionStatus(null);
     
-    // If already connected to Stripe, save immediately
-    if (stripeStatus?.accountId) {
+    try {
+      // Test connection to Stripe with new environment's API keys
+      const testResponse = await apiService.testStripeConnection(newEnvId);
+      const testResult = testResponse?.data || testResponse;
+      
+      if (!testResult?.success) {
+        // API keys are invalid or missing - show error and don't change environment
+        setStripeConnectionStatus({
+          success: false,
+          error: testResult?.error || t('admin.stripeKeysInvalid', 'Invalid or missing Stripe API keys'),
+          environment: testResult?.environment
+        });
+        setIsTestingConnection(false);
+        toast.error(testResult?.error || t('admin.stripeKeysInvalid', 'Invalid or missing Stripe API keys for this environment'));
+        return; // Don't change environment if keys are invalid
+      }
+      
+      // API keys are valid - show success and allow environment change
+      setStripeConnectionStatus({
+        success: true,
+        message: t('admin.stripeKeysValid', 'Stripe API keys verified'),
+        environment: testResult?.environment,
+        settingsName: testResult?.settingsName
+      });
+      
+      // Update the selected environment
+      setSelectedStripeEnvironment(newEnvId);
+      
+      // Save the new environment
       setIsSavingStripeEnvironment(true);
       try {
         await apiService.updateCompany(currentCompanyId, { stripeSettingsId: newEnvId });
@@ -543,12 +576,25 @@ const CompanySection = ({
         toast.success(t('admin.stripeEnvironmentChanged', 'Stripe environment updated'));
       } catch (error) {
         console.error('Error changing Stripe environment:', error);
-        toast.error(t('admin.stripeEnvironmentChangeFailed', 'Failed to change Stripe environment'));
+        toast.error(t('admin.stripeEnvironmentChangeFailed', 'Failed to save Stripe environment'));
+        // Revert the selection on save failure
+        if (actualCompanyData?.stripeSettingsId) {
+          setSelectedStripeEnvironment(actualCompanyData.stripeSettingsId);
+        }
       } finally {
         setIsSavingStripeEnvironment(false);
       }
+    } catch (error) {
+      console.error('Error testing Stripe connection:', error);
+      setStripeConnectionStatus({
+        success: false,
+        error: error.response?.data?.error || t('admin.stripeConnectionTestError', 'Error testing Stripe API keys')
+      });
+      toast.error(t('admin.stripeConnectionTestError', 'Error testing Stripe API keys'));
+    } finally {
+      setIsTestingConnection(false);
     }
-  }, [currentCompanyId, stripeStatus?.accountId, queryClient, t]);
+  }, [currentCompanyId, actualCompanyData?.stripeSettingsId, queryClient, t]);
 
   // Location handlers
   const handleLocationInputChange = useCallback((e) => {
@@ -1197,7 +1243,7 @@ const CompanySection = ({
                     <select
                       value={selectedStripeEnvironment || ''}
                       onChange={(e) => handleStripeEnvironmentChange(e.target.value || null)}
-                      disabled={isSavingStripeEnvironment}
+                      disabled={isSavingStripeEnvironment || isTestingConnection}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">{t('admin.chooseEnvironment', '-- Choose Environment --')}</option>
@@ -1207,13 +1253,51 @@ const CompanySection = ({
                         </option>
                       ))}
                     </select>
-                    {isSavingStripeEnvironment && (
-                      <span className="text-sm text-gray-500">{t('common.saving')}</span>
+                    {(isSavingStripeEnvironment || isTestingConnection) && (
+                      <span className="text-sm text-gray-500 flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {isTestingConnection ? t('admin.testingConnection', 'Testing...') : t('common.saving')}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     {t('admin.environmentHint', 'Select Test for development or Live for production payments')}
                   </p>
+                  
+                  {/* Connection status indicator */}
+                  {stripeConnectionStatus && (
+                    <div className={`mt-3 p-3 rounded-md ${stripeConnectionStatus.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                      <div className="flex items-center gap-2">
+                        {stripeConnectionStatus.success ? (
+                          <>
+                            <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-sm text-green-800 font-medium">
+                              {t('admin.stripeKeysValid', 'API keys verified')}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-sm text-red-800 font-medium">
+                              {stripeConnectionStatus.error}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {stripeConnectionStatus.environment && (
+                        <p className="text-xs mt-1 ml-7 text-gray-600">
+                          {t('admin.environmentType', 'Environment')}: {stripeConnectionStatus.environment === 'test' ? 'Test Mode' : 'Live Mode'}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               
