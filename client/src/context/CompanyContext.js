@@ -48,14 +48,21 @@ export const CompanyProvider = ({ children }) => {
 
         // Check if we're on the main site (no subdomain) - skip API call
         const hostname = window.location.hostname.toLowerCase();
+        const parts = hostname.split('.');
+        
+        // Main site detection:
+        // - localhost, 127.0.0.1
+        // - aegis-rental.com (2 parts)
+        // - www.aegis-rental.com (3 parts but starts with www)
         const isMainSite = hostname === 'localhost' || 
                           hostname === '127.0.0.1' || 
                           (!hostname.includes('.') && !hostname.includes('localhost')) ||
-                          (hostname.split('.').length <= 2 && !hostname.includes('.localhost'));
+                          (parts.length <= 2 && !hostname.includes('.localhost')) ||
+                          (parts.length === 3 && parts[0] === 'www');
         
         if (isMainSite) {
           // Main site - no company config needed, show tenants grid
-          console.log('[CompanyContext] Main site detected, skipping company config load');
+          console.log('[CompanyContext] Main site detected:', hostname);
           setLoading(false);
           setError('Company configuration not available');
           return;
@@ -66,21 +73,18 @@ export const CompanyProvider = ({ children }) => {
           response = await apiService.getCurrentCompanyConfig();
         } catch (err) {
           console.error('[CompanyContext] Could not load company configuration:', err);
-          response = await loadFallbackCompany();
-          if (!response) {
-            setLoading(false);
-            setError('Unable to load company configuration');
-            return;
-          }
+          setLoading(false);
+          setError('Unable to load company configuration');
+          return;
         }
 
         let config = response.data?.result || response.data;
 
         if (!config || !config.id) {
-          const fallbackResponse = await loadFallbackCompany();
-          if (fallbackResponse?.data) {
-            config = fallbackResponse.data;
-          }
+          console.error('[CompanyContext] No company configuration returned from API');
+          setLoading(false);
+          setError('Company configuration not available');
+          return;
         }
 
         if (config && config.id) {
@@ -112,67 +116,6 @@ export const CompanyProvider = ({ children }) => {
       } finally {
         setLoading(false);
       }
-    };
-
-    const loadFallbackCompany = async () => {
-      try {
-        const companiesResponse = await apiService.getCompanies();
-        const companies = companiesResponse.data?.result || companiesResponse.data || [];
-        const fallbackCompany = Array.isArray(companies)
-          ? companies.find((c) => {
-              const subdomain = (c.subdomain || c.Subdomain || '').toString().toLowerCase();
-              const name = (c.companyName || c.CompanyName || '').toString().toLowerCase();
-              return subdomain === 'miamilifecars' || name.includes('miami life cars') || name.includes('miamilife');
-            })
-          : null;
-
-        if (fallbackCompany) {
-          return { data: fallbackCompany };
-        }
-      } catch (fallbackErr) {
-        console.error('[CompanyContext] Fallback company load failed:', fallbackErr);
-      }
-
-      return {
-        data: {
-          id: '81ff1053-9988-4c0d-bcbe-3f44b9449f22',
-          companyName: 'Miami Life Cars',
-          email: 'miamilifecars@gmail.com',
-          bookingIntegrated: true,
-          videoLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/video.mp4',
-          bannerLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/banner.png',
-          motto: 'Meet our newest fleet yet',
-          mottoDescription: "New rental cars. No lines. Let's go!",
-          texts: [
-            {
-              title: {
-                en: 'Why rent your car with Miami Life Cars in Florida?',
-                es: '¿Por qué rentar tu auto con Miami Life Cars en Florida?',
-                pt: 'Por que alugar seu carro com Miami Life Cars na Flórida?',
-                fr: 'Pourquoi louer votre voiture avec Miami Life Cars en Floride ?',
-                de: 'Warum sollten Sie Ihr Auto bei Miami Life Cars in Florida mieten?'
-              },
-              description: {
-                en: 'Are you looking to navigate one of the most popular cities in the world, or set off on a road trip into the country? Miami Life Cars is here to help...'
-              },
-              notes: []
-            }
-          ],
-          website: 'https://miamilifecars.aegis-rental.com',
-          backgroundLink: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/background.png',
-          subdomain: 'miamilifecars',
-          primaryColor: '#007bff',
-          secondaryColor: '#6c757d',
-          logoUrl: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/logo.jpg',
-          faviconUrl: 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net/public/81ff1053-9988-4c0d-bcbe-3f44b9449f22/favicon.png',
-          country: 'United States',
-          language: 'en',
-          blinkKey: 'sRwCAB5taWFtaWxpZmVjYXJzLmFlZ2lzLXJlbnRhbC5jb20GbGV5SkRjbVZoZEdWa1QyNGlPakUzTmpJME1EZzRNVFl3TVRBc0lrTnlaV0YwWldSR2IzSWlPaUppTlRrMFpUazFZUzB6T0RFMkxUUXdNV1V0WW1JM055MHpaR1JsT0RRME1qQTBNVEVpZlE9Pbv1rgG/yLgd0nzSiRWxJK8kMSb26of5X9/vmuLBdCMHr4jrBzFRHprgqfnMf37yoaPzE+DXFL9zyGiDM9NRQTnWyY7xgNtACwQSOXA4bM6WdteuYOCVYPg0eAvwH7k=',
-          currency: 'USD',
-          aiIntegration: 'claude',
-          securityDeposit: 1000
-        }
-      };
     };
 
     loadCompanyConfig();
