@@ -359,7 +359,12 @@ const RentalAgreementModal = ({
 
   useEffect(() => {
     if (!viewMode) {
-      setLocalConsents(getInitialConsents());
+      const initial = {};
+      RULE_KEYS.forEach(key => {
+        initial[key] = consents[key] || false;
+        initial[`${key}AcceptedAt`] = consents[`${key}AcceptedAt`] || null;
+      });
+      setLocalConsents(initial);
       setLocalSignature(signatureData);
     }
   }, [consents, signatureData, viewMode]);

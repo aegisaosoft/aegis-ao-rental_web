@@ -21,7 +21,6 @@ const RentalTerms = () => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
   
-  const companyName = companyConfig?.companyName || 'Our Company';
   const bannerLink = companyConfig?.bannerLink || companyConfig?.BannerLink;
   
   return (
