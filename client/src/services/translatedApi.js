@@ -755,6 +755,21 @@ export const translatedApiService = {
     return response.data || response;
   },
   
+  // Service assignment helpers
+  assignServiceToCompany: async (companyId, serviceId, data = {}) => {
+    const response = await apiService.addServiceToCompany({
+      companyId,
+      additionalServiceId: serviceId,
+      ...data
+    });
+    return response.data || response;
+  },
+  
+  unassignServiceFromCompany: async (companyId, serviceId) => {
+    const response = await apiService.removeServiceFromCompany(companyId, serviceId);
+    return response.data || response;
+  },
+  
 };
 
 export default translatedApiService;

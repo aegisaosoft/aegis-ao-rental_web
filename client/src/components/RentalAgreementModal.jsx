@@ -38,6 +38,59 @@ const RULES_TEXTS = {
     securityDeposit: 'Security Deposit',
     signatureRequired: 'Please provide your signature',
     allConsentsRequired: 'Please check all rules to continue',
+    // Extended fields
+    customerInfo: 'CUSTOMER / PRIMARY RENTER',
+    additionalDriver: 'ADDITIONAL DRIVER',
+    vehicleInfo: 'RENTAL VEHICLE',
+    rentalPeriod: 'RENTAL PERIOD',
+    fuelLevel: 'FUEL LEVEL',
+    rentalRates: 'RENTAL RATE AND INVOICE',
+    additionalCharges: 'ADDITIONAL CHARGES',
+    additionalServices: 'Additional Services',
+    firstName: 'First Name',
+    middleName: 'Middle Name',
+    lastName: 'Last Name',
+    email: 'Email',
+    phone: 'Phone',
+    driverLicense: 'DL#',
+    state: 'State',
+    licenseExp: 'License Exp',
+    dob: 'Date of Birth',
+    address: 'Address',
+    vehicleType: 'Vehicle Type',
+    makeModel: 'Make/Model',
+    yearColorLicense: 'Year/Color/License',
+    vin: 'VIN',
+    odometer: 'Odometer',
+    startDate: 'Start Date',
+    startTime: 'Start Time',
+    dueDate: 'Due Date',
+    returnTime: 'Return Time',
+    fuelPickup: 'Fuel at Pickup',
+    fuelReturn: 'Fuel at Return',
+    ratePerDay: 'Rate per Day',
+    numberOfDays: 'Days',
+    dailyTotal: 'Daily Total',
+    ratePerWeek: 'Rate per Week',
+    numberOfWeeks: 'Weeks',
+    weeklyTotal: 'Weekly Total',
+    surchargeTax: 'Surcharge Tax',
+    pickupDropoff: 'Pickup/Dropoff',
+    cdw: 'CDW',
+    gps: 'GPS',
+    childSeat: 'Child Seat',
+    driverUnder25Fee: 'Driver Under 25',
+    additionalDriverFee: 'Additional Driver Fee',
+    creditCardFee: 'Credit Card Fee',
+    subtotal: 'Subtotal',
+    vehicleStateTax: 'Vehicle State Tax',
+    totalCharges: 'TOTAL CHARGES',
+    lateReturnFee: 'Late Return Fee',
+    damageFee: 'Damage Fee',
+    fuelServiceFee: 'Fuel Service Fee',
+    cleaningFee: 'Cleaning Fee',
+    refund: 'Refund',
+    balanceDue: 'BALANCE DUE',
   },
   es: {
     rulesTitle: 'REGLAS DE ACCIÓN',
@@ -67,6 +120,58 @@ const RULES_TEXTS = {
     securityDeposit: 'Depósito de Seguridad',
     signatureRequired: 'Por favor proporcione su firma',
     allConsentsRequired: 'Por favor marque todas las reglas para continuar',
+    customerInfo: 'CLIENTE / ARRENDATARIO PRINCIPAL',
+    additionalDriver: 'CONDUCTOR ADICIONAL',
+    vehicleInfo: 'VEHÍCULO DE ALQUILER',
+    rentalPeriod: 'PERÍODO DE ALQUILER',
+    fuelLevel: 'NIVEL DE COMBUSTIBLE',
+    rentalRates: 'TARIFA E FACTURA DE ALQUILER',
+    additionalCharges: 'CARGOS ADICIONALES',
+    additionalServices: 'Servicios Adicionales',
+    firstName: 'Nombre',
+    middleName: 'Segundo Nombre',
+    lastName: 'Apellido',
+    email: 'Correo',
+    phone: 'Teléfono',
+    driverLicense: 'Licencia',
+    state: 'Estado',
+    licenseExp: 'Venc. Licencia',
+    dob: 'Fecha de Nacimiento',
+    address: 'Dirección',
+    vehicleType: 'Tipo de Vehículo',
+    makeModel: 'Marca/Modelo',
+    yearColorLicense: 'Año/Color/Placa',
+    vin: 'VIN',
+    odometer: 'Odómetro',
+    startDate: 'Fecha Inicio',
+    startTime: 'Hora Inicio',
+    dueDate: 'Fecha Vencimiento',
+    returnTime: 'Hora Devolución',
+    fuelPickup: 'Combustible Recogida',
+    fuelReturn: 'Combustible Devolución',
+    ratePerDay: 'Tarifa por Día',
+    numberOfDays: 'Días',
+    dailyTotal: 'Total Diario',
+    ratePerWeek: 'Tarifa por Semana',
+    numberOfWeeks: 'Semanas',
+    weeklyTotal: 'Total Semanal',
+    surchargeTax: 'Recargo Impuesto',
+    pickupDropoff: 'Recogida/Entrega',
+    cdw: 'CDW',
+    gps: 'GPS',
+    childSeat: 'Silla Niño',
+    driverUnder25Fee: 'Conductor Menor 25',
+    additionalDriverFee: 'Conductor Adicional',
+    creditCardFee: 'Cargo Tarjeta',
+    subtotal: 'Subtotal',
+    vehicleStateTax: 'Impuesto Estatal',
+    totalCharges: 'CARGOS TOTALES',
+    lateReturnFee: 'Cargo Devolución Tardía',
+    damageFee: 'Cargo por Daños',
+    fuelServiceFee: 'Cargo Combustible',
+    cleaningFee: 'Cargo Limpieza',
+    refund: 'Reembolso',
+    balanceDue: 'SALDO PENDIENTE',
   },
   pt: {
     rulesTitle: 'REGRAS DE AÇÃO',
@@ -96,24 +201,76 @@ const RULES_TEXTS = {
     securityDeposit: 'Depósito de Segurança',
     signatureRequired: 'Por favor forneça sua assinatura',
     allConsentsRequired: 'Por favor marque todas as regras para continuar',
+    customerInfo: 'CLIENTE / LOCATÁRIO PRINCIPAL',
+    additionalDriver: 'MOTORISTA ADICIONAL',
+    vehicleInfo: 'VEÍCULO DE ALUGUEL',
+    rentalPeriod: 'PERÍODO DE ALUGUEL',
+    fuelLevel: 'NÍVEL DE COMBUSTÍVEL',
+    rentalRates: 'TARIFA E FATURA DE ALUGUEL',
+    additionalCharges: 'COBRANÇAS ADICIONAIS',
+    additionalServices: 'Serviços Adicionais',
+    firstName: 'Nome',
+    middleName: 'Nome do Meio',
+    lastName: 'Sobrenome',
+    email: 'E-mail',
+    phone: 'Telefone',
+    driverLicense: 'CNH',
+    state: 'Estado',
+    licenseExp: 'Venc. CNH',
+    dob: 'Data de Nascimento',
+    address: 'Endereço',
+    vehicleType: 'Tipo de Veículo',
+    makeModel: 'Marca/Modelo',
+    yearColorLicense: 'Ano/Cor/Placa',
+    vin: 'VIN',
+    odometer: 'Odômetro',
+    startDate: 'Data Início',
+    startTime: 'Hora Início',
+    dueDate: 'Data Vencimento',
+    returnTime: 'Hora Devolução',
+    fuelPickup: 'Combustível Retirada',
+    fuelReturn: 'Combustível Devolução',
+    ratePerDay: 'Diária',
+    numberOfDays: 'Dias',
+    dailyTotal: 'Total Diário',
+    ratePerWeek: 'Semanal',
+    numberOfWeeks: 'Semanas',
+    weeklyTotal: 'Total Semanal',
+    surchargeTax: 'Taxa Extra',
+    pickupDropoff: 'Retirada/Entrega',
+    cdw: 'CDW',
+    gps: 'GPS',
+    childSeat: 'Cadeira Criança',
+    driverUnder25Fee: 'Motorista -25',
+    additionalDriverFee: 'Motorista Adicional',
+    creditCardFee: 'Taxa Cartão',
+    subtotal: 'Subtotal',
+    vehicleStateTax: 'Imposto Estadual',
+    totalCharges: 'TOTAL',
+    lateReturnFee: 'Taxa Atraso',
+    damageFee: 'Taxa Danos',
+    fuelServiceFee: 'Taxa Combustível',
+    cleaningFee: 'Taxa Limpeza',
+    refund: 'Reembolso',
+    balanceDue: 'SALDO DEVIDO',
   },
   de: {
     rulesTitle: 'VERHALTENSREGELN',
-    rulesSubtitle: '(siehe auch Allgemeine Geschäftsbedingungen)',
-    ruleProhibitedDriver: 'Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen oder zu bedienen, die nicht im Mietvertrag aufgeführt sind. Jeder Fahrer muss persönlich mit gültigem Führerschein vorqualifiziert sein und mindestens 21 Jahre alt sein.',
+    rulesSubtitle: '(siehe auch AGB)',
+    ruleProhibitedDriver: 'Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen, die nicht im Mietvertrag aufgeführt sind. Jeder Fahrer muss persönlich mit gültigem Führerschein vorqualifiziert sein und mindestens 21 Jahre alt sein.',
     ruleUnder25: 'Wenn der Fahrer unter 25 Jahre alt ist, können zusätzliche Gebühren anfallen.',
-    ruleAlcohol: 'Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen oder zu bedienen, die unter dem Einfluss von ALKOHOL oder BETÄUBUNGSMITTELN stehen.',
-    ruleNoSmoking: 'RAUCHEN ist im gemieteten Fahrzeug unter keinen Umständen erlaubt. Bei jedem Nachweis von Rauchen im Fahrzeug wird eine Geldstrafe erhoben, unabhängig davon, ob ein Schaden entstanden ist oder nicht.',
-    ruleLostKeys: 'Im Falle von VERLORENEN, BESCHÄDIGTEN oder INNEN EINGESCHLOSSENEN SCHLÜSSELN, die eine Schlüsselwiederherstellung erfordern, kann eine Maximalgebühr anfallen.',
-    rulePassengerCapacity: 'Die Passagierkapazität dieses Fahrzeugs wird durch die Anzahl der Sicherheitsgurte bestimmt und darf gesetzlich NICHT ÜBERSCHRITTEN werden. Bitte schnallen Sie sich im Fahrzeug immer an. Es ist Gesetz!',
+    ruleAlcohol: 'Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen, die unter dem Einfluss von ALKOHOL oder BETÄUBUNGSMITTELN stehen.',
+    ruleNoSmoking: 'RAUCHEN ist im gemieteten Fahrzeug unter keinen Umständen erlaubt. Bei jedem Nachweis von Rauchen im Fahrzeug wird eine Geldstrafe erhoben.',
+    ruleLostKeys: 'Im Falle von VERLORENEN, BESCHÄDIGTEN oder INNEN EINGESCHLOSSENEN SCHLÜSSELN kann eine Maximalgebühr anfallen.',
+    rulePassengerCapacity: 'Die Passagierkapazität dieses Fahrzeugs wird durch die Anzahl der Sicherheitsgurte bestimmt und darf gesetzlich NICHT ÜBERSCHRITTEN werden.',
     ruleCleaningFee: 'Falls das Fahrzeug außergewöhnlich schmutzig zurückgegeben wird, kann eine REINIGUNGSGEBÜHR anfallen.',
-    ruleTires: 'Platte oder beschädigte REIFEN liegen in der Verantwortung des Mieters und sind die finanzielle Verantwortung des Mieters oder autorisierten Fahrer(s).',
-    ruleTickets: 'ALLE BUSSGELDER, STRAFEN, GEBÜHREN und andere während der Mietzeit erhaltene, die durch den Mieter und/oder die Mietzeit verursacht wurden, müssen vom Mieter bezahlt werden.',
-    rule24Hour: 'Miettage basieren auf 24-Stunden-Mietperioden. Bitte geben Sie rechtzeitig zurück. Jede Stunde nach der Mietperiode wird mit ¼ Tagesgebühr berechnet, einschließlich aller Steuern und Gebühren und bis zu einem vollen Tag.',
-    ruleNoCellPhone: 'Keine Handynutzung während des Fahrens des Fahrzeugs, es sei denn, es handelt sich um ein Freisprechgerät wie Bluetooth. Es ist Gesetz, dem Fahrer ist es verboten, während der Fahrt irgendein elektronisches Gerät zu bedienen, unabhängig vom Nutzungsverhalten.',
-    ruleCardAuthorization: 'Ich autorisiere das Mietunternehmen, meine Kredit-/Debitkarte zu belasten für: den Mietbetrag, Kaution, Kraftstoffgebühren falls zutreffend, Verkehrsverstöße, Parktickets, Mautgebühren, Schadensreparaturen, Reinigungsgebühren und alle anderen Gebühren, die während oder als Ergebnis dieser Miete anfallen.',
+    ruleTires: 'Platte oder beschädigte REIFEN liegen in der Verantwortung des Mieters.',
+    ruleTickets: 'ALLE BUSSGELDER, STRAFEN während der Mietzeit müssen vom Mieter bezahlt werden.',
+    rule24Hour: 'Miettage basieren auf 24-Stunden-Mietperioden. Jede Stunde nach der Mietperiode wird mit ¼ Tagesgebühr berechnet.',
+    ruleNoCellPhone: 'Keine Handynutzung während des Fahrens, es sei denn Freisprechanlage.',
+    ruleCardAuthorization: 'Ich autorisiere die Mietfirma, meine Karte zu belasten für alle anfallenden Gebühren.',
     signatureLabel: 'Ihre Unterschrift',
-    signatureHelper: 'Bitte unterschreiben Sie im obigen Feld mit Ihrer Maus oder Ihrem Finger',
+    signatureHelper: 'Bitte unterschreiben Sie im obigen Feld',
     clearSignature: 'Löschen',
     agreementTitle: 'Mietvertrag',
     agreementSubtitle: 'Bitte überprüfen und unterschreiben Sie den Mietvertrag',
@@ -125,35 +282,139 @@ const RULES_TEXTS = {
     securityDeposit: 'Kaution',
     signatureRequired: 'Bitte geben Sie Ihre Unterschrift an',
     allConsentsRequired: 'Bitte markieren Sie alle Regeln um fortzufahren',
+    customerInfo: 'KUNDE / HAUPTMIETER',
+    additionalDriver: 'ZUSÄTZLICHER FAHRER',
+    vehicleInfo: 'MIETFAHRZEUG',
+    rentalPeriod: 'MIETPERIODE',
+    fuelLevel: 'KRAFTSTOFFSTAND',
+    rentalRates: 'MIETPREIS UND RECHNUNG',
+    additionalCharges: 'ZUSÄTZLICHE GEBÜHREN',
+    additionalServices: 'Zusätzliche Dienste',
+    firstName: 'Vorname',
+    middleName: 'Zweiter Vorname',
+    lastName: 'Nachname',
+    email: 'E-Mail',
+    phone: 'Telefon',
+    driverLicense: 'Führerschein',
+    state: 'Bundesland',
+    licenseExp: 'Führerschein Abl.',
+    dob: 'Geburtsdatum',
+    address: 'Adresse',
+    vehicleType: 'Fahrzeugtyp',
+    makeModel: 'Marke/Modell',
+    yearColorLicense: 'Jahr/Farbe/Kennz.',
+    vin: 'FIN',
+    odometer: 'Kilometerstand',
+    startDate: 'Startdatum',
+    startTime: 'Startzeit',
+    dueDate: 'Fälligkeitsdatum',
+    returnTime: 'Rückgabezeit',
+    fuelPickup: 'Kraftstoff Abholung',
+    fuelReturn: 'Kraftstoff Rückgabe',
+    ratePerDay: 'Tagespreis',
+    numberOfDays: 'Tage',
+    dailyTotal: 'Tagesgesamt',
+    ratePerWeek: 'Wochenpreis',
+    numberOfWeeks: 'Wochen',
+    weeklyTotal: 'Wochengesamt',
+    surchargeTax: 'Zuschlagsteuer',
+    pickupDropoff: 'Abholung/Abgabe',
+    cdw: 'CDW',
+    gps: 'GPS',
+    childSeat: 'Kindersitz',
+    driverUnder25Fee: 'Fahrer unter 25',
+    additionalDriverFee: 'Zusatzfahrer',
+    creditCardFee: 'Kartengebühr',
+    subtotal: 'Zwischensumme',
+    vehicleStateTax: 'Landessteuer',
+    totalCharges: 'GESAMTKOSTEN',
+    lateReturnFee: 'Verspätungsgebühr',
+    damageFee: 'Schadensgebühr',
+    fuelServiceFee: 'Kraftstoffgebühr',
+    cleaningFee: 'Reinigungsgebühr',
+    refund: 'Erstattung',
+    balanceDue: 'OFFENER BETRAG',
   },
   fr: {
     rulesTitle: "RÈGLES D'ACTION",
-    rulesSubtitle: '(voir aussi Termes et Conditions)',
-    ruleProhibitedDriver: "Il est absolument INTERDIT d'utiliser ou de conduire ce véhicule loué par toute personne non inscrite sur le contrat de location. Chaque conducteur doit être pré-qualifié en personne avec un permis de conduire valide et avoir au moins 21 ans.",
+    rulesSubtitle: '(voir aussi CGV)',
+    ruleProhibitedDriver: "Il est absolument INTERDIT d'utiliser ce véhicule par toute personne non inscrite sur le contrat. Chaque conducteur doit avoir au moins 21 ans.",
     ruleUnder25: "Si le conducteur a moins de 25 ans, des frais supplémentaires peuvent s'appliquer.",
-    ruleAlcohol: "Il est absolument INTERDIT d'utiliser ou de conduire ce véhicule loué par toute personne sous l'influence d'ALCOOL ou de tout STUPÉFIANT.",
-    ruleNoSmoking: "Il est absolument INTERDIT de FUMER dans le véhicule loué en toutes circonstances. Toute preuve de tabagisme dans le véhicule entraînera une amende, qu'il y ait des dommages ou non.",
-    ruleLostKeys: "En cas de CLÉS PERDUES, ENDOMMAGÉES ou ENFERMÉES À L'INTÉRIEUR nécessitant une récupération de clés, des frais maximum peuvent s'appliquer.",
-    rulePassengerCapacity: "La capacité de passagers de ce véhicule est déterminée par le nombre de ceintures de sécurité et, selon la loi, ne doit PAS être DÉPASSÉE. Dans le véhicule, attachez toujours votre ceinture de sécurité. C'est la loi!",
-    ruleCleaningFee: "Si le véhicule est retourné exceptionnellement sale, des FRAIS DE NETTOYAGE peuvent s'appliquer.",
-    ruleTires: 'Les PNEUS crevés ou endommagés sont la responsabilité du Locataire et sont la responsabilité financière du Locataire ou du(des) Conducteur(s) Autorisé(s).',
-    ruleTickets: 'TOUTES LES CONTRAVENTIONS, AMENDES, FRAIS et autres reçus pendant la période de location, causés par le locataire et/ou la période de location doivent être payés par le Locataire.',
-    rule24Hour: "Les Jours de Location sont basés sur des Périodes de Location de 24 heures. Veuillez retourner à l'heure. Chaque heure après la Période de Location sera calculée à ¼ du tarif journalier incluant toutes les taxes et frais et jusqu'à une journée complète.",
-    ruleNoCellPhone: "Pas d'utilisation de téléphone portable lors de la conduite du Véhicule sauf s'il s'agit d'un appareil mains libres comme le Bluetooth. C'est la loi, le conducteur est interdit de manipuler tout appareil électronique pendant la conduite, quel que soit le comportement d'utilisation.",
-    ruleCardAuthorization: "J'autorise la société de location à débiter ma carte de crédit/débit pour: le montant de la location, le dépôt de garantie, les frais de carburant le cas échéant, les infractions routières, les contraventions de stationnement, les frais de péage, les réparations de dommages, les frais de nettoyage et tous autres frais encourus pendant ou à la suite de cette location.",
+    ruleAlcohol: "Il est absolument INTERDIT de conduire sous l'influence d'ALCOOL ou de STUPÉFIANTS.",
+    ruleNoSmoking: "Il est absolument INTERDIT de FUMER dans le véhicule. Toute preuve entraînera une amende.",
+    ruleLostKeys: "En cas de CLÉS PERDUES ou ENFERMÉES, des frais maximum peuvent s'appliquer.",
+    rulePassengerCapacity: "La capacité de passagers ne doit PAS être DÉPASSÉE. Attachez toujours votre ceinture.",
+    ruleCleaningFee: "Si le véhicule est retourné sale, des FRAIS DE NETTOYAGE peuvent s'appliquer.",
+    ruleTires: 'Les PNEUS crevés sont la responsabilité du Locataire.',
+    ruleTickets: 'TOUTES LES AMENDES pendant la location doivent être payées par le Locataire.',
+    rule24Hour: 'Les Jours de Location sont basés sur des Périodes de 24 heures. Chaque heure supplémentaire = ¼ du tarif journalier.',
+    ruleNoCellPhone: "Pas de téléphone portable sauf kit mains libres. C'est la loi.",
+    ruleCardAuthorization: "J'autorise la société de location à débiter ma carte pour tous les frais.",
     signatureLabel: 'Votre Signature',
-    signatureHelper: 'Veuillez signer dans la case ci-dessus avec votre souris ou votre doigt',
+    signatureHelper: 'Veuillez signer dans la case ci-dessus',
     clearSignature: 'Effacer',
     agreementTitle: 'Contrat de Location',
-    agreementSubtitle: 'Veuillez examiner et signer le contrat de location',
+    agreementSubtitle: 'Veuillez examiner et signer le contrat',
     rentalSummary: 'Résumé de la Location',
     vehicle: 'Véhicule',
-    pickupDate: 'Date de Prise en Charge',
+    pickupDate: 'Date de Prise',
     returnDate: 'Date de Retour',
     totalAmount: 'Montant Total',
     securityDeposit: 'Dépôt de Garantie',
     signatureRequired: 'Veuillez fournir votre signature',
-    allConsentsRequired: 'Veuillez cocher toutes les règles pour continuer',
+    allConsentsRequired: 'Veuillez cocher toutes les règles',
+    customerInfo: 'CLIENT / LOCATAIRE PRINCIPAL',
+    additionalDriver: 'CONDUCTEUR SUPPLÉMENTAIRE',
+    vehicleInfo: 'VÉHICULE DE LOCATION',
+    rentalPeriod: 'PÉRIODE DE LOCATION',
+    fuelLevel: 'NIVEAU DE CARBURANT',
+    rentalRates: 'TARIF ET FACTURE',
+    additionalCharges: 'FRAIS SUPPLÉMENTAIRES',
+    additionalServices: 'Services Supplémentaires',
+    firstName: 'Prénom',
+    middleName: 'Deuxième Prénom',
+    lastName: 'Nom',
+    email: 'E-mail',
+    phone: 'Téléphone',
+    driverLicense: 'Permis',
+    state: 'Département',
+    licenseExp: 'Exp. Permis',
+    dob: 'Date de Naissance',
+    address: 'Adresse',
+    vehicleType: 'Type de Véhicule',
+    makeModel: 'Marque/Modèle',
+    yearColorLicense: 'Année/Couleur/Plaque',
+    vin: 'VIN',
+    odometer: 'Kilométrage',
+    startDate: 'Date Début',
+    startTime: 'Heure Début',
+    dueDate: 'Date Échéance',
+    returnTime: 'Heure Retour',
+    fuelPickup: 'Carburant Départ',
+    fuelReturn: 'Carburant Retour',
+    ratePerDay: 'Tarif Jour',
+    numberOfDays: 'Jours',
+    dailyTotal: 'Total Jour',
+    ratePerWeek: 'Tarif Semaine',
+    numberOfWeeks: 'Semaines',
+    weeklyTotal: 'Total Semaine',
+    surchargeTax: 'Surcharge Taxe',
+    pickupDropoff: 'Prise/Retour',
+    cdw: 'CDW',
+    gps: 'GPS',
+    childSeat: 'Siège Enfant',
+    driverUnder25Fee: 'Conducteur -25',
+    additionalDriverFee: 'Conducteur Supp.',
+    creditCardFee: 'Frais Carte',
+    subtotal: 'Sous-total',
+    vehicleStateTax: 'Taxe État',
+    totalCharges: 'TOTAL',
+    lateReturnFee: 'Frais Retard',
+    damageFee: 'Frais Dommages',
+    fuelServiceFee: 'Frais Carburant',
+    cleaningFee: 'Frais Nettoyage',
+    refund: 'Remboursement',
+    balanceDue: 'SOLDE DÛ',
   },
 };
 
@@ -325,6 +586,21 @@ const RuleCheckbox = ({ id, checked, onChange, text, addon, disabled }) => (
   </div>
 );
 
+// Section Header Component
+const SectionHeader = ({ title }) => (
+  <div className="bg-gray-100 px-3 py-2 border-b border-gray-200">
+    <h4 className="font-bold text-xs text-gray-800 uppercase tracking-wide">{title}</h4>
+  </div>
+);
+
+// Info Row Component - always shows, even empty
+const InfoRow = ({ label, value, className = '' }) => (
+  <div className={`flex justify-between text-sm py-1 ${className}`}>
+    <span className="text-gray-600">{label}:</span>
+    <span className="font-medium text-gray-900">{value || '-'}</span>
+  </div>
+);
+
 // ============== MAIN COMPONENT ==============
 
 const RentalAgreementModal = ({
@@ -430,10 +706,21 @@ const RentalAgreementModal = ({
 
   if (!isOpen) return null;
 
+  // Helper to safely get nested values
+  const renter = rentalInfo.renter || {};
+  const additionalDriver = rentalInfo.additionalDriver || {};
+  const vehicle = rentalInfo.vehicle || {};
+  const rates = rentalInfo.rates || {};
+  const additionalCharges = rentalInfo.additionalCharges || {};
+
+  // Debug logging
+  console.log('RentalAgreementModal rentalInfo:', rentalInfo);
+  console.log('RentalAgreementModal rates:', rates);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/50" onClick={viewMode ? onClose : undefined} />
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <div>
@@ -459,35 +746,141 @@ const RentalAgreementModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Rental Summary */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">
-              {t('bookPage.rentalSummary', texts.rentalSummary)}
-            </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">{t('bookPage.vehicle', texts.vehicle)}:</span>
-                <span className="ml-2 font-medium">{rentalInfo.vehicleName || '-'}</span>
+        <div className="p-6 space-y-4">
+          
+          {/* Customer / Primary Renter */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.customerInfo} />
+            <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+              <InfoRow label={texts.firstName} value={renter.firstName} />
+              <InfoRow label={texts.middleName} value={renter.middleName} />
+              <InfoRow label={texts.lastName} value={renter.lastName} />
+              <InfoRow label={texts.email} value={renter.email} />
+              <InfoRow label={texts.phone} value={renter.phone} />
+              <InfoRow label={texts.driverLicense} value={renter.driverLicense} />
+              <InfoRow label={texts.state} value={renter.state} />
+              <InfoRow label={texts.licenseExp} value={renter.licenseExp} />
+              <InfoRow label={texts.dob} value={renter.dob} />
+              <div className="col-span-2 md:col-span-3">
+                <InfoRow label={texts.address} value={renter.address} />
               </div>
-              <div>
-                <span className="text-gray-600">{t('bookPage.pickupDate', texts.pickupDate)}:</span>
-                <span className="ml-2 font-medium">{rentalInfo.pickupDate || '-'}</span>
+            </div>
+          </div>
+
+          {/* Additional Driver */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.additionalDriver} />
+            <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+              <InfoRow label={texts.firstName} value={additionalDriver.firstName} />
+              <InfoRow label={texts.middleName} value={additionalDriver.middleName} />
+              <InfoRow label={texts.lastName} value={additionalDriver.lastName} />
+              <InfoRow label={texts.email} value={additionalDriver.email} />
+              <InfoRow label={texts.phone} value={additionalDriver.phone} />
+              <InfoRow label={texts.driverLicense} value={additionalDriver.driverLicense} />
+              <InfoRow label={texts.state} value={additionalDriver.state} />
+              <InfoRow label={texts.licenseExp} value={additionalDriver.licenseExp} />
+              <InfoRow label={texts.dob} value={additionalDriver.dob} />
+              <div className="col-span-2 md:col-span-3">
+                <InfoRow label={texts.address} value={additionalDriver.address} />
               </div>
-              <div>
-                <span className="text-gray-600">{t('bookPage.returnDate', texts.returnDate)}:</span>
-                <span className="ml-2 font-medium">{rentalInfo.returnDate || '-'}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">{t('bookPage.totalAmount', texts.totalAmount)}:</span>
-                <span className="ml-2 font-medium">{formatPrice(rentalInfo.totalAmount || 0)}</span>
-              </div>
-              {rentalInfo.securityDeposit > 0 && (
-                <div>
-                  <span className="text-gray-600">{t('bookPage.securityDeposit', texts.securityDeposit)}:</span>
-                  <span className="ml-2 font-medium">{formatPrice(rentalInfo.securityDeposit)}</span>
-                </div>
+            </div>
+          </div>
+
+          {/* Vehicle Info */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.vehicleInfo} />
+            <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+              <InfoRow label={texts.vehicleType} value={vehicle.type} />
+              <InfoRow label={texts.makeModel} value={vehicle.makeModel || rentalInfo.vehicleName} />
+              <InfoRow label={texts.yearColorLicense} value={vehicle.yearColorLicense} />
+              <InfoRow label={texts.vin} value={vehicle.vin} />
+              <InfoRow label={texts.odometer} value={vehicle.odometer} />
+            </div>
+          </div>
+
+          {/* Rental Period */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.rentalPeriod} />
+            <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+              <InfoRow label={texts.startDate} value={rentalInfo.pickupDate || rentalInfo.startDate} />
+              <InfoRow label={texts.startTime} value={rentalInfo.startTime} />
+              <InfoRow label={texts.dueDate} value={rentalInfo.dueDate} />
+              <InfoRow label={texts.returnDate} value={rentalInfo.returnDate || rentalInfo.endDate} />
+              <InfoRow label={texts.returnTime} value={rentalInfo.returnTime} />
+            </div>
+          </div>
+
+          {/* Fuel Level */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.fuelLevel} />
+            <div className="p-3 grid grid-cols-2 gap-2">
+              <InfoRow label={texts.fuelPickup} value={rentalInfo.fuelPickup} />
+              <InfoRow label={texts.fuelReturn} value={rentalInfo.fuelReturn} />
+            </div>
+          </div>
+
+          {/* Security Deposit */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.securityDeposit} />
+            <div className="p-3">
+              <InfoRow label={texts.securityDeposit} value={formatPrice(rentalInfo.securityDeposit || 0)} className="text-base font-semibold" />
+            </div>
+          </div>
+
+          {/* Rental Rates / Invoice */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.rentalRates} />
+            <div className="p-3 space-y-1">
+              <InfoRow label={`${texts.ratePerDay} @ ${formatPrice(rates.ratePerDay || 0)}/day × ${rates.numberOfDays || 0} ${texts.numberOfDays}`} value={formatPrice(rates.dailyTotal || 0)} />
+              {(rates.numberOfWeeks > 0 || rates.weeklyTotal > 0) && (
+                <InfoRow label={`${texts.ratePerWeek} × ${rates.numberOfWeeks || 0} ${texts.numberOfWeeks}`} value={formatPrice(rates.weeklyTotal || 0)} />
               )}
+              {rates.surchargeTax > 0 && (
+                <InfoRow label={texts.surchargeTax} value={formatPrice(rates.surchargeTax)} />
+              )}
+              {rates.pickupDropoff > 0 && (
+                <InfoRow label={texts.pickupDropoff} value={formatPrice(rates.pickupDropoff)} />
+              )}
+              {/* Selected Services - show only checked items */}
+              {rentalInfo.selectedServices && rentalInfo.selectedServices.length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 pt-2 mt-2">
+                    <span className="text-xs text-gray-500 uppercase font-semibold">{texts.additionalServices}</span>
+                  </div>
+                  {rentalInfo.selectedServices.map((service, idx) => (
+                    <InfoRow key={idx} label={service.name} value={formatPrice(service.price || 0)} />
+                  ))}
+                </>
+              )}
+              {rates.creditCardFee > 0 && (
+                <InfoRow label={texts.creditCardFee} value={formatPrice(rates.creditCardFee)} />
+              )}
+              <InfoRow label={texts.subtotal} value={formatPrice(rates.subtotal || 0)} className="border-t border-gray-200 pt-2 mt-2" />
+              {rates.vehicleStateTax > 0 && (
+                <InfoRow label={texts.vehicleStateTax} value={formatPrice(rates.vehicleStateTax)} />
+              )}
+              <InfoRow 
+                label={texts.totalCharges} 
+                value={formatPrice(rentalInfo.totalAmount || rates.totalCharges || 0)} 
+                className="border-t-2 border-gray-300 pt-2 mt-2 font-bold text-base" 
+              />
+            </div>
+          </div>
+
+          {/* Additional Charges */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <SectionHeader title={texts.additionalCharges} />
+            <div className="p-3 space-y-1">
+              <InfoRow label={texts.lateReturnFee} value={formatPrice(additionalCharges.lateReturn || 0)} />
+              <InfoRow label={texts.damageFee} value={formatPrice(additionalCharges.damage || 0)} />
+              <InfoRow label={texts.fuelServiceFee} value={formatPrice(additionalCharges.fuelService || 0)} />
+              <InfoRow label={texts.cleaningFee} value={formatPrice(additionalCharges.cleaning || 0)} />
+              <InfoRow label={texts.refund} value={formatPrice(additionalCharges.refund || 0)} />
+              <InfoRow 
+                label={texts.balanceDue} 
+                value={formatPrice(additionalCharges.balanceDue || 0)} 
+                className="border-t-2 border-gray-300 pt-2 mt-2 font-bold text-base" 
+              />
             </div>
           </div>
 

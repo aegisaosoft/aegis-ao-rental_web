@@ -4799,6 +4799,14 @@ const BookPage = () => {
       />
 
       {/* Rental Agreement Modal */}
+      {console.log('RentalAgreementModal props:', {
+        modelDailyRate,
+        pickupDate: formData.pickupDate,
+        returnDate: formData.returnDate,
+        calculateTotal: calculateTotal(),
+        calculateGrandTotal: calculateGrandTotal(),
+        selectedVehicle: selectedVehicle?.make,
+      })}
       <RentalAgreementModal
         isOpen={isRentalAgreementModalOpen}
         onClose={() => {
@@ -4818,11 +4826,97 @@ const BookPage = () => {
         }}
         language={i18n.language || companyConfig?.language || 'en'}
         rentalInfo={{
+          // Renter info
+          renter: {
+            firstName: user?.firstName || '',
+            lastName: user?.lastName || '',
+            email: user?.email || '',
+            phone: user?.phone || user?.phoneNumber || '',
+            driverLicense: user?.driverLicense || '',
+            state: user?.state || '',
+            licenseExp: user?.licenseExpiration || '',
+            dob: user?.dateOfBirth || '',
+            address: user?.address || '',
+          },
+          // Vehicle info
+          vehicle: {
+            type: selectedVehicle?.vehicleType || selectedVehicle?.type || '',
+            makeModel: (selectedVehicle?.make || make || '') && (selectedVehicle?.model || model || '')
+              ? `${selectedVehicle?.make || make || ''} ${selectedVehicle?.model || model || ''}`.trim()
+              : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
+            yearColorLicense: [
+              selectedVehicle?.year,
+              selectedVehicle?.color,
+              selectedVehicle?.licensePlate || selectedVehicle?.plateNumber
+            ].filter(Boolean).join(' / ') || '',
+            vin: selectedVehicle?.vin || '',
+            odometer: selectedVehicle?.odometer || selectedVehicle?.mileage || '',
+          },
+          // Rental period
           vehicleName: (selectedVehicle?.make || make || '') && (selectedVehicle?.model || model || '')
             ? `${selectedVehicle?.make || make || ''} ${selectedVehicle?.model || model || ''}`.trim()
             : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
           pickupDate: formData.pickupDate,
           returnDate: formData.returnDate,
+          startTime: '',
+          returnTime: '',
+          // Rates - calculated values
+          rates: (() => {
+            // Calculate number of days
+            const numDays = formData.pickupDate && formData.returnDate
+              ? Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)) + 1)
+              : 1;
+            
+            // Get daily rate from multiple sources
+            const dailyRate = modelDailyRate 
+              || selectedVehicle?.daily_rate 
+              || selectedVehicle?.dailyRate 
+              || modelData?.dailyRate 
+              || modelData?.daily_rate
+              || 0;
+            
+            // Calculate daily total
+            const dailyTotal = dailyRate * numDays || calculateTotal() || 0;
+            
+            // Calculate services total
+            const servicesTotal = calculateServicesTotal() || 0;
+            
+            return {
+              ratePerDay: dailyRate,
+              numberOfDays: numDays,
+              dailyTotal: dailyTotal,
+              weeklyTotal: 0,
+              numberOfWeeks: 0,
+              surchargeTax: 0,
+              pickupDropoff: 0,
+              cdw: 0,
+              gps: 0,
+              childSeat: 0,
+              driverUnder25: 0,
+              additionalDriver: 0,
+              creditCardFee: 0,
+              servicesTotal: servicesTotal,
+              subtotal: dailyTotal + servicesTotal,
+              vehicleStateTax: 0,
+              totalCharges: calculateGrandTotal(),
+            };
+          })(),
+          // Selected services for display
+          selectedServices: (() => {
+            const numDays = formData.pickupDate && formData.returnDate
+              ? Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)) + 1)
+              : 1;
+            return selectedServices.map(s => {
+              const svc = s.service || s;
+              const serviceName = svc.serviceName || svc.ServiceName || svc.name || svc.Name || '';
+              const dailyPrice = svc.servicePrice || svc.ServicePrice || svc.price || svc.Price || 0;
+              const totalPrice = dailyPrice * numDays * (s.quantity || 1);
+              return {
+                name: `${serviceName} (${formatPrice(dailyPrice)}/day × ${numDays})`,
+                price: totalPrice,
+              };
+            });
+          })(),
           totalAmount: calculateGrandTotal(),
           securityDeposit: companyConfig?.securityDeposit ?? 0,
         }}
