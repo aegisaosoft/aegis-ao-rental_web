@@ -25,6 +25,10 @@ const RULES_TEXTS = {
     rule24Hour: 'Rental Days are based on 24 hour Rental Periods. Please return at the proper time. Each hour past the Rental Period will be calculated at ¼ of a day charge including all taxes and fees and up to a full day.',
     ruleNoCellPhone: "No cell phone use while operating the Vehicle unless it is a hands free device such as a Bluetooth. It's the law, the driver is prohibited from handling any Electronic device while driving regardless of the behavior of use.",
     ruleCardAuthorization: 'I authorize the rental company to charge my credit/debit card on file for: the rental amount, security deposit, fuel charges if applicable, traffic violations, parking tickets, toll charges, damage repairs, cleaning fees, and any other charges incurred during or as a result of this rental.',
+    ruleTermsAgreement: 'I have read and agree to the',
+    rentalTermsLink: 'Rental Terms and Conditions',
+    rentalTermsTitle: 'RENTAL TERMS AND CONDITIONS',
+    fullTermsNote: 'For complete terms and conditions, please visit',
     signatureLabel: 'Your Signature',
     signatureHelper: 'Please sign in the box above using your mouse or finger',
     clearSignature: 'Clear',
@@ -107,6 +111,10 @@ const RULES_TEXTS = {
     rule24Hour: 'Los Días de Alquiler se basan en Períodos de Alquiler de 24 horas. Por favor devuelva a tiempo. Cada hora pasada del Período de Alquiler se calculará a ¼ del cargo diario incluyendo todos los impuestos y tarifas y hasta un día completo.',
     ruleNoCellPhone: 'No usar el celular mientras opera el Vehículo a menos que sea un dispositivo manos libres como Bluetooth. Es la ley, el conductor tiene prohibido manejar cualquier dispositivo electrónico mientras conduce independientemente del comportamiento de uso.',
     ruleCardAuthorization: 'Autorizo a la empresa de alquiler a cargar en mi tarjeta de crédito/débito: el monto del alquiler, depósito de seguridad, cargos de combustible si aplica, infracciones de tráfico, multas de estacionamiento, cargos de peaje, reparaciones por daños, tarifas de limpieza y cualquier otro cargo incurrido durante o como resultado de este alquiler.',
+    ruleTermsAgreement: 'He leído y acepto los',
+    rentalTermsLink: 'Términos y Condiciones de Alquiler',
+    rentalTermsTitle: 'TÉRMINOS Y CONDICIONES DE ALQUILER',
+    fullTermsNote: 'Para los términos y condiciones completos, visite',
     signatureLabel: 'Su Firma',
     signatureHelper: 'Por favor firme en el cuadro de arriba usando su mouse o dedo',
     clearSignature: 'Borrar',
@@ -188,6 +196,10 @@ const RULES_TEXTS = {
     rule24Hour: 'Os Dias de Aluguel são baseados em Períodos de Aluguel de 24 horas. Por favor devolva no horário correto. Cada hora após o Período de Aluguel será calculada a ¼ da diária incluindo todos os impostos e taxas e até um dia inteiro.',
     ruleNoCellPhone: 'Não usar o celular enquanto opera o Veículo a menos que seja um dispositivo viva-voz como Bluetooth. É a lei, o motorista está proibido de manusear qualquer dispositivo eletrônico enquanto dirige, independentemente do comportamento de uso.',
     ruleCardAuthorization: 'Autorizo a empresa de aluguel a cobrar no meu cartão de crédito/débito: o valor do aluguel, depósito de segurança, cobranças de combustível se aplicável, infrações de trânsito, multas de estacionamento, cobranças de pedágio, reparos de danos, taxas de limpeza e quaisquer outras cobranças incorridas durante ou como resultado deste aluguel.',
+    ruleTermsAgreement: 'Li e concordo com os',
+    rentalTermsLink: 'Termos e Condições de Aluguel',
+    rentalTermsTitle: 'TERMOS E CONDIÇÕES DE ALUGUEL',
+    fullTermsNote: 'Para os termos e condições completos, visite',
     signatureLabel: 'Sua Assinatura',
     signatureHelper: 'Por favor assine na caixa acima usando seu mouse ou dedo',
     clearSignature: 'Limpar',
@@ -269,6 +281,10 @@ const RULES_TEXTS = {
     rule24Hour: 'Miettage basieren auf 24-Stunden-Mietperioden. Jede Stunde nach der Mietperiode wird mit ¼ Tagesgebühr berechnet.',
     ruleNoCellPhone: 'Keine Handynutzung während des Fahrens, es sei denn Freisprechanlage.',
     ruleCardAuthorization: 'Ich autorisiere die Mietfirma, meine Karte zu belasten für alle anfallenden Gebühren.',
+    ruleTermsAgreement: 'Ich habe die gelesen und stimme den zu',
+    rentalTermsLink: 'Mietbedingungen',
+    rentalTermsTitle: 'MIETBEDINGUNGEN',
+    fullTermsNote: 'Für die vollständigen Bedingungen besuchen Sie bitte',
     signatureLabel: 'Ihre Unterschrift',
     signatureHelper: 'Bitte unterschreiben Sie im obigen Feld',
     clearSignature: 'Löschen',
@@ -350,6 +366,10 @@ const RULES_TEXTS = {
     rule24Hour: 'Les Jours de Location sont basés sur des Périodes de 24 heures. Chaque heure supplémentaire = ¼ du tarif journalier.',
     ruleNoCellPhone: "Pas de téléphone portable sauf kit mains libres. C'est la loi.",
     ruleCardAuthorization: "J'autorise la société de location à débiter ma carte pour tous les frais.",
+    ruleTermsAgreement: "J'ai lu et j'accepte les",
+    rentalTermsLink: 'Conditions de Location',
+    rentalTermsTitle: 'CONDITIONS DE LOCATION',
+    fullTermsNote: 'Pour les conditions complètes, veuillez visiter',
     signatureLabel: 'Votre Signature',
     signatureHelper: 'Veuillez signer dans la case ci-dessus',
     clearSignature: 'Effacer',
@@ -437,6 +457,7 @@ const RULE_KEYS = [
   'hour24',
   'noCellPhone',
   'cardAuthorization',
+  'termsAgreement',
 ];
 
 // Signature Pad Component
@@ -980,6 +1001,26 @@ const RentalAgreementModal = ({
                 text={texts.ruleCardAuthorization}
                 disabled={loading || viewMode}
               />
+              
+              <RuleCheckbox
+                id="modal-rule-termsAgreement"
+                checked={displayConsents.termsAgreement}
+                onChange={(val) => handleConsentChange('termsAgreement', val)}
+                text={
+                  <span>
+                    {texts.ruleTermsAgreement}{' '}
+                    <a 
+                      href="/rental-terms" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      {texts.rentalTermsLink}
+                    </a>
+                  </span>
+                }
+                disabled={loading || viewMode}
+              />
             </div>
           </div>
 
@@ -998,6 +1039,105 @@ const RentalAgreementModal = ({
                 {t('bookPage.signatureHelper', texts.signatureHelper)}
               </p>
             )}
+          </div>
+
+          {/* Rental Terms and Conditions Section - Hidden in modal, visible only in PDF/Print */}
+          <div className="hidden print:block bg-white border border-gray-200 rounded-lg overflow-hidden mt-6 print:break-before-page">
+            <SectionHeader title={texts.rentalTermsTitle} />
+            <div className="p-4 space-y-4 text-xs text-gray-700 leading-relaxed">
+              {/* Section 3 - Electronic Communications */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section3.title', '3. Electronic Communications and Telematics')}</h3>
+                <p className="text-justify">{t('legal.terms.section3.para_a', '(a) You consent to receive electronic communications from us.')}</p>
+                <p className="text-justify mt-1">{t('legal.terms.section3.para_b', '(b) The Car may have telematics, tracking, and related services.')}</p>
+              </div>
+              
+              {/* Section 4 - Responsibility for Loss/Damage */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section4.title', '4. Responsibility for Loss of or Damage to the Car or its Equipment')}</h3>
+                <p className="text-justify">{t('legal.terms.section4.para_a', '(a) You are responsible for all damage to or loss of the Car.')}</p>
+                <p className="text-justify mt-1">{t('legal.terms.section4.para_b', '(b) Loss of use charges apply during repair period.')}</p>
+              </div>
+              
+              {/* Section 5 - Prohibited Use */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section5.title', '5. Prohibited Use of the Car')}</h3>
+                <p className="text-justify">{t('legal.terms.section5.intro', 'The Car shall not be used:')}</p>
+                <ul className="list-disc list-inside ml-2 mt-1 space-y-0.5">
+                  <li>{t('legal.terms.section5.prohibited1', 'By anyone not authorized')}</li>
+                  <li>{t('legal.terms.section5.prohibited2', 'By anyone under influence of alcohol or drugs')}</li>
+                  <li>{t('legal.terms.section5.prohibited3', 'For illegal purposes')}</li>
+                  <li>{t('legal.terms.section5.prohibited4', 'To push or tow anything')}</li>
+                  <li>{t('legal.terms.section5.prohibited5', 'In any race or competition')}</li>
+                </ul>
+              </div>
+              
+              {/* Section 6 - Payment of Charges */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section6.title', '6. Payment of Charges')}</h3>
+                <p className="text-justify">{t('legal.terms.section6.para_a', '(a) You authorize us to charge your credit card for all charges.')}</p>
+                <p className="text-justify mt-1 font-medium">{t('legal.terms.section6.para_b', '(b) A security deposit will be held on your card.')}</p>
+              </div>
+              
+              {/* Section 7 - Computation of Charges */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section7.title', '7. Computation of Charges')}</h3>
+                <p className="text-justify">{t('legal.terms.section7.time_charges', 'Time and mileage charges are computed from checkout to return.')}</p>
+                <p className="text-justify mt-1 font-medium">{t('legal.terms.section7.toll_violations', 'Toll and violation charges plus administrative fees apply.')}</p>
+              </div>
+              
+              {/* Section 8 - Refueling */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section8.title', '8. Refueling Options')}</h3>
+                <p className="text-justify">{t('legal.terms.section8.intro', 'The following refueling options are available:')}</p>
+              </div>
+              
+              {/* Section 9 - Arbitration */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section9.title', '9. Arbitration')}</h3>
+                <p className="text-justify font-medium">{t('legal.terms.section9.text', 'Any dispute shall be resolved by binding arbitration.')}</p>
+              </div>
+              
+              {/* Section 10-18 Abbreviated */}
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section10.title', '10. Responsibility for Property')}</h3>
+                <p className="text-justify">{t('legal.terms.section10.text', 'We are not responsible for loss of personal property.')}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section11.title', '11. Liability Protection')}</h3>
+                <p className="text-justify">{t('legal.terms.section11.para_a', 'Liability protection is provided as required by law.')}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section12.title', '12. Accidents')}</h3>
+                <p className="text-justify">{t('legal.terms.section12.text', 'Report any accident to police and to us immediately.')}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section13.title', '13. Limits on Liability')}</h3>
+                <p className="text-justify">{t('legal.terms.section13.text', 'Our liability is limited to the fullest extent permitted by law.')}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section14.title', '14. Privacy')}</h3>
+                <p className="text-justify">{t('legal.terms.section14.text', 'Your information is handled according to our privacy policy.')}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-1">{t('legal.terms.section15.title', '15. Governing Law')}</h3>
+                <p className="text-justify">{t('legal.terms.section15.text', 'This agreement is governed by state law.')}</p>
+              </div>
+              
+              <div className="pt-2 border-t border-gray-200 mt-2">
+                <p className="text-center text-gray-500 italic text-xs">
+                  {texts.fullTermsNote}{' '}
+                  <a href="/rental-terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                    {window.location.origin}/rental-terms
+                  </a>
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Validation Messages */}
