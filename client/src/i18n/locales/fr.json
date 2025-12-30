@@ -460,7 +460,6 @@
     "preview": "Aperçu",
     "retake": "Reprendre",
     "savePhoto": "Enregistrer la Photo",
-    "saving": "Enregistrement...",
     "savingPhoto": "Enregistrement de la photo...",
     "frontPhotoSaved": "Photo du recto enregistrée ! Maintenant, prenez une photo du verso.",
     "backPhotoSaved": "Photo du verso enregistrée ! Vous pouvez maintenant revenir à l'assistant.",
@@ -492,17 +491,6 @@
     "additionalOptions": "Options Supplémentaires",
     "noAdditionalOptions": "Aucune option supplémentaire disponible"
   },
-  "navbar": {
-    "home": "Accueil",
-    "about": "À propos",
-    "carRentals": "Location de Voitures",
-    "terms": "Conditions générales",
-    "contact": "Contact",
-    "settings": "Paramètres",
-    "dashboard": "Tableau de bord",
-    "login": "Connexion",
-    "logout": "Déconnexion"
-  },
   "footer": {
     "description": "Votre partenaire de confiance pour les services premium de location de voitures. Profitez de la liberté de la route avec notre large sélection de véhicules.",
     "quickLinks": "Liens Rapides",
@@ -524,7 +512,8 @@
     "address": "Adresse",
     "allRightsReserved": "Tous droits réservés.",
     "scanQRCode": "Scanner le Code QR",
-    "noLocations": "Aucun emplacement disponible"
+    "noLocations": "Aucun emplacement disponible",
+    "rentalTerms": "Conditions de Location"
   },
   "qrCode": {
     "download": "Télécharger",
@@ -554,22 +543,22 @@
     "select": "Sélectionner",
     "required": "Requis",
     "optional": "Optionnel",
-      "notAvailable": "N/D",
-      "saveChanges": "Enregistrer les Modifications",
-      "saved": "Enregistré",
-      "actions": "Actions",
-      "previous": "Précédent",
-      "results": "résultats",
-      "user": "Utilisateur",
-      "notLoggedIn": "Non connecté",
-      "companyId": "ID de l'Entreprise",
-      "notSet": "Non défini",
-      "admin": "Administrateur",
-      "loadingCompany": "Chargement des informations de l'entreprise...",
-      "loadingData": "Chargement des emplacements et véhicules...",
-      "loadingLocations": "Chargement des emplacements...",
-      "loadingVehicles": "Chargement des véhicules...",
-      "viewOnly": "Lecture Seule"
+    "notAvailable": "N/D",
+    "saveChanges": "Enregistrer les Modifications",
+    "saved": "Enregistré",
+    "actions": "Actions",
+    "previous": "Précédent",
+    "results": "résultats",
+    "user": "Utilisateur",
+    "notLoggedIn": "Non connecté",
+    "companyId": "ID de l'Entreprise",
+    "notSet": "Non défini",
+    "admin": "Administrateur",
+    "loadingCompany": "Chargement des informations de l'entreprise...",
+    "loadingData": "Chargement des emplacements et véhicules...",
+    "loadingLocations": "Chargement des emplacements...",
+    "loadingVehicles": "Chargement des véhicules...",
+    "viewOnly": "Lecture Seule"
   },
   "auth": {
     "loginRequired": "Veuillez vous connecter pour accéder à cette page",
@@ -934,18 +923,15 @@
     "allMakes": "Toutes les Marques",
     "allModels": "Tous les Modèles",
     "allModelsForMake": "Tous les Modèles {{make}}",
-    "licensePlate": "Plaque d'immatriculation",
     "searchLicensePlate": "Rechercher par plaque...",
     "clearFilters": "Effacer les Filtres",
     "showingFilteredVehicles": "Affichage des véhicules filtrés:",
     "unassigned": "non assignés",
     "atSelectedLocation": "à l'emplacement sélectionné",
-    "location": "Emplacement",
-    "additionalServices": "Services Supplémentaires",
     "bookingConfiguration": "Configuration de Réservation",
     "bookingSettingsComingSoon": "Gestion des paramètres de réservation à venir...",
     "vehicleManagementComingSoon": "Gestion des véhicules à venir...",
-    "reportsComingSoon": "Rapports à venir...",
+    "reportsComingSoon": "Rapports et analyses à venir...",
     "addService": "Ajouter un Service",
     "editService": "Modifier le Service",
     "serviceName": "Nom du Service",
@@ -990,14 +976,12 @@
     "confirmDeleteService": "Êtes-vous sûr de vouloir supprimer ce service?",
     "reservationsComingSoon": "Gestion des réservations à venir...",
     "customersComingSoon": "Gestion des clients à venir...",
-    "reportsComingSoon": "Rapports et analyses à venir...",
     "companyInfo": "Informations de l'Entreprise",
     "design": "Design",
     "locations": "Emplacements",
     "companyName": "Nom de l'Entreprise",
     "email": "E-mail",
     "phone": "Téléphone",
-    "location": "Emplacement",
     "website": "Site Web",
     "address": "Adresse",
     "city": "Ville",
@@ -1074,8 +1058,6 @@
     "refundId": "ID du Remboursement",
     "refundStatus": "Statut du Remboursement",
     "succeeded": "réussi",
-    "name": "Nom",
-    "status": "Statut",
     "statusChangeProhibited": "Le statut ne peut pas être modifié car cette réservation a été remboursée.",
     "securityDepositInfo": "Informations sur le Dépôt de Garantie",
     "depositAmount": "Montant du Dépôt",
@@ -1118,6 +1100,179 @@
     "unableToLoadCompanies": "Impossible de charger les entreprises de location. Veuillez essayer d'accéder directement au site d'une entreprise spécifique.",
     "noActiveCompanies": "Aucune entreprise de location active trouvée. Veuillez contacter l'administrateur.",
     "visitSite": "Visiter le Site"
+  },
+  "legal": {
+    "terms": {
+      "title": "CONDITIONS GÉNÉRALES DU CONTRAT DE LOCATION",
+      "intro": "Veuillez lire attentivement ces Conditions Générales avant de signer le contrat de location.",
+      "section3": {
+        "title": "3. Communications Électroniques et Télématique",
+        "para_a": "(a) Vous acceptez que la Société puisse utiliser des moyens électroniques ou verbaux pour vous contacter. Vous acceptez que la Société puisse utiliser toute adresse e-mail ou numéro de téléphone que vous fournissez pour vous contacter, y compris les appels manuels, les messages vocaux, les SMS, les e-mails ou les systèmes de composition automatique. Le Véhicule peut être équipé d'une technologie de positionnement global ou d'autres systèmes télématiques et d'un émetteur permettant à la Société de suivre ou de localiser le Véhicule et la confidentialité n'est pas garantie. Les informations collectées par cette technologie ou télématique sont régies par la politique de confidentialité de la Société.",
+        "para_b": "(b) Le Véhicule peut avoir des services de télématique, de suivi et services connexes, auquel cas Vous comprenez que votre accès et utilisation du Véhicule ou des services sont soumis aux conditions du Véhicule, du fournisseur de services ou du fabricant de l'appareil et à la déclaration de confidentialité.",
+        "para_c": "(c) Au retour, si le Véhicule nécessite plus que le nettoyage standard de la Société, la Société peut vous facturer les coûts réels engagés pour faire nettoyer le Véhicule.",
+        "para_d": "(d) En Californie : la technologie de service électronique incluse dans le Véhicule peut être activée si le Véhicule n'est pas retourné dans les 72 heures suivant la date de retour contractée.",
+        "para_e": "(e) Pour les locations commençant en Arizona, la loi exige que Vous reconnaissiez comprendre que ce sera une violation des Statuts de l'Arizona 131806 si le Véhicule n'est pas retourné dans les 72 heures de la date et heure d'échéance et que Vous serez passible d'une pénalité maximale ne dépassant pas 150 000 $ US et/ou d'un emprisonnement de 2,25 ans.",
+        "para_f": "(f) Pour les locations dans le District de Columbia, la loi exige que Vous soyez informé que si Vous ne retournez pas le Véhicule conformément au présent Contrat, cela peut entraîner une sanction pénale pouvant aller jusqu'à 3 ans de prison."
+      },
+      "section4": {
+        "title": "4. Votre Responsabilité pour la Perte ou les Dommages au Véhicule et Exonération Optionnelle des Dommages",
+        "para_a": "(a) Sauf indication contraire ci-dessous, Vous êtes responsable de toute perte ou dommage au Véhicule résultant de quelque cause que ce soit, y compris mais sans s'y limiter, collision, retournement, vol, vandalisme, saisie, incendie, inondation, grêle ou autres actes de la nature, indépendamment de la faute.",
+        "para_b": "(b) Sauf indication contraire ci-dessous, Votre responsabilité n'excédera pas le plus élevé entre la valeur marchande de détail du Véhicule et sa valeur de programme de rachat du fabricant au moment où le Véhicule est perdu ou endommagé, moins sa valeur de récupération, plus les frais réels de remorquage, stockage et saisie, la diminution de valeur du Véhicule telle que déterminée par la Société, des frais administratifs et des frais pour perte d'utilisation.",
+        "para_c": "(c) Votre responsabilité pour les dommages dus au vol ou autrement est limitée par la loi dans certaines juridictions. Au 1er juin 2020, les limitations suivantes existent.",
+        "california": {
+          "title": "Californie",
+          "text": "Pour les locations commençant en Californie : (A) Vous n'êtes responsable que de la perte ou des dommages au Véhicule résultant d'une collision, d'un retournement, d'un vol ou de vandalisme, (B) Votre responsabilité pour perte ou dommage au Véhicule n'excédera en aucun cas la juste valeur marchande du Véhicule, plus les frais réels de remorquage, stockage et saisie, et des frais administratifs, (C) Votre responsabilité pour perte ou dommage au Véhicule résultant de vandalisme non lié au vol n'excédera pas 500 $ US."
+        },
+        "illinois": {
+          "title": "Illinois",
+          "text": "Pour les locations commençant en Illinois, pour un Véhicule avec un PDSF de 50 000 $ ou moins, Votre responsabilité pour perte ou dommage dû à des causes autres que le vol n'excédera pas 19 500 $, et Votre responsabilité pour vol n'excédera pas 2 000 $ à moins qu'il ne soit établi que Vous ou un Opérateur Autorisé n'avez pas exercé le soin ordinaire."
+        },
+        "indiana": {
+          "title": "Indiana",
+          "text": "Pour les locations en Indiana, Vous ne serez responsable que de : (A) perte ou dommage au Véhicule jusqu'à sa juste valeur marchande résultant de collision, vol ou vandalisme, (B) perte d'utilisation du Véhicule, si Vous êtes responsable du dommage, (C) frais réels de remorquage, stockage et frais de saisie, et (D) des frais administratifs."
+        },
+        "nevada": {
+          "title": "Nevada",
+          "text": "Pour les locations au Nevada : (A) Votre responsabilité pour perte ou dommage au Véhicule n'excédera pas la juste valeur marchande du Véhicule plus les frais réels de remorquage, stockage et saisie, des frais administratifs et des frais raisonnables pour perte d'utilisation ; (B) Votre responsabilité pour dommage au Véhicule et perte d'utilisation du Véhicule résultant de vandalisme non lié au vol n'excédera pas 2 500 $."
+        },
+        "newyork": {
+          "title": "New York",
+          "text": "Pour les locations commençant à New York : (A) Ce Contrat offre, moyennant des frais supplémentaires, une protection optionnelle du véhicule pour couvrir Votre responsabilité financière en cas de dommages ou de perte du Véhicule. L'achat de cette protection optionnelle est facultatif et peut être refusé. Il Vous est conseillé de considérer attentivement si Vous devez acheter cette protection si Vous avez une couverture collision pour véhicule de location fournie par Votre carte de crédit ou police d'assurance automobile."
+        },
+        "wisconsin": {
+          "title": "Wisconsin",
+          "text": "Pour les locations commençant au Wisconsin, (A) Vous n'êtes pas responsable des dommages au Véhicule autres que les dommages (x) résultant d'un accident survenu pendant que le Véhicule est sous ce contrat ou (y) causés intentionnellement par, ou par la conduite imprudente ou téméraire de, Vous ou un Opérateur Autorisé ; et (B) Votre responsabilité n'excédera en aucun cas la juste valeur marchande du Véhicule immédiatement avant que le dommage ne survienne."
+        },
+        "para_d": "(d) Vous accordez à la Société une procuration limitée pour présenter des réclamations pour dommages ou perte du Véhicule à Votre assureur."
+      },
+      "section5": {
+        "title": "5. Utilisation Interdite du Véhicule",
+        "intro": "Ni Vous ni aucun Opérateur Autorisé ne peut :",
+        "prohibited1": "Permettre l'utilisation du Véhicule par toute personne autre que Vous ou un Opérateur Autorisé ;",
+        "prohibited2": "Détruire, endommager intentionnellement ou aider au vol du Véhicule ;",
+        "prohibited3": "Emmener ou tenter d'emmener le Véhicule au Mexique ou ailleurs en dehors des États-Unis ou du Canada, sauf si expressément autorisé par ce contrat ;",
+        "prohibited4": "Se livrer à une conduite délibérée ou téméraire, qui peut inclure une conduite imprudente comme : ne pas utiliser les ceintures de sécurité, ne pas utiliser de sièges pour enfants lorsque la loi l'exige, utiliser le Véhicule en surcharge, utiliser sur des routes non pavées, faire le plein du Véhicule avec le mauvais type de carburant, quitter le Véhicule sans retirer les clés ;",
+        "prohibited5": "Utiliser ou permettre l'utilisation du Véhicule en état d'ivresse légale ou sous l'influence d'alcool, de drogues ou d'autres éléments susceptibles d'affecter négativement la capacité de conduire en toute sécurité ;",
+        "prohibited6": "Utiliser le Véhicule à toute fin pouvant être qualifiée de crime, comme le transport illégal de personnes, de drogues ou de contrebande ou tout acte de terrorisme ;",
+        "prohibited7": "Utiliser le Véhicule pour remorquer ou pousser quoi que ce soit, dans un test de vitesse, une course de vitesse, un rallye, ou dans une activité de formation à la conduite ;",
+        "prohibited8": "Utiliser le Véhicule pour transporter des personnes ou des biens contre rémunération (contre frais ou honoraires), sauf autorisation écrite expresse de la Société.",
+        "consequences": "Toute utilisation du Véhicule de manière interdite dans ce paragraphe 5 : (i) dans la mesure permise par la loi applicable, vous fera perdre le bénéfice de toute limitation de Votre responsabilité pour perte ou dommage au Véhicule, même si Vous avez accepté LDW ; (ii) annulera l'assurance accidents personnels (\"PAI\") et la couverture des effets personnels (\"PEC\"), le supplément d'assurance responsabilité (\"LIS\"), la protection maladie d'urgence (\"ESP\") et toute protection de responsabilité fournie par la Société ; et (iii) constituera une violation de ce contrat, vous rendant responsable des dommages réels et consécutifs à la Société causés par la violation."
+      },
+      "section6": {
+        "title": "6. Paiement des Frais",
+        "para_a": "(a) Vous et toute personne, société ou autre entité à qui, avec le consentement de la Société, Vous demandez expressément que les frais encourus en vertu du présent Contrat (\"Frais\") soient facturés, êtes solidairement responsables du paiement de tous les frais. Les frais non payés à temps comme requis par ce Contrat peuvent être soumis à des frais de retard de paiement.",
+        "para_b": "(b) Le paiement de tous les Frais est dû à la fin de la location en espèces ou par carte de crédit, carte de débit ou autre dispositif acceptable pour la Société. SI VOUS PRÉSENTEZ UNE CARTE DE CRÉDIT OU DE DÉBIT AU DÉBUT DE LA LOCATION, VOUS AUTORISEZ LA SOCIÉTÉ À RÉSERVER DU CRÉDIT AUPRÈS DE L'ÉMETTEUR DE LA CARTE, OU À OBTENIR UNE AUTORISATION DE SA PART, POUR UN MONTANT QUI PEUT ÊTRE SUPÉRIEUR AUX FRAIS ESTIMÉS.",
+        "para_c": "(c) La Société peut émettre de temps à autre des bons prépayés, des coupons représentés par des documents ou par des entrées dans les registres de la Société (\"Bons\") qui peuvent être utilisés pour payer les frais de location sous réserve des termes et conditions des Bons."
+      },
+      "section7": {
+        "title": "7. Calcul des Frais",
+        "time_charges": "(a) LES FRAIS DE TEMPS sont calculés aux tarifs spécifiés sur le Dossier de Location pour les jours, semaines, mois, heures supplémentaires et jours supplémentaires. LE FRAIS MINIMUM DE LOCATION EST D'UN JOUR DE LOCATION. LES JOURS DE LOCATION CONSISTENT EN DES PÉRIODES CONSÉCUTIVES DE 24 HEURES COMMENÇANT AU MOMENT OÙ LA LOCATION DÉBUTE. LE TARIF DE LOCATION EST SUSCEPTIBLE D'AUGMENTER SI VOUS RETOURNEZ LE VÉHICULE PLUS DE 24 HEURES AVANT OU APRÈS L'HEURE DE RETOUR PRÉVUE.",
+        "mileage_charges": "(b) LES FRAIS DE KILOMÉTRAGE, y compris ceux pour les kilomètres supplémentaires, le cas échéant, sont basés sur le tarif au kilomètre spécifié sur le Dossier de Location.",
+        "service_charge": "(c) Des FRAIS DE SERVICE peuvent être appliqués si Vous retournez le Véhicule à un endroit autre que celui où il a été loué.",
+        "ldw_charges": "(d) Les FRAIS LDW, PERS, PAI/PEC, ESP et LIS, le cas échéant, sont dus et payables intégralement pour chaque jour de location complet ou partiel, aux tarifs spécifiés sur le Dossier de Location.",
+        "taxes": "(e) TAXES, REMBOURSEMENTS DE TAXES, FRAIS DE LICENCE DE VÉHICULE, FRAIS LIÉS À L'AÉROPORT ET/OU À L'HÔTEL ET RÉCUPÉRATIONS DE FRAIS, SURTAXES GOUVERNEMENTALES OU AUTRES ET FRAIS SIMILAIRES sont facturés/récupérés aux tarifs spécifiés sur le Dossier de Location.",
+        "toll_violations": "(f) PÉAGES, STATIONNEMENT ET INFRACTIONS AU CODE DE LA ROUTE : VOUS SEREZ RESPONSABLE ET PAIEREZ TOUS LES PÉAGES, TOUTES LES INFRACTIONS DE STATIONNEMENT, DE CIRCULATION ET DE PÉAGE, AUTRES FRAIS ET PÉNALITÉS, TOUS LES FRAIS DE REMORQUAGE, STOCKAGE ET SAISIE ET TOUTES LES CONTRAVENTIONS FACTURÉES AU VÉHICULE. Vous acceptez de payer, sur facturation, les frais de service applicables (généralement 30 $) et autres frais liés à ces péages ou infractions de péage, stationnement ou circulation.",
+        "recovery_expense": "(g) LES FRAIS DE RÉCUPÉRATION consistent en tous les coûts de toute nature encourus par la Société pour récupérer le Véhicule, y compris, mais sans s'y limiter, tous les honoraires d'avocat et frais de justice.",
+        "collection_expense": "(h) LES FRAIS DE RECOUVREMENT consistent en tous les coûts de toute nature encourus par la Société pour recouvrer les Frais auprès de Vous ou de la personne à qui ils sont facturés, y compris tous les honoraires d'avocat et frais de justice.",
+        "late_payment": "(i) DES FRAIS DE RETARD DE PAIEMENT peuvent être appliqués à tout solde dû pour des Frais non payés dans les 30 jours suivant l'envoi d'une facture par la Société.",
+        "fines": "(j) LES AMENDES ET AUTRES FRAIS comprennent, mais sans s'y limiter, les amendes, pénalités, honoraires d'avocat et frais de justice évalués contre ou payés par la Société résultant de l'utilisation du Véhicule.",
+        "additional_services": "(k) LES FRAIS POUR SERVICES SUPPLÉMENTAIRES, tels que le Système de Navigation dans le Véhicule, GPS alternatif ou autres systèmes de navigation, et les sièges pour bébés et enfants en bas âge, le cas échéant, seront facturés aux tarifs spécifiés sur le Dossier de Location.",
+        "return_change_fee": "(l) FRAIS DE MODIFICATION DE RETOUR : Des Frais de Modification de Retour uniques seront appliqués si Vous souhaitez prolonger Votre location ou retourner le Véhicule à un endroit différent et que Vous ne notifiez pas la Société au moins 12 heures avant la date/heure de retour prévue.",
+        "lost_keys": "(m) CLÉS/TÉLÉCOMMANDES PERDUES/VÉHICULE VERROUILLÉ : Si Vous perdez les clés/télécommande du Véhicule, la Société peut vous facturer le coût de remplacement des clés ou de la télécommande et le coût de livraison des clés/télécommande de remplacement ou de remorquage du Véhicule jusqu'à l'emplacement le plus proche de la Société.",
+        "lost_gps": "(n) UNITÉS GPS/SIÈGES AUTO PERDUS/CASSÉS, ETC. : Si des unités GPS, des sièges auto ou tout autre produit fourni séparément est perdu, volé ou cassé pendant la location, Vous devez en informer la Société, et Vous serez responsable des frais de remplacement, de livraison et de service.",
+        "smoking_fee": "(o) FRAIS POUR AVOIR FUMÉ : Dans le cas où le personnel de la Société détermine que Vous avez fumé dans le Véhicule (sur la base de l'odeur, de bandelettes-test ou d'autres mécanismes) ou que le Véhicule sent la cigarette, le cannabis ou autre fumée, des frais vous seront facturés."
+      },
+      "section8": {
+        "title": "8. Options de Ravitaillement",
+        "intro": "La plupart des locations sont livrées avec un plein de carburant, mais ce n'est pas toujours le cas. Il existe trois options de ravitaillement :",
+        "option1": "SI VOUS N'ACHETEZ PAS DE CARBURANT À LA SOCIÉTÉ AU DÉBUT DE VOTRE LOCATION ET RETOURNEZ LE VÉHICULE AVEC AU MOINS AUTANT DE CARBURANT QU'À SA RÉCEPTION, Vous ne paierez pas à la Société de frais de carburant.",
+        "option2": "SI VOUS N'ACHETEZ PAS DE CARBURANT À LA SOCIÉTÉ AU DÉBUT DE VOTRE LOCATION ET RETOURNEZ LE VÉHICULE AVEC MOINS DE CARBURANT QU'À SA RÉCEPTION, la Société vous facturera des Frais de Carburant et de Service au tarif applicable par kilomètre ou par gallon spécifié sur le Dossier de Location.",
+        "option3": "SI VOUS CHOISISSEZ D'ACHETER DU CARBURANT À LA SOCIÉTÉ AU DÉBUT DE VOTRE LOCATION EN SÉLECTIONNANT L'OPTION D'ACHAT DE CARBURANT, vous serez facturé comme indiqué sur le Dossier de Location. SI VOUS CHOISISSEZ CETTE OPTION, VOUS N'ENCOURREZ PAS DE FRAIS SUPPLÉMENTAIRES DE CARBURANT ET DE SERVICE, MAIS VOUS NE RECEVREZ AUCUN CRÉDIT POUR LE CARBURANT RESTANT DANS LE RÉSERVOIR AU MOMENT DU RETOUR.",
+        "note": "LE COÛT AU GALLON DE L'OPTION D'ACHAT DE CARBURANT SERA TOUJOURS INFÉRIEUR AUX FRAIS DE CARBURANT ET DE SERVICE. MAIS SI VOUS CHOISISSEZ L'OPTION D'ACHAT DE CARBURANT, VOUS NE RECEVREZ PAS DE CRÉDIT POUR LE CARBURANT RESTANT DANS LE RÉSERVOIR AU MOMENT DU RETOUR. LE COÛT DE FAIRE LE PLEIN VOUS-MÊME DANS UNE STATION-SERVICE LOCALE SERA GÉNÉRALEMENT INFÉRIEUR."
+      },
+      "section9": {
+        "title": "9. Arbitrage et Renonciation aux Actions Collectives",
+        "text": "CE CONTRAT NÉCESSITE UN ARBITRAGE OU UNE AFFAIRE DEVANT UN TRIBUNAL DES PETITES CRÉANCES SUR UNE BASE INDIVIDUELLE, PLUTÔT QUE DES PROCÈS DEVANT JURY OU DES ACTIONS COLLECTIVES. EN CONCLUANT CE CONTRAT, VOUS ACCEPTEZ CETTE DISPOSITION D'ARBITRAGE. Sauf pour les réclamations pour dommages matériels, blessures corporelles ou décès, TOUT DIFFÉREND ENTRE VOUS ET NOUS DOIT ÊTRE RÉSOLU UNIQUEMENT PAR ARBITRAGE OU DEVANT UN TRIBUNAL DES PETITES CRÉANCES SUR UNE BASE INDIVIDUELLE ; LES ARBITRAGES COLLECTIFS ET LES ACTIONS COLLECTIVES NE SONT PAS AUTORISÉS. VOUS ET NOUS RENONÇONS CHACUN AU DROIT À UN PROCÈS DEVANT JURY OU À PARTICIPER À UNE ACTION COLLECTIVE."
+      },
+      "section10": {
+        "title": "10. Responsabilité pour les Biens",
+        "text": "Vous acceptez que la Société n'est pas responsable envers Vous, les Opérateurs Autorisés ou toute autre personne pour toute perte ou dommage à Vos biens personnels ou aux leurs causés par Vos actes ou omissions ou les leurs, ceux d'un tiers ou, dans la mesure permise par la loi, par la négligence de la Société. Vous et tout Opérateur Autorisé renoncez par les présentes à toute réclamation contre la Société pour perte ou dommage à Vos biens personnels ou à ceux de toute autre personne. Vous et tout Opérateur Autorisé acceptez d'indemniser et de dégager la Société de toute responsabilité pour toute réclamation contre la Société pour perte ou dommage aux biens personnels."
+      },
+      "section11": {
+        "title": "11. Protection de Responsabilité",
+        "para_a": "(a) Dans les limites énoncées dans ce sous-paragraphe, la Société indemnisera, dégagera de toute responsabilité et défendra Vous et tout autre Opérateur Autorisé contre toute responsabilité envers des tiers pour blessures corporelles (y compris le décès) et dommages matériels, si l'accident résulte de l'utilisation du Véhicule comme permis par ce Contrat. Les limites de cette protection sont les mêmes que les limites minimales requises par la loi sur la responsabilité financière automobile de la juridiction dans laquelle l'accident se produit.",
+        "para_b": "(b) SI VOUS N'ACHETEZ PAS LE SUPPLÉMENT D'ASSURANCE RESPONSABILITÉ (LIS) AU DÉBUT DE LA LOCATION ET QU'UN ACCIDENT RÉSULTE DE L'UTILISATION DU VÉHICULE, VOTRE ASSURANCE ET L'ASSURANCE DE L'OPÉRATEUR DU VÉHICULE SERONT PRIMAIRES. LÀ OÙ LA LOI LE PERMET, LA SOCIÉTÉ NE FOURNIT AUCUNE PROTECTION DE RESPONSABILITÉ ENVERS LES TIERS COUVRANT CETTE LOCATION.",
+        "florida": "POUR LES LOCATIONS COMMENÇANT EN FLORIDE : La loi de Floride exige que la protection de responsabilité et la protection contre les blessures personnelles de la Société soient primaires sauf indication contraire.",
+        "para_c": "(c) VOUS ET TOUS LES OPÉRATEURS INDEMNISEREZ ET DÉGAGEREZ LA SOCIÉTÉ, SES AGENTS, EMPLOYÉS ET AFFILIÉS DE TOUTE RESPONSABILITÉ CONTRE TOUTE PERTE, RESPONSABILITÉ, RÉCLAMATION, DEMANDE, CAUSE D'ACTION, HONORAIRES D'AVOCAT ET FRAIS DE TOUTE NATURE DÉCOULANT DE L'UTILISATION OU DE LA POSSESSION DU VÉHICULE PAR VOUS OU TOUT AUTRE OPÉRATEUR(S), À MOINS QUE CETTE PERTE NE RÉSULTE DE LA NÉGLIGENCE EXCLUSIVE DE LA SOCIÉTÉ."
+      },
+      "section12": {
+        "title": "12. Accidents, Vol et Vandalisme",
+        "text": "Vous devez signaler rapidement et correctement tout accident, vol ou vandalisme impliquant le Véhicule à la Société et à la police dans la juridiction où un tel incident a lieu. Vous devez obtenir les coordonnées des témoins et des autres véhicules impliqués ainsi que de leurs conducteurs, propriétaires et assurances concernées dans la mesure du possible. Si Vous ou un Opérateur Autorisé recevez des documents relatifs à un tel incident, ces documents doivent être remis rapidement à la Société. Vous et tout Opérateur Autorisé devez coopérer pleinement avec l'enquête de la Société sur un tel incident et la défense de toute réclamation en résultant. LE MANQUEMENT À COOPÉRER PLEINEMENT PEUT ANNULER TOUTE PROTECTION DE RESPONSABILITÉ, PAI/PEC, LIS ET LDW."
+      },
+      "section13": {
+        "title": "13. Limites de Responsabilité",
+        "text": "La Société ne sera pas responsable envers Vous ou tout Opérateur Autorisé pour tout dommage indirect, spécial ou consécutif (y compris le manque à gagner) découlant de quelque manière que ce soit de toute question couverte par ce Contrat."
+      },
+      "section14": {
+        "title": "14. Confidentialité",
+        "text": "La Société peut collecter et utiliser des données personnelles vous concernant conformément à la Politique de Confidentialité de la Société. Conformément à la Politique de Confidentialité, Vous avez la possibilité de limiter l'utilisation ou le partage par la Société de données personnelles vous concernant à des fins de marketing et Vous pouvez accéder aux données vous concernant et les corriger. La Politique de Confidentialité explique ces options et fournit des informations sur la façon de choisir une option."
+      },
+      "section15": {
+        "title": "15. Renonciation à la Modification des Termes/Droit Applicable",
+        "text": "(a) Aucune clause de ce Contrat ne peut être renoncée ou modifiée sauf par écrit signé par un représentant expressément autorisé de la Société. Les représentants de location ne sont pas autorisés à renoncer ou à modifier une quelconque clause de ce Contrat. (b) Ce Contrat est régi par le droit substantiel de la juridiction dans laquelle la location commence, et Vous consentez irrévocablement et inconditionnellement à la juridiction non exclusive des tribunaux situés dans cette juridiction. (c) Si une disposition de ce Contrat est en conflit avec une loi ou un règlement applicable dans une juridiction, alors cette disposition sera réputée modifiée pour être conforme à cette loi ou ce règlement, ou supprimée si la modification est impossible, et n'affectera pas le reste de ce Contrat."
+      },
+      "section16": {
+        "title": "16. Paiements aux Intermédiaires",
+        "text": "Si Vous avez organisé cette location par l'intermédiaire d'un agent de voyage, d'un site de voyage Internet, d'un courtier ou d'un autre intermédiaire agissant en Votre nom, la Société ou un affilié du concédant de la Société peut avoir payé des commissions ou d'autres paiements à cette partie pour la compenser pour l'organisation de telles locations. Cette compensation peut être basée en partie sur le volume global d'affaires que cette partie réserve avec la Société ou ses affiliés et licenciés. Pour plus de détails sur cette compensation, Vous devez contacter cette partie."
+      },
+      "section17": {
+        "title": "17. Renonciation du Comté de Miami-Dade",
+        "text": "Sauf renonciation, un locataire dans le Comté de Miami-Dade doit recevoir une carte d'information pour visiteurs approuvée par le comté. Ces cartes sont généralement fournies dans tous les emplacements de la Société dans le Comté de Miami-Dade. Chaque locataire doit soit accuser réception de la carte au début de chaque location, soit renoncer à son droit de la recevoir. En louant un Véhicule en vertu de ce Contrat, Vous renoncez à Votre droit de recevoir une telle carte."
+      },
+      "section18": {
+        "title": "18. Recouvrement des Frais",
+        "text": "Sauf si interdit par la loi applicable ou la règle d'arbitrage, dans tout arbitrage ou autre procédure judiciaire entre Vous et nous, la partie gagnante aura droit à recevoir de l'autre partie les coûts et dépenses de la partie gagnante encourus dans cet arbitrage ou cette procédure judiciaire, y compris les honoraires d'avocat raisonnables, les frais d'arbitrage ou de tribunal, et les honoraires de l'arbitre."
+      }
+    }
+  },
+  "rentalAgreement": {
+    "rulesTitle": "Règles d'Action",
+    "rulesSubtitle": "Veuillez lire et accepter toutes les règles ci-dessous (voir aussi Termes et Conditions)",
+    "ruleProhibitedDriverTitle": "Conducteurs Autorisés Uniquement",
+    "ruleProhibitedDriverText": "Il est absolument INTERDIT d'utiliser ou de conduire ce véhicule loué par toute personne non inscrite sur le contrat de location. Chaque conducteur doit être pré-qualifié en personne avec un permis de conduire valide et avoir au moins 21 ans. Si le conducteur a moins de 25 ans, des frais supplémentaires peuvent s'appliquer.",
+    "ruleAlcoholTitle": "Pas d'Alcool ni de Stupéfiants",
+    "ruleAlcoholText": "Il est absolument INTERDIT d'utiliser ou de conduire ce véhicule loué par toute personne sous l'influence d'ALCOOL ou de tout STUPÉFIANT.",
+    "ruleNoSmokingTitle": "Politique Non-Fumeur",
+    "ruleNoSmokingText": "Il est absolument INTERDIT de FUMER dans le véhicule loué en toutes circonstances. Toute preuve de tabagisme dans le véhicule entraînera une amende, qu'il y ait des dommages ou non.",
+    "ruleLostKeysTitle": "Politique Clés Perdues",
+    "ruleLostKeysText": "En cas de CLÉS PERDUES, ENDOMMAGÉES ou ENFERMÉES À L'INTÉRIEUR nécessitant une récupération de clés, des frais maximum peuvent s'appliquer.",
+    "rulePassengerCapacityTitle": "Capacité de Passagers",
+    "rulePassengerCapacityText": "La capacité de passagers de ce véhicule est déterminée par le nombre de ceintures de sécurité et, selon la loi, ne doit PAS être DÉPASSÉE. Dans le véhicule, attachez toujours votre ceinture de sécurité. C'est la loi!",
+    "ruleCleaningFeeTitle": "Frais de Nettoyage",
+    "ruleCleaningFeeText": "Si le véhicule est retourné exceptionnellement sale, des FRAIS DE NETTOYAGE peuvent s'appliquer.",
+    "ruleTiresTitle": "Responsabilité des Pneus",
+    "ruleTiresText": "Les PNEUS crevés ou endommagés sont la responsabilité du Locataire et sont la responsabilité financière du Locataire ou du(des) Conducteur(s) Autorisé(s).",
+    "ruleTicketsTitle": "Contraventions et Amendes",
+    "ruleTicketsText": "TOUTES LES CONTRAVENTIONS, AMENDES, FRAIS et autres reçus pendant la période de location, causés par le locataire et/ou la période de location doivent être payés par le Locataire.",
+    "rule24HourTitle": "Périodes de Location de 24 Heures",
+    "rule24HourText": "Les Jours de Location sont basés sur des Périodes de Location de 24 heures. Veuillez retourner à l'heure. Chaque heure après la Période de Location sera calculée à ¼ du tarif journalier incluant toutes les taxes et frais et jusqu'à une journée complète.",
+    "ruleNoCellPhoneTitle": "Pas d'Utilisation de Téléphone",
+    "ruleNoCellPhoneText": "Pas d'utilisation de téléphone portable lors de la conduite du Véhicule sauf s'il s'agit d'un appareil mains libres comme le Bluetooth. C'est la loi, le conducteur est interdit de manipuler tout appareil électronique pendant la conduite, quel que soit le comportement d'utilisation.",
+    "ruleCardAuthorizationTitle": "Autorisation de Carte",
+    "ruleCardAuthorizationText": "J'autorise la société de location à débiter ma carte de crédit/débit pour: le montant de la location, le dépôt de garantie, les frais de carburant le cas échéant, les infractions routières, les contraventions de stationnement, les frais de péage, les réparations de dommages, les frais de nettoyage et tous autres frais encourus pendant ou à la suite de cette location.",
+    "signatureLabel": "Votre Signature",
+    "signatureHelper": "Veuillez signer dans la case ci-dessus avec votre souris ou votre doigt",
+    "clearSignature": "Effacer",
+    "agreementTitle": "Contrat de Location",
+    "agreementSubtitle": "Veuillez examiner et signer le contrat de location",
+    "rentalSummary": "Résumé de la Location",
+    "vehicle": "Véhicule",
+    "pickupDate": "Date de Prise en Charge",
+    "returnDate": "Date de Retour",
+    "totalAmount": "Montant Total",
+    "securityDeposit": "Dépôt de Garantie",
+    "requiredConsents": "Veuillez cocher toutes les cases pour confirmer que vous avez lu et acceptez les règles",
+    "signatureRequired": "Veuillez fournir votre signature",
+    "allConsentsRequired": "Veuillez accepter toutes les règles et conditions"
   }
 }
-

@@ -356,29 +356,6 @@
     "statusCancelled": "Storniert"
   },
   "bookPage": {
-    "noModelSelected": "Kein Modell Ausgewählt",
-    "selectModelToBook": "Bitte wählen Sie ein Fahrzeugmodell zum Buchen aus.",
-    "returnToHome": "Zurück zur Startseite",
-    "backToHome": "Zurück zur Startseite",
-    "bookModel": "{{make}} {{model}} Buchen",
-    "selectVehicleAndComplete": "Wählen Sie ein Fahrzeug aus und schließen Sie Ihre Buchung ab",
-    "driverLicenseInformation": "Führerscheininformationen",
-    "driverLicenseHelper": "Verwalten Sie Ihre Führerscheindaten vor dem Checkout.",
-    "ratePerDayTitle": "Preis pro Tag",
-    "noAdditionalOptions": "Keine zusätzlichen Optionen verfügbar"
-  },
-  "navbar": {
-    "home": "Startseite",
-    "about": "Über uns",
-    "carRentals": "Autovermietung",
-    "terms": "AGB",
-    "contact": "Kontakt",
-    "settings": "Einstellungen",
-    "dashboard": "Dashboard",
-    "login": "Anmelden",
-    "logout": "Abmelden"
-  },
-  "bookPage": {
     "editExisting": "(Vorhandenes bearbeiten)",
     "createNew": "(Neu erstellen)",
     "loginToEnterLicense": "Bitte melden Sie sich an, um Ihre Führerscheininformationen einzugeben",
@@ -403,7 +380,7 @@
     "country": "Land",
     "restrictionCode": "Beschränkungscode",
     "endorsements": "Eintragungen",
-    "saving": "Speichern...",
+    "saving": "Wird Gespeichert...",
     "updateLicenseInformation": "Führerscheininformationen Aktualisieren",
     "createLicenseInformation": "Führerscheininformationen Erstellen",
     "licenseSaved": "Führerscheininformationen erfolgreich gespeichert",
@@ -469,7 +446,6 @@
     "preview": "Vorschau",
     "retake": "Erneut Aufnehmen",
     "savePhoto": "Foto Speichern",
-    "saving": "Wird Gespeichert...",
     "savingPhoto": "Foto Wird Gespeichert...",
     "frontPhotoSaved": "Foto der Vorderseite gespeichert! Machen Sie jetzt ein Foto der Rückseite.",
     "backPhotoSaved": "Foto der Rückseite gespeichert! Sie können jetzt zum Assistenten zurückkehren.",
@@ -533,7 +509,8 @@
     "address": "Adresse",
     "allRightsReserved": "Alle Rechte vorbehalten.",
     "scanQRCode": "QR-Code scannen",
-    "noLocations": "Keine Standorte verfügbar"
+    "noLocations": "Keine Standorte verfügbar",
+    "rentalTerms": "Mietbedingungen"
   },
   "qrCode": {
     "download": "Herunterladen",
@@ -574,11 +551,11 @@
     "companyId": "Firmen-ID",
     "notSet": "Nicht festgelegt",
     "admin": "Administrator",
-      "loadingCompany": "Firmeninformationen werden geladen...",
-      "loadingData": "Standorte und Fahrzeuge werden geladen...",
-      "loadingLocations": "Standorte werden geladen...",
-      "loadingVehicles": "Fahrzeuge werden geladen...",
-      "viewOnly": "Nur Lesen"
+    "loadingCompany": "Firmeninformationen werden geladen...",
+    "loadingData": "Standorte und Fahrzeuge werden geladen...",
+    "loadingLocations": "Standorte werden geladen...",
+    "loadingVehicles": "Fahrzeuge werden geladen...",
+    "viewOnly": "Nur Lesen"
   },
   "auth": {
     "loginRequired": "Bitte melden Sie sich an, um auf diese Seite zuzugreifen",
@@ -942,18 +919,15 @@
     "allMakes": "Alle Marken",
     "allModels": "Alle Modelle",
     "allModelsForMake": "Alle {{make}} Modelle",
-    "licensePlate": "Kennzeichen",
     "searchLicensePlate": "Nach Kennzeichen suchen...",
     "clearFilters": "Filter löschen",
     "showingFilteredVehicles": "Gefilterte Fahrzeuge anzeigen:",
     "unassigned": "nicht zugewiesen",
     "atSelectedLocation": "am ausgewählten Standort",
-    "location": "Standort",
-    "additionalServices": "Zusätzliche Dienstleistungen",
     "bookingConfiguration": "Buchungskonfiguration",
     "bookingSettingsComingSoon": "Buchungseinstellungsverwaltung kommt bald...",
     "vehicleManagementComingSoon": "Fahrzeugverwaltung kommt bald...",
-    "reportsComingSoon": "Berichte kommen bald...",
+    "reportsComingSoon": "Berichte und Analysen kommen bald...",
     "addService": "Service Hinzufügen",
     "editService": "Service Bearbeiten",
     "serviceName": "Service-Name",
@@ -998,14 +972,12 @@
     "confirmDeleteService": "Sind Sie sicher, dass Sie diesen Service löschen möchten?",
     "reservationsComingSoon": "Reservierungsverwaltung kommt bald...",
     "customersComingSoon": "Kundenverwaltung kommt bald...",
-    "reportsComingSoon": "Berichte und Analysen kommen bald...",
     "companyInfo": "Unternehmensinformationen",
     "design": "Design",
     "locations": "Standorte",
     "companyName": "Unternehmensname",
     "email": "E-Mail",
     "phone": "Telefon",
-    "location": "Standort",
     "website": "Website",
     "address": "Adresse",
     "city": "Stadt",
@@ -1082,8 +1054,6 @@
     "refundId": "Rückerstattungs-ID",
     "refundStatus": "Rückerstattungsstatus",
     "succeeded": "erfolgreich",
-    "name": "Name",
-    "status": "Status",
     "statusChangeProhibited": "Der Status kann nicht geändert werden, da diese Buchung zurückerstattet wurde.",
     "securityDepositInfo": "Informationen zur Kaution",
     "depositAmount": "Kautionsbetrag",
@@ -1126,6 +1096,179 @@
     "unableToLoadCompanies": "Mietunternehmen konnten nicht geladen werden. Bitte versuchen Sie, direkt auf die Website eines bestimmten Unternehmens zuzugreifen.",
     "noActiveCompanies": "Keine aktiven Mietunternehmen gefunden. Bitte kontaktieren Sie den Administrator.",
     "visitSite": "Website Besuchen"
+  },
+  "legal": {
+    "terms": {
+      "title": "ALLGEMEINE GESCHÄFTSBEDINGUNGEN DES MIETVERTRAGS VON EB AUTO RENTAL CORP",
+      "intro": "Bitte lesen Sie diese Allgemeinen Geschäftsbedingungen sorgfältig durch, bevor Sie den Mietvertrag unterzeichnen.",
+      "section3": {
+        "title": "3. Elektronische Kommunikation und Telematik",
+        "para_a": "(a) Sie stimmen zu, dass das Unternehmen elektronische oder mündliche Mittel verwenden kann, um Sie zu kontaktieren. Sie stimmen zu, dass das Unternehmen jede E-Mail-Adresse oder Telefonnummer, die Sie angeben, verwenden kann, um Sie zu kontaktieren, einschließlich manueller Anrufe, Sprachnachrichten, Textnachrichten, E-Mails oder automatischer Telefonwählsysteme. Das Fahrzeug kann mit GPS-Technologie oder anderen Telematiksystemen und einem Sender ausgestattet sein, der es dem Unternehmen ermöglicht, das Fahrzeug zu verfolgen oder anderweitig zu lokalisieren, und die Privatsphäre ist nicht garantiert. Die von einer solchen Technologie oder Telematik gesammelten Informationen unterliegen der Datenschutzrichtlinie des Unternehmens.",
+        "para_b": "(b) Das Fahrzeug kann Telematik-, Verfolgungs- und verwandte Dienste haben, in welchem Fall Sie verstehen, dass Ihr Zugang und Ihre Nutzung des Fahrzeugs oder der Dienste den Bedingungen des Fahrzeugs, des Dienstanbieters oder des Geräteherstellers und der Datenschutzerklärung unterliegen.",
+        "para_c": "(c) Bei der Rückgabe kann das Unternehmen Ihnen die tatsächlichen Kosten für die Reinigung des Fahrzeugs in Rechnung stellen, wenn das Fahrzeug mehr als die Standardreinigung des Unternehmens erfordert.",
+        "para_d": "(d) In Kalifornien: Die im Fahrzeug enthaltene elektronische Servicetechnologie kann aktiviert werden, wenn das Fahrzeug nicht innerhalb von 72 Stunden nach dem vereinbarten Rückgabedatum zurückgegeben wird.",
+        "para_e": "(e) Für Anmietungen in Arizona ist es gesetzlich vorgeschrieben, dass Sie Ihr Verständnis bestätigen, dass es ein Verstoß gegen die Arizona-Statuten 131806 sein wird, wenn das Fahrzeug nicht innerhalb von 72 Stunden nach dem Fälligkeitsdatum und der Uhrzeit zurückgegeben wird und dass Sie einer Höchststrafe von nicht mehr als 150.000 US-Dollar und/oder einer Freiheitsstrafe von 2,25 Jahren unterliegen.",
+        "para_f": "(f) Für Anmietungen im District of Columbia ist es gesetzlich vorgeschrieben, dass Sie darüber informiert werden, dass, wenn Sie das Fahrzeug nicht gemäß diesem Vertrag zurückgeben, dies zu einer strafrechtlichen Sanktion von bis zu 3 Jahren Gefängnis führen kann."
+      },
+      "section4": {
+        "title": "4. Ihre Verantwortung für Verlust oder Schäden am Fahrzeug und optionaler Schadensfreistellungsvertrag",
+        "para_a": "(a) Sofern nicht nachstehend anders angegeben, sind Sie für jeden Verlust oder Schaden am Fahrzeug verantwortlich, der aus irgendeiner Ursache resultiert, einschließlich, aber nicht beschränkt auf Kollision, Überschlag, Diebstahl, Vandalismus, Beschlagnahme, Feuer, Überschwemmung, Hagel oder andere Naturereignisse, ungeachtet des Verschuldens.",
+        "para_b": "(b) Sofern nicht nachstehend anders angegeben, wird Ihre Verantwortung den höheren Wert aus dem fairen Marktwert des Fahrzeugs und seinem Hersteller-Rückkaufprogrammwert zum Zeitpunkt des Verlusts oder der Beschädigung nicht überschreiten, abzüglich seines Restwerts, plus tatsächliche Abschlepp-, Lager- und Beschlagnahmegebühren, Wertminderung des Fahrzeugs nach Ermessen des Unternehmens, eine Verwaltungsgebühr und eine Gebühr für Nutzungsausfall.",
+        "para_c": "(c) Ihre Verantwortung für Schäden aufgrund von Diebstahl oder anderem ist in bestimmten Rechtsordnungen gesetzlich begrenzt. Ab dem 1. Juni 2020 bestehen die folgenden Beschränkungen.",
+        "california": {
+          "title": "Kalifornien",
+          "text": "Für Anmietungen in Kalifornien: (A) Sie sind nur für Verlust oder Schaden am Fahrzeug verantwortlich, der aus Kollision, Überschlag, Diebstahl oder Vandalismus resultiert, (B) Ihre Verantwortung für Verlust oder Schaden am Fahrzeug wird in keinem Fall den fairen Marktwert des Fahrzeugs übersteigen, plus tatsächliche Gebühren für Abschleppen, Lagerung und Beschlagnahme und eine Verwaltungsgebühr, (C) Ihre Verantwortung für Verlust oder Schaden am Fahrzeug durch Vandalismus, der nicht mit Diebstahl zusammenhängt, wird 500 US-Dollar nicht übersteigen."
+        },
+        "illinois": {
+          "title": "Illinois",
+          "text": "Für Anmietungen in Illinois, für ein Fahrzeug mit einem UVP von 50.000 $ oder weniger, wird Ihre Verantwortung für Verlust oder Schaden aus anderen Gründen als Diebstahl 19.500 $ nicht übersteigen, und Ihre Verantwortung für Diebstahl wird 2.000 $ nicht übersteigen, es sei denn, es wird festgestellt, dass Sie oder ein autorisierter Fahrer nicht die übliche Sorgfalt ausgeübt haben."
+        },
+        "indiana": {
+          "title": "Indiana",
+          "text": "Für Anmietungen in Indiana sind Sie für nicht mehr als verantwortlich: (A) Verlust oder Schaden am Fahrzeug bis zu seinem fairen Marktwert durch Kollision, Diebstahl oder Vandalismus, (B) Nutzungsausfall des Fahrzeugs, wenn Sie für den Schaden haftbar sind, (C) tatsächliche Gebühren für Abschleppen, Lagerung und Beschlagnahme, und (D) eine Verwaltungsgebühr."
+        },
+        "nevada": {
+          "title": "Nevada",
+          "text": "Für Anmietungen in Nevada: (A) Ihre Verantwortung für Verlust oder Schaden am Fahrzeug wird den fairen Marktwert des Fahrzeugs nicht übersteigen, plus tatsächliche Abschlepp-, Lager- und Beschlagnahmegebühren, eine Verwaltungsgebühr und eine angemessene Gebühr für Nutzungsausfall; (B) Ihre Verantwortung für Schaden am Fahrzeug und Nutzungsausfall des Fahrzeugs durch Vandalismus, der nicht mit Diebstahl zusammenhängt, wird 2.500 $ nicht übersteigen."
+        },
+        "newyork": {
+          "title": "New York",
+          "text": "Für Anmietungen in New York: (A) Dieser Vertrag bietet gegen eine zusätzliche Gebühr einen optionalen Fahrzeugschutz zur Deckung Ihrer finanziellen Verantwortung für Schäden oder Verlust am Fahrzeug. Der Kauf des optionalen Fahrzeugschutzes ist optional und kann abgelehnt werden. Es wird empfohlen, sorgfältig zu prüfen, ob Sie diesen Schutz kaufen sollten, wenn Sie eine Mietwagen-Kollisionsversicherung durch Ihre Kreditkarte oder Kfz-Versicherung haben."
+        },
+        "wisconsin": {
+          "title": "Wisconsin",
+          "text": "Für Anmietungen in Wisconsin, (A) Sie sind nicht für Schäden am Fahrzeug verantwortlich, außer für Schäden (x) die aus einem Unfall resultieren, der während der Laufzeit dieses Vertrags auftritt, oder (y) die vorsätzlich oder durch rücksichtsloses oder leichtfertiges Fehlverhalten von Ihnen oder einem autorisierten Fahrer verursacht wurden; und (B) Ihre Verantwortung wird in keinem Fall den fairen Marktwert des Fahrzeugs unmittelbar vor dem Schadenseintritt übersteigen."
+        },
+        "para_d": "(d) Sie erteilen dem Unternehmen eine beschränkte Vollmacht zur Geltendmachung von Ansprüchen wegen Schäden oder Verlust am Fahrzeug bei Ihrer Versicherung."
+      },
+      "section5": {
+        "title": "5. Verbotene Nutzung des Fahrzeugs",
+        "intro": "Weder Sie noch ein autorisierter Fahrer dürfen:",
+        "prohibited1": "Die Nutzung des Fahrzeugs durch andere Personen als Sie oder einen autorisierten Fahrer gestatten;",
+        "prohibited2": "Das Fahrzeug vorsätzlich zerstören, beschädigen oder beim Diebstahl helfen;",
+        "prohibited3": "Das Fahrzeug nach Mexiko oder anderswohin außerhalb der Vereinigten Staaten oder Kanadas bringen oder versuchen zu bringen, außer wenn ausdrücklich in diesem Vertrag gestattet;",
+        "prohibited4": "Vorsätzliches oder leichtfertiges Fehlverhalten begehen, das unter anderem rücksichtsloses Verhalten umfassen kann wie: Nichtbenutzung von Sicherheitsgurten, Nichtbenutzung von Kindersitzen wo gesetzlich vorgeschrieben, Nutzung des Fahrzeugs bei Überladung, Nutzung auf unbefestigten Straßen, Betanken des Fahrzeugs mit dem falschen Kraftstoff, Verlassen des Fahrzeugs ohne die Schlüssel zu entfernen;",
+        "prohibited5": "Das Fahrzeug nutzen oder nutzen lassen, während Sie rechtlich betrunken sind oder unter dem Einfluss von Alkohol, Drogen oder anderen Substanzen stehen, die die Fahrtüchtigkeit beeinträchtigen können;",
+        "prohibited6": "Das Fahrzeug für Zwecke nutzen, die als Straftat gewertet werden könnten, wie illegaler Transport von Personen, Drogen oder Schmuggelware oder jede terroristische Handlung;",
+        "prohibited7": "Das Fahrzeug zum Abschleppen oder Anschieben verwenden, in einem Geschwindigkeitstest, Geschwindigkeitswettbewerb, Rennen, Rallye oder in Fahrausbildungsaktivitäten;",
+        "prohibited8": "Das Fahrzeug zum Transport von Personen oder Eigentum gegen Entgelt nutzen (gegen Gebühr oder Honorar), es sei denn, dies ist ausdrücklich schriftlich vom Unternehmen genehmigt.",
+        "consequences": "Jede Nutzung des Fahrzeugs in einer in diesem Absatz 5 verbotenen Weise: (i) führt im gesetzlich zulässigen Rahmen dazu, dass Sie den Vorteil jeder Haftungsbeschränkung für Verlust oder Schaden am Fahrzeug verlieren, auch wenn Sie LDW akzeptiert haben; (ii) macht die Unfallversicherung (\"PAI\") und die Deckung für persönliche Gegenstände (\"PEC\"), den Haftpflichtversicherungszusatz (\"LIS\"), den Notfall-Krankheitsschutz (\"ESP\") und jeden vom Unternehmen bereitgestellten Haftungsschutz ungültig; und (iii) stellt einen Vertragsbruch dar, der Sie für die tatsächlichen und Folgeschäden am Unternehmen durch den Verstoß verantwortlich macht."
+      },
+      "section6": {
+        "title": "6. Zahlung der Gebühren",
+        "para_a": "(a) Sie und jede Person, Gesellschaft oder andere Einheit, an die Sie mit Zustimmung des Unternehmens ausdrücklich die unter diesem Vertrag anfallenden Gebühren (\"Gebühren\") zur Abrechnung weiterleiten, haften gesamtschuldnerisch für die Zahlung aller Gebühren. Nicht rechtzeitig gemäß diesem Vertrag gezahlte Gebühren können einer Verzugsgebühr unterliegen.",
+        "para_b": "(b) Die Zahlung aller Gebühren ist bei Abschluss der Anmietung in bar oder per Kreditkarte, Debitkarte oder anderem für das Unternehmen akzeptablem Gerät fällig. WENN SIE ZU BEGINN DER ANMIETUNG EINE KREDIT- ODER DEBITKARTE VORLEGEN, ERMÄCHTIGEN SIE DAS UNTERNEHMEN, BEIM KARTENAUSSTELLER EIN KREDITLIMIT ZU RESERVIEREN ODER EINE GENEHMIGUNG EINZUHOLEN, IN EINEM BETRAG, DER HÖHER SEIN KANN ALS DIE GESCHÄTZTEN GEBÜHREN.",
+        "para_c": "(c) Das Unternehmen kann von Zeit zu Zeit Prepaid-Gutscheine, Coupons in Form von Dokumenten oder Einträgen in den Unterlagen des Unternehmens (\"Gutscheine\") ausgeben, die zur Zahlung von Mietgebühren verwendet werden können, vorbehaltlich der Bedingungen der Gutscheine."
+      },
+      "section7": {
+        "title": "7. Berechnung der Gebühren",
+        "time_charges": "(a) ZEITGEBÜHREN werden zu den im Mietnachweis angegebenen Tarifen für Tage, Wochen, Monate, Überstunden und Zusatztage berechnet. DIE MINDESTMIETGEBÜHR BETRÄGT EINEN MIETTAG. MIETTAGE BESTEHEN AUS AUFEINANDERFOLGENDEN 24-STUNDEN-PERIODEN AB DEM ZEITPUNKT DES MIETBEGINNS. DER MIETTARIF KANN ERHÖHT WERDEN, WENN SIE DAS FAHRZEUG MEHR ALS 24 STUNDEN VOR ODER NACH DER GEPLANTEN RÜCKGABEZEIT ZURÜCKGEBEN.",
+        "mileage_charges": "(b) KILOMETERGEBÜHREN, einschließlich der für Zusatzkilometer, falls vorhanden, basieren auf dem im Mietnachweis angegebenen Tarif pro Kilometer.",
+        "service_charge": "(c) Eine SERVICEGEBÜHR kann erhoben werden, wenn Sie das Fahrzeug an einem anderen Ort zurückgeben als an dem, an dem es gemietet wurde.",
+        "ldw_charges": "(d) LDW-, PERS-, PAI/PEC-, ESP- und LIS-GEBÜHREN sind, falls zutreffend, für jeden vollen oder teilweisen Miettag zu den im Mietnachweis angegebenen Tarifen vollständig fällig und zahlbar.",
+        "taxes": "(e) STEUERN, STEUERERSTATTUNGEN, FAHRZEUGZULASSUNGSGEBÜHREN, FLUGHAFEN- UND/ODER HOTELBEZOGENE GEBÜHREN UND GEBÜHRENRÜCKFORDERUNGEN, STAATLICHE ODER ANDERE ZUSCHLÄGE UND ÄHNLICHE GEBÜHREN werden zu den im Mietnachweis angegebenen Tarifen erhoben/zurückgefordert.",
+        "toll_violations": "(f) MAUT-, PARK- UND VERKEHRSVERSTÖSSE: SIE SIND VERANTWORTLICH FÜR UND ZAHLEN ALLE MAUTGEBÜHREN, ALLE PARK-, VERKEHRS- UND MAUTVERSTÖSSE, ANDERE AUSGABEN UND STRAFEN, ALLE ABSCHLEPP-, LAGER- UND BESCHLAGNAHMEGEBÜHREN UND ALLE DEM FAHRZEUG ZUGESCHRIEBENEN STRAFZETTEL. Sie erklären sich bereit, bei Rechnungsstellung die anfallenden Servicegebühren (typischerweise 30 $) und andere Gebühren im Zusammenhang mit solchen Mautvorkommen oder Maut-, Park- oder Verkehrsverstößen zu zahlen.",
+        "recovery_expense": "(g) WIEDERBESCHAFFUNGSKOSTEN umfassen alle Kosten jeglicher Art, die dem Unternehmen bei der Wiederbeschaffung des Fahrzeugs entstehen, einschließlich, aber nicht beschränkt auf alle Anwaltsgebühren und Gerichtskosten.",
+        "collection_expense": "(h) INKASSOKOSTEN umfassen alle Kosten jeglicher Art, die dem Unternehmen beim Einzug von Gebühren von Ihnen oder der Person entstehen, an die sie abgerechnet werden, einschließlich aller Anwaltsgebühren und Gerichtskosten.",
+        "late_payment": "(i) VERZUGSGEBÜHREN können auf jeden ausstehenden Betrag für Gebühren angewendet werden, die nicht innerhalb von 30 Tagen nach Versand einer Rechnung durch das Unternehmen bezahlt werden.",
+        "fines": "(j) BUSSGELDER UND ANDERE AUSGABEN umfassen, ohne darauf beschränkt zu sein, Bußgelder, Strafen, Anwaltsgebühren und Gerichtskosten, die gegen das Unternehmen verhängt oder von ihm bezahlt werden, die aus der Nutzung des Fahrzeugs resultieren.",
+        "additional_services": "(k) GEBÜHREN FÜR ZUSÄTZLICHE DIENSTE, wie Fahrzeug-Navigationssystem, alternatives GPS oder andere Navigationssysteme und Baby- und Kleinkindersitze, werden, falls zutreffend, zu den im Mietnachweis angegebenen Tarifen berechnet.",
+        "return_change_fee": "(l) RÜCKGABEÄNDERUNGSGEBÜHR: Eine einmalige Rückgabeänderungsgebühr wird erhoben, wenn Sie Ihre Anmietung verlängern oder das Fahrzeug an einem anderen Ort zurückgeben möchten und das Unternehmen nicht mindestens 12 Stunden vor dem geplanten Rückgabedatum/-zeit benachrichtigen.",
+        "lost_keys": "(m) VERLORENE SCHLÜSSEL/SCHLÜSSELANHÄNGER/AUSSPERRUNG: Wenn Sie die Schlüssel/den Schlüsselanhänger des Fahrzeugs verlieren, kann das Unternehmen Ihnen die Kosten für den Ersatz der Schlüssel oder des Schlüsselanhängers und die Kosten für die Lieferung von Ersatzschlüsseln/-anhängern oder das Abschleppen des Fahrzeugs zum nächsten Standort des Unternehmens berechnen.",
+        "lost_gps": "(n) VERLORENE/DEFEKTE GPS-GERÄTE, KINDERSITZE, USW.: Wenn GPS-Geräte, Kindersitze oder andere separat bereitgestellte Produkte während der Anmietung verloren gehen, gestohlen oder beschädigt werden, müssen Sie das Unternehmen benachrichtigen, und Sie sind für Ersatz-, Liefer- und Servicekosten verantwortlich.",
+        "smoking_fee": "(o) RAUCHGEBÜHR: Falls vom Personal des Unternehmens festgestellt wird, dass Sie im Fahrzeug geraucht haben (basierend auf Geruch, Teststreifen oder anderen Methoden) oder das Fahrzeug nach Zigaretten-, Cannabis- oder anderem Rauch riecht, wird Ihnen eine Gebühr berechnet."
+      },
+      "section8": {
+        "title": "8. Betankungsoptionen",
+        "intro": "Die meisten Anmietungen kommen mit vollem Tank, aber das ist nicht immer der Fall. Es gibt drei Betankungsoptionen:",
+        "option1": "WENN SIE ZU BEGINN IHRER ANMIETUNG KEINEN KRAFTSTOFF VOM UNTERNEHMEN KAUFEN UND DAS FAHRZEUG MIT MINDESTENS SO VIEL KRAFTSTOFF ZURÜCKGEBEN, WIE ES HATTE, ALS SIE ES ERHALTEN HABEN, zahlen Sie dem Unternehmen keine Kraftstoffgebühr.",
+        "option2": "WENN SIE ZU BEGINN IHRER ANMIETUNG KEINEN KRAFTSTOFF VOM UNTERNEHMEN KAUFEN UND DAS FAHRZEUG MIT WENIGER KRAFTSTOFF ZURÜCKGEBEN, ALS ES HATTE, ALS SIE ES ERHALTEN HABEN, berechnet Ihnen das Unternehmen eine Kraftstoff- und Servicegebühr zum geltenden Tarif pro Kilometer oder Gallone, wie im Mietnachweis angegeben.",
+        "option3": "WENN SIE ZU BEGINN IHRER ANMIETUNG KRAFTSTOFF VOM UNTERNEHMEN KAUFEN, INDEM SIE DIE KRAFTSTOFFKAUFOPTION WÄHLEN, wird Ihnen wie im Mietnachweis angegeben berechnet. WENN SIE DIESE OPTION WÄHLEN, ENTSTEHEN IHNEN KEINE ZUSÄTZLICHEN KRAFTSTOFF- UND SERVICEGEBÜHREN, ABER SIE ERHALTEN KEINE GUTSCHRIFT FÜR IM TANK VERBLEIBENDEN KRAFTSTOFF BEI DER RÜCKGABE.",
+        "note": "DIE KOSTEN PRO GALLONE DER KRAFTSTOFFKAUFOPTION WERDEN IMMER NIEDRIGER SEIN ALS DIE KRAFTSTOFF- UND SERVICEGEBÜHR. ABER WENN SIE DIE KRAFTSTOFFKAUFOPTION WÄHLEN, ERHALTEN SIE KEINE GUTSCHRIFT FÜR IM TANK VERBLEIBENDEN KRAFTSTOFF BEI DER RÜCKGABE. DIE KOSTEN FÜR DAS SELBSTTANKEN AN EINER LOKALEN TANKSTELLE WERDEN IM ALLGEMEINEN NIEDRIGER SEIN."
+      },
+      "section9": {
+        "title": "9. Schiedsverfahren und Verzicht auf Sammelklagen",
+        "text": "DIESER VERTRAG ERFORDERT EIN SCHIEDSVERFAHREN ODER EINEN FALL VOR EINEM BAGATELLGERICHT AUF INDIVIDUELLER BASIS, ANSTELLE VON GESCHWORENENPROZESSEN ODER SAMMELKLAGEN. MIT DEM ABSCHLUSS DIESES VERTRAGS STIMMEN SIE DIESER SCHIEDSKLAUSEL ZU. Mit Ausnahme von Ansprüchen auf Sachschäden, Personenschäden oder Tod MÜSSEN ALLE STREITIGKEITEN ZWISCHEN IHNEN UND UNS NUR DURCH SCHIEDSVERFAHREN ODER VOR EINEM BAGATELLGERICHT AUF INDIVIDUELLER BASIS BEIGELEGT WERDEN; SAMMEL-SCHIEDSVERFAHREN UND SAMMELKLAGEN SIND NICHT ZULÄSSIG. SIE UND WIR VERZICHTEN JEWEILS AUF DAS RECHT AUF EINEN GESCHWORENENPROZESS ODER DIE TEILNAHME AN EINER SAMMELKLAGE."
+      },
+      "section10": {
+        "title": "10. Verantwortung für Eigentum",
+        "text": "Sie stimmen zu, dass das Unternehmen nicht gegenüber Ihnen, autorisierten Fahrern oder anderen Personen für Verlust oder Schäden an Ihrem oder deren persönlichem Eigentum haftet, die durch Ihre oder deren Handlungen oder Unterlassungen, die eines Dritten oder, soweit gesetzlich zulässig, durch die Fahrlässigkeit des Unternehmens verursacht wurden. Sie und alle autorisierten Fahrer verzichten hiermit auf alle Ansprüche gegen das Unternehmen wegen Verlust oder Schäden an Ihrem persönlichen Eigentum oder dem anderer. Sie und alle autorisierten Fahrer verpflichten sich, das Unternehmen von allen Ansprüchen wegen Verlust oder Schäden an persönlichem Eigentum freizustellen."
+      },
+      "section11": {
+        "title": "11. Haftungsschutz",
+        "para_a": "(a) Im Rahmen der in diesem Unterabsatz genannten Grenzen wird das Unternehmen Sie und alle anderen autorisierten Fahrer gegen Haftung gegenüber Dritten für Personenschäden (einschließlich Tod) und Sachschäden freistellen, schadlos halten und verteidigen, wenn der Unfall aus der Nutzung des Fahrzeugs gemäß diesem Vertrag resultiert. Die Grenzen dieses Schutzes entsprechen den Mindestgrenzen, die durch das Kfz-Haftpflichtgesetz der Rechtsordnung, in der sich der Unfall ereignet, vorgeschrieben sind.",
+        "para_b": "(b) WENN SIE ZU BEGINN DER ANMIETUNG KEINEN HAFTPFLICHTVERSICHERUNGSZUSATZ (LIS) KAUFEN UND EIN UNFALL AUS DER NUTZUNG DES FAHRZEUGS RESULTIERT, SIND IHRE VERSICHERUNG UND DIE VERSICHERUNG DES FAHRZEUGFÜHRERS VORRANGIG. SOWEIT GESETZLICH ZULÄSSIG, BIETET DAS UNTERNEHMEN KEINEN DRITTHAFTPFLICHTSCHUTZ FÜR DIESE ANMIETUNG.",
+        "florida": "FÜR ANMIETUNGEN IN FLORIDA: Das Gesetz von Florida verlangt, dass der Haftungsschutz und der Personenschadenschutz des Unternehmens vorrangig sind, sofern nicht anders angegeben.",
+        "para_c": "(c) SIE UND ALLE FAHRER WERDEN DAS UNTERNEHMEN, SEINE VERTRETER, MITARBEITER UND VERBUNDENEN UNTERNEHMEN VON UND GEGEN ALLE VERLUSTE, HAFTUNGEN, ANSPRÜCHE, FORDERUNGEN, KLAGEGRÜNDE, ANWALTSGEBÜHREN UND KOSTEN JEGLICHER ART FREISTELLEN UND SCHADLOS HALTEN, DIE AUS DER NUTZUNG ODER DEM BESITZ DES FAHRZEUGS DURCH SIE ODER ANDERE FAHRER ENTSTEHEN, ES SEI DENN, EIN SOLCHER VERLUST ENTSTEHT AUS DER ALLEINIGEN FAHRLÄSSIGKEIT DES UNTERNEHMENS."
+      },
+      "section12": {
+        "title": "12. Unfälle, Diebstahl und Vandalismus",
+        "text": "Sie müssen jeden Unfall, Diebstahl oder Vandalismus, an dem das Fahrzeug beteiligt ist, unverzüglich und ordnungsgemäß dem Unternehmen und der Polizei in der Rechtsordnung melden, in der ein solcher Vorfall stattfindet. Sie sollten nach Möglichkeit die Daten von Zeugen und anderen beteiligten Fahrzeugen sowie deren Fahrern, Eigentümern und relevanten Versicherungen erfassen. Wenn Sie oder ein autorisierter Fahrer Dokumente zu einem solchen Vorfall erhalten, müssen diese Dokumente umgehend an das Unternehmen übergeben werden. Sie und alle autorisierten Fahrer müssen bei der Untersuchung eines solchen Vorfalls durch das Unternehmen und der Abwehr von daraus resultierenden Ansprüchen voll kooperieren. DIE UNTERLASSUNG DER VOLLEN KOOPERATION KANN JEDEN HAFTUNGSSCHUTZ, PAI/PEC, LIS UND LDW UNGÜLTIG MACHEN."
+      },
+      "section13": {
+        "title": "13. Haftungsbeschränkungen",
+        "text": "Das Unternehmen haftet Ihnen oder autorisierten Fahrern gegenüber nicht für indirekte, besondere oder Folgeschäden (einschließlich entgangenem Gewinn), die in irgendeiner Weise aus einer von diesem Vertrag erfassten Angelegenheit entstehen."
+      },
+      "section14": {
+        "title": "14. Datenschutz",
+        "text": "Das Unternehmen kann personenbezogene Daten über Sie gemäß der Datenschutzrichtlinie des Unternehmens erheben und verwenden. Gemäß der Datenschutzrichtlinie haben Sie die Möglichkeit, die Nutzung oder Weitergabe personenbezogener Daten über Sie durch das Unternehmen für Marketingzwecke einzuschränken, und Sie können auf Daten über Sie zugreifen und diese korrigieren. Die Datenschutzrichtlinie erläutert diese Optionen und bietet Informationen zur Auswahl einer Option."
+      },
+      "section15": {
+        "title": "15. Verzicht auf Vertragsänderungen/Anwendbares Recht",
+        "text": "(a) Keine Bestimmung dieses Vertrags kann verzichtet oder geändert werden, außer durch eine Schrift, die von einem ausdrücklich bevollmächtigten Vertreter des Unternehmens unterzeichnet ist. Mietvertreter sind nicht befugt, auf Bestimmungen dieses Vertrags zu verzichten oder diese zu ändern. (b) Dieser Vertrag unterliegt dem materiellen Recht der Rechtsordnung, in der die Anmietung beginnt, und Sie stimmen unwiderruflich und bedingungslos der nicht ausschließlichen Zuständigkeit der in dieser Rechtsordnung ansässigen Gerichte zu. (c) Wenn eine Bestimmung dieses Vertrags mit einem geltenden Gesetz oder einer Verordnung in einer Rechtsordnung in Konflikt steht, gilt diese Bestimmung als so geändert, dass sie mit einem solchen Gesetz oder einer solchen Verordnung übereinstimmt, oder als gestrichen, wenn eine Änderung unmöglich ist, und berührt nicht den Rest dieses Vertrags."
+      },
+      "section16": {
+        "title": "16. Zahlungen an Vermittler",
+        "text": "Wenn Sie diese Anmietung über einen Reisebüro, eine Internet-Reiseseite, einen Makler oder einen anderen in Ihrem Namen handelnden Vermittler arrangiert haben, kann das Unternehmen oder ein verbundenes Unternehmen des Lizenzgebers des Unternehmens Provisionen oder andere Zahlungen an diese Partei gezahlt haben, um sie für die Vermittlung solcher Anmietungen zu entschädigen. Diese Vergütung kann teilweise auf dem Gesamtgeschäftsvolumen basieren, das diese Partei beim Unternehmen oder seinen verbundenen Unternehmen und Lizenznehmern bucht. Für Details zu einer solchen Vergütung sollten Sie sich an diese Partei wenden."
+      },
+      "section17": {
+        "title": "17. Verzicht für Miami-Dade County",
+        "text": "Sofern nicht verzichtet, muss einem Mieter in Miami-Dade County eine vom County genehmigte Besucherinformationskarte ausgehändigt werden. Diese Karten werden in der Regel an allen Standorten des Unternehmens in Miami-Dade County zur Verfügung gestellt. Jeder Mieter muss entweder den Empfang der Karte zu Beginn jeder Anmietung bestätigen oder auf sein Recht auf den Erhalt der Karte verzichten. Mit der Anmietung eines Fahrzeugs unter diesem Vertrag verzichten Sie auf Ihr Recht, eine solche Karte zu erhalten."
+      },
+      "section18": {
+        "title": "18. Kostenerstattung",
+        "text": "Sofern nicht durch geltendes Recht oder Schiedsregeln verboten, hat die obsiegende Partei in jedem Schiedsverfahren oder anderen gerichtlichen Verfahren zwischen Ihnen und uns Anspruch auf Erstattung ihrer Kosten und Auslagen in einem solchen Schiedsverfahren oder gerichtlichen Verfahren durch die andere Partei, einschließlich angemessener Anwaltsgebühren, Schiedsverfahrens- oder Gerichtskosten und Schiedsrichtergebühren."
+      }
+    }
+  },
+  "rentalAgreement": {
+    "rulesTitle": "Verhaltensregeln",
+    "rulesSubtitle": "Bitte lesen und akzeptieren Sie alle unten stehenden Regeln (siehe auch Allgemeine Geschäftsbedingungen)",
+    "ruleProhibitedDriverTitle": "Nur autorisierte Fahrer",
+    "ruleProhibitedDriverText": "Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen oder zu bedienen, die nicht im Mietvertrag aufgeführt sind. Jeder Fahrer muss persönlich mit gültigem Führerschein vorqualifiziert sein und mindestens 21 Jahre alt sein. Wenn der Fahrer unter 25 Jahre alt ist, können zusätzliche Gebühren anfallen.",
+    "ruleAlcoholTitle": "Kein Alkohol oder Betäubungsmittel",
+    "ruleAlcoholText": "Es ist absolut VERBOTEN, dieses gemietete Fahrzeug von Personen zu benutzen oder zu bedienen, die unter dem Einfluss von ALKOHOL oder BETÄUBUNGSMITTELN stehen.",
+    "ruleNoSmokingTitle": "Rauchverbot",
+    "ruleNoSmokingText": "RAUCHEN ist im gemieteten Fahrzeug unter keinen Umständen erlaubt. Bei jedem Nachweis von Rauchen im Fahrzeug wird eine Geldstrafe erhoben, unabhängig davon, ob ein Schaden entstanden ist oder nicht.",
+    "ruleLostKeysTitle": "Verlorene Schlüssel",
+    "ruleLostKeysText": "Im Falle von VERLORENEN, BESCHÄDIGTEN oder INNEN EINGESCHLOSSENEN SCHLÜSSELN, die eine Schlüsselwiederherstellung erfordern, kann eine Maximalgebühr anfallen.",
+    "rulePassengerCapacityTitle": "Passagierkapazität",
+    "rulePassengerCapacityText": "Die Passagierkapazität dieses Fahrzeugs wird durch die Anzahl der Sicherheitsgurte bestimmt und darf gesetzlich NICHT ÜBERSCHRITTEN werden. Bitte schnallen Sie sich im Fahrzeug immer an. Es ist Gesetz!",
+    "ruleCleaningFeeTitle": "Reinigungsgebühr",
+    "ruleCleaningFeeText": "Falls das Fahrzeug außergewöhnlich schmutzig zurückgegeben wird, kann eine REINIGUNGSGEBÜHR anfallen.",
+    "ruleTiresTitle": "Reifenverantwortung",
+    "ruleTiresText": "Platte oder beschädigte REIFEN liegen in der Verantwortung des Mieters und sind die finanzielle Verantwortung des Mieters oder autorisierten Fahrer(s).",
+    "ruleTicketsTitle": "Bußgelder und Strafen",
+    "ruleTicketsText": "ALLE BUSSGELDER, STRAFEN, GEBÜHREN und andere während der Mietzeit erhaltene, die durch den Mieter und/oder die Mietzeit verursacht wurden, müssen vom Mieter bezahlt werden.",
+    "rule24HourTitle": "24-Stunden-Mietperioden",
+    "rule24HourText": "Miettage basieren auf 24-Stunden-Mietperioden. Bitte geben Sie rechtzeitig zurück. Jede Stunde nach der Mietperiode wird mit ¼ Tagesgebühr berechnet, einschließlich aller Steuern und Gebühren und bis zu einem vollen Tag.",
+    "ruleNoCellPhoneTitle": "Keine Handynutzung",
+    "ruleNoCellPhoneText": "Keine Handynutzung während des Fahrens des Fahrzeugs, es sei denn, es handelt sich um ein Freisprechgerät wie Bluetooth. Es ist Gesetz, dem Fahrer ist es verboten, während der Fahrt irgendein elektronisches Gerät zu bedienen, unabhängig vom Nutzungsverhalten.",
+    "ruleCardAuthorizationTitle": "Kartenauthorisierung",
+    "ruleCardAuthorizationText": "Ich autorisiere das Mietunternehmen, meine Kredit-/Debitkarte zu belasten für: den Mietbetrag, Kaution, Kraftstoffgebühren falls zutreffend, Verkehrsverstöße, Parktickets, Mautgebühren, Schadensreparaturen, Reinigungsgebühren und alle anderen Gebühren, die während oder als Ergebnis dieser Miete anfallen.",
+    "signatureLabel": "Ihre Unterschrift",
+    "signatureHelper": "Bitte unterschreiben Sie im obigen Feld mit Ihrer Maus oder Ihrem Finger",
+    "clearSignature": "Löschen",
+    "agreementTitle": "Mietvertrag",
+    "agreementSubtitle": "Bitte überprüfen und unterschreiben Sie den Mietvertrag",
+    "rentalSummary": "Mietzusammenfassung",
+    "vehicle": "Fahrzeug",
+    "pickupDate": "Abholdatum",
+    "returnDate": "Rückgabedatum",
+    "totalAmount": "Gesamtbetrag",
+    "securityDeposit": "Kaution",
+    "requiredConsents": "Bitte aktivieren Sie alle Kontrollkästchen, um zu bestätigen, dass Sie die Regeln gelesen haben und ihnen zustimmen",
+    "signatureRequired": "Bitte geben Sie Ihre Unterschrift an",
+    "allConsentsRequired": "Bitte akzeptieren Sie alle Regeln und Bedingungen"
   }
 }
-

@@ -170,6 +170,9 @@ const Footer = () => {
               <Link key="terms" to={getTermsLink()} className="text-gray-400 hover:text-white text-sm transition-colors">
                 {t('footer.terms')}
               </Link>
+              <Link key="rental-terms" to="/rental-terms" className="text-gray-400 hover:text-white text-sm transition-colors">
+                {t('footer.rentalTerms', 'Rental Terms')}
+              </Link>
             </div>
           </div>
         </div>
