@@ -40,7 +40,7 @@ import { useCompany } from '../context/CompanyContext';
 
 import { toast } from 'react-toastify';
 
-import { Car, ArrowLeft, CreditCard, X, Calendar, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Car, ArrowLeft, CreditCard, X, Calendar, Clock, Mail, Lock, User as UserIcon } from 'lucide-react';
 
 import { translatedApiService as apiService } from '../services/translatedApi';
 
@@ -507,6 +507,10 @@ const BookPage = () => {
     pickupDate: initialPickupDate,
 
     returnDate: initialReturnDate,
+
+    pickupTime: '10:00',
+
+    returnTime: '22:00',
 
     pickupLocation: savedSearchFilters?.pickupLocation || '',
 
@@ -1099,7 +1103,9 @@ const BookPage = () => {
             companyId,
             locationId,
             formData.pickupDate || null,
-            formData.returnDate || null
+            formData.returnDate || null,
+            formData.pickupTime || null,
+            formData.returnTime || null
           );
           
           const modelsData = response?.data || response;
@@ -1179,7 +1185,7 @@ const BookPage = () => {
     };
     
     checkAvailability();
-  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, make, model, selectedLocationId, userSelectedLocation]);
+  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, formData.pickupTime, formData.returnTime, make, model, selectedLocationId, userSelectedLocation]);
   
   // Filter locations to only show those with available vehicles
   const companyLocations = React.useMemo(() => {
@@ -1264,12 +1270,14 @@ const BookPage = () => {
   // Fetch accurate available count using the models API (which uses the stored procedure)
   // Must have companyId to ensure rates are filtered by company
   const { data: modelsGroupedResponse } = useQuery(
-    ['modelsGroupedByCategory', companyId, selectedLocationId, formData.pickupDate, formData.returnDate],
+    ['modelsGroupedByCategory', companyId, selectedLocationId, formData.pickupDate, formData.returnDate, formData.pickupTime, formData.returnTime],
     () => apiService.getModelsGroupedByCategory(
       companyId || null, 
       selectedLocationId || null,
       formData.pickupDate || null,
-      formData.returnDate || null
+      formData.returnDate || null,
+      formData.pickupTime || null,
+      formData.returnTime || null
     ),
     {
       enabled: !!companyId, // Require companyId, but dates are optional (backend uses defaults)
@@ -1855,34 +1863,35 @@ const BookPage = () => {
   // QR-based phone scan flow removed to satisfy current lint and scope
 
 
+  // Calculate rental days based on pickup and return date/time
+  // 25 hours = 2 days, 24 hours 59 minutes = 1 day
+  const calculateRentalDays = useCallback(() => {
+    if (!formData.pickupDate || !formData.returnDate) {
+      return 1;
+    }
+
+    const pickupDateTime = new Date(`${formData.pickupDate}T${formData.pickupTime || '10:00'}:00`);
+    const returnDateTime = new Date(`${formData.returnDate}T${formData.returnTime || '22:00'}:00`);
+    
+    const diffMs = returnDateTime - pickupDateTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    // Round up to full days (24-hour periods)
+    const days = Math.max(1, Math.ceil(diffHours / 24));
+    
+    return days;
+  }, [formData.pickupDate, formData.returnDate, formData.pickupTime, formData.returnTime]);
+
 
   const calculateTotal = useCallback(() => {
 
     if (!modelDailyRate) return 0;
 
-
-
-    // If dates are not set, return the daily rate (1 day)
-
-    if (!formData.pickupDate || !formData.returnDate) {
-
-      return modelDailyRate;
-
-    }
-
-
-
-    const pickup = new Date(formData.pickupDate);
-
-    const returnDate = new Date(formData.returnDate);
-
-    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)) + 1);
-
-
+    const days = calculateRentalDays();
 
     return days * modelDailyRate;
 
-  }, [formData.pickupDate, formData.returnDate, modelDailyRate]);
+  }, [calculateRentalDays, modelDailyRate]);
 
 
 
@@ -1924,15 +1933,7 @@ const BookPage = () => {
 
   const calculateServicesTotal = useCallback(() => {
 
-    if (!formData.pickupDate || !formData.returnDate) return 0;
-
-    
-
-    const pickup = new Date(formData.pickupDate);
-
-    const returnDate = new Date(formData.returnDate);
-
-    const days = Math.max(1, Math.ceil((returnDate - pickup) / (1000 * 60 * 60 * 24)) + 1);
+    const days = calculateRentalDays();
 
     
 
@@ -1944,7 +1945,7 @@ const BookPage = () => {
 
     }, 0);
 
-  }, [formData.pickupDate, formData.returnDate, selectedServices]);
+  }, [calculateRentalDays, selectedServices]);
 
 
 
@@ -2370,6 +2371,10 @@ const BookPage = () => {
         pickupDate: formData.pickupDate,
 
         returnDate: formData.returnDate,
+
+        pickupTime: formData.pickupTime || '10:00',
+
+        returnTime: formData.returnTime || '22:00',
 
         pickupLocation: formData.pickupLocation || vehicle.location || '',
 
@@ -3367,84 +3372,70 @@ const BookPage = () => {
 
                 
 
-                <div className="mb-6">
+                <div className="mb-6 space-y-4">
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                    <div>
-
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-
-                        {t('home.startDate')}
-
-                      </label>
-
+                  {/* Pick-up Row */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.pickupDateTime') || 'Pick-up'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="relative">
-
                         <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-
                         <input
-
                           type="date"
-
                           name="pickupDate"
-
                           value={formData.pickupDate}
-
                           onChange={handleChange}
-
                           min={todayStr}
-
                           required
-
-                          placeholder="mm/dd/yyyy"
-
-                          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
-
+                          className="w-full pl-10 pr-2 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                         />
-
                       </div>
-
-                    </div>
-
-
-
-                    <div>
-
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-
-                        {t('home.endDate')}
-
-                      </label>
-
                       <div className="relative">
-
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
-
-                          type="date"
-
-                          name="returnDate"
-
-                          value={formData.returnDate}
-
+                          type="time"
+                          name="pickupTime"
+                          value={formData.pickupTime}
                           onChange={handleChange}
-
-                          min={formData.pickupDate || todayStr}
-
                           required
-
-                          placeholder="mm/dd/yyyy"
-
-                          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
-
+                          className="w-full pl-10 pr-2 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                         />
-
                       </div>
-
                     </div>
+                  </div>
 
+                  {/* Drop-off Row */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('bookPage.dropoffDateTime') || 'Drop-off'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="date"
+                          name="returnDate"
+                          value={formData.returnDate}
+                          onChange={handleChange}
+                          min={formData.pickupDate || todayStr}
+                          required
+                          className="w-full pl-10 pr-2 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="time"
+                          name="returnTime"
+                          value={formData.returnTime}
+                          onChange={handleChange}
+                          required
+                          className="w-full pl-10 pr-2 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                 </div>
@@ -4858,14 +4849,12 @@ const BookPage = () => {
             : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
           pickupDate: formData.pickupDate,
           returnDate: formData.returnDate,
-          startTime: '',
-          returnTime: '',
+          startTime: formData.pickupTime || '10:00',
+          returnTime: formData.returnTime || '22:00',
           // Rates - calculated values
           rates: (() => {
-            // Calculate number of days
-            const numDays = formData.pickupDate && formData.returnDate
-              ? Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)) + 1)
-              : 1;
+            // Calculate number of days using the centralized function
+            const numDays = calculateRentalDays();
             
             // Get daily rate from multiple sources
             const dailyRate = modelDailyRate 
@@ -4903,9 +4892,7 @@ const BookPage = () => {
           })(),
           // Selected services for display
           selectedServices: (() => {
-            const numDays = formData.pickupDate && formData.returnDate
-              ? Math.max(1, Math.ceil((new Date(formData.returnDate) - new Date(formData.pickupDate)) / (1000 * 60 * 60 * 24)) + 1)
-              : 1;
+            const numDays = calculateRentalDays();
             return selectedServices.map(s => {
               const svc = s.service || s;
               const serviceName = svc.serviceName || svc.ServiceName || svc.name || svc.Name || '';

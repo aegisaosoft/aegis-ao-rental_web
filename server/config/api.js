@@ -130,12 +130,14 @@ const apiService = {
   },
 
   // Models
-  getModelsGroupedByCategory: (companyId, locationId, pickupDate, returnDate) => {
+  getModelsGroupedByCategory: (companyId, locationId, pickupDate, returnDate, pickupTime, returnTime) => {
     const params = {};
     if (companyId) params.companyId = companyId;
     if (locationId) params.locationId = locationId;
     if (pickupDate) params.pickupDate = pickupDate;
     if (returnDate) params.returnDate = returnDate;
+    if (pickupTime) params.pickupTime = pickupTime;
+    if (returnTime) params.returnTime = returnTime;
     return apiClient.get('/api/Models/grouped-by-category', { params });
   },
   getModels: (params = {}) => apiClient.get('/api/Models', { params }),

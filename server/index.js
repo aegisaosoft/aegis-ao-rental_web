@@ -1004,56 +1004,8 @@ console.log('[Server] serverPublicPath:', serverPublicPath);
 console.log('[Server] clientPublicPath:', clientPublicPath);
 console.log('[Server] process.cwd():', process.cwd());
 
-const sendModelImage = (req, res) => {
-  try {
-    const filename = req.params.filename;
-    
-    // In production, __dirname is where index.js is located (root of deployed package)
-    // Try server/public/models first (for production) since that's where we copy them
-    const serverModelPath = path.join(serverPublicPath, 'models', filename);
-    if (fs.existsSync(serverModelPath)) {
-      console.log(`[Model Image] Serving from server: ${serverModelPath}`);
-      return res.sendFile(serverModelPath);
-    }
-    
-    // Try client/public/models (for development)
-    const clientModelPath = path.join(clientPublicPath, 'models', filename);
-    if (fs.existsSync(clientModelPath)) {
-      console.log(`[Model Image] Serving from client: ${clientModelPath}`);
-      return res.sendFile(clientModelPath);
-    }
-    
-    // Debug logging
-    console.log(`[Model Image] Not found: ${filename}`);
-    console.log(`[Model Image] Checked server path: ${serverModelPath}`);
-    console.log(`[Model Image] Checked client path: ${clientModelPath}`);
-    
-    // Check if models directory exists
-    const modelsDir = path.join(serverPublicPath, 'models');
-    if (fs.existsSync(modelsDir)) {
-      const files = fs.readdirSync(modelsDir);
-      console.log(`[Model Image] Models directory exists with ${files.length} files`);
-      console.log(`[Model Image] Sample files: ${files.slice(0, 5).join(', ')}`);
-    } else {
-      console.log(`[Model Image] Models directory does not exist: ${modelsDir}`);
-    }
-    
-    // If not found, return 404 instead of 500
-    const fallback = path.join(serverPublicPath, 'economy.jpg');
-    if (fs.existsSync(fallback)) {
-      console.log(`[Model Image] Using fallback image: ${fallback}`);
-      return res.sendFile(fallback);
-    }
-    res.status(404).send('Image not found');
-  } catch (error) {
-    console.error('[Model Image] Error serving model image:', error);
-    res.status(500).json({ message: 'Error serving image' });
-  }
-};
-
-// Support both /models/* and /api/models/* for dev proxy
-app.get('/models/:filename', (req, res) => sendModelImage(req, res));
-app.get('/api/models/:filename', (req, res) => sendModelImage(req, res));
+// Models are served from Azure Blob Storage - no local file handling needed
+// Model image URLs come from the API backend
 
 // Helper: return LAN base URL for QR (detect first non-internal IPv4)
 app.get('/api/lan-ip', (req, res) => {
@@ -1283,15 +1235,7 @@ if (fs.existsSync(clientPublicPath)) {
 }
 app.use(express.static(serverPublicPath, { fallthrough: true }));
 
-// Serve model images as static files from /models/ directory
-// This ensures /models/MAKE_MODEL.png works directly
-const modelsStaticPath = path.join(serverPublicPath, 'models');
-if (fs.existsSync(modelsStaticPath)) {
-  app.use('/models', express.static(modelsStaticPath));
-} else {
-  console.log(`⚠️ Models directory not found at: ${modelsStaticPath}`);
-}
-
+// Models are served directly from Azure Blob Storage - no local static serving needed
 
 // Serve BlinkID resources - must come BEFORE the catch-all route
 // Serve from node_modules/@microblink/blinkid/dist/resources
@@ -1314,9 +1258,8 @@ if (blinkidResourcesPath) {
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', (req, res) => {
-  // Don't catch API routes, model image requests, static resources, or BlinkID resources
+  // Don't catch API routes, static resources, or BlinkID resources
   if (req.path.startsWith('/api/') || 
-      req.path.startsWith('/models/') || 
       req.path.startsWith('/static/') ||
       req.path.startsWith('/resources/')) {
     return res.status(404).send('Not found');

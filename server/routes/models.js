@@ -26,7 +26,9 @@ router.get('/grouped-by-category', async (req, res) => {
     const locationId = req.query.locationId || null;
     const pickupDate = req.query.pickupDate || null;
     const returnDate = req.query.returnDate || null;
-    const response = await apiService.getModelsGroupedByCategory(companyId, locationId, pickupDate, returnDate);
+    const pickupTime = req.query.pickupTime || null;
+    const returnTime = req.query.returnTime || null;
+    const response = await apiService.getModelsGroupedByCategory(companyId, locationId, pickupDate, returnDate, pickupTime, returnTime);
     
     // Unwrap standardized response format if present
     let data = response.data;

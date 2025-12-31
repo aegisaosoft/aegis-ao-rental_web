@@ -187,7 +187,7 @@ export const apiService = {
   }),
 
   // Models
-  getModelsGroupedByCategory: (companyId, locationId, pickupDate, returnDate) => {
+  getModelsGroupedByCategory: (companyId, locationId, pickupDate, returnDate, pickupTime, returnTime) => {
     // Only include parameters if they have valid non-empty values
     // If locationId is not provided, the API will search ALL locations for the company
     const params = {};
@@ -202,6 +202,12 @@ export const apiService = {
     }
     if (returnDate) {
       params.returnDate = returnDate;
+    }
+    if (pickupTime) {
+      params.pickupTime = pickupTime;
+    }
+    if (returnTime) {
+      params.returnTime = returnTime;
     }
     return api.get('/Models/grouped-by-category', { params });
   },
