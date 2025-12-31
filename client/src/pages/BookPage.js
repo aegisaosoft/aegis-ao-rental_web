@@ -2568,6 +2568,10 @@ const BookPage = () => {
 
     formData.returnDate,
 
+    formData.pickupTime,
+
+    formData.returnTime,
+
     formData.pickupLocation,
 
     formData.returnLocation,
