@@ -193,9 +193,43 @@ app.get('/api/health', (req, res) => {
   }
 });
 
-// Favicon endpoint - prevent 503 errors
+// Favicon endpoint - serve actual favicon file
 app.get('/favicon.ico', (req, res) => {
-  res.status(204).end(); // No content
+  const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    res.status(204).end();
+  }
+});
+
+// Serve SVG favicon
+app.get('/favicon.svg', (req, res) => {
+  const faviconPath = path.join(__dirname, 'public', 'favicon.svg');
+  if (fs.existsSync(faviconPath)) {
+    res.type('image/svg+xml').sendFile(faviconPath);
+  } else {
+    res.status(404).end();
+  }
+});
+
+// Serve PNG favicons
+app.get('/favicon-16.png', (req, res) => {
+  const faviconPath = path.join(__dirname, 'public', 'favicon-16.png');
+  if (fs.existsSync(faviconPath)) {
+    res.type('image/png').sendFile(faviconPath);
+  } else {
+    res.status(404).end();
+  }
+});
+
+app.get('/favicon-32.png', (req, res) => {
+  const faviconPath = path.join(__dirname, 'public', 'favicon-32.png');
+  if (fs.existsSync(faviconPath)) {
+    res.type('image/png').sendFile(faviconPath);
+  } else {
+    res.status(404).end();
+  }
 });
 
 // Update selected company in session
@@ -958,19 +992,6 @@ app.use((err, req, res, next) => {
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
-});
-
-// Handle favicon requests gracefully
-app.get('/favicon.ico', (req, res) => {
-  const faviconPath = path.join(__dirname, 'public', 'favicon.ico');
-  
-  // Check if favicon exists
-  if (fs.existsSync(faviconPath)) {
-    res.sendFile(faviconPath);
-  } else {
-    // Return 204 No Content if favicon doesn't exist
-    res.status(204).end();
-  }
 });
 
 // Serve model images - check both locations and return 404 if not found

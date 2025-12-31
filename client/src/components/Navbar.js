@@ -95,8 +95,8 @@ const Navbar = () => {
   return (
     <header className="bg-white border-b border-gray-200">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4 gap-6">
-        {/* Left Section - Logo and Title (far left) */}
-        <div className="flex items-center gap-4 flex-shrink-0 min-w-0 max-w-[50%]">
+        {/* Left Section - Logo and Title (far left) - clickable to home */}
+        <Link to="/" className="flex items-center gap-4 flex-shrink-0 min-w-0 max-w-[50%] hover:opacity-80 transition-opacity">
           {logoUrl && (
             <img
               src={logoUrl}
@@ -107,7 +107,7 @@ const Navbar = () => {
           <span className="text-xl font-semibold tracking-wide text-gray-900 truncate block overflow-hidden text-ellipsis whitespace-nowrap">
             {companyConfig?.companyName || 'M.L.C RENT CARS'}
           </span>
-        </div>
+        </Link>
 
         {/* Right Section - Navigation Links and Buttons */}
         <div className="hidden items-center gap-10 md:flex flex-shrink-0">
