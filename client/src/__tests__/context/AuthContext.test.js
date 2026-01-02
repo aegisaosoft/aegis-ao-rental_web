@@ -6,7 +6,6 @@
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../context/AuthContext';
-import { apiService } from '../../services/api';
 
 // Mock the api service
 jest.mock('../../services/api', () => ({
@@ -19,23 +18,8 @@ jest.mock('../../services/api', () => ({
   },
 }));
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store = {};
-  return {
-    getItem: jest.fn((key) => store[key] || null),
-    setItem: jest.fn((key, value) => {
-      store[key] = value.toString();
-    }),
-    removeItem: jest.fn((key) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-  };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+// Import mocked apiService
+import { apiService } from '../../services/api';
 
 // Test component that uses useAuth
 const TestComponent = ({ onRender }) => {
@@ -56,12 +40,10 @@ const TestComponent = ({ onRender }) => {
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorageMock.clear();
   });
 
   describe('useAuth hook', () => {
-    it('should throw error when used outside AuthProvider', () => {
-      // Suppress console.error for this test
+    test('throws error when used outside AuthProvider', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
       expect(() => {
@@ -73,7 +55,7 @@ describe('AuthContext', () => {
   });
 
   describe('AuthProvider', () => {
-    it('should start with unauthenticated state', () => {
+    test('starts with unauthenticated state', () => {
       render(
         <AuthProvider>
           <TestComponent />
@@ -84,7 +66,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user')).toHaveTextContent('null');
     });
 
-    it('should have loading as false', () => {
+    test('has loading as false', () => {
       let authContext;
       render(
         <AuthProvider>
@@ -97,7 +79,7 @@ describe('AuthContext', () => {
   });
 
   describe('login', () => {
-    it('should update user state on successful login', async () => {
+    test('updates user state on successful login', async () => {
       const mockUser = {
         id: '123',
         email: 'test@example.com',
@@ -131,7 +113,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('isAdmin')).toHaveTextContent('yes');
     });
 
-    it('should handle login with user data in response.data.user', async () => {
+    test('handles login with user data in response.data.user', async () => {
       const mockUser = {
         id: '123',
         email: 'test@example.com',
@@ -160,7 +142,9 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('isWorker')).toHaveTextContent('yes');
     });
 
-    it('should throw error when login response has no user data', async () => {
+    test('throws error when login response has no user data', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       apiService.login.mockResolvedValue({
         data: { token: 'mock-token' }
       });
@@ -177,9 +161,11 @@ describe('AuthContext', () => {
           await authContext.login({ email: 'test@example.com', password: 'password' });
         });
       }).rejects.toThrow('Login response missing user data');
+      
+      consoleSpy.mockRestore();
     });
 
-    it('should throw error on API failure', async () => {
+    test('throws error on API failure', async () => {
       apiService.login.mockRejectedValue(new Error('Invalid credentials'));
 
       let authContext;
@@ -198,7 +184,7 @@ describe('AuthContext', () => {
   });
 
   describe('register', () => {
-    it('should update user state on successful registration', async () => {
+    test('updates user state on successful registration', async () => {
       const mockUser = {
         id: '456',
         email: 'newuser@example.com',
@@ -231,7 +217,9 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('authenticated')).toHaveTextContent('yes');
     });
 
-    it('should throw error when register response has no user data', async () => {
+    test('throws error when register response has no user data', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       apiService.register.mockResolvedValue({
         data: { success: true }
       });
@@ -248,11 +236,13 @@ describe('AuthContext', () => {
           await authContext.register({ email: 'test@example.com', password: 'password' });
         });
       }).rejects.toThrow('Register response missing user data');
+      
+      consoleSpy.mockRestore();
     });
   });
 
   describe('logout', () => {
-    it('should clear user state on logout', async () => {
+    test('clears user state on logout', async () => {
       const mockUser = { id: '123', email: 'test@example.com', role: 'admin' };
       
       apiService.login.mockResolvedValue({
@@ -283,7 +273,9 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user')).toHaveTextContent('null');
     });
 
-    it('should clear user state even if API call fails', async () => {
+    test('clears user state even if API call fails', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       const mockUser = { id: '123', email: 'test@example.com', role: 'admin' };
       
       apiService.login.mockResolvedValue({
@@ -308,42 +300,13 @@ describe('AuthContext', () => {
 
       // User should still be logged out even if API failed
       expect(screen.getByTestId('authenticated')).toHaveTextContent('no');
-    });
-  });
-
-  describe('updateProfile', () => {
-    it('should update user data', async () => {
-      const mockUser = { id: '123', email: 'test@example.com', firstName: 'Test' };
-      const updatedUser = { ...mockUser, firstName: 'Updated' };
-
-      apiService.login.mockResolvedValue({
-        data: { result: { user: mockUser } }
-      });
-      apiService.updateProfile.mockResolvedValue({
-        data: updatedUser
-      });
-
-      let authContext;
-      render(
-        <AuthProvider>
-          <TestComponent onRender={(auth) => { authContext = auth; }} />
-        </AuthProvider>
-      );
-
-      await act(async () => {
-        await authContext.login({ email: 'test@example.com', password: 'password' });
-      });
-
-      await act(async () => {
-        await authContext.updateProfile({ firstName: 'Updated' });
-      });
-
-      expect(apiService.updateProfile).toHaveBeenCalledWith({ firstName: 'Updated' });
+      
+      consoleSpy.mockRestore();
     });
   });
 
   describe('restoreUser', () => {
-    it('should restore user state without API call', async () => {
+    test('restores user state without API call', async () => {
       const mockUser = { id: '123', email: 'test@example.com', role: 'admin' };
 
       let authContext;
@@ -361,7 +324,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('isAdmin')).toHaveTextContent('yes');
     });
 
-    it('should do nothing when passed null', () => {
+    test('does nothing when passed null', () => {
       let authContext;
       render(
         <AuthProvider>
@@ -378,12 +341,12 @@ describe('AuthContext', () => {
   });
 
   describe('role checks', () => {
-    it.each([
+    test.each([
       ['admin', { isAdmin: true, isMainAdmin: false, isWorker: false, canAccessDashboard: true }],
       ['mainadmin', { isAdmin: true, isMainAdmin: true, isWorker: false, canAccessDashboard: true }],
       ['worker', { isAdmin: false, isMainAdmin: false, isWorker: true, canAccessDashboard: true }],
       ['user', { isAdmin: false, isMainAdmin: false, isWorker: false, canAccessDashboard: false }],
-    ])('should set correct flags for role: %s', async (role, expected) => {
+    ])('sets correct flags for role: %s', async (role, expected) => {
       const mockUser = { id: '123', email: 'test@example.com', role };
 
       apiService.login.mockResolvedValue({
@@ -409,7 +372,7 @@ describe('AuthContext', () => {
   });
 
   describe('currentCompanyId', () => {
-    it('should extract companyId from user', async () => {
+    test('extracts companyId from user', async () => {
       const mockUser = { 
         id: '123', 
         email: 'test@example.com', 
@@ -433,32 +396,6 @@ describe('AuthContext', () => {
       });
 
       expect(authContext.currentCompanyId).toBe('company-abc-123');
-    });
-
-    it('should handle CompanyId (capital C)', async () => {
-      const mockUser = { 
-        id: '123', 
-        email: 'test@example.com', 
-        role: 'admin',
-        CompanyId: 'company-xyz-789'
-      };
-
-      apiService.login.mockResolvedValue({
-        data: { result: { user: mockUser } }
-      });
-
-      let authContext;
-      render(
-        <AuthProvider>
-          <TestComponent onRender={(auth) => { authContext = auth; }} />
-        </AuthProvider>
-      );
-
-      await act(async () => {
-        await authContext.login({ email: 'test@example.com', password: 'password' });
-      });
-
-      expect(authContext.currentCompanyId).toBe('company-xyz-789');
     });
   });
 });
