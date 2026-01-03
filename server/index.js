@@ -1254,16 +1254,130 @@ if (blinkidResourcesPath) {
   console.warn('   Make sure @microblink/blinkid is installed: npm install @microblink/blinkid');
 }
 
+// Helper function to detect social media crawlers
+const isSocialCrawler = (userAgent) => {
+  if (!userAgent) return false;
+  const crawlers = [
+    'facebookexternalhit',
+    'Facebot',
+    'Twitterbot',
+    'LinkedInBot',
+    'Pinterest',
+    'Slackbot',
+    'TelegramBot',
+    'WhatsApp',
+    'Discordbot'
+  ];
+  return crawlers.some(crawler => userAgent.toLowerCase().includes(crawler.toLowerCase()));
+};
+
+// Generate OG HTML for social crawlers
+const generateCompanyOgHtml = (company, baseUrl, verificationCode = null) => {
+  const title = company?.companyName || company?.CompanyName || 'Car Rental';
+  const description = company?.motto || company?.Motto || company?.about || company?.About || `${title} - Vehicle Rental Services`;
+  
+  let imageUrl = '';
+  const logoUrl = company?.logoUrl || company?.LogoUrl;
+  if (logoUrl) {
+    imageUrl = logoUrl.startsWith('http') ? logoUrl : `${baseUrl}${logoUrl}`;
+  }
+  
+  const fbVerifyTag = verificationCode 
+    ? `<meta name="facebook-domain-verification" content="${verificationCode}" />` 
+    : '';
+  
+  const ogImageTags = imageUrl ? `
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">` : '';
+  
+  const twitterImageTag = imageUrl ? `
+  <meta name="twitter:image" content="${imageUrl}">` : '';
+  
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  ${fbVerifyTag}
+  <title>${title}</title>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description.substring(0, 200).replace(/"/g, '&quot;')}">
+  <meta property="og:url" content="${baseUrl}">${ogImageTags}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description.substring(0, 200).replace(/"/g, '&quot;')}">${twitterImageTag}
+</head>
+<body>
+  <h1>${title}</h1>
+  <p>${description}</p>
+</body>
+</html>`;
+};
+
 // The "catchall" handler: for any request that doesn't
 // match API routes, send back React's index.html file.
 // This MUST be the last route
-app.get('*', (req, res) => {
+app.get('*', async (req, res) => {
   // Don't catch API routes, static resources, or BlinkID resources
   if (req.path.startsWith('/api/') || 
       req.path.startsWith('/static/') ||
       req.path.startsWith('/resources/')) {
     return res.status(404).send('Not found');
   }
+  
+  const userAgent = req.headers['user-agent'] || '';
+  
+  // Handle social crawlers - serve OG HTML with meta tags
+  if (isSocialCrawler(userAgent) && (req.path === '/' || req.path === '')) {
+    console.log(`[OG Tags] Social crawler detected: ${userAgent.substring(0, 50)}`);
+    
+    try {
+      const host = req.headers['x-forwarded-host'] || req.headers['host'] || '';
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const baseUrl = `${protocol}://${host}`;
+      const apiBaseUrl = process.env.API_BASE_URL || 'https://aegis-ao-rental-h4hda5gmengyhyc9.canadacentral-01.azurewebsites.net';
+      
+      // Fetch company info from API
+      const companyResponse = await axios.get(`${apiBaseUrl}/api/companies/config`, {
+        headers: {
+          'x-forwarded-host': host,
+          'x-original-host': host
+        },
+        timeout: 5000
+      });
+      
+      if (companyResponse.status === 200 && companyResponse.data) {
+        const company = companyResponse.data;
+        console.log(`[OG Tags] Company found: ${company.companyName || company.CompanyName}`);
+        
+        // Fetch domain verification code
+        let verificationCode = null;
+        if (company.id || company.Id) {
+          try {
+            const companyId = company.id || company.Id;
+            const verifyResponse = await axios.get(
+              `${apiBaseUrl}/api/companies/${companyId}/meta/domain-verification`,
+              { timeout: 3000 }
+            );
+            if (verifyResponse.status === 200 && verifyResponse.data?.code) {
+              verificationCode = verifyResponse.data.code;
+              console.log(`[OG Tags] Verification code found`);
+            }
+          } catch (e) {
+            console.log(`[OG Tags] Could not fetch verification code: ${e.message}`);
+          }
+        }
+        
+        const html = generateCompanyOgHtml(company, baseUrl, verificationCode);
+        return res.type('html').send(html);
+      }
+    } catch (error) {
+      console.error(`[OG Tags] Error:`, error.message);
+    }
+  }
+  
+  // Default: serve React app
   res.sendFile(path.join(serverPublicPath, 'index.html'));
 });
 
