@@ -2482,9 +2482,9 @@ const BookPage = () => {
         
         language: i18n.language,
 
-        successUrl: `${window.location.origin}/my-bookings?booking=${bookingId ?? ''}`,
+        successUrl: `${window.location.origin}/my-bookings?booking=${bookingId ?? ''}&stripe_success=true`,
 
-        cancelUrl: `${window.location.origin}${window.location.pathname}${window.location.search}`
+        cancelUrl: `${window.location.origin}${window.location.pathname}${window.location.search}&stripe_cancel=true`
 
       });
 

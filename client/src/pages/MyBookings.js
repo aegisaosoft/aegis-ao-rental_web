@@ -40,6 +40,8 @@ const MyBookings = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const isStripeReturn = urlParams.get('session_id') !== null || // Stripe Checkout returns session_id
                           urlParams.get('booking') !== null; // Our success URL includes booking param
+    const stripeSuccess = urlParams.get('stripe_success') === 'true';
+    const bookingIdFromUrl = urlParams.get('booking');
     
     // Also check if we have the stripeRedirect flag
     const wasStripeRedirect = sessionStorage.getItem('stripeRedirect') === 'true';
@@ -48,6 +50,25 @@ const MyBookings = () => {
       // Clear the flag
       sessionStorage.removeItem('stripeRedirect');
       sessionStorage.removeItem('stripeRedirectTime');
+      
+      // If stripe_success=true, update booking status
+      if (stripeSuccess && bookingIdFromUrl) {
+        console.log('[MyBookings] Updating booking status after Stripe success:', bookingIdFromUrl);
+        apiService.updateBooking(bookingIdFromUrl, { 
+          status: 'Confirmed', 
+          paymentStatus: 'Paid' 
+        }).then(() => {
+          toast.success(t('myBookings.paymentSuccessful', 'Payment successful! Your booking is confirmed.'));
+          // Clean URL
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.delete('stripe_success');
+          window.history.replaceState({}, '', newUrl.toString());
+        }).catch(err => {
+          console.error('[MyBookings] Error updating booking after payment:', err);
+          // Still show success since payment went through
+          toast.success(t('myBookings.paymentSuccessful', 'Payment successful!'));
+        });
+      }
       
       // Always restore user data (including role) after Stripe redirect
       const restoreSession = async () => {
@@ -270,7 +291,7 @@ const MyBookings = () => {
 
                   <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2">
                     <button className="btn-outline text-sm">
-                      {t('vehicleDetail.viewDetails')}
+                      {t('myBookings.viewDetails', 'View Details')}
                     </button>
                     <button 
                       className="btn-outline text-sm flex items-center justify-center gap-2"

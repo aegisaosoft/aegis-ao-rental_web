@@ -11,9 +11,11 @@ import {
   ExternalLink, 
   Clock, 
   CheckCircle2, 
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 import { Card, LoadingSpinner } from '../../components/common';
+import InstagramSetupGuideModal from './modals/InstagramSetupGuideModal';
 
 // Facebook Icon Component
 const FacebookIcon = ({ className }) => (
@@ -49,6 +51,7 @@ const MetaSection = ({
 }) => {
   const [activeTab, setActiveTab] = useState('instagram');
   const [showPageSelectModal, setShowPageSelectModal] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   // Check for OAuth callback
   useEffect(() => {
@@ -140,6 +143,7 @@ const MetaSection = ({
             onConnect={handleConnect}
             onRefreshInstagram={handleRefreshInstagram}
             isRefreshing={refreshInstagramMutation?.isLoading}
+            onShowSetupGuide={() => setShowSetupGuide(true)}
           />
         )}
 
@@ -172,6 +176,14 @@ const MetaSection = ({
           currentPageId={metaConnectionStatus?.pageId}
         />
       )}
+
+      {/* Instagram Setup Guide Modal */}
+      {showSetupGuide && (
+        <InstagramSetupGuideModal
+          t={t}
+          onClose={() => setShowSetupGuide(false)}
+        />
+      )}
     </div>
   );
 };
@@ -185,6 +197,7 @@ const InstagramTab = ({
   onConnect,
   onRefreshInstagram,
   isRefreshing,
+  onShowSetupGuide,
 }) => {
   if (isLoading) {
     return (
@@ -236,6 +249,18 @@ const InstagramTab = ({
             <strong>{t('common.note', 'Note')}:</strong>{' '}
             {t('meta.instagramRequiresFacebook', 'Instagram Business accounts must be connected to a Facebook Page. Please connect your Facebook Page first.')}
           </p>
+        </div>
+
+        {/* Setup Guide Button */}
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={onShowSetupGuide}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-pink-300 text-pink-600 rounded-lg hover:bg-pink-50 transition-colors"
+          >
+            <BookOpen className="h-4 w-4" />
+            {t('meta.setupGuide', 'Setup Guide - How to Create Instagram Business')}
+          </button>
         </div>
 
         {!connectionStatus?.isConnected ? (

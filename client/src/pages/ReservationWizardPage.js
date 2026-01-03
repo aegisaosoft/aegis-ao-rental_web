@@ -25,6 +25,16 @@ const ReservationWizardPage = () => {
   const { user, isAuthenticated } = useAuth();
   const { companyConfig, formatPrice } = useCompany();
 
+  // Helper: Convert 24h time to AM/PM format
+  const formatTimeAmPm = (time24) => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  };
+
   // Get current company ID
   const currentCompanyId = useMemo(() => {
     return companyConfig?.id || user?.companyId || null;
@@ -46,6 +56,8 @@ const ReservationWizardPage = () => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   });
+  const [wizardPickupTime, setWizardPickupTime] = useState('09:00');
+  const [wizardReturnTime, setWizardReturnTime] = useState('17:00');
   const [wizardSelectedLocation, setWizardSelectedLocation] = useState(null);
   const [wizardSelectedCategory, setWizardSelectedCategory] = useState(null);
   const [wizardSelectedMake, setWizardSelectedMake] = useState(null);
@@ -79,10 +91,10 @@ const ReservationWizardPage = () => {
 
   // Fetch categories (filtered by availability)
   const { data: categoriesResponse, isLoading: isLoadingCategories } = useQuery(
-    ['vehicleCategories', currentCompanyId, wizardPickupDate, wizardReturnDate, wizardSelectedLocation?.locationId || wizardSelectedLocation?.id],
+    ['vehicleCategories', currentCompanyId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime, wizardSelectedLocation?.locationId || wizardSelectedLocation?.id],
     () => {
       const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
-      return apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate);
+      return apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime);
     },
     {
       enabled: wizardStep === 2 && !!currentCompanyId && !!wizardPickupDate && !!wizardReturnDate
@@ -129,7 +141,7 @@ const ReservationWizardPage = () => {
       const categoryId = wizardSelectedCategory.categoryId || wizardSelectedCategory.id;
       const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
       
-      apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate)
+      apiService.getModelsGroupedByCategory(currentCompanyId, locationId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime)
         .then(response => {
           const data = response?.data || response;
           const groups = Array.isArray(data) ? data : (data?.items || []);
@@ -200,7 +212,7 @@ const ReservationWizardPage = () => {
       setWizardSelectedModel(null);
       setWizardExpandedMakes(new Set());
     }
-  }, [wizardSelectedCategory, wizardStep, currentCompanyId, wizardPickupDate, wizardReturnDate, wizardSelectedLocation, t]);
+  }, [wizardSelectedCategory, wizardStep, currentCompanyId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime, wizardSelectedLocation, t]);
 
   // Load additional services for step 4
   useEffect(() => {
@@ -338,40 +350,51 @@ const ReservationWizardPage = () => {
     
     setIsCreatingReservation(true);
     try {
-      const modelName = wizardSelectedModel.modelName || wizardSelectedModel.ModelName || '';
-      const make = wizardSelectedMake || wizardSelectedModel.make || wizardSelectedModel.Make || '';
+      const modelName = (wizardSelectedModel.modelName || wizardSelectedModel.ModelName || '').trim();
+      const make = (wizardSelectedMake || wizardSelectedModel.make || wizardSelectedModel.Make || '').trim();
       const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
       
-      // Find available vehicle
+      console.log('Creating reservation for:', { make, modelName, locationId, pickupDate: wizardPickupDate, returnDate: wizardReturnDate });
+      
+      // Strategy 1: Get all vehicles for the company and filter client-side
       let vehicleParams = {
         companyId: currentCompanyId,
-        make: make,
-        model: modelName,
-        status: 'Available',
-        pageSize: 1
+        pageSize: 100
       };
       if (locationId) vehicleParams.locationId = locationId;
       
       let vehiclesResponse = await apiService.getVehicles(vehicleParams);
-      let vehicles = vehiclesResponse?.data?.items || vehiclesResponse?.items || 
+      let allVehicles = vehiclesResponse?.data?.items || vehiclesResponse?.items || 
                     (Array.isArray(vehiclesResponse?.data) ? vehiclesResponse.data : []) ||
                     (Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
       
-      // Retry without status filter
-      if (vehicles.length === 0) {
-        delete vehicleParams.status;
-        vehiclesResponse = await apiService.getVehicles(vehicleParams);
-        vehicles = vehiclesResponse?.data?.items || vehiclesResponse?.items || 
-                  (Array.isArray(vehiclesResponse?.data) ? vehiclesResponse.data : []) ||
-                  (Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
+      console.log('All vehicles found:', allVehicles.length);
+      
+      // Filter by make and model (case-insensitive)
+      const matchingVehicles = allVehicles.filter(v => {
+        const vMake = (v.make || v.Make || '').toLowerCase().trim();
+        const vModel = (v.model || v.Model || '').toLowerCase().trim();
+        const targetMake = make.toLowerCase();
+        const targetModel = modelName.toLowerCase();
+        
+        return vMake === targetMake && vModel === targetModel;
+      });
+      
+      console.log('Matching vehicles:', matchingVehicles.length, matchingVehicles.map(v => ({ id: v.vehicleId || v.id, make: v.make, model: v.model, status: v.status })));
+      
+      // Prefer Available status, then any status
+      let selectedVehicle = matchingVehicles.find(v => (v.status || v.Status) === 'Available');
+      if (!selectedVehicle && matchingVehicles.length > 0) {
+        selectedVehicle = matchingVehicles[0];
       }
       
-      if (vehicles.length === 0) {
-        toast.error(t('admin.noVehiclesAvailableForDates', 'No vehicles available for the selected dates'));
+      if (!selectedVehicle) {
+        console.error('No vehicle found for:', { make, modelName });
+        toast.error(t('admin.noVehiclesAvailableForDates', 'No vehicles available for the selected dates and location. Please check vehicle exists with this make/model.'));
         return;
       }
       
-      const selectedVehicle = vehicles[0];
+      console.log('Selected vehicle:', { id: selectedVehicle.vehicleId || selectedVehicle.id, make: selectedVehicle.make, model: selectedVehicle.model });
       const vehicleId = selectedVehicle.vehicleId || selectedVehicle.id;
       const dailyRate = wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || 0;
       
@@ -381,6 +404,8 @@ const ReservationWizardPage = () => {
         companyId: currentCompanyId,
         pickupDate: wizardPickupDate,
         returnDate: wizardReturnDate,
+        pickupTime: wizardPickupTime,
+        returnTime: wizardReturnTime,
         pickupLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
         returnLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
         dailyRate: dailyRate,
@@ -494,31 +519,89 @@ const ReservationWizardPage = () => {
           {/* Step 1: Customer, Dates, Location */}
           {wizardStep === 1 && (
             <div className="space-y-6">
-              {/* Dates */}
+              {/* Pickup Date & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('admin.pickupDate', 'Pickup Date')}
                   </label>
-                  <input
-                    type="date"
-                    value={wizardPickupDate}
-                    onChange={(e) => setWizardPickupDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={wizardPickupDate}
+                      onChange={(e) => setWizardPickupDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      value={wizardPickupTime}
+                      onChange={(e) => setWizardPickupTime(e.target.value)}
+                      className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="08:00">8:00 AM</option>
+                      <option value="08:30">8:30 AM</option>
+                      <option value="09:00">9:00 AM</option>
+                      <option value="09:30">9:30 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                      <option value="10:30">10:30 AM</option>
+                      <option value="11:00">11:00 AM</option>
+                      <option value="11:30">11:30 AM</option>
+                      <option value="12:00">12:00 PM</option>
+                      <option value="12:30">12:30 PM</option>
+                      <option value="13:00">1:00 PM</option>
+                      <option value="13:30">1:30 PM</option>
+                      <option value="14:00">2:00 PM</option>
+                      <option value="14:30">2:30 PM</option>
+                      <option value="15:00">3:00 PM</option>
+                      <option value="15:30">3:30 PM</option>
+                      <option value="16:00">4:00 PM</option>
+                      <option value="16:30">4:30 PM</option>
+                      <option value="17:00">5:00 PM</option>
+                      <option value="17:30">5:30 PM</option>
+                      <option value="18:00">6:00 PM</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('admin.returnDate', 'Return Date')}
                   </label>
-                  <input
-                    type="date"
-                    value={wizardReturnDate}
-                    onChange={(e) => setWizardReturnDate(e.target.value)}
-                    min={wizardPickupDate || new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={wizardReturnDate}
+                      onChange={(e) => setWizardReturnDate(e.target.value)}
+                      min={wizardPickupDate || new Date().toISOString().split('T')[0]}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      value={wizardReturnTime}
+                      onChange={(e) => setWizardReturnTime(e.target.value)}
+                      className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="08:00">8:00 AM</option>
+                      <option value="08:30">8:30 AM</option>
+                      <option value="09:00">9:00 AM</option>
+                      <option value="09:30">9:30 AM</option>
+                      <option value="10:00">10:00 AM</option>
+                      <option value="10:30">10:30 AM</option>
+                      <option value="11:00">11:00 AM</option>
+                      <option value="11:30">11:30 AM</option>
+                      <option value="12:00">12:00 PM</option>
+                      <option value="12:30">12:30 PM</option>
+                      <option value="13:00">1:00 PM</option>
+                      <option value="13:30">1:30 PM</option>
+                      <option value="14:00">2:00 PM</option>
+                      <option value="14:30">2:30 PM</option>
+                      <option value="15:00">3:00 PM</option>
+                      <option value="15:30">3:30 PM</option>
+                      <option value="16:00">4:00 PM</option>
+                      <option value="16:30">4:30 PM</option>
+                      <option value="17:00">5:00 PM</option>
+                      <option value="17:30">5:30 PM</option>
+                      <option value="18:00">6:00 PM</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -724,7 +807,7 @@ const ReservationWizardPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('admin.dates', 'Dates')}:</span>
-                    <span className="font-medium">{wizardPickupDate} → {wizardReturnDate}</span>
+                    <span className="font-medium">{wizardPickupDate} {formatTimeAmPm(wizardPickupTime)} → {wizardReturnDate} {formatTimeAmPm(wizardReturnTime)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('admin.vehicle', 'Vehicle')}:</span>

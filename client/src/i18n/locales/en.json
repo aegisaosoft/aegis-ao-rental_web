@@ -737,7 +737,10 @@
     "status": "Status",
     "bookingDetails": "Booking Details",
     "reservationNumber": "Booking #{{number}}",
-    "cancelBooking": "Cancel Booking"
+    "cancelBooking": "Cancel Booking",
+    "viewDetails": "View Details",
+    "viewAgreement": "View Agreement",
+    "paymentSuccessful": "Payment successful! Your booking is confirmed."
   },
   "settings": {
     "title": "Settings",
@@ -1441,5 +1444,101 @@
     "requiredConsents": "Please check all boxes to confirm you have read and agree to the rules",
     "signatureRequired": "Please provide your signature",
     "allConsentsRequired": "Please accept all rules and conditions"
+  },
+  "meta": {
+    "setupGuide": "Setup Guide - How to Create Instagram Business"
+  },
+  "instagramGuide": {
+    "stepOf": "Step {{current}} of {{total}}",
+    "startConnecting": "Start Connecting",
+    "step0": {
+      "title": "Welcome to Instagram Business Setup",
+      "intro": "This guide will help you create and connect your Instagram Business account for your car rental company. Follow these simple steps to start promoting your vehicles on Instagram!",
+      "requirements": "Requirements",
+      "req1": "A smartphone with Instagram app installed",
+      "req2": "A Facebook account (required for Business accounts)",
+      "req3": "Your company logo and photos",
+      "req4": "About 15-20 minutes of your time"
+    },
+    "step1": {
+      "title": "Step 1: Create Instagram Account",
+      "subtitle": "If you already have Instagram, skip to Step 2",
+      "action1": "Download Instagram app from App Store (iPhone) or Google Play (Android)",
+      "action2": "Open the app and tap \"Sign Up\"",
+      "action3": "Choose \"Sign up with Email\" and enter your business email",
+      "action4": "Create a username for your business (e.g., \"yourcompany_rentals\")",
+      "tip1": "Tip: Keep it short, memorable, and related to your business name",
+      "action5": "Create a strong password and complete registration"
+    },
+    "step2": {
+      "title": "Step 2: Create Facebook Business Page",
+      "why": "A Facebook Page is required to use Instagram Business features and to connect to our system.",
+      "action1": "Open Facebook.com on your computer or phone",
+      "action2": "Click the menu (☰) and select \"Pages\"",
+      "action3": "Click \"Create New Page\"",
+      "action4": "Enter your business name (e.g., \"Your Company Car Rentals\")",
+      "action5": "Select category \"Car Rental\" or \"Automotive\"",
+      "action6": "Add a short description of your rental business",
+      "action7": "Upload your company logo as profile picture",
+      "action8": "Click \"Create Page\""
+    },
+    "step3": {
+      "title": "Step 3: Switch to Business Account",
+      "intro": "Now convert your Instagram to a Business account:",
+      "action1": "Open Instagram app and go to your profile (tap person icon)",
+      "action2": "Tap the menu (☰) in top right corner",
+      "action3": "Tap \"Settings and privacy\"",
+      "action4": "Scroll down and tap \"Account type and tools\"",
+      "action5": "Tap \"Switch to professional account\"",
+      "action6": "Select \"Business\" (not Creator)",
+      "action7": "Select category \"Car Rental\" and tap \"Done\""
+    },
+    "step4": {
+      "title": "Step 4: Link Instagram to Facebook Page",
+      "important": "This step is critical! Without linking to Facebook, our system cannot connect to your Instagram.",
+      "action1": "In Instagram, go to Profile → Menu (☰) → Settings",
+      "action2": "Tap \"Business\" or \"Creator\" section",
+      "action3": "Tap \"Connect or Create\" under Facebook Page",
+      "action4": "Log in to Facebook if prompted",
+      "action5": "Select the Facebook Page you created in Step 2",
+      "action6": "Confirm the connection"
+    },
+    "step5": {
+      "title": "Step 5: Complete Your Profile",
+      "intro": "Make your profile attractive to potential customers:",
+      "action1": "Upload your company logo as profile picture",
+      "action2": "Write a compelling bio (max 150 characters)",
+      "bioExample": "Example: \"🚗 Premium Car Rentals | 📍 Miami, FL | ✨ Best Prices | 📞 Call Now!\"",
+      "action3": "Add your website URL (copy from browser address bar, e.g. yourcompany.aegis-rental.com)",
+      "urlTip": "Open your rental website in browser, copy the address from the top bar",
+      "action4": "Add contact button with phone number and email",
+      "action5": "Add your business address",
+      "action6": "Post 3-5 photos of your best vehicles",
+      "photoTip": "Tip: Use high-quality photos with good lighting"
+    },
+    "step6": {
+      "title": "Step 6: Connect to Our System",
+      "intro": "Now connect your Instagram Business account to our system:",
+      "action1": "Close this guide",
+      "action2": "Click the \"Connect with Facebook\" button on this page",
+      "action3": "Log in with your Facebook account",
+      "action4": "Select the Facebook Page linked to your Instagram",
+      "action5": "Click \"Continue\" to grant all permissions (do NOT uncheck anything)",
+      "permissionNote": "We need all permissions to post vehicles and manage your page. Just click Continue/Allow on each screen.",
+      "action6": "Click \"Done\" to complete the connection",
+      "success": "That's it! You're all set!",
+      "successDesc": "Once connected, you can automatically post your vehicles to Instagram and reach more customers."
+    },
+    "step7": {
+      "title": "Tips for Success",
+      "tip1Title": "Post Quality Photos",
+      "tip1Desc": "Use natural lighting, clean backgrounds, and show vehicles from multiple angles. Photos sell!",
+      "tip2Title": "Engage with Followers",
+      "tip2Desc": "Respond to comments and messages quickly. Good customer service builds trust.",
+      "tip3Title": "Use Relevant Hashtags",
+      "tip3Desc": "Include hashtags like #carrental #rentacar #[yourcity] to reach more people.",
+      "tip4Title": "Post Regularly",
+      "tip4Desc": "Aim for 3-5 posts per week. Consistency helps you stay visible to potential customers."
+    }
   }
 }

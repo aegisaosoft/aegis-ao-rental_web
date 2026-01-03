@@ -115,7 +115,7 @@ const ReservationsSection = ({
   // Fetch company data for security deposit settings
   const { data: companyData } = useQuery(
     ['companyData', currentCompanyId],
-    () => apiService.getCompanyById(currentCompanyId),
+    () => apiService.getCompany(currentCompanyId),
     { enabled: isAuthenticated && !!currentCompanyId }
   );
 
@@ -127,8 +127,8 @@ const ReservationsSection = ({
   // ============== MUTATIONS ==============
 
   const updateBookingStatusMutation = useMutation(
-    ({ bookingId, status, securityDepositDamageAmount }) => 
-      apiService.updateBooking(bookingId, { status, securityDepositDamageAmount }),
+    ({ bookingId, status, paymentStatus, securityDepositDamageAmount }) => 
+      apiService.updateBooking(bookingId, { status, paymentStatus, securityDepositDamageAmount }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
@@ -214,12 +214,33 @@ const ReservationsSection = ({
         sessionStorage.removeItem('stripeUserBackup');
       }
       
-      toast.success(t('admin.paymentSuccessful', 'Payment processed successfully!'));
-      queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+      // Get bookingId from URL and update status
+      const bookingIdFromUrl = urlParams.get('bookingId');
+      if (bookingIdFromUrl) {
+        console.log('[Reservations] Updating booking after Stripe success:', bookingIdFromUrl);
+        apiService.updateBooking(bookingIdFromUrl, { 
+          status: 'Confirmed', 
+          paymentStatus: 'Paid' 
+        }).then(() => {
+          queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+          toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
+        }).catch(err => {
+          console.error('Error updating booking after payment:', err);
+          toast.success(t('admin.paymentSuccessful', 'Payment processed successfully!'));
+        });
+      } else {
+        toast.success(t('admin.paymentSuccessful', 'Payment processed successfully!'));
+        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+      }
       
+      // Clean up URL
       const newUrl = new URL(window.location);
       newUrl.searchParams.delete('stripe_success');
+      newUrl.searchParams.delete('bookingId');
       window.history.replaceState({}, '', newUrl.toString());
+      
+      // Clean up sessionStorage
+      sessionStorage.removeItem('pendingBookingStatusUpdate');
     }
 
     if (stripeCancel === 'true') {
@@ -258,20 +279,38 @@ const ReservationsSection = ({
 
   useEffect(() => {
     const pendingUpdate = sessionStorage.getItem('pendingBookingStatusUpdate');
-    if (pendingUpdate && selectedBooking) {
+    if (pendingUpdate) {
       try {
         const update = JSON.parse(pendingUpdate);
-        const bookingId = selectedBooking.id || selectedBooking.Id || selectedBooking.bookingId || selectedBooking.BookingId;
         
-        if (update.bookingId === bookingId || update.bookingId?.toString() === bookingId?.toString()) {
-          const isPaid = 
-            (selectedBooking.paymentStatus === 'Paid' || selectedBooking.paymentStatus === 'succeeded') ||
-            !!selectedBooking.stripePaymentIntentId;
+        // If we have a selected booking that matches, update it
+        if (selectedBooking) {
+          const bookingId = selectedBooking.id || selectedBooking.Id || selectedBooking.bookingId || selectedBooking.BookingId;
           
-          if (isPaid && update.status === 'Confirmed') {
-            updateBookingStatusMutation.mutate({ bookingId, status: 'Confirmed' });
+          if (update.bookingId === bookingId || update.bookingId?.toString() === bookingId?.toString()) {
+            // User returned from Stripe checkout success page - update status
+            console.log('[Reservations] Updating booking status after Stripe return:', update);
+            updateBookingStatusMutation.mutate({ 
+              bookingId, 
+              status: update.status || 'Confirmed',
+              paymentStatus: 'Paid'
+            });
             sessionStorage.removeItem('pendingBookingStatusUpdate');
             setPendingConfirmedStatus('');
+            toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
+          }
+        } else {
+          // No selected booking yet, try to update directly if we have bookingId
+          if (update.bookingId) {
+            console.log('[Reservations] Updating booking status (no selection):', update);
+            updateBookingStatusMutation.mutate({ 
+              bookingId: update.bookingId, 
+              status: update.status || 'Confirmed',
+              paymentStatus: 'Paid'
+            });
+            sessionStorage.removeItem('pendingBookingStatusUpdate');
+            setPendingConfirmedStatus('');
+            toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
           }
         }
       } catch (error) {
@@ -279,7 +318,7 @@ const ReservationsSection = ({
         sessionStorage.removeItem('pendingBookingStatusUpdate');
       }
     }
-  }, [selectedBooking, updateBookingStatusMutation, setPendingConfirmedStatus]);
+  }, [selectedBooking, updateBookingStatusMutation, setPendingConfirmedStatus, t]);
 
   useEffect(() => {
     if (bookingPage > totalBookingPages) {
@@ -447,8 +486,9 @@ const ReservationsSection = ({
     }
   };
 
-  const handleInitiatePayment = async () => {
-    if (!selectedBooking || !paymentMethod) {
+  const handleInitiatePayment = async (selectedPaymentMethod) => {
+    const method = selectedPaymentMethod || paymentMethod;
+    if (!selectedBooking || !method) {
       toast.error(t('admin.selectPaymentMethod', 'Please select a payment method'));
       return;
     }
@@ -456,7 +496,7 @@ const ReservationsSection = ({
     setPayingSecurityDeposit(true);
     
     try {
-      if (paymentMethod === 'checkout') {
+      if (method === 'checkout') {
         const response = await apiService.createSecurityDepositCheckout(selectedBooking.id, i18n.language);
         const { sessionUrl } = response.data;
         setShowSecurityDepositModal(false);
@@ -468,18 +508,22 @@ const ReservationsSection = ({
           }));
         }
         window.location.href = sessionUrl;
-      } else {
+      } else if (method === 'terminal') {
         toast.info(t('admin.terminalNotImplemented', 'Terminal payment not yet implemented'));
+      } else {
+        toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
     } catch (error) {
+      console.error('Security deposit error:', error);
       toast.error(t('admin.securityDepositError', 'Failed to initiate payment'));
     } finally {
       setPayingSecurityDeposit(false);
     }
   };
 
-  const handleInitiateBookingPayment = async () => {
-    if (!selectedBooking || !paymentMethod) {
+  const handleInitiateBookingPayment = async (selectedPaymentMethod) => {
+    const method = selectedPaymentMethod || paymentMethod;
+    if (!selectedBooking || !method) {
       toast.error(t('admin.selectPaymentMethod', 'Please select a payment method'));
       return;
     }
@@ -487,7 +531,7 @@ const ReservationsSection = ({
     setPayingBooking(true);
     
     try {
-      if (paymentMethod === 'checkout') {
+      if (method === 'checkout') {
         const response = await apiService.createCheckoutSession({
           customerId: selectedBooking.customerId,
           companyId: currentCompanyId,
@@ -497,15 +541,18 @@ const ReservationsSection = ({
           currency: (currencyCode || 'USD').toLowerCase(),
           description: `Booking payment - ${selectedBooking.bookingNumber || ''}`,
           language: i18n.language,
-          successUrl: `${window.location.origin}/admin?tab=reservations`,
-          cancelUrl: `${window.location.origin}/admin?tab=reservations`
+          successUrl: `${window.location.origin}/admin?tab=reservations&stripe_success=true&bookingId=${selectedBooking.id}`,
+          cancelUrl: `${window.location.origin}/admin?tab=reservations&stripe_cancel=true`
         });
         const { url: sessionUrl } = response.data || response;
         setShowBookingPaymentModal(false);
         setPaymentMethod('');
-        if (pendingConfirmedStatus === 'Confirmed') {
-          sessionStorage.setItem('pendingBookingStatusUpdate', JSON.stringify({ bookingId: selectedBooking.id, status: 'Confirmed' }));
-        }
+        // Always save pending status update - after successful checkout redirect, update to Confirmed
+        sessionStorage.setItem('pendingBookingStatusUpdate', JSON.stringify({ 
+          bookingId: selectedBooking.id, 
+          status: 'Confirmed',
+          paymentStatus: 'Paid'
+        }));
         sessionStorage.setItem('stripeRedirect', 'true');
         if (user) {
           sessionStorage.setItem('stripeUserBackup', JSON.stringify({
@@ -513,11 +560,14 @@ const ReservationsSection = ({
           }));
         }
         window.location.href = sessionUrl;
-      } else {
+      } else if (method === 'terminal') {
         toast.info(t('admin.terminalNotImplemented', 'Terminal payment not yet implemented'));
+      } else {
+        toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
     } catch (error) {
-      toast.error(t('admin.bookingPaymentError', 'Failed to initiate payment'));
+      console.error('Booking payment error:', error);
+      toast.error(t('admin.bookingPaymentError', 'Failed to process booking payment'));
     } finally {
       setPayingBooking(false);
     }
@@ -587,8 +637,8 @@ const ReservationsSection = ({
     <>
       <Card
         title={t('admin.reservations', 'Reservations')}
-        headerAction={
-          <button onClick={() => navigate('/admin/reservations/new')} className="btn-primary flex items-center gap-2">
+        headerActions={
+          <button onClick={() => navigate('/admin/reservation/new')} className="btn-primary flex items-center gap-2">
             <Plus className="h-4 w-4" />
             {t('admin.newReservation', 'New Reservation')}
           </button>
@@ -641,7 +691,14 @@ const ReservationsSection = ({
               ) : (
                 filteredBookings.map((booking) => (
                   <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{booking.bookingNumber || '—'}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      <button
+                        onClick={() => handleOpenBookingDetails(booking)}
+                        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                      >
+                        {booking.bookingNumber || '—'}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{booking.customerName || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{booking.vehicleName || '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{formatDate(booking.pickupDate)} - {formatDate(booking.returnDate)}</td>
@@ -704,7 +761,7 @@ const ReservationsSection = ({
       {showSecurityDepositModal && selectedBooking && (
         <SecurityDepositModal t={t} booking={selectedBooking} companySecurityDeposit={parseFloat(actualCompanyData?.securityDeposit || 0)} formatPrice={formatPrice}
           onClose={() => { setShowSecurityDepositModal(false); setPendingActiveStatus(''); setPaymentMethod(''); setPayingSecurityDeposit(false); }}
-          onProcessPayment={({ paymentMethod: m }) => { setPaymentMethod(m); handleInitiatePayment(); }}
+          onProcessPayment={({ paymentMethod: m }) => { setPaymentMethod(m); handleInitiatePayment(m); }}
           isProcessing={payingSecurityDeposit}
         />
       )}
@@ -712,7 +769,7 @@ const ReservationsSection = ({
       {showBookingPaymentModal && selectedBooking && (
         <BookingPaymentModal t={t} booking={selectedBooking} formatPrice={formatPrice}
           onClose={() => { setShowBookingPaymentModal(false); setPendingConfirmedStatus(''); setPaymentMethod(''); setPayingBooking(false); }}
-          onProcessPayment={({ paymentMethod: m }) => { setPaymentMethod(m); handleInitiateBookingPayment(); }}
+          onProcessPayment={({ paymentMethod: m }) => { setPaymentMethod(m); handleInitiateBookingPayment(m); }}
           isProcessing={payingBooking}
         />
       )}

@@ -725,7 +725,10 @@
     "status": "Status",
     "bookingDetails": "Detalhes da reserva",
     "reservationNumber": "Reserva #{{number}}",
-    "cancelBooking": "Cancelar Reserva"
+    "cancelBooking": "Cancelar Reserva",
+    "viewDetails": "Ver Detalhes",
+    "viewAgreement": "Ver Contrato",
+    "paymentSuccessful": "Pagamento bem-sucedido! Sua reserva está confirmada."
   },
   "settings": {
     "title": "Configurações",
@@ -1285,5 +1288,101 @@
     "requiredConsents": "Por favor marque todas as caixas para confirmar que leu e concorda com as regras",
     "signatureRequired": "Por favor forneça sua assinatura",
     "allConsentsRequired": "Por favor aceite todas as regras e condições"
+  },
+  "meta": {
+    "setupGuide": "Guia de Configuração - Como Criar Instagram Business"
+  },
+  "instagramGuide": {
+    "stepOf": "Passo {{current}} de {{total}}",
+    "startConnecting": "Começar a Conectar",
+    "step0": {
+      "title": "Bem-vindo à Configuração do Instagram Business",
+      "intro": "Este guia ajudará você a criar e conectar sua conta do Instagram Business para sua empresa de aluguel de carros. Siga estes passos simples para começar a promover seus veículos no Instagram!",
+      "requirements": "Requisitos",
+      "req1": "Um smartphone com o aplicativo Instagram instalado",
+      "req2": "Uma conta do Facebook (necessária para contas Business)",
+      "req3": "O logotipo da sua empresa e fotos",
+      "req4": "Aproximadamente 15-20 minutos do seu tempo"
+    },
+    "step1": {
+      "title": "Passo 1: Criar Conta do Instagram",
+      "subtitle": "Se você já tem Instagram, pule para o Passo 2",
+      "action1": "Baixe o aplicativo Instagram da App Store (iPhone) ou Google Play (Android)",
+      "action2": "Abra o aplicativo e toque em \"Cadastre-se\"",
+      "action3": "Escolha \"Cadastrar-se com e-mail\" e insira seu e-mail comercial",
+      "action4": "Crie um nome de usuário para sua empresa (ex.: \"suaempresa_aluguel\")",
+      "tip1": "Dica: Mantenha curto, memorável e relacionado ao nome da sua empresa",
+      "action5": "Crie uma senha forte e complete o cadastro"
+    },
+    "step2": {
+      "title": "Passo 2: Criar Página do Facebook Business",
+      "why": "Uma Página do Facebook é necessária para usar os recursos do Instagram Business e para conectar ao nosso sistema.",
+      "action1": "Abra Facebook.com no seu computador ou celular",
+      "action2": "Clique no menu (☰) e selecione \"Páginas\"",
+      "action3": "Clique em \"Criar Nova Página\"",
+      "action4": "Insira o nome da sua empresa (ex.: \"Aluguel de Carros Sua Empresa\")",
+      "action5": "Selecione a categoria \"Aluguel de Carros\" ou \"Automotivo\"",
+      "action6": "Adicione uma breve descrição do seu negócio de aluguel",
+      "action7": "Carregue o logotipo da sua empresa como foto de perfil",
+      "action8": "Clique em \"Criar Página\""
+    },
+    "step3": {
+      "title": "Passo 3: Mudar para Conta Business",
+      "intro": "Agora converta seu Instagram para uma conta Business:",
+      "action1": "Abra o aplicativo Instagram e vá para seu perfil (toque no ícone de pessoa)",
+      "action2": "Toque no menu (☰) no canto superior direito",
+      "action3": "Toque em \"Configurações e privacidade\"",
+      "action4": "Role para baixo e toque em \"Tipo de conta e ferramentas\"",
+      "action5": "Toque em \"Mudar para conta profissional\"",
+      "action6": "Selecione \"Empresa\" (não Criador)",
+      "action7": "Selecione a categoria \"Aluguel de Carros\" e toque em \"Concluir\""
+    },
+    "step4": {
+      "title": "Passo 4: Vincular Instagram à Página do Facebook",
+      "important": "Este passo é crítico! Sem vincular ao Facebook, nosso sistema não pode conectar ao seu Instagram.",
+      "action1": "No Instagram, vá para Perfil → Menu (☰) → Configurações",
+      "action2": "Toque na seção \"Empresa\" ou \"Criador\"",
+      "action3": "Toque em \"Conectar ou Criar\" em Página do Facebook",
+      "action4": "Faça login no Facebook se solicitado",
+      "action5": "Selecione a Página do Facebook que você criou no Passo 2",
+      "action6": "Confirme a conexão"
+    },
+    "step5": {
+      "title": "Passo 5: Complete Seu Perfil",
+      "intro": "Torne seu perfil atraente para clientes em potencial:",
+      "action1": "Carregue o logotipo da sua empresa como foto de perfil",
+      "action2": "Escreva uma bio convincente (máx. 150 caracteres)",
+      "bioExample": "Exemplo: \"🚗 Aluguel Premium de Carros | 📍 São Paulo | ✨ Melhores Preços | 📞 Ligue Agora!\"",
+      "action3": "Adicione a URL do seu site (copie da barra de endereços do navegador, ex. suaempresa.aegis-rental.com)",
+      "urlTip": "Abra seu site de aluguel no navegador, copie o endereço da barra superior",
+      "action4": "Adicione botão de contato com telefone e e-mail",
+      "action5": "Adicione o endereço da sua empresa",
+      "action6": "Poste 3-5 fotos dos seus melhores veículos",
+      "photoTip": "Dica: Use fotos de alta qualidade com boa iluminação"
+    },
+    "step6": {
+      "title": "Passo 6: Conectar ao Nosso Sistema",
+      "intro": "Agora conecte sua conta do Instagram Business ao nosso sistema:",
+      "action1": "Feche este guia",
+      "action2": "Clique no botão \"Conectar com Facebook\" nesta página",
+      "action3": "Faça login com sua conta do Facebook",
+      "action4": "Selecione a Página do Facebook vinculada ao seu Instagram",
+      "action5": "Clique em \"Continuar\" para conceder todas as permissões (NÃO desmarque nada)",
+      "permissionNote": "Precisamos de todas as permissões para publicar veículos e gerenciar sua página. Basta clicar em Continuar/Permitir em cada tela.",
+      "action6": "Clique em \"Concluir\" para completar a conexão",
+      "success": "É isso! Você está pronto!",
+      "successDesc": "Uma vez conectado, você pode publicar automaticamente seus veículos no Instagram e alcançar mais clientes."
+    },
+    "step7": {
+      "title": "Dicas para o Sucesso",
+      "tip1Title": "Poste Fotos de Qualidade",
+      "tip1Desc": "Use iluminação natural, fundos limpos e mostre veículos de vários ângulos. Fotos vendem!",
+      "tip2Title": "Interaja com Seguidores",
+      "tip2Desc": "Responda a comentários e mensagens rapidamente. Um bom atendimento ao cliente gera confiança.",
+      "tip3Title": "Use Hashtags Relevantes",
+      "tip3Desc": "Inclua hashtags como #alugueldecarros #rentacar #[suacidade] para alcançar mais pessoas.",
+      "tip4Title": "Poste Regularmente",
+      "tip4Desc": "Tente fazer 3-5 posts por semana. Consistência ajuda você a permanecer visível para clientes em potencial."
+    }
   }
 }

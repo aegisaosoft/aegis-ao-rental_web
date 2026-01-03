@@ -715,7 +715,10 @@
     "status": "Status",
     "bookingDetails": "Buchungsdetails",
     "reservationNumber": "Reservierung #{{number}}",
-    "cancelBooking": "Buchung Stornieren"
+    "cancelBooking": "Buchung Stornieren",
+    "viewDetails": "Details Anzeigen",
+    "viewAgreement": "Vertrag Anzeigen",
+    "paymentSuccessful": "Zahlung erfolgreich! Ihre Buchung ist bestätigt."
   },
   "settings": {
     "title": "Einstellungen",
@@ -1274,5 +1277,101 @@
     "requiredConsents": "Bitte aktivieren Sie alle Kontrollkästchen, um zu bestätigen, dass Sie die Regeln gelesen haben und ihnen zustimmen",
     "signatureRequired": "Bitte geben Sie Ihre Unterschrift an",
     "allConsentsRequired": "Bitte akzeptieren Sie alle Regeln und Bedingungen"
+  },
+  "meta": {
+    "setupGuide": "Einrichtungsanleitung - Instagram Business erstellen"
+  },
+  "instagramGuide": {
+    "stepOf": "Schritt {{current}} von {{total}}",
+    "startConnecting": "Verbindung starten",
+    "step0": {
+      "title": "Willkommen zur Instagram Business Einrichtung",
+      "intro": "Diese Anleitung hilft Ihnen, Ihr Instagram Business-Konto für Ihr Autovermietungsunternehmen zu erstellen und zu verbinden. Befolgen Sie diese einfachen Schritte, um Ihre Fahrzeuge auf Instagram zu bewerben!",
+      "requirements": "Voraussetzungen",
+      "req1": "Ein Smartphone mit installierter Instagram-App",
+      "req2": "Ein Facebook-Konto (erforderlich für Business-Konten)",
+      "req3": "Ihr Firmenlogo und Fotos",
+      "req4": "Etwa 15-20 Minuten Zeit"
+    },
+    "step1": {
+      "title": "Schritt 1: Instagram-Konto erstellen",
+      "subtitle": "Wenn Sie bereits Instagram haben, gehen Sie zu Schritt 2",
+      "action1": "Laden Sie die Instagram-App aus dem App Store (iPhone) oder Google Play (Android) herunter",
+      "action2": "Öffnen Sie die App und tippen Sie auf \"Registrieren\"",
+      "action3": "Wählen Sie \"Mit E-Mail registrieren\" und geben Sie Ihre Geschäfts-E-Mail ein",
+      "action4": "Erstellen Sie einen Benutzernamen für Ihr Unternehmen (z.B. \"ihrfirma_autovermietung\")",
+      "tip1": "Tipp: Halten Sie ihn kurz, einprägsam und mit Bezug zu Ihrem Firmennamen",
+      "action5": "Erstellen Sie ein sicheres Passwort und schließen Sie die Registrierung ab"
+    },
+    "step2": {
+      "title": "Schritt 2: Facebook Business-Seite erstellen",
+      "why": "Eine Facebook-Seite ist erforderlich, um Instagram Business-Funktionen zu nutzen und sich mit unserem System zu verbinden.",
+      "action1": "Öffnen Sie Facebook.com auf Ihrem Computer oder Handy",
+      "action2": "Klicken Sie auf das Menü (☰) und wählen Sie \"Seiten\"",
+      "action3": "Klicken Sie auf \"Neue Seite erstellen\"",
+      "action4": "Geben Sie Ihren Firmennamen ein (z.B. \"Ihre Firma Autovermietung\")",
+      "action5": "Wählen Sie die Kategorie \"Autovermietung\" oder \"Automobil\"",
+      "action6": "Fügen Sie eine kurze Beschreibung Ihres Vermietungsgeschäfts hinzu",
+      "action7": "Laden Sie Ihr Firmenlogo als Profilbild hoch",
+      "action8": "Klicken Sie auf \"Seite erstellen\""
+    },
+    "step3": {
+      "title": "Schritt 3: Zu Business-Konto wechseln",
+      "intro": "Wandeln Sie nun Ihr Instagram in ein Business-Konto um:",
+      "action1": "Öffnen Sie die Instagram-App und gehen Sie zu Ihrem Profil (tippen Sie auf das Personen-Symbol)",
+      "action2": "Tippen Sie auf das Menü (☰) in der oberen rechten Ecke",
+      "action3": "Tippen Sie auf \"Einstellungen und Privatsphäre\"",
+      "action4": "Scrollen Sie nach unten und tippen Sie auf \"Kontotyp und Tools\"",
+      "action5": "Tippen Sie auf \"Zu professionellem Konto wechseln\"",
+      "action6": "Wählen Sie \"Unternehmen\" (nicht Creator)",
+      "action7": "Wählen Sie die Kategorie \"Autovermietung\" und tippen Sie auf \"Fertig\""
+    },
+    "step4": {
+      "title": "Schritt 4: Instagram mit Facebook-Seite verknüpfen",
+      "important": "Dieser Schritt ist entscheidend! Ohne Verknüpfung mit Facebook kann unser System keine Verbindung zu Ihrem Instagram herstellen.",
+      "action1": "Gehen Sie in Instagram zu Profil → Menü (☰) → Einstellungen",
+      "action2": "Tippen Sie auf den Bereich \"Unternehmen\" oder \"Creator\"",
+      "action3": "Tippen Sie auf \"Verbinden oder Erstellen\" unter Facebook-Seite",
+      "action4": "Melden Sie sich bei Facebook an, wenn Sie dazu aufgefordert werden",
+      "action5": "Wählen Sie die Facebook-Seite, die Sie in Schritt 2 erstellt haben",
+      "action6": "Bestätigen Sie die Verbindung"
+    },
+    "step5": {
+      "title": "Schritt 5: Profil vervollständigen",
+      "intro": "Machen Sie Ihr Profil attraktiv für potenzielle Kunden:",
+      "action1": "Laden Sie Ihr Firmenlogo als Profilbild hoch",
+      "action2": "Schreiben Sie eine überzeugende Bio (max. 150 Zeichen)",
+      "bioExample": "Beispiel: \"🚗 Premium Autovermietung | 📍 München | ✨ Beste Preise | 📞 Jetzt anrufen!\"",
+      "action3": "Fügen Sie Ihre Website-URL hinzu (kopieren Sie aus der Browser-Adressleiste, z.B. ihrfirma.aegis-rental.com)",
+      "urlTip": "Öffnen Sie Ihre Vermietungs-Website im Browser, kopieren Sie die Adresse aus der oberen Leiste",
+      "action4": "Fügen Sie Kontakt-Button mit Telefonnummer und E-Mail hinzu",
+      "action5": "Fügen Sie Ihre Geschäftsadresse hinzu",
+      "action6": "Posten Sie 3-5 Fotos Ihrer besten Fahrzeuge",
+      "photoTip": "Tipp: Verwenden Sie hochwertige Fotos mit guter Beleuchtung"
+    },
+    "step6": {
+      "title": "Schritt 6: Mit unserem System verbinden",
+      "intro": "Verbinden Sie nun Ihr Instagram Business-Konto mit unserem System:",
+      "action1": "Schließen Sie diese Anleitung",
+      "action2": "Klicken Sie auf dieser Seite auf den Button \"Mit Facebook verbinden\"",
+      "action3": "Melden Sie sich mit Ihrem Facebook-Konto an",
+      "action4": "Wählen Sie die mit Ihrem Instagram verknüpfte Facebook-Seite",
+      "action5": "Klicken Sie auf \"Weiter\", um alle Berechtigungen zu erteilen (NICHTS abwählen)",
+      "permissionNote": "Wir benötigen alle Berechtigungen, um Fahrzeuge zu posten und Ihre Seite zu verwalten. Klicken Sie einfach auf jedem Bildschirm auf Weiter/Erlauben.",
+      "action6": "Klicken Sie auf \"Fertig\", um die Verbindung abzuschließen",
+      "success": "Das war's! Alles ist eingerichtet!",
+      "successDesc": "Nach der Verbindung können Sie automatisch Ihre Fahrzeuge auf Instagram posten und mehr Kunden erreichen."
+    },
+    "step7": {
+      "title": "Tipps für den Erfolg",
+      "tip1Title": "Qualitätsfotos posten",
+      "tip1Desc": "Verwenden Sie natürliches Licht, saubere Hintergründe und zeigen Sie Fahrzeuge aus mehreren Winkeln. Fotos verkaufen!",
+      "tip2Title": "Mit Followern interagieren",
+      "tip2Desc": "Antworten Sie schnell auf Kommentare und Nachrichten. Guter Kundenservice schafft Vertrauen.",
+      "tip3Title": "Relevante Hashtags verwenden",
+      "tip3Desc": "Verwenden Sie Hashtags wie #autovermietung #mietwagen #[ihrestadt], um mehr Menschen zu erreichen.",
+      "tip4Title": "Regelmäßig posten",
+      "tip4Desc": "Streben Sie 3-5 Posts pro Woche an. Konsistenz hilft Ihnen, für potenzielle Kunden sichtbar zu bleiben."
+    }
   }
 }

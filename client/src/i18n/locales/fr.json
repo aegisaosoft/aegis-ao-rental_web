@@ -718,7 +718,10 @@
     "status": "Statut",
     "bookingDetails": "Détails de la Réservation",
     "reservationNumber": "Réservation #{{number}}",
-    "cancelBooking": "Annuler la Réservation"
+    "cancelBooking": "Annuler la Réservation",
+    "viewDetails": "Voir les Détails",
+    "viewAgreement": "Voir le Contrat",
+    "paymentSuccessful": "Paiement réussi ! Votre réservation est confirmée."
   },
   "settings": {
     "title": "Paramètres",
@@ -1278,5 +1281,101 @@
     "requiredConsents": "Veuillez cocher toutes les cases pour confirmer que vous avez lu et acceptez les règles",
     "signatureRequired": "Veuillez fournir votre signature",
     "allConsentsRequired": "Veuillez accepter toutes les règles et conditions"
+  },
+  "meta": {
+    "setupGuide": "Guide de Configuration - Comment Créer Instagram Business"
+  },
+  "instagramGuide": {
+    "stepOf": "Étape {{current}} sur {{total}}",
+    "startConnecting": "Commencer la Connexion",
+    "step0": {
+      "title": "Bienvenue dans la Configuration Instagram Business",
+      "intro": "Ce guide vous aidera à créer et connecter votre compte Instagram Business pour votre entreprise de location de voitures. Suivez ces étapes simples pour commencer à promouvoir vos véhicules sur Instagram !",
+      "requirements": "Prérequis",
+      "req1": "Un smartphone avec l'application Instagram installée",
+      "req2": "Un compte Facebook (requis pour les comptes Business)",
+      "req3": "Le logo de votre entreprise et des photos",
+      "req4": "Environ 15-20 minutes de votre temps"
+    },
+    "step1": {
+      "title": "Étape 1 : Créer un Compte Instagram",
+      "subtitle": "Si vous avez déjà Instagram, passez à l'Étape 2",
+      "action1": "Téléchargez l'application Instagram depuis l'App Store (iPhone) ou Google Play (Android)",
+      "action2": "Ouvrez l'application et appuyez sur \"S'inscrire\"",
+      "action3": "Choisissez \"S'inscrire avec un e-mail\" et entrez votre e-mail professionnel",
+      "action4": "Créez un nom d'utilisateur pour votre entreprise (ex. \"votreentreprise_location\")",
+      "tip1": "Conseil : Gardez-le court, mémorable et lié au nom de votre entreprise",
+      "action5": "Créez un mot de passe sécurisé et terminez l'inscription"
+    },
+    "step2": {
+      "title": "Étape 2 : Créer une Page Facebook Business",
+      "why": "Une Page Facebook est requise pour utiliser les fonctionnalités Instagram Business et pour se connecter à notre système.",
+      "action1": "Ouvrez Facebook.com sur votre ordinateur ou téléphone",
+      "action2": "Cliquez sur le menu (☰) et sélectionnez \"Pages\"",
+      "action3": "Cliquez sur \"Créer une Nouvelle Page\"",
+      "action4": "Entrez le nom de votre entreprise (ex. \"Location de Voitures Votre Entreprise\")",
+      "action5": "Sélectionnez la catégorie \"Location de Voitures\" ou \"Automobile\"",
+      "action6": "Ajoutez une brève description de votre entreprise de location",
+      "action7": "Téléchargez le logo de votre entreprise comme photo de profil",
+      "action8": "Cliquez sur \"Créer la Page\""
+    },
+    "step3": {
+      "title": "Étape 3 : Passer au Compte Business",
+      "intro": "Maintenant, convertissez votre Instagram en compte Business :",
+      "action1": "Ouvrez l'application Instagram et allez sur votre profil (appuyez sur l'icône de personne)",
+      "action2": "Appuyez sur le menu (☰) dans le coin supérieur droit",
+      "action3": "Appuyez sur \"Paramètres et confidentialité\"",
+      "action4": "Faites défiler vers le bas et appuyez sur \"Type de compte et outils\"",
+      "action5": "Appuyez sur \"Passer à un compte professionnel\"",
+      "action6": "Sélectionnez \"Entreprise\" (pas Créateur)",
+      "action7": "Sélectionnez la catégorie \"Location de Voitures\" et appuyez sur \"Terminé\""
+    },
+    "step4": {
+      "title": "Étape 4 : Lier Instagram à la Page Facebook",
+      "important": "Cette étape est critique ! Sans lien avec Facebook, notre système ne peut pas se connecter à votre Instagram.",
+      "action1": "Dans Instagram, allez dans Profil → Menu (☰) → Paramètres",
+      "action2": "Appuyez sur la section \"Entreprise\" ou \"Créateur\"",
+      "action3": "Appuyez sur \"Connecter ou Créer\" sous Page Facebook",
+      "action4": "Connectez-vous à Facebook si demandé",
+      "action5": "Sélectionnez la Page Facebook que vous avez créée à l'Étape 2",
+      "action6": "Confirmez la connexion"
+    },
+    "step5": {
+      "title": "Étape 5 : Complétez Votre Profil",
+      "intro": "Rendez votre profil attrayant pour les clients potentiels :",
+      "action1": "Téléchargez le logo de votre entreprise comme photo de profil",
+      "action2": "Rédigez une bio convaincante (max 150 caractères)",
+      "bioExample": "Exemple : \"🚗 Location Premium | 📍 Paris | ✨ Meilleurs Prix | 📞 Appelez Maintenant !\"",
+      "action3": "Ajoutez l'URL de votre site web (copiez depuis la barre d'adresse du navigateur, ex. votreentreprise.aegis-rental.com)",
+      "urlTip": "Ouvrez votre site de location dans le navigateur, copiez l'adresse de la barre supérieure",
+      "action4": "Ajoutez un bouton de contact avec téléphone et e-mail",
+      "action5": "Ajoutez l'adresse de votre entreprise",
+      "action6": "Publiez 3-5 photos de vos meilleurs véhicules",
+      "photoTip": "Conseil : Utilisez des photos de haute qualité avec un bon éclairage"
+    },
+    "step6": {
+      "title": "Étape 6 : Connecter à Notre Système",
+      "intro": "Maintenant, connectez votre compte Instagram Business à notre système :",
+      "action1": "Fermez ce guide",
+      "action2": "Cliquez sur le bouton \"Connecter avec Facebook\" sur cette page",
+      "action3": "Connectez-vous avec votre compte Facebook",
+      "action4": "Sélectionnez la Page Facebook liée à votre Instagram",
+      "action5": "Cliquez sur \"Continuer\" pour accorder toutes les autorisations (ne décochez RIEN)",
+      "permissionNote": "Nous avons besoin de toutes les autorisations pour publier des véhicules et gérer votre page. Cliquez simplement sur Continuer/Autoriser sur chaque écran.",
+      "action6": "Cliquez sur \"Terminé\" pour finaliser la connexion",
+      "success": "C'est tout ! Vous êtes prêt !",
+      "successDesc": "Une fois connecté, vous pouvez automatiquement publier vos véhicules sur Instagram et atteindre plus de clients."
+    },
+    "step7": {
+      "title": "Conseils pour Réussir",
+      "tip1Title": "Publiez des Photos de Qualité",
+      "tip1Desc": "Utilisez un éclairage naturel, des arrière-plans propres et montrez les véhicules sous plusieurs angles. Les photos vendent !",
+      "tip2Title": "Interagissez avec les Abonnés",
+      "tip2Desc": "Répondez rapidement aux commentaires et messages. Un bon service client crée la confiance.",
+      "tip3Title": "Utilisez des Hashtags Pertinents",
+      "tip3Desc": "Incluez des hashtags comme #locationvoiture #rentacar #[votreville] pour atteindre plus de personnes.",
+      "tip4Title": "Publiez Régulièrement",
+      "tip4Desc": "Visez 3-5 publications par semaine. La régularité vous aide à rester visible pour les clients potentiels."
+    }
   }
 }
