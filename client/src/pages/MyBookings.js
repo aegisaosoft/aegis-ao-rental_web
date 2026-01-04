@@ -298,8 +298,16 @@ const MyBookings = () => {
                       onClick={async () => {
                         try {
                           const response = await apiService.getRentalAgreement(booking.id || booking.bookingId || booking.booking_id);
-                          setAgreementData(response.data);
-                          setViewAgreementBookingId(booking.id || booking.bookingId || booking.booking_id);
+                          const agreement = response.data;
+                          
+                          // If PDF URL exists, open it directly
+                          if (agreement.pdfUrl) {
+                            window.open(agreement.pdfUrl, '_blank');
+                          } else {
+                            // Fallback to modal if no PDF
+                            setAgreementData(agreement);
+                            setViewAgreementBookingId(booking.id || booking.bookingId || booking.booking_id);
+                          }
                         } catch (error) {
                           console.error('Error fetching rental agreement:', error);
                           alert(t('myBookings.agreementNotFound', 'Rental agreement not found for this booking'));

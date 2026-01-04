@@ -2393,7 +2393,26 @@ const BookPage = () => {
         locationId: selectedLocationId || null,
 
         // Rental agreement data
-        agreementData: buildAgreementData(i18n.language || companyConfig?.language || 'en')
+        agreementData: (() => {
+          const baseAgreementData = buildAgreementData(i18n.language || companyConfig?.language || 'en');
+          if (baseAgreementData && selectedServices.length > 0) {
+            const numDays = calculateRentalDays();
+            baseAgreementData.additionalServices = selectedServices.map(s => {
+              const svc = s.service || s;
+              const serviceName = svc.serviceName || svc.ServiceName || svc.name || svc.Name || '';
+              const dailyPrice = svc.servicePrice || svc.ServicePrice || svc.price || svc.Price || 0;
+              const quantity = s.quantity || 1;
+              const totalPrice = dailyPrice * numDays * quantity;
+              return {
+                name: serviceName,
+                dailyRate: dailyPrice,
+                days: numDays,
+                total: totalPrice
+              };
+            });
+          }
+          return baseAgreementData;
+        })()
       };
 
       // Log agreement data for debugging

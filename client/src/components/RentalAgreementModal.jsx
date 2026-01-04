@@ -686,24 +686,149 @@ const RentalAgreementModal = ({
     setPdfError(null);
     
     try {
+      console.log('rentalInfo received:', JSON.stringify(rentalInfo, null, 2)); // Full debug
+      
+      // Parse year/color/license from combined string (e.g., "2023 / Gray / CVC963")
+      const yearColorLicenseStr = rentalInfo?.vehicle?.yearColorLicense || '';
+      const yearColorLicense = yearColorLicenseStr.split('/').map(s => s.trim()).filter(Boolean);
+      
+      let vehicleYear = null;
+      let vehicleColor = '';
+      let vehiclePlate = '';
+      
+      if (yearColorLicense.length === 3) {
+        vehicleYear = parseInt(yearColorLicense[0]) || null;
+        vehicleColor = yearColorLicense[1];
+        vehiclePlate = yearColorLicense[2];
+      } else if (yearColorLicense.length === 2) {
+        const first = yearColorLicense[0];
+        if (/^\d{4}$/.test(first)) {
+          vehicleYear = parseInt(first);
+          vehiclePlate = yearColorLicense[1];
+        } else {
+          vehicleColor = first;
+          vehiclePlate = yearColorLicense[1];
+        }
+      } else if (yearColorLicense.length === 1) {
+        vehiclePlate = yearColorLicense[0];
+      }
+
+      // Get pickup/return dates
+      const pickupDate = rentalInfo?.pickupDate || rentalInfo?.dates?.pickup || rentalInfo?.startDate || '';
+      const returnDate = rentalInfo?.returnDate || rentalInfo?.dates?.return || rentalInfo?.endDate || '';
+      
+      // Get times - check multiple sources
+      const pickupTime = rentalInfo?.startTime || rentalInfo?.pickupTime || rentalInfo?.dates?.pickupTime || '';
+      const returnTime = rentalInfo?.returnTime || rentalInfo?.dates?.returnTime || '';
+
+      // Get rental days
+      const rentalDays = rentalInfo?.rates?.numberOfDays || (() => {
+        if (pickupDate && returnDate) {
+          const diffTime = Math.abs(new Date(returnDate) - new Date(pickupDate));
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        }
+        return 1;
+      })();
+      
+      // Get daily rate
+      const dailyRate = rentalInfo?.rates?.ratePerDay || rentalInfo?.rates?.dailyRate || 0;
+      
+      // Get rental amount
+      const rentalAmount = rentalInfo?.rates?.dailyTotal || (dailyRate * rentalDays) || rentalInfo?.rates?.total || 0;
+      
+      // Get security deposit - check root level first
+      const depositAmount = rentalInfo?.securityDeposit || rentalInfo?.rates?.securityDeposit || 0;
+      
+      // Get services
+      const servicesTotal = rentalInfo?.rates?.servicesTotal || 0;
+      const additionalServices = (rentalInfo?.selectedServices || rentalInfo?.rates?.additionalServices || []).map(s => {
+        const serviceName = (s.name || s.serviceName || '').split('(')[0].trim();
+        const servicePrice = s.price || s.total || 0;
+        const serviceDailyRate = s.dailyRate || (rentalDays > 0 ? servicePrice / rentalDays : 0);
+        return {
+          name: serviceName,
+          dailyRate: serviceDailyRate,
+          days: rentalDays,
+          total: servicePrice
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = rentalInfo?.rates?.subtotal || (rentalAmount + servicesTotal);
+      const totalCharges = rentalInfo?.totalAmount || rentalInfo?.rates?.totalCharges || rentalInfo?.rates?.total || subtotal;
+
       const previewData = {
         language: language,
+        
+        // Customer / Primary Renter
+        customerFirstName: rentalInfo?.renter?.firstName || '',
+        customerMiddleName: rentalInfo?.renter?.middleName || '',
+        customerLastName: rentalInfo?.renter?.lastName || '',
         customerName: `${rentalInfo?.renter?.firstName || ''} ${rentalInfo?.renter?.lastName || ''}`.trim() || 'Customer',
         customerEmail: rentalInfo?.renter?.email || '',
         customerPhone: rentalInfo?.renter?.phone || '',
         customerAddress: rentalInfo?.renter?.address || '',
         driverLicenseNumber: rentalInfo?.renter?.driverLicense || '',
         driverLicenseState: rentalInfo?.renter?.state || '',
+        driverLicenseExpiration: rentalInfo?.renter?.licenseExp || rentalInfo?.renter?.licenseExpiration || null,
+        customerDateOfBirth: rentalInfo?.renter?.dob || rentalInfo?.renter?.dateOfBirth || null,
+        
+        // Additional Driver
+        additionalDriverFirstName: rentalInfo?.additionalDriver?.firstName || '',
+        additionalDriverMiddleName: rentalInfo?.additionalDriver?.middleName || '',
+        additionalDriverLastName: rentalInfo?.additionalDriver?.lastName || '',
+        additionalDriverEmail: rentalInfo?.additionalDriver?.email || '',
+        additionalDriverPhone: rentalInfo?.additionalDriver?.phone || '',
+        additionalDriverLicenseNumber: rentalInfo?.additionalDriver?.driverLicense || '',
+        additionalDriverLicenseState: rentalInfo?.additionalDriver?.state || '',
+        additionalDriverLicenseExpiration: rentalInfo?.additionalDriver?.licenseExp || null,
+        additionalDriverDateOfBirth: rentalInfo?.additionalDriver?.dob || null,
+        additionalDriverAddress: rentalInfo?.additionalDriver?.address || '',
+        
+        // Rental Vehicle
+        vehicleType: rentalInfo?.vehicle?.type || '',
         vehicleName: rentalInfo?.vehicle?.makeModel || rentalInfo?.vehicleName || 'Vehicle',
-        vehiclePlate: rentalInfo?.vehicle?.yearColorLicense?.split('/').pop()?.trim() || '',
-        pickupDate: rentalInfo?.dates?.pickup || rentalInfo?.pickupDate || new Date().toISOString(),
+        vehicleYear: vehicleYear,
+        vehicleColor: vehicleColor,
+        vehiclePlate: vehiclePlate,
+        vehicleVin: rentalInfo?.vehicle?.vin || '',
+        odometerStart: rentalInfo?.vehicle?.odometer ? parseInt(rentalInfo.vehicle.odometer) : null,
+        
+        // Rental Period
+        pickupDate: pickupDate || new Date().toISOString(),
+        pickupTime: pickupTime,
         pickupLocation: rentalInfo?.pickupLocation || '',
-        returnDate: rentalInfo?.dates?.return || rentalInfo?.returnDate || new Date().toISOString(),
+        returnDate: returnDate || new Date().toISOString(),
+        returnTime: returnTime,
         returnLocation: rentalInfo?.returnLocation || '',
-        rentalAmount: rentalInfo?.rates?.total || 0,
-        depositAmount: rentalInfo?.rates?.securityDeposit || 0,
+        dueDate: rentalInfo?.dueDate || null,
+        
+        // Fuel Level
+        fuelAtPickup: rentalInfo?.fuelPickup || rentalInfo?.fuelAtPickup || '',
+        fuelAtReturn: rentalInfo?.fuelReturn || rentalInfo?.fuelAtReturn || '',
+        
+        // Financial
+        rentalAmount: rentalAmount,
+        depositAmount: depositAmount,
+        dailyRate: dailyRate,
+        rentalDays: rentalDays,
         currency: rentalInfo?.currency || 'USD',
+        
+        // Additional Services
+        additionalServices: additionalServices,
+        subtotal: subtotal,
+        totalCharges: totalCharges,
+        
+        // Additional Charges
+        lateReturnFee: rentalInfo?.charges?.lateReturn || 0,
+        damageFee: rentalInfo?.charges?.damage || 0,
+        fuelServiceFee: rentalInfo?.charges?.fuel || 0,
+        cleaningFee: rentalInfo?.charges?.cleaning || 0,
+        refund: rentalInfo?.charges?.refund || 0,
+        balanceDue: rentalInfo?.charges?.balanceDue || 0,
       };
+
+      console.log('Preview PDF data being sent:', previewData);
 
       const response = await api.previewAgreementPdf(previewData);
       
@@ -870,7 +995,9 @@ const RentalAgreementModal = ({
             </div>
           </div>
 
-          {/* Additional Driver */}
+          {/* Additional Driver - only show if any field is filled */}
+          {(additionalDriver.firstName || additionalDriver.lastName || 
+            additionalDriver.email || additionalDriver.driverLicense) && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <SectionHeader title={texts.additionalDriver} />
             <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -888,6 +1015,7 @@ const RentalAgreementModal = ({
               </div>
             </div>
           </div>
+          )}
 
           {/* Vehicle Info */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
