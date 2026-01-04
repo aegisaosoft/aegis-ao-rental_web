@@ -236,6 +236,28 @@ export const translatedApiService = {
     return translateResponse(response);
   },
   
+  // Agreement PDFs (Azure Blob Storage)
+  uploadAgreementPdf: async (bookingId, pdfBlob, companyId) => {
+    const response = await apiService.uploadAgreementPdf(bookingId, pdfBlob, companyId);
+    return response;
+  },
+  getAgreementPdf: async (bookingId, companyId) => {
+    const response = await apiService.getAgreementPdf(bookingId, companyId);
+    return response;
+  },
+  downloadAgreementPdf: async (bookingId, companyId) => {
+    const response = await apiService.downloadAgreementPdf(bookingId, companyId);
+    return response;
+  },
+  deleteAgreementPdf: async (bookingId, companyId) => {
+    const response = await apiService.deleteAgreementPdf(bookingId, companyId);
+    return response;
+  },
+  listCompanyAgreements: async (companyId) => {
+    const response = await apiService.listCompanyAgreements(companyId);
+    return response;
+  },
+  
   cancelBooking: async (id) => {
     const response = await apiService.cancelBooking(id);
     return translateResponse(response);

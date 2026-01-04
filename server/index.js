@@ -52,6 +52,7 @@ const webhooksRoutes = require('./routes/webhooks');
 const violationsRoutes = require('./routes/violations');
 const findersListRoutes = require('./routes/findersList');
 const metaRoutes = require('./routes/meta');
+const agreementsRoutes = require('./routes/agreements');
 const { apiClient } = require('./config/api');
 
 const app = express();
@@ -267,6 +268,7 @@ app.use('/api/violations', violationsRoutes);
 app.use('/api/finderslist', findersListRoutes);
 app.use('/api/companies', metaRoutes); // Meta integration routes (mounted on /api/companies/:companyId/meta/*)
 app.use('/api/meta', metaRoutes); // OAuth routes (mounted on /api/meta/oauth/*)
+app.use('/api/agreements', agreementsRoutes); // Rental agreements PDF storage
 
 // Stream static files from backend for agreements and customers folders
 app.get(['/api/agreements/*', '/api/customers/*'], async (req, res) => {
