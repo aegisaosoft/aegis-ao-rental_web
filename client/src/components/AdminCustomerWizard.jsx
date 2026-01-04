@@ -45,7 +45,7 @@ const AdminCustomerWizard = ({
     licenseIssueDate: '',
   });
   
-  // Created customer (after step 2, before photos)
+  // Created customer (after step 1)
   const [createdCustomer, setCreatedCustomer] = useState(null);
   
   // License images state
@@ -88,8 +88,9 @@ const AdminCustomerWizard = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   }, []);
   
-  // Validate step 1 (basic info)
-  const validateStep1 = useCallback(() => {
+  // Validate and create customer on step 1
+  const validateAndCreateCustomer = useCallback(async () => {
+    // Validate fields
     if (!formData.email || !formData.email.includes('@')) {
       setError(t('admin.invalidEmail', 'Please enter a valid email address'));
       return false;
@@ -102,20 +103,27 @@ const AdminCustomerWizard = ({
       setError(t('customer.lastNameRequired', 'Last name is required'));
       return false;
     }
-    setError('');
-    return true;
-  }, [formData, t]);
-  
-  // Create customer and move to step 3
-  const handleCreateAndContinue = useCallback(async () => {
-    if (wizardStep === 1 && !validateStep1()) {
-      return;
-    }
     
     setLoading(true);
     setError('');
     
     try {
+      // First check if customer already exists
+      try {
+        const existingResponse = await apiService.getCustomerByEmail(formData.email.trim().toLowerCase());
+        const existingCustomer = existingResponse?.data || existingResponse;
+        if (existingCustomer && existingCustomer.customerId) {
+          setError(t('admin.customerAlreadyExists', 'Customer with this email already exists'));
+          setLoading(false);
+          return false;
+        }
+      } catch (checkError) {
+        // 404 is expected if customer doesn't exist - continue with creation
+        if (checkError.response?.status !== 404) {
+          console.warn('Error checking existing customer:', checkError);
+        }
+      }
+      
       // Create customer data
       const customerData = {
         email: formData.email.trim().toLowerCase(),
@@ -128,9 +136,6 @@ const AdminCustomerWizard = ({
         zipCode: formData.zipCode.trim(),
         country: formData.country,
         dateOfBirth: formData.dateOfBirth || null,
-        driversLicense: formData.licenseNumber.trim(),
-        driversLicenseState: formData.licenseState.trim(),
-        driversLicenseExpiry: formData.licenseExpiry || null,
       };
       
       if (companyId) {
@@ -146,47 +151,85 @@ const AdminCustomerWizard = ({
       }
       
       setCreatedCustomer(customer);
-      setWizardStep(3); // Go to photos step
+      toast.success(t('admin.customerCreated', 'Customer created successfully'));
+      return true;
       
     } catch (err) {
       console.error('Error creating customer:', err);
-      setError(err.response?.data?.message || err.message || t('admin.customerCreateError', 'Failed to create customer'));
+      const errorMsg = err.response?.data?.message || err.message || t('admin.customerCreateError', 'Failed to create customer');
+      
+      // Check if it's a duplicate email error
+      if (errorMsg.toLowerCase().includes('exist') || errorMsg.toLowerCase().includes('duplicate')) {
+        setError(t('admin.customerAlreadyExists', 'Customer with this email already exists'));
+      } else {
+        setError(errorMsg);
+      }
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [formData, companyId, wizardStep, validateStep1, t]);
+  }, [formData, companyId, t]);
+  
+  // Update customer with license info (step 2 -> step 3)
+  const updateCustomerLicenseInfo = useCallback(async () => {
+    if (!createdCustomer || !createdCustomer.customerId) return true;
+    
+    // If no license info entered, skip update
+    if (!formData.licenseNumber.trim() && !formData.licenseState.trim()) {
+      return true;
+    }
+    
+    setLoading(true);
+    try {
+      await apiService.updateCustomer(createdCustomer.customerId, {
+        driversLicense: formData.licenseNumber.trim(),
+        driversLicenseState: formData.licenseState.trim(),
+        driversLicenseExpiry: formData.licenseExpiry || null,
+      });
+      return true;
+    } catch (err) {
+      console.error('Error updating customer license info:', err);
+      // Don't block progression for license update errors
+      toast.warning(t('admin.licenseUpdateFailed', 'Could not save license information'));
+      return true;
+    } finally {
+      setLoading(false);
+    }
+  }, [createdCustomer, formData, t]);
   
   // Handle next step
-  const handleNext = useCallback(() => {
-    if (wizardStep === 1 && validateStep1()) {
-      setWizardStep(2);
+  const handleNext = useCallback(async () => {
+    if (wizardStep === 1) {
+      const success = await validateAndCreateCustomer();
+      if (success) {
+        setWizardStep(2);
+      }
     } else if (wizardStep === 2) {
-      // Create customer and go to step 3
-      handleCreateAndContinue();
+      const success = await updateCustomerLicenseInfo();
+      if (success) {
+        setWizardStep(3);
+      }
     }
-  }, [wizardStep, validateStep1, handleCreateAndContinue]);
+  }, [wizardStep, validateAndCreateCustomer, updateCustomerLicenseInfo]);
   
   // Handle previous step
   const handleBack = useCallback(() => {
-    if (wizardStep > 1 && wizardStep < 3) {
-      setWizardStep(wizardStep - 1);
+    if (wizardStep === 2) {
+      // Can go back to step 1, but customer is already created
+      // Just allow editing license info
+      setWizardStep(1);
       setError('');
     }
+    // Can't go back from step 3 (photos) - customer already created
   }, [wizardStep]);
   
-  // Complete wizard (after photos or skip)
+  // Complete wizard
   const handleComplete = useCallback(() => {
     if (createdCustomer) {
-      toast.success(t('admin.customerCreated', 'Customer created successfully'));
       onComplete(createdCustomer);
       onClose();
     }
-  }, [createdCustomer, onComplete, onClose, t]);
-  
-  // Skip photos step
-  const handleSkipPhotos = useCallback(() => {
-    handleComplete();
-  }, [handleComplete]);
+  }, [createdCustomer, onComplete, onClose]);
   
   // Handle photo error
   const handlePhotoError = useCallback((errorMsg) => {
@@ -220,7 +263,7 @@ const AdminCustomerWizard = ({
             {[
               { num: 1, label: t('customer.basicInfo', 'Basic Information') },
               { num: 2, label: t('license.info', "Driver's License Information") },
-              { num: 3, label: t('license.photos', 'License Photos') },
+              { num: 3, label: t('license.photos', 'Driver License Photos') },
             ].map((step, idx) => (
               <React.Fragment key={step.num}>
                 <div className="flex items-center">
@@ -259,15 +302,45 @@ const AdminCustomerWizard = ({
           
           {/* Step 1: Basic Info */}
           {wizardStep === 1 && (
-            <CustomerInfoFields
-              data={formData}
-              onChange={handleFieldChange}
-              disabled={loading}
-              showEmail={true}
-              showPhone={true}
-              showAddress={true}
-              showDateOfBirth={true}
-            />
+            <div>
+              {createdCustomer && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  ✓ {t('admin.customerCreated', 'Customer created successfully')}
+                </div>
+              )}
+              
+              {/* Email field - locked if passed from parent */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('customer.email', 'Email')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={(e) => handleFieldChange('email', e.target.value)}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${initialEmail ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  placeholder="customer@example.com"
+                  disabled={loading || !!createdCustomer || !!initialEmail}
+                  readOnly={!!initialEmail}
+                />
+                {initialEmail && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('admin.emailFromSearch', 'Email from search cannot be changed')}
+                  </p>
+                )}
+              </div>
+              
+              <CustomerInfoFields
+                data={formData}
+                onChange={handleFieldChange}
+                disabled={loading || !!createdCustomer}
+                showEmail={false}
+                showPhone={true}
+                showAddress={true}
+                showDateOfBirth={true}
+              />
+            </div>
           )}
           
           {/* Step 2: License Info */}
@@ -322,12 +395,12 @@ const AdminCustomerWizard = ({
                 type="button"
                 onClick={handleNext}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                disabled={loading}
+                disabled={loading || (wizardStep === 1 && createdCustomer)}
               >
                 {loading ? (
                   <>
                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    {wizardStep === 2 ? t('admin.creating', 'Creating...') : t('common.loading', 'Loading...')}
+                    {wizardStep === 1 ? t('admin.creating', 'Creating...') : t('common.loading', 'Loading...')}
                   </>
                 ) : (
                   <>
@@ -341,11 +414,11 @@ const AdminCustomerWizard = ({
             <>
               <button
                 type="button"
-                onClick={handleSkipPhotos}
+                onClick={handleComplete}
                 className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:text-gray-700"
                 disabled={loading}
               >
-                {t('license.skipForNow', 'Skip for now')}
+                {t('license.skipForNow', 'Skip photos')}
               </button>
               
               <button
