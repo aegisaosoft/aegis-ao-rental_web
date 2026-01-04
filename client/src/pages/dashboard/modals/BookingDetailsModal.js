@@ -5,8 +5,9 @@
  * Aegis AO Soft
  */
 
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, FileText, ExternalLink, Loader2 } from 'lucide-react';
+import api from '../../../services/api';
 
 const BookingDetailsModal = ({
   t,
@@ -21,6 +22,10 @@ const BookingDetailsModal = ({
   isRefunding,
   isUpdating,
 }) => {
+  // State for PDF loading - must be before any conditional returns
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
+
   if (!booking) return null;
 
   const canRefund = booking.stripePaymentIntentId && 
@@ -29,6 +34,33 @@ const BookingDetailsModal = ({
     (!booking.refundRecords || booking.refundRecords.length === 0);
 
   const canUpdateStatus = !['Completed', 'completed', 'Cancelled', 'cancelled'].includes(booking.status);
+
+  // Handler to fetch and open rental agreement PDF
+  const handleShowPdf = async () => {
+    setPdfLoading(true);
+    setPdfError(null);
+    
+    try {
+      const response = await api.getRentalAgreement(booking.id);
+      const agreement = response.data;
+      
+      if (agreement?.pdfUrl) {
+        // Open PDF in new tab
+        window.open(agreement.pdfUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        setPdfError(t('admin.pdfNotAvailable', 'Rental agreement PDF is not available for this booking'));
+      }
+    } catch (err) {
+      console.error('Error fetching rental agreement:', err);
+      if (err.response?.status === 404) {
+        setPdfError(t('admin.noAgreementFound', 'No rental agreement found for this booking'));
+      } else {
+        setPdfError(t('admin.errorFetchingAgreement', 'Error fetching rental agreement'));
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -200,6 +232,34 @@ const BookingDetailsModal = ({
                 </div>
               </div>
             )}
+
+            {/* Rental Agreement PDF */}
+            <div className="border-b pb-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                <FileText className="h-4 w-4 inline mr-1" />
+                {t('admin.rentalAgreement', 'Rental Agreement')}
+              </h4>
+              <button
+                onClick={handleShowPdf}
+                disabled={pdfLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pdfLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('common.loading', 'Loading...')}
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="h-4 w-4" />
+                    {t('admin.showAgreementPdf', 'Show Agreement PDF')}
+                  </>
+                )}
+              </button>
+              {pdfError && (
+                <p className="text-sm text-amber-600 mt-2">{pdfError}</p>
+              )}
+            </div>
 
             {/* Status */}
             <div>

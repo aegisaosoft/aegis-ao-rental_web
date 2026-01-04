@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, Trash2 } from 'lucide-react';
+import { X, Check, Trash2, FileText, ExternalLink, Loader2 } from 'lucide-react';
+import api from '../services/api';
 
 // ============== LOCAL DEFINITIONS (self-contained) ==============
 
@@ -638,8 +639,89 @@ const RentalAgreementModal = ({
   loading = false,
   viewMode = false,
   agreementData = null,
+  bookingId = null,
   t = (key, defaultValue) => defaultValue,
 }) => {
+  // State for PDF loading
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
+
+  // Get booking ID from props or nested data
+  const resolvedBookingId = bookingId || rentalInfo?.bookingId || agreementData?.bookingId;
+
+  // Handler to fetch and open rental agreement PDF (for existing bookings)
+  const handleShowPdf = async () => {
+    if (!resolvedBookingId) {
+      setPdfError(t('admin.noBookingId', 'Booking ID not available'));
+      return;
+    }
+    
+    setPdfLoading(true);
+    setPdfError(null);
+    
+    try {
+      const response = await api.getRentalAgreement(resolvedBookingId);
+      const agreement = response.data;
+      
+      if (agreement?.pdfUrl) {
+        window.open(agreement.pdfUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        setPdfError(t('admin.pdfNotAvailable', 'Rental agreement PDF is not available'));
+      }
+    } catch (err) {
+      console.error('Error fetching rental agreement:', err);
+      if (err.response?.status === 404) {
+        setPdfError(t('admin.noAgreementFound', 'No rental agreement found'));
+      } else {
+        setPdfError(t('admin.errorFetchingAgreement', 'Error fetching rental agreement'));
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Handler to generate preview PDF (for new bookings)
+  const handlePreviewPdf = async () => {
+    setPdfLoading(true);
+    setPdfError(null);
+    
+    try {
+      const previewData = {
+        language: language,
+        customerName: `${rentalInfo?.renter?.firstName || ''} ${rentalInfo?.renter?.lastName || ''}`.trim() || 'Customer',
+        customerEmail: rentalInfo?.renter?.email || '',
+        customerPhone: rentalInfo?.renter?.phone || '',
+        customerAddress: rentalInfo?.renter?.address || '',
+        driverLicenseNumber: rentalInfo?.renter?.driverLicense || '',
+        driverLicenseState: rentalInfo?.renter?.state || '',
+        vehicleName: rentalInfo?.vehicle?.makeModel || rentalInfo?.vehicleName || 'Vehicle',
+        vehiclePlate: rentalInfo?.vehicle?.yearColorLicense?.split('/').pop()?.trim() || '',
+        pickupDate: rentalInfo?.dates?.pickup || rentalInfo?.pickupDate || new Date().toISOString(),
+        pickupLocation: rentalInfo?.pickupLocation || '',
+        returnDate: rentalInfo?.dates?.return || rentalInfo?.returnDate || new Date().toISOString(),
+        returnLocation: rentalInfo?.returnLocation || '',
+        rentalAmount: rentalInfo?.rates?.total || 0,
+        depositAmount: rentalInfo?.rates?.securityDeposit || 0,
+        currency: rentalInfo?.currency || 'USD',
+      };
+
+      const response = await api.previewAgreementPdf(previewData);
+      
+      // Create blob URL and open in new tab
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      
+      // Clean up blob URL after a delay
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err) {
+      console.error('Error generating preview PDF:', err);
+      setPdfError(t('admin.errorGeneratingPreview', 'Error generating preview PDF'));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const getInitialConsents = () => {
     const initial = {};
     RULE_KEYS.forEach(key => {
@@ -1160,29 +1242,61 @@ const RentalAgreementModal = ({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
-            disabled={loading}
-          >
-            {viewMode ? t('common.close', 'Close') : t('common.cancel', 'Cancel')}
-          </button>
-          {!viewMode && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex flex-col gap-3">
+          {/* PDF Error Message */}
+          {pdfError && (
+            <p className="text-sm text-amber-600 text-center">{pdfError}</p>
+          )}
+          
+          {/* Buttons Row */}
+          <div className="flex gap-3">
             <button
               type="button"
-              onClick={handleConfirm}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium ${
-                canProceed
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              disabled={loading || !canProceed}
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              disabled={loading}
             >
-              {t('bookPage.confirmAgreement', 'Confirm & Continue')}
+              {viewMode ? t('common.close', 'Close') : t('common.cancel', 'Cancel')}
             </button>
-          )}
+            
+            {/* Preview/Show PDF Button */}
+            <button
+              type="button"
+              onClick={resolvedBookingId ? handleShowPdf : handlePreviewPdf}
+              disabled={pdfLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {pdfLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('common.loading', 'Loading...')}
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4" />
+                  {resolvedBookingId 
+                    ? t('admin.showAgreementPdf', 'Show PDF')
+                    : t('admin.previewPdf', 'Preview PDF')
+                  }
+                </>
+              )}
+            </button>
+            
+            {!viewMode && (
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium ${
+                  canProceed
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                disabled={loading || !canProceed}
+              >
+                {t('bookPage.confirmAgreement', 'Confirm & Continue')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

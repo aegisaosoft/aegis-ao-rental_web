@@ -218,6 +218,12 @@ const apiService = {
     }
     return apiClient.post(`/api/booking/bookings/${bookingId}/sign-agreement`, agreementData, config);
   },
+  previewAgreementPdf: (data) => {
+    return apiClient.post('/api/booking/preview-agreement-pdf', data, {
+      responseType: 'arraybuffer',
+      timeout: 60000 // 60 seconds for PDF generation
+    });
+  },
   syncPaymentFromStripe: (token, bookingId) => {
     const config = { timeout: 300000 }; // 5 minutes timeout for Stripe API calls
     if (token) {

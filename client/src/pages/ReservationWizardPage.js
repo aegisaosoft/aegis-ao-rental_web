@@ -1123,6 +1123,7 @@ const ReservationWizardPage = () => {
           onClose={() => setShowSignAgreementModal(false)}
           onConfirm={handleSignAgreementConfirm}
           language={i18n.language || 'en'}
+          bookingId={createdBooking.id}
           rentalInfo={{
             renter: {
               firstName: createdBooking.customerFirstName || '',

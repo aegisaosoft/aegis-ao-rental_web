@@ -354,4 +354,22 @@ router.post('/bookings/:id/sign-agreement', authenticateToken, async (req, res) 
   }
 });
 
+// Preview agreement PDF (no authentication required - generates PDF on the fly)
+router.post('/preview-agreement-pdf', async (req, res) => {
+  try {
+    console.log(`[Proxy] Generating preview PDF`);
+    const response = await apiService.previewAgreementPdf(req.body);
+    
+    // Forward the PDF response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="rental-agreement-preview.pdf"');
+    res.send(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Preview PDF error:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      message: error.response?.data?.message || 'Failed to generate preview PDF' 
+    });
+  }
+});
+
 module.exports = router;

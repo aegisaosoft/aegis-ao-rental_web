@@ -870,6 +870,7 @@ const ReservationsSection = ({
           }}
           onConfirm={handleSignAgreementConfirm}
           language={i18n.language || 'en'}
+          bookingId={signingBooking.id}
           rentalInfo={{
             renter: {
               firstName: signingBooking.customerFirstName || signingBooking.customer?.firstName || '',

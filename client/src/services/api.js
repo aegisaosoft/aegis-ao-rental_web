@@ -236,6 +236,7 @@ export const apiService = {
   // Rental Agreements
   getRentalAgreement: (bookingId) => api.get(`/booking/bookings/${bookingId}/rental-agreement`),
   signBookingAgreement: (bookingId, agreementData) => api.post(`/booking/bookings/${bookingId}/sign-agreement`, agreementData),
+  previewAgreementPdf: (data) => api.post('/booking/preview-agreement-pdf', data, { responseType: 'blob' }),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),
