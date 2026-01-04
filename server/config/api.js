@@ -211,6 +211,13 @@ const apiService = {
     }
     return apiClient.get(`/api/booking/bookings/${bookingId}/rental-agreement`, config);
   },
+  signBookingAgreement: (token, bookingId, agreementData) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post(`/api/booking/bookings/${bookingId}/sign-agreement`, agreementData, config);
+  },
   syncPaymentFromStripe: (token, bookingId) => {
     const config = { timeout: 300000 }; // 5 minutes timeout for Stripe API calls
     if (token) {

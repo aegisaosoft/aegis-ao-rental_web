@@ -235,25 +235,7 @@ export const apiService = {
   
   // Rental Agreements
   getRentalAgreement: (bookingId) => api.get(`/booking/bookings/${bookingId}/rental-agreement`),
-  
-  // Agreement PDFs (Azure Blob Storage)
-  uploadAgreementPdf: (bookingId, pdfBlob, companyId) => {
-    const formData = new FormData();
-    formData.append('pdf', pdfBlob, `rental-agreement-${bookingId}.pdf`);
-    if (companyId) formData.append('companyId', companyId);
-    return api.post(`/agreements/${bookingId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  getAgreementPdf: (bookingId, companyId) => 
-    api.get(`/agreements/${bookingId}${companyId ? `?companyId=${companyId}` : ''}`),
-  downloadAgreementPdf: (bookingId, companyId) => 
-    api.get(`/agreements/${bookingId}/download${companyId ? `?companyId=${companyId}` : ''}`, {
-      responseType: 'blob'
-    }),
-  deleteAgreementPdf: (bookingId, companyId) => 
-    api.delete(`/agreements/${bookingId}${companyId ? `?companyId=${companyId}` : ''}`),
-  listCompanyAgreements: (companyId) => api.get(`/agreements/company/${companyId}`),
+  signBookingAgreement: (bookingId, agreementData) => api.post(`/booking/bookings/${bookingId}/sign-agreement`, agreementData),
 
   // Customers
   getCustomers: (params = {}) => api.get('/customers', { params }),

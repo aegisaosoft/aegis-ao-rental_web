@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight, Plus,
-  Eye, FileText
+  Eye, FileText, PenTool
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Card, LoadingSpinner } from '../../components/common';
@@ -28,6 +28,7 @@ import {
   DamageConfirmationModal,
   BookingDetailsModal,
 } from './modals';
+import RentalAgreementModal from '../../components/RentalAgreementModal';
 
 const ReservationsSection = ({
   currentCompanyId,
@@ -95,6 +96,11 @@ const ReservationsSection = ({
     pendingCompletedStatus,
     setPendingCompletedStatus,
   } = useBookingModals();
+
+  // Sign Agreement Modal State
+  const [showSignAgreementModal, setShowSignAgreementModal] = useState(false);
+  const [signingBooking, setSigningBooking] = useState(null);
+  const [isSigningAgreement, setIsSigningAgreement] = useState(false);
 
   // ============== QUERIES ==============
 
@@ -382,6 +388,72 @@ const ReservationsSection = ({
     } catch (error) {
       console.error('View contract error:', error);
       toast.error(t('admin.agreementFetchFailed', 'Failed to fetch rental agreement.'));
+    }
+  };
+
+  // Check if booking has agreement
+  const checkBookingHasAgreement = async (bookingId) => {
+    try {
+      const response = await apiService.getRentalAgreement(bookingId);
+      const data = response?.data || response;
+      return !!(data?.id || data?.Id);
+    } catch {
+      return false;
+    }
+  };
+
+  // Open sign agreement modal
+  const handleSignAgreement = (booking) => {
+    setSigningBooking(booking);
+    setShowSignAgreementModal(true);
+  };
+
+  // Handle sign agreement confirmation
+  const handleSignAgreementConfirm = async ({ signature, consents }) => {
+    if (!signingBooking || !signature) return;
+    
+    const bookingId = signingBooking.id || signingBooking.Id || signingBooking.bookingId || signingBooking.BookingId;
+    
+    setIsSigningAgreement(true);
+    try {
+      const agreementData = {
+        signatureImage: signature,
+        language: i18n.language || 'en',
+        consents: {
+          termsAcceptedAt: consents?.termsAcceptedAt || new Date().toISOString(),
+          nonRefundableAcceptedAt: consents?.nonRefundableAcceptedAt || new Date().toISOString(),
+          damagePolicyAcceptedAt: consents?.damagePolicyAcceptedAt || new Date().toISOString(),
+          cardAuthorizationAcceptedAt: consents?.cardAuthorizationAcceptedAt || new Date().toISOString(),
+        },
+        consentTexts: {
+          termsTitle: t('bookPage.termsTitle', 'Terms and Conditions'),
+          termsText: t('bookPage.termsText', 'I agree to the rental terms and conditions.'),
+          nonRefundableTitle: t('bookPage.nonRefundableTitle', 'Non-Refundable Policy'),
+          nonRefundableText: t('bookPage.nonRefundableText', 'I understand this booking is non-refundable.'),
+          damagePolicyTitle: t('bookPage.damagePolicyTitle', 'Damage Policy'),
+          damagePolicyText: t('bookPage.damagePolicyText', 'I am responsible for any damage to the vehicle.'),
+          cardAuthorizationTitle: t('bookPage.cardAuthorizationTitle', 'Card Authorization'),
+          cardAuthorizationText: t('bookPage.cardAuthorizationText', 'I authorize charges to my card.'),
+        },
+        signedAt: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      await apiService.signBookingAgreement(bookingId, agreementData);
+      
+      toast.success(t('admin.agreementSigned', 'Agreement signed successfully'));
+      setShowSignAgreementModal(false);
+      setSigningBooking(null);
+      
+      // Refresh bookings
+      queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+    } catch (error) {
+      console.error('Sign agreement error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
+      toast.error(errorMessage);
+    } finally {
+      setIsSigningAgreement(false);
     }
   };
 
@@ -711,6 +783,7 @@ const ReservationsSection = ({
                       <div className="flex gap-2">
                         <button onClick={() => handleOpenBookingDetails(booking)} className="text-blue-600 hover:text-blue-800" title={t('admin.viewDetails', 'View')}><Eye className="h-4 w-4" /></button>
                         <button onClick={() => handleViewContract(booking)} className="text-green-600 hover:text-green-800" title={t('admin.viewContract', 'Contract')}><FileText className="h-4 w-4" /></button>
+                        <button onClick={() => handleSignAgreement(booking)} className="text-purple-600 hover:text-purple-800" title={t('admin.signAgreement', 'Sign Agreement')}><PenTool className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -795,6 +868,46 @@ const ReservationsSection = ({
           onUpdateStatus={handleUpdateBookingStatus}
           isRefunding={refundPaymentMutation.isLoading}
           isUpdating={updateBookingStatusMutation.isLoading}
+        />
+      )}
+
+      {/* Sign Agreement Modal */}
+      {showSignAgreementModal && signingBooking && (
+        <RentalAgreementModal
+          isOpen={showSignAgreementModal}
+          onClose={() => {
+            setShowSignAgreementModal(false);
+            setSigningBooking(null);
+          }}
+          onConfirm={handleSignAgreementConfirm}
+          language={i18n.language || 'en'}
+          rentalInfo={{
+            renter: {
+              firstName: signingBooking.customerFirstName || signingBooking.customer?.firstName || '',
+              lastName: signingBooking.customerLastName || signingBooking.customer?.lastName || '',
+              email: signingBooking.customerEmail || signingBooking.customer?.email || '',
+              phone: signingBooking.customerPhone || signingBooking.customer?.phone || '',
+            },
+            vehicle: {
+              type: signingBooking.vehicleType || '',
+              makeModel: signingBooking.vehicleName || `${signingBooking.vehicleMake || ''} ${signingBooking.vehicleModel || ''}`.trim(),
+              yearColorLicense: [
+                signingBooking.vehicleYear,
+                signingBooking.vehicleColor,
+                signingBooking.vehiclePlate || signingBooking.licensePlate
+              ].filter(Boolean).join(' / '),
+            },
+            dates: {
+              pickup: signingBooking.pickupDate,
+              return: signingBooking.returnDate,
+            },
+            rates: {
+              dailyRate: signingBooking.dailyRate || 0,
+              total: signingBooking.totalAmount || signingBooking.rentalAmount || 0,
+              securityDeposit: signingBooking.securityDeposit || signingBooking.depositAmount || 0,
+            },
+          }}
+          viewMode={false}
         />
       )}
     </>

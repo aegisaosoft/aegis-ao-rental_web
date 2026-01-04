@@ -11,16 +11,17 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from 'react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import { ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronDown, ChevronRight, ArrowLeft, Check } from 'lucide-react';
 import { PageContainer, LoadingSpinner } from '../components/common';
 import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
 import AdminCustomerWizard from '../components/AdminCustomerWizard';
+import RentalAgreementModal from '../components/RentalAgreementModal';
 
 const ReservationWizardPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
@@ -70,6 +71,12 @@ const ReservationWizardPage = () => {
   const [wizardAdditionalServices, setWizardAdditionalServices] = useState([]);
   const [isLoadingWizardServices, setIsLoadingWizardServices] = useState(false);
   const [isCreatingReservation, setIsCreatingReservation] = useState(false);
+  
+  // Sign Agreement State (Step 5)
+  const [createdBookingId, setCreatedBookingId] = useState(null);
+  const [createdBooking, setCreatedBooking] = useState(null);
+  const [showSignAgreementModal, setShowSignAgreementModal] = useState(false);
+  const [isSigningAgreement, setIsSigningAgreement] = useState(false);
 
   // ============== QUERIES ==============
 
@@ -437,7 +444,31 @@ const ReservationWizardPage = () => {
       queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
       queryClient.invalidateQueries(['vehicleCategories']);
       toast.success(t('admin.reservationCreated', 'Reservation created successfully'));
-      navigate(`/admin?tab=reservations&bookingId=${bookingId}&payment=true`);
+      
+      // Save booking info and go to Sign Agreement step
+      setCreatedBookingId(bookingId);
+      setCreatedBooking({
+        id: bookingId,
+        bookingNumber: booking.bookingNumber || booking.BookingNumber,
+        customerId: wizardCustomer.customerId || wizardCustomer.id,
+        customerFirstName: wizardCustomer.firstName,
+        customerLastName: wizardCustomer.lastName,
+        customerEmail: wizardCustomer.email,
+        customerPhone: wizardCustomer.phone,
+        vehicleName: `${make} ${model}`,
+        vehicleMake: make,
+        vehicleModel: model,
+        vehicleYear: wizardSelectedModel?.year,
+        vehiclePlate: wizardSelectedModel?.licensePlate,
+        pickupDate: wizardPickupDate,
+        returnDate: wizardReturnDate,
+        pickupTime: wizardPickupTime,
+        returnTime: wizardReturnTime,
+        dailyRate: dailyRate,
+        totalAmount: calculateWizardGrandTotal,
+        securityDeposit: companyConfig?.securityDeposit || 0,
+      });
+      setWizardStep(5);
       
     } catch (error) {
       console.error('Error creating reservation:', error);
@@ -447,10 +478,61 @@ const ReservationWizardPage = () => {
     }
   }, [wizardCustomer, wizardSelectedModel, wizardSelectedMake, wizardSelectedLocation, 
       currentCompanyId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime,
-      wizardSelectedServices, calculateWizardServicesTotal, queryClient, navigate, t]);
+      wizardSelectedServices, calculateWizardServicesTotal, calculateWizardGrandTotal, companyConfig, queryClient, t]);
+
+  // Handle sign agreement
+  const handleSignAgreementConfirm = useCallback(async ({ signature, consents }) => {
+    if (!createdBookingId || !signature) return;
+    
+    setIsSigningAgreement(true);
+    try {
+      const agreementData = {
+        signatureImage: signature,
+        language: i18n.language || 'en',
+        consents: {
+          termsAcceptedAt: consents?.termsAcceptedAt || new Date().toISOString(),
+          nonRefundableAcceptedAt: consents?.nonRefundableAcceptedAt || new Date().toISOString(),
+          damagePolicyAcceptedAt: consents?.damagePolicyAcceptedAt || new Date().toISOString(),
+          cardAuthorizationAcceptedAt: consents?.cardAuthorizationAcceptedAt || new Date().toISOString(),
+        },
+        consentTexts: {
+          termsTitle: t('bookPage.termsTitle', 'Terms and Conditions'),
+          termsText: t('bookPage.termsText', 'I agree to the rental terms and conditions.'),
+          nonRefundableTitle: t('bookPage.nonRefundableTitle', 'Non-Refundable Policy'),
+          nonRefundableText: t('bookPage.nonRefundableText', 'I understand this booking is non-refundable.'),
+          damagePolicyTitle: t('bookPage.damagePolicyTitle', 'Damage Policy'),
+          damagePolicyText: t('bookPage.damagePolicyText', 'I am responsible for any damage to the vehicle.'),
+          cardAuthorizationTitle: t('bookPage.cardAuthorizationTitle', 'Card Authorization'),
+          cardAuthorizationText: t('bookPage.cardAuthorizationText', 'I authorize charges to my card.'),
+        },
+        signedAt: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      await apiService.signBookingAgreement(createdBookingId, agreementData);
+      
+      toast.success(t('admin.agreementSigned', 'Agreement signed successfully'));
+      setShowSignAgreementModal(false);
+      
+      // Navigate to reservations with payment
+      navigate(`/admin?tab=reservations&bookingId=${createdBookingId}&payment=true`);
+    } catch (error) {
+      console.error('Sign agreement error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
+      toast.error(errorMessage);
+    } finally {
+      setIsSigningAgreement(false);
+    }
+  }, [createdBookingId, i18n.language, t, navigate]);
+
+  // Skip signing agreement
+  const handleSkipAgreement = useCallback(() => {
+    navigate(`/admin?tab=reservations&bookingId=${createdBookingId}&payment=true`);
+  }, [createdBookingId, navigate]);
 
   const handleBack = useCallback(() => {
-    if (wizardStep > 1) {
+    if (wizardStep > 1 && wizardStep < 5) {
       setWizardStep(wizardStep - 1);
     } else {
       navigate('/admin?tab=reservations');
@@ -495,17 +577,18 @@ const ReservationWizardPage = () => {
             { step: 2, label: t('admin.category', 'Category') },
             { step: 3, label: t('admin.makeAndModel', 'Make & Model') },
             { step: 4, label: t('admin.summary', 'Summary') },
+            { step: 5, label: t('admin.signAgreement', 'Sign Agreement') },
           ].map(({ step, label }, index) => (
             <React.Fragment key={step}>
               <div className={`flex items-center ${wizardStep >= step ? 'text-blue-600' : 'text-gray-400'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   wizardStep >= step ? 'bg-blue-600 text-white' : 'bg-gray-200'
                 }`}>
-                  {step}
+                  {wizardStep > step ? <Check className="h-4 w-4" /> : step}
                 </div>
                 <span className="ml-2 font-medium whitespace-nowrap hidden sm:inline">{label}</span>
               </div>
-              {index < 3 && (
+              {index < 4 && (
                 <div className={`flex-1 h-1 mx-2 min-w-[20px] ${wizardStep > step ? 'bg-blue-600' : 'bg-gray-200'}`} />
               )}
             </React.Fragment>
@@ -917,7 +1000,71 @@ const ReservationWizardPage = () => {
             </div>
           )}
 
+          {/* Step 5: Sign Agreement */}
+          {wizardStep === 5 && createdBooking && (
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="h-8 w-8 text-green-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {t('admin.reservationCreatedTitle', 'Reservation Created!')}
+                </h2>
+                <p className="text-gray-600 mt-2">
+                  {t('admin.bookingNumber', 'Booking #')}: {createdBooking.bookingNumber || createdBookingId}
+                </p>
+              </div>
+
+              {/* Booking Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">{t('admin.customer', 'Customer')}:</span>
+                  <span className="font-medium">{createdBooking.customerFirstName} {createdBooking.customerLastName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">{t('admin.vehicle', 'Vehicle')}:</span>
+                  <span className="font-medium">{createdBooking.vehicleName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">{t('admin.dates', 'Dates')}:</span>
+                  <span className="font-medium">{createdBooking.pickupDate} - {createdBooking.returnDate}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span className="text-gray-600">{t('admin.total', 'Total')}:</span>
+                  <span className="font-bold text-blue-600">{formatPrice(createdBooking.totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* Sign Agreement Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-2">
+                  {t('admin.signAgreementTitle', 'Sign Rental Agreement')}
+                </h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  {t('admin.signAgreementDescription', 'Would you like to sign the rental agreement now? You can also sign it later from the reservations list.')}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSignAgreementModal(true)}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {t('admin.signNow', 'Sign Now')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipAgreement}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    {t('admin.skipForNow', 'Skip for Now')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Footer Buttons */}
+          {wizardStep < 5 && (
           <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
             <button
               type="button"
@@ -960,6 +1107,7 @@ const ReservationWizardPage = () => {
               </button>
             )}
           </div>
+          )}
         </div>
       </div>
       
@@ -971,6 +1119,42 @@ const ReservationWizardPage = () => {
         initialEmail={wizardCustomerEmail}
         companyId={currentCompanyId}
       />
+
+      {/* Sign Agreement Modal */}
+      {showSignAgreementModal && createdBooking && (
+        <RentalAgreementModal
+          isOpen={showSignAgreementModal}
+          onClose={() => setShowSignAgreementModal(false)}
+          onConfirm={handleSignAgreementConfirm}
+          language={i18n.language || 'en'}
+          rentalInfo={{
+            renter: {
+              firstName: createdBooking.customerFirstName || '',
+              lastName: createdBooking.customerLastName || '',
+              email: createdBooking.customerEmail || '',
+              phone: createdBooking.customerPhone || '',
+            },
+            vehicle: {
+              type: '',
+              makeModel: createdBooking.vehicleName || '',
+              yearColorLicense: [
+                createdBooking.vehicleYear,
+                createdBooking.vehiclePlate
+              ].filter(Boolean).join(' / '),
+            },
+            dates: {
+              pickup: createdBooking.pickupDate,
+              return: createdBooking.returnDate,
+            },
+            rates: {
+              dailyRate: createdBooking.dailyRate || 0,
+              total: createdBooking.totalAmount || 0,
+              securityDeposit: createdBooking.securityDeposit || 0,
+            },
+          }}
+          viewMode={false}
+        />
+      )}
     </PageContainer>
   );
 };

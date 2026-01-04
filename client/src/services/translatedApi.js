@@ -235,27 +235,9 @@ export const translatedApiService = {
     const response = await apiService.getRentalAgreement(bookingId);
     return translateResponse(response);
   },
-  
-  // Agreement PDFs (Azure Blob Storage)
-  uploadAgreementPdf: async (bookingId, pdfBlob, companyId) => {
-    const response = await apiService.uploadAgreementPdf(bookingId, pdfBlob, companyId);
-    return response;
-  },
-  getAgreementPdf: async (bookingId, companyId) => {
-    const response = await apiService.getAgreementPdf(bookingId, companyId);
-    return response;
-  },
-  downloadAgreementPdf: async (bookingId, companyId) => {
-    const response = await apiService.downloadAgreementPdf(bookingId, companyId);
-    return response;
-  },
-  deleteAgreementPdf: async (bookingId, companyId) => {
-    const response = await apiService.deleteAgreementPdf(bookingId, companyId);
-    return response;
-  },
-  listCompanyAgreements: async (companyId) => {
-    const response = await apiService.listCompanyAgreements(companyId);
-    return response;
+  signBookingAgreement: async (bookingId, agreementData) => {
+    const response = await apiService.signBookingAgreement(bookingId, agreementData);
+    return translateResponse(response);
   },
   
   cancelBooking: async (id) => {

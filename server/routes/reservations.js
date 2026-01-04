@@ -335,4 +335,23 @@ router.get('/bookings/:id/rental-agreement', authenticateToken, async (req, res)
   }
 });
 
+// Sign an existing booking (create agreement + PDF)
+router.post('/bookings/:id/sign-agreement', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    console.log(`[Proxy] Signing booking ${id}`);
+    const response = await apiService.signBookingAgreement(token, id, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Sign agreement error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({ 
+      message: error.response?.data?.message || 'Failed to sign agreement' 
+    });
+  }
+});
+
 module.exports = router;
