@@ -17,6 +17,7 @@ import { translatedApiService as apiService } from '../services/translatedApi';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
+import AdminCustomerWizard from '../components/AdminCustomerWizard';
 
 const ReservationWizardPage = () => {
   const { t } = useTranslation();
@@ -46,7 +47,7 @@ const ReservationWizardPage = () => {
   const [wizardCustomerEmail, setWizardCustomerEmail] = useState('');
   const [wizardCustomer, setWizardCustomer] = useState(null);
   const [wizardSearchingCustomer, setWizardSearchingCustomer] = useState(false);
-  const [wizardCreatingCustomer, setWizardCreatingCustomer] = useState(false);
+  const [showCustomerWizard, setShowCustomerWizard] = useState(false);
   const [wizardPickupDate, setWizardPickupDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -158,10 +159,13 @@ const ReservationWizardPage = () => {
           }
           
           const models = categoryGroup.models || categoryGroup.Models || [];
+          // Filter to only show models with available vehicles
           const availableModels = models.filter(model => {
             const availableCount = model.availableCount || model.AvailableCount || 0;
             return availableCount > 0;
           });
+          
+          console.log('Available models in category:', availableModels.length);
           
           const groupedByMake = availableModels.reduce((acc, model) => {
             const make = (model.make || model.Make || '').toUpperCase().trim();
@@ -314,28 +318,19 @@ const ReservationWizardPage = () => {
       if (!isNotFound) {
         console.warn('Customer lookup error:', error);
       }
-      
-      setWizardCreatingCustomer(true);
-      try {
-        const newCustomer = await apiService.createCustomer({
-          email: wizardCustomerEmail,
-          firstName: '',
-          lastName: '',
-          phone: ''
-        });
-        const customer = newCustomer?.data || newCustomer;
-        setWizardCustomer(customer);
-        setTimeout(() => setWizardStep(2), 500);
-      } catch (createError) {
-        console.error('Error creating customer:', createError);
-        toast.error(createError.response?.data?.message || t('admin.customerCreateError', 'Failed to create customer'));
-      } finally {
-        setWizardCreatingCustomer(false);
-      }
+      // Show customer creation wizard
+      setShowCustomerWizard(true);
     } finally {
       setWizardSearchingCustomer(false);
     }
   }, [wizardCustomerEmail, wizardPickupDate, wizardReturnDate, t]);
+
+  // Callback when customer is created from AdminCustomerWizard
+  const handleCustomerCreated = useCallback((customer) => {
+    setWizardCustomer(customer);
+    setWizardCustomerEmail(customer.email || '');
+    setTimeout(() => setWizardStep(2), 500);
+  }, []);
 
   const handleCreateReservation = useCallback(async () => {
     if (!wizardCustomer || !wizardCustomer.customerId) {
@@ -350,53 +345,53 @@ const ReservationWizardPage = () => {
     
     setIsCreatingReservation(true);
     try {
-      const modelName = (wizardSelectedModel.modelName || wizardSelectedModel.ModelName || '').trim();
-      const make = (wizardSelectedMake || wizardSelectedModel.make || wizardSelectedModel.Make || '').trim();
+      const make = wizardSelectedMake || wizardSelectedModel.make || wizardSelectedModel.Make || '';
+      const model = wizardSelectedModel.modelName || wizardSelectedModel.ModelName || '';
+      const dailyRate = wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || 0;
       const locationId = wizardSelectedLocation?.locationId || wizardSelectedLocation?.id || null;
       
-      console.log('Creating reservation for:', { make, modelName, locationId, pickupDate: wizardPickupDate, returnDate: wizardReturnDate });
-      
-      // Strategy 1: Get all vehicles for the company and filter client-side
-      let vehicleParams = {
-        companyId: currentCompanyId,
-        pageSize: 100
-      };
-      if (locationId) vehicleParams.locationId = locationId;
-      
-      let vehiclesResponse = await apiService.getVehicles(vehicleParams);
-      let allVehicles = vehiclesResponse?.data?.items || vehiclesResponse?.items || 
-                    (Array.isArray(vehiclesResponse?.data) ? vehiclesResponse.data : []) ||
-                    (Array.isArray(vehiclesResponse) ? vehiclesResponse : []);
-      
-      console.log('All vehicles found:', allVehicles.length);
-      
-      // Filter by make and model (case-insensitive)
-      const matchingVehicles = allVehicles.filter(v => {
-        const vMake = (v.make || v.Make || '').toLowerCase().trim();
-        const vModel = (v.model || v.Model || '').toLowerCase().trim();
-        const targetMake = make.toLowerCase();
-        const targetModel = modelName.toLowerCase();
+      // Get first available vehicle (same approach as BookPage)
+      let vehicleId = null;
+      try {
+        const response = await apiService.getFirstAvailableVehicle({
+          make,
+          model,
+          companyId: currentCompanyId,
+          status: 'Available',
+          pageSize: 1
+        });
         
-        return vMake === targetMake && vModel === targetModel;
-      });
-      
-      console.log('Matching vehicles:', matchingVehicles.length, matchingVehicles.map(v => ({ id: v.vehicleId || v.id, make: v.make, model: v.model, status: v.status })));
-      
-      // Prefer Available status, then any status
-      let selectedVehicle = matchingVehicles.find(v => (v.status || v.Status) === 'Available');
-      if (!selectedVehicle && matchingVehicles.length > 0) {
-        selectedVehicle = matchingVehicles[0];
+        const data = response?.data?.result || response?.data || response;
+        let list = [];
+        
+        if (Array.isArray(data?.items)) list = data.items;
+        else if (Array.isArray(data?.data)) list = data.data;
+        else if (Array.isArray(data?.vehicles)) list = data.vehicles;
+        else if (Array.isArray(data?.Vehicles)) list = data.Vehicles;
+        else if (Array.isArray(data)) list = data;
+        
+        const firstVehicle = list[0];
+        if (firstVehicle) {
+          vehicleId = firstVehicle.vehicle_id || firstVehicle.vehicleId || firstVehicle.id || firstVehicle.VehicleId || firstVehicle.Id;
+        }
+      } catch (error) {
+        console.error('Error fetching first available vehicle:', error);
       }
       
-      if (!selectedVehicle) {
-        console.error('No vehicle found for:', { make, modelName });
-        toast.error(t('admin.noVehiclesAvailableForDates', 'No vehicles available for the selected dates and location. Please check vehicle exists with this make/model.'));
+      if (!vehicleId) {
+        toast.error(t('admin.noVehiclesAvailable', 'No vehicles available for this model on selected dates'));
+        setIsCreatingReservation(false);
         return;
       }
       
-      console.log('Selected vehicle:', { id: selectedVehicle.vehicleId || selectedVehicle.id, make: selectedVehicle.make, model: selectedVehicle.model });
-      const vehicleId = selectedVehicle.vehicleId || selectedVehicle.id;
-      const dailyRate = wizardSelectedModel.dailyRate || wizardSelectedModel.DailyRate || 0;
+      console.log('Creating reservation:', { 
+        vehicleId,
+        make,
+        model,
+        locationId, 
+        pickupDate: wizardPickupDate, 
+        returnDate: wizardReturnDate 
+      });
       
       const bookingData = {
         customerId: wizardCustomer.customerId || wizardCustomer.id,
@@ -408,11 +403,14 @@ const ReservationWizardPage = () => {
         returnTime: wizardReturnTime,
         pickupLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
         returnLocation: wizardSelectedLocation?.name || wizardSelectedLocation?.locationName || null,
+        locationId: locationId,
         dailyRate: dailyRate,
         taxAmount: 0,
         insuranceAmount: 0,
         additionalFees: calculateWizardServicesTotal
       };
+      
+      console.log('Booking data:', bookingData);
       
       const bookingResponse = await apiService.createBooking(bookingData);
       const booking = bookingResponse?.data || bookingResponse;
@@ -437,6 +435,7 @@ const ReservationWizardPage = () => {
       }
       
       queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+      queryClient.invalidateQueries(['vehicleCategories']);
       toast.success(t('admin.reservationCreated', 'Reservation created successfully'));
       navigate(`/admin?tab=reservations&bookingId=${bookingId}&payment=true`);
       
@@ -447,8 +446,8 @@ const ReservationWizardPage = () => {
       setIsCreatingReservation(false);
     }
   }, [wizardCustomer, wizardSelectedModel, wizardSelectedMake, wizardSelectedLocation, 
-      currentCompanyId, wizardPickupDate, wizardReturnDate, wizardSelectedServices, 
-      calculateWizardServicesTotal, queryClient, navigate, t]);
+      currentCompanyId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime,
+      wizardSelectedServices, calculateWizardServicesTotal, queryClient, navigate, t]);
 
   const handleBack = useCallback(() => {
     if (wizardStep > 1) {
@@ -646,19 +645,17 @@ const ReservationWizardPage = () => {
                     onChange={(e) => setWizardCustomerEmail(e.target.value)}
                     placeholder="customer@example.com"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={wizardSearchingCustomer || wizardCreatingCustomer}
+                    disabled={wizardSearchingCustomer}
                   />
                   <button
                     type="button"
                     onClick={handleFindOrCreateCustomer}
-                    disabled={wizardSearchingCustomer || wizardCreatingCustomer || !wizardCustomerEmail || !wizardPickupDate || !wizardReturnDate}
+                    disabled={wizardSearchingCustomer || !wizardCustomerEmail || !wizardPickupDate || !wizardReturnDate}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     {wizardSearchingCustomer 
                       ? t('admin.searching', 'Searching...')
-                      : wizardCreatingCustomer
-                      ? t('admin.creating', 'Creating...')
-                      : t('admin.findOrCreate', 'Find or Create')}
+                      : t('admin.findCustomer', 'Find Customer')}
                   </button>
                 </div>
               </div>
@@ -763,6 +760,7 @@ const ReservationWizardPage = () => {
                                   key={modelId}
                                   type="button"
                                   onClick={() => {
+                                    console.log('Selected model full object:', JSON.stringify(model, null, 2));
                                     setWizardSelectedMake(make);
                                     setWizardSelectedModel(model);
                                   }}
@@ -964,6 +962,15 @@ const ReservationWizardPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Admin Customer Creation Wizard */}
+      <AdminCustomerWizard
+        isOpen={showCustomerWizard}
+        onClose={() => setShowCustomerWizard(false)}
+        onComplete={handleCustomerCreated}
+        initialEmail={wizardCustomerEmail}
+        companyId={currentCompanyId}
+      />
     </PageContainer>
   );
 };

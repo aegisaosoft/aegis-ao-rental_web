@@ -20,3 +20,8 @@ export { default as Card } from './Card';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingSpinner } from './LoadingSpinner';
 
+// Customer form components
+export { default as CustomerBasicForm, CustomerInfoFields, LicenseInfoFields } from './CustomerBasicForm';
+export { default as LicensePhotoUploader, LicensePhotoSingle } from './LicensePhotoUploader';
+export { default as LicensePhotosStep } from './LicensePhotosStep';
+
