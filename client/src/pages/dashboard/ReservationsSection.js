@@ -100,7 +100,7 @@ const ReservationsSection = ({
   // Sign Agreement Modal State
   const [showSignAgreementModal, setShowSignAgreementModal] = useState(false);
   const [signingBooking, setSigningBooking] = useState(null);
-  const [isSigningAgreement, setIsSigningAgreement] = useState(false);
+  const [, setIsSigningAgreement] = useState(false);
 
   // ============== QUERIES ==============
 
@@ -388,17 +388,6 @@ const ReservationsSection = ({
     } catch (error) {
       console.error('View contract error:', error);
       toast.error(t('admin.agreementFetchFailed', 'Failed to fetch rental agreement.'));
-    }
-  };
-
-  // Check if booking has agreement
-  const checkBookingHasAgreement = async (bookingId) => {
-    try {
-      const response = await apiService.getRentalAgreement(bookingId);
-      const data = response?.data || response;
-      return !!(data?.id || data?.Id);
-    } catch {
-      return false;
     }
   };
 

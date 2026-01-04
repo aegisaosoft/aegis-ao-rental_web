@@ -76,7 +76,6 @@ const ReservationWizardPage = () => {
   const [createdBookingId, setCreatedBookingId] = useState(null);
   const [createdBooking, setCreatedBooking] = useState(null);
   const [showSignAgreementModal, setShowSignAgreementModal] = useState(false);
-  const [isSigningAgreement, setIsSigningAgreement] = useState(false);
 
   // ============== QUERIES ==============
 
@@ -484,7 +483,6 @@ const ReservationWizardPage = () => {
   const handleSignAgreementConfirm = useCallback(async ({ signature, consents }) => {
     if (!createdBookingId || !signature) return;
     
-    setIsSigningAgreement(true);
     try {
       const agreementData = {
         signatureImage: signature,
@@ -521,8 +519,6 @@ const ReservationWizardPage = () => {
       console.error('Sign agreement error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
       toast.error(errorMessage);
-    } finally {
-      setIsSigningAgreement(false);
     }
   }, [createdBookingId, i18n.language, t, navigate]);
 
