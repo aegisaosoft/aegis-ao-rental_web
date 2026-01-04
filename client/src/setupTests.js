@@ -16,7 +16,9 @@ beforeAll(() => {
       if (args[0].includes('Warning: An update to') ||
           args[0].includes('act(...)') ||
           args[0].includes('[AuthContext]') ||
-          args[0].includes('[CompanyContext]')) {
+          args[0].includes('[CompanyContext]') ||
+          args[0].includes('ReactDOMTestUtils.act') ||
+          args[0].includes('React.act')) {
         return;
       }
     }
@@ -24,8 +26,13 @@ beforeAll(() => {
   };
   
   console.warn = (...args) => {
-    if (typeof args[0] === 'string' && args[0].includes('componentWillReceiveProps')) {
-      return;
+    if (typeof args[0] === 'string') {
+      if (args[0].includes('componentWillReceiveProps') ||
+          args[0].includes('React Router Future Flag Warning') ||
+          args[0].includes('v7_startTransition') ||
+          args[0].includes('v7_relativeSplatPath')) {
+        return;
+      }
     }
     originalWarn.call(console, ...args);
   };
