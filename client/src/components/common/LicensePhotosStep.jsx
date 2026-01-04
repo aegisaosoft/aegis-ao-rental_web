@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Camera, CreditCard, QrCode, Upload, Check, Trash2 } from 'lucide-react';
+import { X, Camera, QrCode, Upload, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { translatedApiService as apiService } from '../../services/translatedApi';
 import { useTranslation } from 'react-i18next';

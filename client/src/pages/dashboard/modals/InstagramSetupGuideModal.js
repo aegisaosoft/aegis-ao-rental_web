@@ -9,7 +9,6 @@ import {
   ChevronRight, 
   ChevronLeft,
   Check,
-  ExternalLink,
   Smartphone,
   Globe,
   Building2,

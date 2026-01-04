@@ -81,7 +81,6 @@ const ReservationsSection = ({
     setPayingSecurityDeposit,
     showBookingPaymentModal,
     setShowBookingPaymentModal,
-    pendingConfirmedStatus,
     setPendingConfirmedStatus,
     payingBooking,
     setPayingBooking,

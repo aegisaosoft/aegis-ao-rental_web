@@ -8,7 +8,7 @@
  */
 
 import React, { useRef, useCallback, useState } from 'react';
-import { Camera, Upload, Trash2, X, Check } from 'lucide-react';
+import { Camera, Upload, X, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
