@@ -413,7 +413,22 @@ const ReservationWizardPage = () => {
         dailyRate: dailyRate,
         taxAmount: 0,
         insuranceAmount: 0,
-        additionalFees: calculateWizardServicesTotal
+        additionalFees: calculateWizardServicesTotal,
+        securityDeposit: companyConfig?.securityDeposit || 0,
+        // Include additional services as JSON for PDF/modal display
+        additionalServices: wizardSelectedServices.length > 0 
+          ? wizardSelectedServices.map(s => {
+              const svc = s.service || s;
+              const serviceName = svc.serviceName || svc.ServiceName || svc.name || '';
+              const servicePrice = svc.basePrice || svc.BasePrice || svc.servicePrice || svc.price || 0;
+              return {
+                name: serviceName,
+                dailyRate: servicePrice,
+                days: calculateWizardDays,
+                total: servicePrice * calculateWizardDays
+              };
+            })
+          : undefined
       };
       
       console.log('Booking data:', bookingData);
@@ -477,13 +492,27 @@ const ReservationWizardPage = () => {
     }
   }, [wizardCustomer, wizardSelectedModel, wizardSelectedMake, wizardSelectedLocation, 
       currentCompanyId, wizardPickupDate, wizardReturnDate, wizardPickupTime, wizardReturnTime,
-      wizardSelectedServices, calculateWizardServicesTotal, calculateWizardGrandTotal, companyConfig, queryClient, t]);
+      wizardSelectedServices, calculateWizardServicesTotal, calculateWizardGrandTotal, calculateWizardDays, companyConfig, queryClient, t]);
 
   // Handle sign agreement
   const handleSignAgreementConfirm = useCallback(async ({ signature, consents }) => {
     if (!createdBookingId || !signature) return;
     
     try {
+      // Build additional services for agreement
+      const additionalServices = wizardSelectedServices.map(s => {
+        const svc = s.service || s;
+        const serviceName = svc.serviceName || svc.ServiceName || svc.name || '';
+        const servicePrice = svc.basePrice || svc.BasePrice || svc.price || 0;
+        const days = calculateWizardDays || 1;
+        return {
+          name: serviceName,
+          dailyRate: servicePrice,
+          days: days,
+          total: servicePrice * days,
+        };
+      });
+      
       const agreementData = {
         signatureImage: signature,
         language: i18n.language || 'en',
@@ -506,6 +535,7 @@ const ReservationWizardPage = () => {
         signedAt: new Date().toISOString(),
         userAgent: navigator.userAgent,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        additionalServices: additionalServices.length > 0 ? additionalServices : undefined,
       };
 
       await apiService.signBookingAgreement(createdBookingId, agreementData);
@@ -520,7 +550,7 @@ const ReservationWizardPage = () => {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
       toast.error(errorMessage);
     }
-  }, [createdBookingId, i18n.language, t, navigate]);
+  }, [createdBookingId, i18n.language, t, navigate, wizardSelectedServices, calculateWizardDays]);
 
   // Skip signing agreement
   const handleSkipAgreement = useCallback(() => {
@@ -1142,13 +1172,37 @@ const ReservationWizardPage = () => {
             dates: {
               pickup: createdBooking.pickupDate,
               return: createdBooking.returnDate,
+              pickupTime: createdBooking.pickupTime,
+              returnTime: createdBooking.returnTime,
             },
+            pickupDate: createdBooking.pickupDate,
+            returnDate: createdBooking.returnDate,
+            startTime: createdBooking.pickupTime,
+            returnTime: createdBooking.returnTime,
             rates: {
               dailyRate: createdBooking.dailyRate || 0,
+              ratePerDay: createdBooking.dailyRate || 0,
+              numberOfDays: calculateWizardDays || 1,
+              dailyTotal: (createdBooking.dailyRate || 0) * (calculateWizardDays || 1),
               total: createdBooking.totalAmount || 0,
+              totalCharges: createdBooking.totalAmount || 0,
               securityDeposit: createdBooking.securityDeposit || 0,
+              servicesTotal: calculateWizardServicesTotal || 0,
+              subtotal: createdBooking.totalAmount || 0,
             },
+            totalAmount: createdBooking.totalAmount || 0,
+            securityDeposit: createdBooking.securityDeposit || 0,
+            selectedServices: wizardSelectedServices.map(s => {
+              const svc = s.service || s;
+              const serviceName = svc.serviceName || svc.ServiceName || svc.name || '';
+              const servicePrice = svc.basePrice || svc.BasePrice || svc.price || 0;
+              return {
+                name: serviceName,
+                price: servicePrice * (calculateWizardDays || 1),
+              };
+            }),
           }}
+          formatPrice={formatPrice}
           viewMode={false}
         />
       )}

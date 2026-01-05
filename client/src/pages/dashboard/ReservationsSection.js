@@ -871,33 +871,7 @@ const ReservationsSection = ({
           onConfirm={handleSignAgreementConfirm}
           language={i18n.language || 'en'}
           bookingId={signingBooking.id}
-          rentalInfo={{
-            renter: {
-              firstName: signingBooking.customerFirstName || signingBooking.customer?.firstName || '',
-              lastName: signingBooking.customerLastName || signingBooking.customer?.lastName || '',
-              email: signingBooking.customerEmail || signingBooking.customer?.email || '',
-              phone: signingBooking.customerPhone || signingBooking.customer?.phone || '',
-            },
-            vehicle: {
-              type: signingBooking.vehicleType || '',
-              makeModel: signingBooking.vehicleName || `${signingBooking.vehicleMake || ''} ${signingBooking.vehicleModel || ''}`.trim(),
-              yearColorLicense: [
-                signingBooking.vehicleYear,
-                signingBooking.vehicleColor,
-                signingBooking.vehiclePlate || signingBooking.licensePlate
-              ].filter(Boolean).join(' / '),
-            },
-            dates: {
-              pickup: signingBooking.pickupDate,
-              return: signingBooking.returnDate,
-            },
-            rates: {
-              dailyRate: signingBooking.dailyRate || 0,
-              total: signingBooking.totalAmount || signingBooking.rentalAmount || 0,
-              securityDeposit: signingBooking.securityDeposit || signingBooking.depositAmount || 0,
-            },
-          }}
-          viewMode={false}
+          t={t}
         />
       )}
     </>

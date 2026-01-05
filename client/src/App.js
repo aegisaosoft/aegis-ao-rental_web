@@ -61,6 +61,7 @@ import VehicleLocations from './pages/VehicleLocations';
 import StripeOnboardingComplete from './pages/StripeOnboardingComplete';
 import StripeReauth from './pages/StripeReauth';
 import ReservationWizardPage from './pages/ReservationWizardPage';
+import RentalAgreementPage from './pages/RentalAgreementPage';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
@@ -130,6 +131,7 @@ const AppLayout = () => {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/reservation/new" element={<ReservationWizardPage />} />
+          <Route path="/rental-agreement/:bookingId" element={<RentalAgreementPage />} />
           <Route path="/companies/:companyId/stripe/complete" element={<StripeOnboardingComplete />} />
           <Route path="/companies/:companyId/stripe/reauth" element={<StripeReauth />} />
           <Route path="/vehicle-locations" element={<VehicleLocations />} />

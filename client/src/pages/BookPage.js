@@ -2230,7 +2230,7 @@ const BookPage = () => {
     }
   }, [uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
-  const proceedToCheckout = useCallback(async (overrideUser = null) => {
+  const proceedToCheckout = useCallback(async (overrideUser = null, skipAgreementCheck = false) => {
     // User must be authenticated to proceed
     const currentUser = overrideUser || user;
     // If overrideUser is provided (from login/register), skip isAuthenticated check
@@ -2288,8 +2288,8 @@ const BookPage = () => {
         
         // User exists and images exist → don't show wizard, proceed to next step
         
-        // DL exists - check if agreement is signed
-        if (!agreementSignature) {
+        // DL exists - check if agreement is signed (skip if coming from agreement modal)
+        if (!skipAgreementCheck && !agreementSignature) {
           // DL exists but Agreement not signed - show rental agreement modal
           openAgreementModal();
           return;
@@ -2608,6 +2608,10 @@ const BookPage = () => {
     calculateGrandTotal,
 
     calculateServicesTotal,
+
+    calculateRentalDays,
+
+    selectedServices,
 
     modelDailyRate,
 
@@ -4826,15 +4830,19 @@ const BookPage = () => {
         onClose={() => {
           setIsRentalAgreementModalOpen(false);
         }}
-        onConfirm={() => {
-          // After agreement is signed, proceed with booking
+        onConfirm={async ({ signature, consents }) => {
+          // Save signature and consents to state
+          setAgreementSignature(signature);
+          setAgreementConsents(consents);
+          // Close modal
           setIsRentalAgreementModalOpen(false);
-          // The agreement signature and consents are already set via the hook
           // Proceed to checkout if user is authenticated
+          // Pass skipAgreementCheck=true since we just signed
           if (user && isAuthenticated) {
-            // Use setTimeout to ensure modal closes before proceeding
-            setTimeout(() => {
-              proceedToCheckout();
+            // Use setTimeout to ensure modal closes and state updates
+            setTimeout(async () => {
+              // Directly proceed to booking creation without re-checking agreement
+              await proceedToCheckout(null, true); // skipAgreementCheck = true
             }, 100);
           }
         }}
