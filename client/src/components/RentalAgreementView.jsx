@@ -415,10 +415,15 @@ const SignaturePad = ({ onSignatureChange, signatureData, disabled }) => {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
+    if (!ctx) return;
     
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
+    const rect = canvas.getBoundingClientRect();
+    // Guard against undefined or zero dimensions (e.g., in test environment)
+    const width = rect?.width || 400;
+    const height = rect?.height || 200;
+    
+    canvas.width = width * 2;
+    canvas.height = height * 2;
     ctx.scale(2, 2);
     
     ctx.strokeStyle = '#000';
@@ -429,7 +434,7 @@ const SignaturePad = ({ onSignatureChange, signatureData, disabled }) => {
     if (signatureData) {
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        ctx.drawImage(img, 0, 0, width, height);
         setHasSignature(true);
       };
       img.src = signatureData;
@@ -439,16 +444,18 @@ const SignaturePad = ({ onSignatureChange, signatureData, disabled }) => {
   const getCoordinates = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
+    const left = rect?.left || 0;
+    const top = rect?.top || 0;
     
     if (e.touches) {
       return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
+        x: e.touches[0].clientX - left,
+        y: e.touches[0].clientY - top
       };
     }
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: e.clientX - left,
+      y: e.clientY - top
     };
   };
 
@@ -560,7 +567,7 @@ const RentalAgreementView = ({
     
     api.getRentalAgreement(bookingId)
       .then(response => {
-        const agreement = response.data;
+        const agreement = response?.data;
         if (agreement?.pdfUrl) {
           setExistingPdfUrl(agreement.pdfUrl);
         } else {
@@ -568,7 +575,7 @@ const RentalAgreementView = ({
         }
       })
       .catch(err => {
-        if (err.response?.status === 404) {
+        if (err?.response?.status === 404) {
           setExistingPdfUrl('');
         } else {
           console.error('Error checking existing agreement:', err);

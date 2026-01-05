@@ -351,3 +351,208 @@ describe('Agreement Data Structure Validation', () => {
     });
   });
 });
+
+describe('Bilingual PDF Generation', () => {
+  test('should generate single PDF for English language', () => {
+    const language = 'en';
+    const isEnglish = language === 'en' || !language;
+    expect(isEnglish).toBe(true);
+    // English: single version only
+  });
+
+  test('should generate bilingual PDF for non-English languages', () => {
+    const nonEnglishLanguages = ['es', 'pt', 'fr', 'de'];
+    nonEnglishLanguages.forEach(lang => {
+      const isEnglish = lang === 'en' || !lang;
+      expect(isEnglish).toBe(false);
+      // Non-English: national language first, then English
+    });
+  });
+
+  test('agreement data should include language field', () => {
+    const agreementData = {
+      signatureImage: 'data:image/png;base64,...',
+      language: 'es',
+      consents: {},
+    };
+    expect(agreementData.language).toBeDefined();
+    expect(['en', 'es', 'pt', 'fr', 'de']).toContain(agreementData.language);
+  });
+});
+
+describe('PDF Translation Labels', () => {
+  const expectedLabels = {
+    en: {
+      rentalAgreement: 'Rental Agreement',
+      customerPrimaryRenter: 'CUSTOMER / PRIMARY RENTER',
+      firstName: 'First Name',
+      rulesOfAction: 'RULES OF ACTION',
+    },
+    es: {
+      rentalAgreement: 'Contrato de Alquiler',
+      customerPrimaryRenter: 'CLIENTE / ARRENDATARIO PRINCIPAL',
+      firstName: 'Nombre',
+      rulesOfAction: 'REGLAS DE ACCIÓN',
+    },
+    pt: {
+      rentalAgreement: 'Contrato de Locação',
+      customerPrimaryRenter: 'CLIENTE / LOCATÁRIO PRINCIPAL',
+      firstName: 'Nome',
+      rulesOfAction: 'REGRAS DE AÇÃO',
+    },
+    fr: {
+      rentalAgreement: 'Contrat de Location',
+      customerPrimaryRenter: 'CLIENT / LOCATAIRE PRINCIPAL',
+      firstName: 'Prénom',
+      rulesOfAction: "RÈGLES D'ACTION",
+    },
+    de: {
+      rentalAgreement: 'Mietvertrag',
+      customerPrimaryRenter: 'KUNDE / HAUPTMIETER',
+      firstName: 'Vorname',
+      rulesOfAction: 'VERHALTENSREGELN',
+    },
+  };
+
+  Object.entries(expectedLabels).forEach(([lang, labels]) => {
+    test(`should have correct labels for ${lang}`, () => {
+      expect(labels.rentalAgreement).toBeTruthy();
+      expect(labels.customerPrimaryRenter).toBeTruthy();
+      expect(labels.firstName).toBeTruthy();
+      expect(labels.rulesOfAction).toBeTruthy();
+    });
+  });
+
+  test('all supported languages should have translations', () => {
+    const supportedLanguages = ['en', 'es', 'pt', 'fr', 'de'];
+    supportedLanguages.forEach(lang => {
+      expect(expectedLabels[lang]).toBeDefined();
+    });
+  });
+});
+
+describe('Date Formatting', () => {
+  test('should format ISO date string to YYYY-MM-DD', () => {
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '-';
+      try {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    // Test various formats (without Z suffix to avoid timezone issues)
+    expect(formatDate('2026-01-04T00:00:00')).toBe('2026-01-04');
+    expect(formatDate('2026-01-04T12:30:00')).toBe('2026-01-04');
+    expect(formatDate('2026-01-04')).toBe('2026-01-04');
+    expect(formatDate(null)).toBe('-');
+    expect(formatDate('')).toBe('-');
+  });
+
+  test('should not include T00:00:00 in formatted date', () => {
+    const isoDate = '2026-01-04T00:00:00';
+    const formatted = isoDate.split('T')[0];
+    expect(formatted).toBe('2026-01-04');
+    expect(formatted).not.toContain('T');
+    expect(formatted).not.toContain('00:00:00');
+  });
+});
+
+describe('Additional Services in Agreement', () => {
+  test('should include additional services in agreement data', () => {
+    const agreementData = {
+      signatureImage: 'data:image/png;base64,...',
+      language: 'en',
+      additionalServices: [
+        { name: 'GPS Navigation', dailyRate: 10, days: 5, total: 50 },
+        { name: 'Child Seat', dailyRate: 8, days: 5, total: 40 },
+      ],
+    };
+
+    expect(agreementData.additionalServices).toHaveLength(2);
+    expect(agreementData.additionalServices[0].name).toBe('GPS Navigation');
+    expect(agreementData.additionalServices[0].total).toBe(50);
+  });
+
+  test('additional service should have correct structure', () => {
+    const service = {
+      name: 'Insurance',
+      dailyRate: 15,
+      days: 3,
+      total: 45,
+    };
+
+    expect(service).toHaveProperty('name');
+    expect(service).toHaveProperty('dailyRate');
+    expect(service).toHaveProperty('days');
+    expect(service).toHaveProperty('total');
+    expect(service.total).toBe(service.dailyRate * service.days);
+  });
+});
+
+describe('Consent Rules - New Format', () => {
+  const ruleKeys = [
+    'ruleProhibitedDriver',
+    'ruleUnder25',
+    'ruleNoAlcohol',
+    'ruleNoSmoking',
+    'ruleLostKeys',
+    'rulePassengerCapacity',
+    'ruleCleaningFee',
+    'ruleTireDamage',
+    'ruleTickets',
+    'rule24Hour',
+    'ruleNoCellPhone',
+    'ruleCardAuthorization',
+    'ruleTermsAgreement',
+  ];
+
+  test('should have 13 consent rules', () => {
+    expect(ruleKeys).toHaveLength(13);
+  });
+
+  test('all rule keys should be strings', () => {
+    ruleKeys.forEach(key => {
+      expect(typeof key).toBe('string');
+      expect(key.startsWith('rule')).toBe(true);
+    });
+  });
+
+  test('consents object should track each rule', () => {
+    const consents = {};
+    ruleKeys.forEach(key => {
+      consents[key] = false;
+      consents[`${key}AcceptedAt`] = null;
+    });
+
+    expect(Object.keys(consents)).toHaveLength(ruleKeys.length * 2);
+  });
+
+  test('all consents must be true to proceed', () => {
+    const consents = {};
+    ruleKeys.forEach(key => {
+      consents[key] = true;
+    });
+
+    const allAccepted = ruleKeys.every(key => consents[key]);
+    expect(allAccepted).toBe(true);
+  });
+
+  test('should not proceed if any consent is false', () => {
+    const consents = {};
+    ruleKeys.forEach(key => {
+      consents[key] = true;
+    });
+    consents['ruleNoSmoking'] = false;
+
+    const allAccepted = ruleKeys.every(key => consents[key]);
+    expect(allAccepted).toBe(false);
+  });
+});

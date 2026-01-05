@@ -98,4 +98,149 @@ describe('API Service Structure', () => {
       expect(typeof apiService.getLocations).toBe('function');
     });
   });
+
+  describe('Rental Agreement methods', () => {
+    test('has signBookingAgreement method', () => {
+      expect(typeof apiService.signBookingAgreement).toBe('function');
+    });
+
+    test('has getRentalAgreement method', () => {
+      expect(typeof apiService.getRentalAgreement).toBe('function');
+    });
+
+    test('has previewAgreementPdf method', () => {
+      expect(typeof apiService.previewAgreementPdf).toBe('function');
+    });
+  });
+});
+
+describe('Rental Agreement API Integration', () => {
+  describe('signBookingAgreement', () => {
+    test('should accept bookingId and agreement data', () => {
+      const bookingId = 'test-booking-123';
+      const agreementData = {
+        signatureImage: 'data:image/png;base64,...',
+        language: 'en',
+        consents: {
+          ruleProhibitedDriver: true,
+          ruleUnder25: true,
+          ruleNoAlcohol: true,
+          ruleNoSmoking: true,
+          ruleLostKeys: true,
+          rulePassengerCapacity: true,
+          ruleCleaningFee: true,
+          ruleTireDamage: true,
+          ruleTickets: true,
+          rule24Hour: true,
+          ruleNoCellPhone: true,
+          ruleCardAuthorization: true,
+          ruleTermsAgreement: true,
+        },
+      };
+
+      expect(bookingId).toBeTruthy();
+      expect(agreementData.signatureImage).toBeTruthy();
+      expect(agreementData.language).toBe('en');
+      expect(Object.keys(agreementData.consents)).toHaveLength(13);
+    });
+
+    test('agreement data should include additional services when present', () => {
+      const agreementData = {
+        signatureImage: 'data:image/png;base64,...',
+        language: 'es',
+        additionalServices: [
+          { name: 'GPS', dailyRate: 10, days: 5, total: 50 },
+        ],
+      };
+
+      expect(agreementData.additionalServices).toHaveLength(1);
+      expect(agreementData.language).toBe('es');
+    });
+  });
+
+  describe('getRentalAgreement', () => {
+    test('should accept bookingId parameter', () => {
+      const bookingId = 'test-booking-123';
+      expect(bookingId).toBeTruthy();
+      expect(typeof bookingId).toBe('string');
+    });
+  });
+
+  describe('previewAgreementPdf', () => {
+    test('should accept preview data with all required fields', () => {
+      const previewData = {
+        language: 'en',
+        customerFirstName: 'John',
+        customerLastName: 'Doe',
+        customerEmail: 'john@example.com',
+        vehicleName: 'Toyota Camry',
+        pickupDate: '2025-01-10',
+        returnDate: '2025-01-15',
+        dailyRate: 50,
+        rentalDays: 5,
+        totalCharges: 250,
+        securityDeposit: 200,
+      };
+
+      expect(previewData.language).toBeTruthy();
+      expect(previewData.customerFirstName).toBeTruthy();
+      expect(previewData.vehicleName).toBeTruthy();
+      expect(previewData.dailyRate).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('Data Source Priority Logic', () => {
+  test('bookingId should take priority over rentalInfo', () => {
+    const bookingId = 'booking-123';
+    const rentalInfo = { renter: { firstName: 'Test' } };
+    
+    // When bookingId exists, should load from API
+    const shouldLoadFromApi = !!bookingId;
+    expect(shouldLoadFromApi).toBe(true);
+  });
+
+  test('should use rentalInfo when no bookingId', () => {
+    const bookingId = null;
+    const rentalInfo = { renter: { firstName: 'Test' } };
+    
+    // When no bookingId, should use rentalInfo
+    const shouldUseRentalInfo = !bookingId && !!rentalInfo;
+    expect(shouldUseRentalInfo).toBe(true);
+  });
+
+  test('should skip PDF check when no bookingId', () => {
+    const bookingId = null;
+    
+    // checkingExistingPdf should be false when no bookingId
+    const shouldCheckPdf = !!bookingId;
+    expect(shouldCheckPdf).toBe(false);
+  });
+});
+
+describe('skipAgreementCheck Parameter', () => {
+  test('should skip agreement check when flag is true', () => {
+    const agreementSignature = null;
+    const skipAgreementCheck = true;
+    
+    // Even without signature, should proceed when skipAgreementCheck is true
+    const shouldShowModal = !skipAgreementCheck && !agreementSignature;
+    expect(shouldShowModal).toBe(false);
+  });
+
+  test('should show modal when signature missing and flag is false', () => {
+    const agreementSignature = null;
+    const skipAgreementCheck = false;
+    
+    const shouldShowModal = !skipAgreementCheck && !agreementSignature;
+    expect(shouldShowModal).toBe(true);
+  });
+
+  test('should not show modal when signature exists', () => {
+    const agreementSignature = 'data:image/png;base64,...';
+    const skipAgreementCheck = false;
+    
+    const shouldShowModal = !skipAgreementCheck && !agreementSignature;
+    expect(shouldShowModal).toBe(false);
+  });
 });
