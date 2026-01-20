@@ -4,8 +4,8 @@
   "description": "Backend API for Aegis-AO rental application",
   "main": "index.js",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "node index.js",
