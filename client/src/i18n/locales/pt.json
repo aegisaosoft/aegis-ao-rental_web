@@ -70,6 +70,18 @@
     "section7": {
       "title": "7. Informações de Contato",
       "content": "Se você tiver alguma dúvida sobre estes Termos e Condições, entre em contato com o atendimento ao cliente da {{companyName}}. Reservamo-nos o direito de modificar estes termos a qualquer momento, e o uso contínuo de nossos serviços constitui aceitação de quaisquer alterações."
+    },
+    "section8": {
+      "title": "8. Consentimento para SMS e Mensagens de Texto",
+      "content": "Ao aceitar estes Termos de Serviço, você consente expressamente em receber mensagens de texto SMS da {{companyName}} relacionadas aos seus serviços de aluguel de veículos. Isso inclui, mas não se limita a:",
+      "item1": "Confirmações de aluguel e notificações de reserva",
+      "item2": "Lembretes de retirada e devolução do veículo",
+      "item3": "Notificações de pagamento e cobrança",
+      "item4": "Atualizações importantes sobre seu contrato de aluguel",
+      "item5": "Comunicações de atendimento ao cliente relacionadas ao seu aluguel",
+      "disclaimer": "Tarifas de mensagens e dados podem se aplicar. A frequência de mensagens pode variar com base em sua atividade de aluguel. Você reconhece que seu consentimento para receber mensagens SMS não é uma condição para comprar quaisquer bens ou serviços da {{companyName}}.",
+      "optout": "Você pode cancelar o recebimento de mensagens SMS a qualquer momento respondendo \"STOP\" a qualquer mensagem de texto nossa ou entrando em contato conosco em nosso e-mail de atendimento ao cliente.",
+      "authority": "Ao fornecer seu número de telefone celular e aceitar esses termos, você confirma que é o proprietário ou usuário autorizado do dispositivo móvel e tem autoridade para aceitar receber mensagens SMS no número fornecido."
     }
   },
   "privacy": {

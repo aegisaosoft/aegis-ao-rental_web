@@ -147,8 +147,31 @@ const Terms = () => {
                 <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
                   {t('terms.section7.title')}
                 </h2>
-                <p className="text-gray-700 leading-relaxed">
+                <p className="text-gray-700 leading-relaxed mb-6">
                   {t('terms.section7.content', { companyName })}
+                </p>
+
+                <h2 className="text-3xl font-bold text-gray-900 mt-8 mb-4">
+                  {t('terms.section8.title')}
+                </h2>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  {t('terms.section8.content', { companyName })}
+                </p>
+                <ul className="list-disc list-inside text-gray-700 space-y-2 mb-6">
+                  <li>{t('terms.section8.item1')}</li>
+                  <li>{t('terms.section8.item2')}</li>
+                  <li>{t('terms.section8.item3')}</li>
+                  <li>{t('terms.section8.item4')}</li>
+                  <li>{t('terms.section8.item5')}</li>
+                </ul>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  {t('terms.section8.disclaimer', { companyName })}
+                </p>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  <strong>{t('terms.section8.optout')}</strong>
+                </p>
+                <p className="text-gray-700 leading-relaxed">
+                  {t('terms.section8.authority')}
                 </p>
               </div>
             )}

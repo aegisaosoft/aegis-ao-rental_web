@@ -70,6 +70,18 @@
     "section7": {
       "title": "7. Kontaktinformationen",
       "content": "Wenn Sie Fragen zu diesen Allgemeinen Geschäftsbedingungen haben, kontaktieren Sie bitte den Kundenservice von {{companyName}}. Wir behalten uns das Recht vor, diese Bedingungen jederzeit zu ändern, und die fortgesetzte Nutzung unserer Dienste stellt die Annahme von Änderungen dar."
+    },
+    "section8": {
+      "title": "8. SMS- und Textnachrichten-Einverständnis",
+      "content": "Mit der Zustimmung zu diesen Nutzungsbedingungen erklären Sie sich ausdrücklich damit einverstanden, SMS-Textnachrichten von {{companyName}} in Bezug auf Ihre Fahrzeugvermietungsdienste zu erhalten. Dies umfasst, ist aber nicht beschränkt auf:",
+      "item1": "Mietbestätigungs- und Buchungsbenachrichtigungen",
+      "item2": "Erinnerungen zur Fahrzeugabholung und -rückgabe",
+      "item3": "Zahlungs- und Abrechnungsbenachrichtigungen",
+      "item4": "Wichtige Updates zu Ihrem Mietvertrag",
+      "item5": "Kundenservice-Kommunikation in Bezug auf Ihre Miete",
+      "disclaimer": "Nachrichten- und Datengebühren können anfallen. Die Nachrichtenhäufigkeit kann je nach Ihrer Mietaktivität variieren. Sie bestätigen, dass Ihre Einwilligung zum Erhalt von SMS-Nachrichten keine Voraussetzung für den Kauf von Waren oder Dienstleistungen von {{companyName}} ist.",
+      "optout": "Sie können sich jederzeit vom Erhalt von SMS-Nachrichten abmelden, indem Sie auf eine beliebige Textnachricht von uns mit \"STOP\" antworten oder uns unter unserer Kundenservice-E-Mail kontaktieren.",
+      "authority": "Durch die Angabe Ihrer Mobiltelefonnummer und die Zustimmung zu diesen Bedingungen bestätigen Sie, dass Sie der Eigentümer oder autorisierte Benutzer des Mobilgeräts sind und die Befugnis haben, dem Erhalt von SMS-Nachrichten unter der angegebenen Nummer zuzustimmen."
     }
   },
   "privacy": {

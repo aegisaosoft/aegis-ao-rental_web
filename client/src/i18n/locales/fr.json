@@ -70,6 +70,18 @@
     "section7": {
       "title": "7. Informations de Contact",
       "content": "Si vous avez des questions concernant ces Termes et Conditions, veuillez contacter le service client de {{companyName}}. Nous nous réservons le droit de modifier ces termes à tout moment, et l'utilisation continue de nos services constitue l'acceptation de tout changement."
+    },
+    "section8": {
+      "title": "8. Consentement aux SMS et Messages Texte",
+      "content": "En acceptant ces Conditions de Service, vous consentez expressément à recevoir des messages texte SMS de {{companyName}} liés à vos services de location de véhicules. Ceci inclut mais ne se limite pas à:",
+      "item1": "Confirmations de location et notifications de réservation",
+      "item2": "Rappels de prise en charge et de retour du véhicule",
+      "item3": "Notifications de paiement et de facturation",
+      "item4": "Mises à jour importantes concernant votre contrat de location",
+      "item5": "Communications du service client liées à votre location",
+      "disclaimer": "Des frais de message et de données peuvent s'appliquer. La fréquence des messages peut varier selon votre activité de location. Vous reconnaissez que votre consentement à recevoir des messages SMS n'est pas une condition d'achat de biens ou services chez {{companyName}}.",
+      "optout": "Vous pouvez vous désabonner de la réception de messages SMS à tout moment en répondant \"STOP\" à tout message texte de notre part ou en nous contactant à notre adresse e-mail de service client.",
+      "authority": "En fournissant votre numéro de téléphone mobile et en acceptant ces conditions, vous confirmez que vous êtes le propriétaire ou l'utilisateur autorisé de l'appareil mobile et avez l'autorité d'accepter de recevoir des messages SMS au numéro fourni."
     }
   },
   "privacy": {

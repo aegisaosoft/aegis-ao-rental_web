@@ -70,6 +70,18 @@
     "section7": {
       "title": "7. Contact Information",
       "content": "If you have any questions about these Terms and Conditions, please contact {{companyName}} customer service. We reserve the right to modify these terms at any time, and continued use of our services constitutes acceptance of any changes."
+    },
+    "section8": {
+      "title": "8. SMS and Text Messaging Consent",
+      "content": "By agreeing to these Terms of Service, you expressly consent to receive SMS text messages from {{companyName}} related to your vehicle rental services. This includes but is not limited to:",
+      "item1": "Rental confirmation and booking notifications",
+      "item2": "Vehicle pickup and return reminders",
+      "item3": "Payment and billing notifications",
+      "item4": "Important updates about your rental agreement",
+      "item5": "Customer service communications related to your rental",
+      "disclaimer": "Message and data rates may apply. Message frequency may vary based on your rental activity. You acknowledge that your consent to receive SMS messages is not a condition of purchasing any goods or services from {{companyName}}.",
+      "optout": "You may opt out of receiving SMS messages at any time by replying \"STOP\" to any text message from us or by contacting us at our customer service email.",
+      "authority": "By providing your mobile phone number and agreeing to these terms, you confirm that you are the owner or authorized user of the mobile device and have the authority to agree to receive SMS messages at the provided number."
     }
   },
   "privacy": {
