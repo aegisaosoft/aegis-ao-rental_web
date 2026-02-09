@@ -599,7 +599,7 @@ const BookingWizard = ({
 
   const handleWizardNext = async () => {
     if (wizardStep === 1) {
-      // Step 1: Just collect email and move to license photos - no user creation yet
+      // Step 1: Check email and create user if needed
       if (!wizardFormData.email.trim()) {
         setWizardError(t('bookPage.emailRequired', 'Email is required'));
         return;
@@ -610,30 +610,62 @@ const BookingWizard = ({
         return;
       }
 
-      setWizardStep(2);
-      setWizardError('');
-      return;
-            response: error.response?.data,
-            status: error.response?.status,
-            url: error.config?.url
-          });
+      try {
+        setWizardLoading(true);
+        setWizardError('');
 
-          // Check if this is the "Email already registered" error
-          if (error.response?.data?.message?.includes('already exists') ||
-              error.response?.data?.includes('already exists') ||
-              error.message?.includes('already registered')) {
-            setWizardError(`Email conflict during user creation: ${tempEmail}. This shouldn't happen if wizard was properly opened.`);
+        const email = wizardFormData.email.trim().toLowerCase();
+        let customerId = '';
+
+        // Check if customer exists
+        try {
+          const existingCustomer = await apiService.getCustomerByEmail(email);
+          customerId = existingCustomer?.id || existingCustomer?.customerId;
+
+          setWizardFormData(prev => ({
+            ...prev,
+            customerId: customerId,
+            isExistingUser: true
+          }));
+        } catch (error) {
+          if (error.response?.status === 404) {
+            // Customer doesn't exist - create with temporary password
+            const tempPassword = `Temp${Date.now()}!`;
+
+            const createResponse = await apiService.createCustomer({
+              email: email,
+              password: tempPassword,
+              firstName: 'Temporary',
+              lastName: 'Customer',
+              phoneNumber: '0000000000'
+            });
+
+            customerId = createResponse?.data?.customerId || createResponse?.data?.id || createResponse?.data?.customer_id || createResponse?.id;
+
+            setWizardFormData(prev => ({
+              ...prev,
+              customerId: customerId,
+              tempPassword: tempPassword,
+              isExistingUser: false
+            }));
           } else {
-            setWizardError(error?.response?.data?.message || error?.message || 'Failed to initialize session. Please try again.');
+            throw error;
           }
-          setWizardLoading(false);
-          return;
         }
-      } else {
-        // User already exists, proceed directly to license scanning
+
+        if (!customerId) {
+          throw new Error('Failed to get or create customer');
+        }
+
+        setWizardLoading(false);
         setWizardStep(2);
-        return;
+        setWizardError('');
+      } catch (error) {
+        console.error('Step 1 error:', error);
+        setWizardError(error?.response?.data?.message || error?.message || 'Failed to process email');
+        setWizardLoading(false);
       }
+      return;
     }
 
     if (wizardStep === 3) {
@@ -668,64 +700,43 @@ const BookingWizard = ({
         return;
       }
 
-      // Simple authentication logic
+      // Simple authentication and update logic
       try {
         setWizardLoading(true);
         setWizardError('');
 
         const email = wizardFormData.email.trim().toLowerCase();
-        let existingCustomer = null;
-        let userData = null;
-        let customerId = '';
+        const customerId = wizardFormData.customerId;
+        const isExistingUser = wizardFormData.isExistingUser;
 
-        // Check if customer exists
-        try {
-          existingCustomer = await apiService.getCustomerByEmail(email);
-        } catch (error) {
-          if (error.response?.status !== 404) {
-            console.error('Error checking customer by email:', error);
-          }
+        if (!customerId) {
+          throw new Error('Customer ID not found. Please restart the wizard.');
         }
 
-        if (existingCustomer) {
-          // Customer exists - login with provided password
+        if (isExistingUser) {
+          // Existing user - login with provided password
           const loginResponse = await loginUser({
             email: email,
             password: wizardFormData.password
           });
 
-          userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
+          const userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
           if (!userData) {
             throw new Error('Invalid email or password');
           }
 
-          customerId = existingCustomer?.id || existingCustomer?.customerId;
-
-          // Update customer info if needed
-          if (customerId) {
-            await apiService.updateCustomer(customerId, {
-              firstName: wizardFormData.firstName.trim(),
-              lastName: wizardFormData.lastName.trim(),
-              phoneNumber: wizardFormData.phoneNumber.trim()
-            });
-          }
-        } else {
-          // Customer doesn't exist - create new customer
-          const tempPassword = `Temp${Date.now()}!`;
-
-          // Create customer with temporary password first
-          const createResponse = await apiService.createCustomer({
-            email: email,
-            password: tempPassword,
+          // Update customer info
+          await apiService.updateCustomer(customerId, {
             firstName: wizardFormData.firstName.trim(),
             lastName: wizardFormData.lastName.trim(),
             phoneNumber: wizardFormData.phoneNumber.trim()
           });
+        } else {
+          // New user - login with temp password and update
+          const tempPassword = wizardFormData.tempPassword;
 
-          customerId = createResponse?.data?.customerId || createResponse?.data?.id || createResponse?.data?.customer_id || createResponse?.id;
-
-          if (!customerId) {
-            throw new Error('Failed to create customer');
+          if (!tempPassword) {
+            throw new Error('Temporary password not found. Please restart the wizard.');
           }
 
           // Login with temporary password
@@ -734,23 +745,23 @@ const BookingWizard = ({
             password: tempPassword
           });
 
-          userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
+          const userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
           if (!userData) {
-            throw new Error('Failed to login after registration');
+            throw new Error('Failed to login with temporary credentials');
           }
+
+          // Update customer info and password
+          await apiService.updateCustomer(customerId, {
+            firstName: wizardFormData.firstName.trim(),
+            lastName: wizardFormData.lastName.trim(),
+            phoneNumber: wizardFormData.phoneNumber.trim()
+          });
 
           // Update password to user's chosen password
           await apiService.updateProfile({
             currentPassword: tempPassword,
             newPassword: wizardFormData.password
           });
-        }
-
-        if (customerId) {
-          setWizardFormData(prev => ({
-            ...prev,
-            customerId: customerId
-          }));
         }
 
         setWizardStep(4);
