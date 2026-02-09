@@ -111,10 +111,6 @@ const BookPage = () => {
         const responseData = response?.data || response;
         const checkData = responseData?.result || responseData;
 
-        console.log('Stripe account check result:', {
-          hasStripeAccount: checkData?.hasStripeAccount,
-          fullResponse: checkData
-        });
         
         return checkData;
       } catch (error) {
@@ -594,7 +590,6 @@ const BookPage = () => {
     setAgreementConsents,
     openAgreementModal,
     buildAgreementData,
-    getAgreementDebugInfo,
   } = useRentalAgreement(i18n.language || companyConfig?.language || 'en');
   
   // Mobile detection
@@ -1972,10 +1967,6 @@ const BookPage = () => {
       try {
         // Always check server to ensure images actually exist (don't trust state alone)
         // State might have invalid URLs from previous checks
-        console.log('Checking license images:', {
-          front: uploadedLicenseImages.front || 'null',
-          back: uploadedLicenseImages.back || 'null'
-        });
         
         // Clear cache to ensure we get fresh data
         if (dlImageCheckCache.current) {
@@ -2152,12 +2143,6 @@ const BookPage = () => {
 
         // Rental agreement data
         agreementData: (() => {
-          // DEBUG: Log agreement state before building data
-          console.log('Agreement state debug:', {
-            agreementSignature: agreementSignature ? `[${typeof agreementSignature}] ${agreementSignature.substring(0, 50)}...` : 'NULL',
-            agreementConsents,
-            language: i18n.language || companyConfig?.language || 'en'
-          });
 
           const baseAgreementData = buildAgreementData(i18n.language || companyConfig?.language || 'en');
 
@@ -2184,38 +2169,11 @@ const BookPage = () => {
         })()
       };
 
-      // DEBUG: Log final booking data agreement section
-
-      // Log agreement data for debugging
-      const debugInfo = getAgreementDebugInfo();
-      console.log('Booking final debug:', {
-        ...debugInfo,
-        agreementData: bookingData.agreementData ? {
-          hasSignature: !!bookingData.agreementData.signatureImage,
-          signatureLength: bookingData.agreementData.signatureImage?.length || 0,
-          language: bookingData.agreementData.language,
-          hasConsents: !!bookingData.agreementData.consents,
-          consents: bookingData.agreementData.consents,
-          consentTexts: bookingData.agreementData.consentTexts ? {
-            hasTerms: !!bookingData.agreementData.consentTexts.termsText,
-            hasNonRefundable: !!bookingData.agreementData.consentTexts.nonRefundableText,
-            hasDamagePolicy: !!bookingData.agreementData.consentTexts.damagePolicyText,
-            hasCardAuthorization: !!bookingData.agreementData.consentTexts.cardAuthorizationText,
-          } : null,
-        } : null
-      });
       
       // Warn if agreement signature exists but agreementData is null
       if (agreementSignature && !bookingData.agreementData) {
       }
 
-      // DEBUG: Final check before sending to server
-      console.log('Final booking check:', {
-        hasAgreementSignature: !!agreementSignature,
-        agreementSignatureLength: agreementSignature ? agreementSignature.length : 0,
-        hasAgreementData: !!bookingData.agreementData,
-        agreementData: bookingData.agreementData
-      });
 
       // Declare variables outside try-catch for scope access
       let reservation, bookingId;
@@ -2440,8 +2398,6 @@ const BookPage = () => {
     openAgreementModal,
 
     buildAgreementData,
-
-    getAgreementDebugInfo
 
   ]);
 
@@ -4625,11 +4581,6 @@ const BookPage = () => {
               }
             };
 
-            console.log('Creating agreement with:', {
-              bookingId: createdBookingId,
-              hasSignature: !!signature,
-              consents: agreementData.consents
-            });
 
             // Call API to create rental agreement in database
             await apiService.signBookingAgreement(createdBookingId, agreementData);

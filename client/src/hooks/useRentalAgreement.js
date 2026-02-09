@@ -106,25 +106,6 @@ export const useRentalAgreement = (language = 'en') => {
     return !!agreementSignature;
   }, [agreementSignature]);
 
-  /**
-   * Get agreement data for logging/debugging
-   * @returns {Object} Debug information about agreement state
-   */
-  const getAgreementDebugInfo = useCallback(() => {
-    const hasConsents = {};
-    RULE_KEYS.forEach(key => {
-      const acceptedAtKey = `${key}AcceptedAt`;
-      hasConsents[key] = !!agreementConsents[acceptedAtKey];
-    });
-
-    return {
-      hasAgreementSignature: !!agreementSignature,
-      agreementSignatureLength: agreementSignature?.length || 0,
-      hasConsents,
-      totalConsents: RULE_KEYS.length,
-      acceptedConsents: Object.values(hasConsents).filter(Boolean).length,
-    };
-  }, [agreementSignature, agreementConsents]);
 
   return {
     // State
@@ -143,7 +124,6 @@ export const useRentalAgreement = (language = 'en') => {
     closeAgreementModal,
     buildAgreementData,
     isAgreementSigned,
-    getAgreementDebugInfo,
   };
 };
 

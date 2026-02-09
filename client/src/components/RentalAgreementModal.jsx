@@ -46,18 +46,6 @@ const RentalAgreementModal = ({
     );
   }
 
-  // Debug props
-  console.log('RentalAgreementModal props:', {
-    isOpen,
-    hasOnConfirm: !!onConfirm,
-    bookingId,
-    hasConsents: !!consents,
-    hasSetConsents: !!setConsents,
-    hasSignatureData: !!signatureData,
-    hasSetSignatureData: !!setSignatureData,
-    viewMode,
-    language
-  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">

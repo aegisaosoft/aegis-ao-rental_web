@@ -46,16 +46,6 @@ const RentalAgreementPage = () => {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
-      console.log('Signing agreement:', {
-        bookingId,
-        hasSignature: !!agreementData.signatureImage,
-        signatureLength: agreementData.signatureImage?.length || 0,
-        language: agreementData.language,
-        consents: agreementData.consents,
-        consentTexts: agreementData.consentTexts,
-        signedAt: agreementData.signedAt
-      });
-
       await api.signBookingAgreement(bookingId, agreementData);
 
 

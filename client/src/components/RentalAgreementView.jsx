@@ -564,14 +564,7 @@ const RentalAgreementView = ({
   
   const texts = getConsentTexts(language);
 
-  // Debug consents state
-  console.log('RentalAgreementView state:', {
-    consents,
-    setConsents: !!setConsents,
-    viewMode,
-    isPage,
-    bookingId,
-  });
+  // State validation
 
   // Check if signed agreement PDF exists
   useEffect(() => {
@@ -635,17 +628,7 @@ const RentalAgreementView = ({
             license = customerDetails.license;
 
 
-            // Debug specific fields we're looking for
-            console.log('Customer debug fields:', {
-              phone: customer?.Phone || customer?.phone,
-              dateOfBirth: customer?.DateOfBirth || customer?.dateOfBirth,
-              address: customer?.Address || customer?.address,
-            });
-            console.log('License debug fields:', {
-              licenseAddress: license?.LicenseAddress || license?.licenseAddress,
-              middleName: license?.MiddleName || license?.middleName,
-              dateOfBirth: license?.DateOfBirth || license?.dateOfBirth,
-            });
+            // Extract customer and license data for agreement
           } catch (err) {
             console.error('Error loading customer details:', {
               status: err.response?.status,
@@ -702,15 +685,7 @@ const RentalAgreementView = ({
           })),
         });
 
-        console.log('Agreement data preview:', {
-          renterFirstName: customer?.firstName || '',
-          renterLastName: customer?.lastName || '',
-          renterEmail: customer?.email || '',
-          driverLicense: license?.licenseNumber || '',
-          licenseState: license?.stateIssued || '',
-          hasCustomer: !!customer,
-          hasLicense: !!license,
-        });
+        // Agreement data loaded successfully
       })
       .catch(err => {
         setLoadedBookingData({});
@@ -769,28 +744,15 @@ const RentalAgreementView = ({
   const canProceed = allConsentsAccepted && effectiveSignature;
 
   const handleConfirm = () => {
-    console.log('Handle confirm:', {
-      viewMode,
-      canProceed,
-      hasOnConfirm: !!onConfirm,
-      signatureData: !!signatureData,
-      consents
-    });
-
     if (viewMode || !canProceed) {
       return;
     }
 
     if (onConfirm) {
-      console.log('Confirming with data:', {
-        signature: signatureData,
-        consents: consents,
-      });
       onConfirm({
         signature: signatureData,
         consents: consents,
       });
-    } else {
     }
   };
 

@@ -608,12 +608,6 @@ const BookingWizard = ({
           const customerResponse = await apiService.createCustomer(tempCustomerData);
 
           const customerId = customerResponse?.data?.customerId || customerResponse?.data?.id || customerResponse?.data?.customer_id || customerResponse?.id;
-          console.log('Customer ID extraction:', {
-            'response.data.customerId': customerResponse?.data?.customerId,
-            'response.data.id': customerResponse?.data?.id,
-            'response.data.customer_id': customerResponse?.data?.customer_id,
-            'response.id': customerResponse?.id
-          });
 
           if (customerId) {
             setWizardFormData(prev => ({
@@ -822,14 +816,6 @@ const BookingWizard = ({
       // Get customerId for server check
       const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
 
-      // DEBUG: Log customerId sources
-      console.log('Customer ID sources:', {
-        'wizardFormData.customerId': wizardFormData.customerId,
-        'user?.customerId': user?.customerId,
-        'user?.id': user?.id,
-        'user object': user,
-        'final customerId': customerId
-      });
 
       if (!customerId) {
         setWizardError(t('bookPage.mustCompletePersonalInfo', 'Please complete personal information first'));

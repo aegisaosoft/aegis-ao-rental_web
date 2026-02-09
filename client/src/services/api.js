@@ -34,7 +34,7 @@ api.interceptors.request.use(
     // Sessions are managed server-side via HTTP-only cookies
     // No need to add Authorization headers - the session cookie is sent automatically
     // Disable SSL verification for development (localhost with self-signed cert)
-    if (config.baseURL?.includes('localhost')) {
+    if (typeof config.baseURL === 'string' && config.baseURL.includes('localhost')) {
       config.httpsAgent = false;
     }
     
@@ -80,7 +80,7 @@ api.interceptors.response.use(
     }
     
     // Silently handle 404 for customer email lookups - it's expected when customer doesn't exist
-    const isCustomerEmailLookup = error.config?.url?.includes('/customers/email/');
+    const isCustomerEmailLookup = typeof error.config?.url === 'string' && error.config.url.includes('/customers/email/');
     if (error.response?.status === 404 && isCustomerEmailLookup) {
       // Don't log 404 errors for customer email lookups - they're expected
       // The calling code will handle creating the customer
@@ -89,7 +89,7 @@ api.interceptors.response.use(
     
     // Silently handle 401 for profile endpoint when checking auth on app load
     // This is expected when user is not logged in - don't show console errors
-    const isProfileCheck = error.config?.url?.includes('/auth/profile');
+    const isProfileCheck = typeof error.config?.url === 'string' && error.config.url.includes('/auth/profile');
     if (error.response?.status === 401 && isProfileCheck) {
       // This is expected when checking if user is logged in on app load
       // The AuthContext will handle it silently
@@ -105,17 +105,17 @@ api.interceptors.response.use(
       
       // Don't redirect for CompanyLocations or Locations endpoints - let the component handle it
       // These endpoints may allow anonymous access or the component will handle auth
-      const isLocationEndpoint = error.config?.url?.includes('/CompanyLocations') ||
-                                  error.config?.url?.includes('/Locations/');
+      const isLocationEndpoint = (typeof error.config?.url === 'string' && error.config.url.includes('/CompanyLocations')) ||
+                                  (typeof error.config?.url === 'string' && error.config.url.includes('/Locations/'));
 
       // Don't redirect for Media license endpoints - they have AllowAnonymous for wizard flow
       // These endpoints are used during customer creation wizard without authentication
-      const isMediaLicenseEndpoint = error.config?.url?.includes('/Media/customers/') &&
-                                      error.config?.url?.includes('/licenses');
+      const isMediaLicenseEndpoint = (typeof error.config?.url === 'string' && error.config.url.includes('/Media/customers/')) &&
+                                      (typeof error.config?.url === 'string' && error.config.url.includes('/licenses'));
 
       // Don't redirect for Stripe status endpoints - 401 may mean no Stripe account or insufficient permissions
       // Let the component handle it gracefully
-      const isStripeStatusEndpoint = error.config?.url?.includes('/stripe/status');
+      const isStripeStatusEndpoint = typeof error.config?.url === 'string' && error.config.url.includes('/stripe/status');
       
       // If we're on a protected page (not public) and get 401/403, redirect to login
       // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
@@ -135,7 +135,7 @@ api.interceptors.response.use(
         }
         
         // Only redirect if we're not already redirecting (prevent multiple redirects)
-        if (!window.location.href.includes('/login')) {
+        if (typeof window.location.href === 'string' && !window.location.href.includes('/login')) {
           window.location.href = '/login';
         }
       }
