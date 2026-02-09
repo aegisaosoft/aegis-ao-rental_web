@@ -337,11 +337,18 @@ const ReservationWizardPage = () => {
   }, [wizardCustomerEmail, wizardPickupDate, wizardReturnDate, t]);
 
   // Callback when customer is created from AdminCustomerWizard
-  const handleCustomerCreated = useCallback((customer) => {
+  const handleCustomerCreated = useCallback((customer, isComplete = false) => {
     setWizardCustomer(customer);
     setWizardCustomerEmail(customer.email || '');
-    setTimeout(() => setWizardStep(2), 500);
-  }, []);
+
+    // Only proceed to booking if creation process was completed properly
+    if (isComplete) {
+      setTimeout(() => setWizardStep(2), 500);
+    } else {
+      // Creation was not completed properly - show message and don't proceed
+      toast.warning(t('admin.customerCreationIncomplete', 'Customer creation was not completed. Please try again if you want to continue with booking.'));
+    }
+  }, [t]);
 
   const handleCreateReservation = useCallback(async () => {
     if (!wizardCustomer || !wizardCustomer.customerId) {
@@ -1136,7 +1143,10 @@ const ReservationWizardPage = () => {
       {/* Admin Customer Creation Wizard */}
       <AdminCustomerWizard
         isOpen={showCustomerWizard}
-        onClose={() => setShowCustomerWizard(false)}
+        onClose={() => {
+          console.log('🔥 DEBUG: AdminCustomerWizard onClose called', new Error().stack);
+          setShowCustomerWizard(false);
+        }}
         onComplete={handleCustomerCreated}
         initialEmail={wizardCustomerEmail}
         companyId={currentCompanyId}

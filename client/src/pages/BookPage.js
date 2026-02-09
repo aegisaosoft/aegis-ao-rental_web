@@ -572,6 +572,11 @@ const BookPage = () => {
   
   // Debug: Log when wizard state changes
   React.useEffect(() => {
+    console.log('🔥 DEBUG: BookPage isCreateUserWizardOpen changed', {
+      isCreateUserWizardOpen,
+      userExists: !!user,
+      caller: new Error().stack?.split('\n')[1]?.trim() || 'unknown'
+    });
   }, [isCreateUserWizardOpen]);
   const [wizardInitialEmail, setWizardInitialEmail] = useState(null); // Email to pre-fill wizard when opened from auth modal
   
@@ -2781,18 +2786,30 @@ const BookPage = () => {
   // Fetch uploaded license images from server
   React.useEffect(() => {
     const fetchUploadedImages = async () => {
+      console.log('🔥 DEBUG: fetchUploadedImages called', {
+        userExists: !!user,
+        isCreateUserWizardOpen,
+        searchParamsCustomerId: searchParams.get('customerId')
+      });
+
       // Get customer ID from user, wizardFormData, or URL params
       let customerId = null;
-      
+
       if (user) {
         customerId = user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier;
       }
-      
+
       // Try to get from URL params
       const customerIdParam = searchParams.get('customerId');
       if (customerIdParam) {
         customerId = customerIdParam;
       }
+
+      console.log('🔥 DEBUG: fetchUploadedImages customerId resolved', {
+        customerId,
+        userCustomerId: user?.customerId || user?.id,
+        urlParamCustomerId: customerIdParam
+      });
 
       // Use /api proxy to avoid CORS issues (goes through Node.js proxy with CORS enabled)
       const apiBaseUrl = '/api';
@@ -2945,12 +2962,20 @@ const BookPage = () => {
       try {
         broadcastChannel = new BroadcastChannel('license_images_channel');
         broadcastChannel.onmessage = (event) => {
+          console.log('🔥 DEBUG: BookPage received BroadcastChannel message', {
+            eventData: event.data,
+            isCreateUserWizardOpen,
+            userExists: !!user
+          });
+
           if (event.data && (event.data.type === 'licenseImageUploaded' || event.data.type === 'licenseImageDeleted')) {
+            console.log('🔥 DEBUG: BookPage calling fetchUploadedImages after BroadcastChannel message');
             // Immediate refresh when image is uploaded or deleted
             setTimeout(fetchUploadedImages, 100);
           }
         };
       } catch (e) {
+        console.log('🔥 DEBUG: BookPage BroadcastChannel setup failed', e);
       }
       
       // Check localStorage for upload flags

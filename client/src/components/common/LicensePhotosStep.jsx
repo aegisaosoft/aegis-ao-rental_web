@@ -74,6 +74,10 @@ const LicensePhotosStep = ({
           }
           
           if (setUploadedImages && (newImages.front || newImages.back)) {
+            console.log('🔥 DEBUG: fetchExistingImages - restoring images', {
+              newImages,
+              from: 'fetchExistingImages useEffect'
+            });
             setUploadedImages(prev => ({
               ...prev,
               ...newImages
@@ -85,7 +89,7 @@ const LicensePhotosStep = ({
     };
     
     fetchExistingImages();
-  }, [customerId, setUploadedImages]);
+  }, [customerId]); // Remove setUploadedImages dependency to avoid circular updates
   
   // Listen for storage events (when license is scanned on phone)
   useEffect(() => {
@@ -114,6 +118,10 @@ const LicensePhotosStep = ({
           }
           
           if (newImages.front || newImages.back) {
+            console.log('🔥 DEBUG: checkForNewImages - restoring images', {
+              newImages,
+              from: 'QR polling useEffect'
+            });
             setUploadedImages(prev => ({ ...prev, ...newImages }));
           }
         }
@@ -133,7 +141,7 @@ const LicensePhotosStep = ({
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [showQRCode, customerId, setUploadedImages]);
+  }, [showQRCode, customerId]); // Remove setUploadedImages dependency
   
   // Handle file upload
   const handleFileChange = useCallback(async (e, side) => {
@@ -190,7 +198,10 @@ const LicensePhotosStep = ({
   
   // Handle delete image
   const handleDeleteImage = useCallback(async (side) => {
+    console.log('🔥 DEBUG: handleDeleteImage START', { side, customerId });
+
     if (!customerId) {
+      console.log('🔥 DEBUG: No customerId, clearing local only');
       // Just clear local state
       if (setLocalPreviews) {
         setLocalPreviews(prev => {
@@ -203,10 +214,12 @@ const LicensePhotosStep = ({
       }
       return;
     }
-    
+
     setIsLoading(true);
     try {
+      console.log('🔥 DEBUG: Making API delete call');
       await apiService.deleteCustomerLicenseImage(customerId, side);
+      console.log('🔥 DEBUG: API delete successful, clearing state');
       if (setUploadedImages) {
         setUploadedImages(prev => ({ ...prev, [side]: null }));
       }

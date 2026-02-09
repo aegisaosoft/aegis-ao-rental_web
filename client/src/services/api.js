@@ -105,17 +105,22 @@ api.interceptors.response.use(
       
       // Don't redirect for CompanyLocations or Locations endpoints - let the component handle it
       // These endpoints may allow anonymous access or the component will handle auth
-      const isLocationEndpoint = error.config?.url?.includes('/CompanyLocations') || 
+      const isLocationEndpoint = error.config?.url?.includes('/CompanyLocations') ||
                                   error.config?.url?.includes('/Locations/');
-      
+
+      // Don't redirect for Media license endpoints - they have AllowAnonymous for wizard flow
+      // These endpoints are used during customer creation wizard without authentication
+      const isMediaLicenseEndpoint = error.config?.url?.includes('/Media/customers/') &&
+                                      error.config?.url?.includes('/licenses');
+
       // Don't redirect for Stripe status endpoints - 401 may mean no Stripe account or insufficient permissions
       // Let the component handle it gracefully
       const isStripeStatusEndpoint = error.config?.url?.includes('/stripe/status');
       
       // If we're on a protected page (not public) and get 401/403, redirect to login
       // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
-      // But skip redirect for location and Stripe status endpoints - let the component handle auth
-      if (!isPublicPath && !isLocationEndpoint && !isStripeStatusEndpoint) {
+      // But skip redirect for location, media license, and Stripe status endpoints - let the component handle auth
+      if (!isPublicPath && !isLocationEndpoint && !isMediaLicenseEndpoint && !isStripeStatusEndpoint) {
         // Preserve companyId and userId (they persist through auth errors)
         const preservedCompanyId = localStorage.getItem('companyId');
         const preservedUserId = localStorage.getItem('userId');

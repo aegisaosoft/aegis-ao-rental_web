@@ -50,7 +50,10 @@ const AdminCustomerWizard = ({
   
   // Created customer (after step 1)
   const [createdCustomer, setCreatedCustomer] = useState(null);
-  
+
+  // Track if creation process is completed properly
+  const [isCreationComplete, setIsCreationComplete] = useState(false);
+
   // License images state
   const [uploadedImages, setUploadedImages] = useState({ front: null, back: null });
   const [localPreviews, setLocalPreviews] = useState({ front: null, back: null });
@@ -106,34 +109,55 @@ const AdminCustomerWizard = ({
         licenseIssueDate: '',
       };
 
-      // Check if we have license data to auto-fill
-      if (hasLicenseData && isHighConfidence) {
-        // Automatically apply auto-fill for high confidence data
-        const autoFilledData = applyAutoFill(cleanFormData, {
-          overwriteExisting: true
-        });
-        setFormData(autoFilledData);
-
-        toast.success(
-          `Auto-filled form from scanned license (${Math.round(dataConfidence * 100)}% confidence)`,
-          { autoClose: 4000 }
-        );
-      } else {
-        setFormData(cleanFormData);
-
-        // Generate suggestions for manual review if data is available
-        if (hasLicenseData) {
-          setTimeout(() => generateSuggestions(cleanFormData), 500);
-        }
-      }
+      setFormData(cleanFormData);
 
       setCreatedCustomer(null);
-      setUploadedImages({ front: null, back: null });
-      setLocalPreviews({ front: null, back: null });
+      setIsCreationComplete(false); // Reset completion flag
+      // Don't clear uploaded images when wizard data changes - only when wizard opens/closes
+      // setUploadedImages({ front: null, back: null });
+      // setLocalPreviews({ front: null, back: null });
       setError('');
     }
-  }, [isOpen, initialEmail, hasLicenseData, isHighConfidence, dataConfidence, applyAutoFill, generateSuggestions]);
-  
+  }, [isOpen, initialEmail]); // Only depend on wizard open/close and initial email, not license data
+
+  // Debug: Add error boundary effect
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOnError = window.onerror;
+    window.onerror = (message, source, lineno, colno, error) => {
+      console.log('🔥 DEBUG: Global JavaScript error in wizard', {
+        message, source, lineno, colno, error
+      });
+      if (originalOnError) originalOnError(message, source, lineno, colno, error);
+    };
+
+    return () => {
+      window.onerror = originalOnError;
+    };
+  }, [isOpen]);
+
+  // Auto-fill form when license data becomes available (separate effect to avoid state conflicts)
+  useEffect(() => {
+    if (!isOpen || !hasLicenseData) return;
+
+    if (isHighConfidence) {
+      // Automatically apply auto-fill for high confidence data
+      const autoFilledData = applyAutoFill(formData, {
+        overwriteExisting: false // Don't overwrite manually entered data
+      });
+      setFormData(autoFilledData);
+
+      toast.success(
+        `Auto-filled form from scanned license (${Math.round(dataConfidence * 100)}% confidence)`,
+        { autoClose: 4000 }
+      );
+    } else if (hasLicenseData) {
+      // Generate suggestions for manual review if data is available
+      setTimeout(() => generateSuggestions(formData), 500);
+    }
+  }, [isOpen, hasLicenseData, isHighConfidence, dataConfidence, applyAutoFill, generateSuggestions, formData]);
+
   // Handle form field changes
   const handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -308,17 +332,23 @@ const AdminCustomerWizard = ({
   // Complete wizard
   const handleComplete = useCallback(() => {
     if (createdCustomer) {
-      onComplete(createdCustomer);
+      setIsCreationComplete(true);
+      onComplete(createdCustomer, true); // Pass completion flag
+      console.log('🔥 DEBUG: AdminCustomerWizard - handleComplete calling onClose');
       onClose();
     }
   }, [createdCustomer, onComplete, onClose]);
   
   // Handle photo error
   const handlePhotoError = useCallback((errorMsg) => {
+    console.log('🔥 DEBUG: AdminCustomerWizard - handlePhotoError called', errorMsg);
     toast.error(errorMsg);
   }, []);
   
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('🔥 DEBUG: AdminCustomerWizard not rendering - isOpen is false');
+    return null;
+  }
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -332,7 +362,12 @@ const AdminCustomerWizard = ({
             </h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (createdCustomer && !isCreationComplete) {
+                onComplete(createdCustomer, false); // Mark as incomplete
+              }
+              onClose();
+            }}
             className="text-white/80 hover:text-white transition-colors"
           >
             <X className="h-6 w-6" />
@@ -544,7 +579,16 @@ const AdminCustomerWizard = ({
             <>
               <button
                 type="button"
-                onClick={wizardStep === 1 ? onClose : handleBack}
+                onClick={() => {
+                  if (wizardStep === 1) {
+                    if (createdCustomer && !isCreationComplete) {
+                      onComplete(createdCustomer, false); // Mark as incomplete
+                    }
+                    onClose();
+                  } else {
+                    handleBack();
+                  }
+                }}
                 className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800"
                 disabled={loading}
               >

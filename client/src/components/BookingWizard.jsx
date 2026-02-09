@@ -64,6 +64,28 @@ const BookingWizard = ({
   const [isParsingLicense, setIsParsingLicense] = useState(false);
   const [parsingRetryCount, setParsingRetryCount] = useState(0);
 
+  // Debug useEffect to track component lifecycle
+  useEffect(() => {
+    console.log('🔥 DEBUG: BookingWizard mounted or props changed', {
+      isOpen,
+      userExists: !!user,
+      hasInitialEmail: !!initialEmail
+    });
+
+    return () => {
+      console.log('🔥 DEBUG: BookingWizard unmounting or props changing');
+    };
+  }, [isOpen, user, initialEmail]);
+
+  // Debug useEffect to track isOpen changes specifically
+  useEffect(() => {
+    console.log('🔥 DEBUG: isOpen changed', {
+      isOpen,
+      from: !isOpen ? 'open' : 'closed',
+      to: isOpen ? 'open' : 'closed'
+    });
+  }, [isOpen]);
+
   // Reset wizard state when it first opens (transitions from closed to open)
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
@@ -170,7 +192,7 @@ const BookingWizard = ({
       // Don't reset other form data here - it might have been pre-filled from parent
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialEmail, user, uploadedLicenseImages.front, uploadedLicenseImages.back, onClose, setUploadedLicenseImages]);
+  }, [isOpen, initialEmail, user]); // Remove uploadedLicenseImages dependencies to prevent cycles
 
   // Fetch and display existing images when on step 2 (license photos)
   // ONLY for truly existing users (not new users in creation process)
@@ -269,7 +291,7 @@ const BookingWizard = ({
         }
       };
     }
-  }, [wizardStep, user, uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
+  }, [wizardStep, user]); // Remove uploadedLicenseImages dependencies
 
   // Polling mechanism: when QR code is shown, poll server every 3 seconds for new images
   // This is needed because phone and PC are different devices - localStorage/BroadcastChannel won't work
@@ -548,30 +570,80 @@ const BookingWizard = ({
 
   const handleDeleteWizardImage = async (side) => {
     const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
-    
+
+    console.log('🔥 DEBUG: handleDeleteWizardImage START', {
+      side,
+      customerId,
+      wizardStep,
+      isOpen,
+      userExists: !!user,
+      uploadedLicenseImages: { front: !!uploadedLicenseImages.front, back: !!uploadedLicenseImages.back }
+    });
+
     const isServerImage = side === 'front' ? uploadedLicenseImages.front : uploadedLicenseImages.back;
     const isLocalPreview = side === 'front' ? wizardImagePreviews.driverLicenseFront : wizardImagePreviews.driverLicenseBack;
-    
+
+    console.log('🔥 DEBUG: Image source detection', {
+      side,
+      isServerImage: !!isServerImage,
+      isLocalPreview: !!isLocalPreview,
+      customerId: !!customerId,
+      serverImageUrl: isServerImage || 'null',
+      localPreviewUrl: isLocalPreview ? 'has preview' : 'null',
+      uploadedLicenseImages,
+      wizardImagePreviews: {
+        front: !!wizardImagePreviews.driverLicenseFront,
+        back: !!wizardImagePreviews.driverLicenseBack
+      }
+    });
+
     try {
+      // Always clear local preview first to ensure immediate UI feedback
+      if (isLocalPreview) {
+        console.log('🔥 DEBUG: Clearing local preview', { side });
+        const fieldName = side === 'front' ? 'driverLicenseFront' : 'driverLicenseBack';
+        removeWizardImage(fieldName);
+      }
+
+      // Then delete from server if it exists
       if (isServerImage && customerId) {
+        console.log('🔥 DEBUG: Calling API to delete server image', { side, customerId });
         await apiService.deleteCustomerLicenseImage(customerId, side);
-        
+        console.log('🔥 DEBUG: API delete successful');
+
         try {
           const channel = new BroadcastChannel('license_images_channel');
           channel.postMessage({ type: 'licenseImageDeleted', side, customerId });
           channel.close();
+          console.log('🔥 DEBUG: BroadcastChannel message sent', { type: 'licenseImageDeleted', side, customerId });
         } catch (e) {
+          console.log('🔥 DEBUG: BroadcastChannel failed', e);
         }
-        
-        setUploadedLicenseImages(prev => ({
-          ...prev,
-          [side]: null
-        }));
-      } else if (isLocalPreview) {
-        const fieldName = side === 'front' ? 'driverLicenseFront' : 'driverLicenseBack';
-        removeWizardImage(fieldName);
+
+        console.log('🔥 DEBUG: Updating uploadedLicenseImages state - BEFORE', uploadedLicenseImages);
+        setUploadedLicenseImages(prev => {
+          const newState = {
+            ...prev,
+            [side]: null
+          };
+          console.log('🔥 DEBUG: Updating uploadedLicenseImages state - AFTER', newState);
+          return newState;
+        });
+        console.log('🔥 DEBUG: State update queued');
       }
+
+      // If neither exists, log for debugging
+      if (!isLocalPreview && !isServerImage) {
+        console.log('🔥 DEBUG: No image to delete', { isServerImage, isLocalPreview, customerId });
+      }
+
+      console.log('🔥 DEBUG: handleDeleteWizardImage COMPLETED successfully');
     } catch (err) {
+      console.log('🔥 DEBUG: handleDeleteWizardImage ERROR', {
+        error: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
       const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
       toast.error(errorMessage);
     }
@@ -1143,7 +1215,19 @@ const BookingWizard = ({
   };
 
   const handleCloseWizard = () => {
-    if (wizardLoading) return;
+    console.log('🔥 DEBUG: handleCloseWizard called', {
+      wizardLoading,
+      wizardStep,
+      caller: new Error().stack?.split('\n')[1]?.trim() || 'unknown'
+    });
+
+    if (wizardLoading) {
+      console.log('🔥 DEBUG: handleCloseWizard blocked - wizard loading');
+      return;
+    }
+
+    console.log('🔥 DEBUG: handleCloseWizard executing - resetting state');
+
     setWizardStep(1);
     setWizardError('');
     setShowWizardQRCode(false);
@@ -1181,7 +1265,9 @@ const BookingWizard = ({
     setAutoFilledFields(new Set());
     setIsParsingLicense(false);
     setParsingRetryCount(0);
+
     if (onClose) {
+      console.log('🔥 DEBUG: Calling onClose callback from handleCloseWizard');
       onClose();
     }
   };
@@ -1633,6 +1719,7 @@ const BookingWizard = ({
                               ✓ {t('bookPage.uploaded', 'Uploaded')}
                             </div>
                             <button
+                              type="button"
                               onClick={() => handleDeleteWizardImage('front')}
                               className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
                               title={t('bookPage.deletePhoto', 'Delete photo')}
@@ -1690,6 +1777,7 @@ const BookingWizard = ({
                               ✓ {t('bookPage.uploaded', 'Uploaded')}
                             </div>
                             <button
+                              type="button"
                               onClick={() => handleDeleteWizardImage('back')}
                               className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-colors"
                               title={t('bookPage.deletePhoto', 'Delete photo')}
