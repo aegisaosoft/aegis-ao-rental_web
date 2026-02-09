@@ -1977,7 +1977,7 @@ const BookPage = () => {
         const hasDLImages = await checkDriverLicenseImagesExist(customerId);
         
         if (!hasDLImages) {
-          // User exists but images don't exist → show wizard from page 3
+          // User exists but images don't exist → show wizard from page 1
           setIsCreateUserWizardOpen(true);
           
           // Verify the state was set
@@ -2562,7 +2562,7 @@ const BookPage = () => {
         }
         
         if (!hasDLImages) {
-          // User exists but images don't exist → show wizard from page 3
+          // User exists but images don't exist → show wizard from page 1
           setAuthModalOpen(false);
           resetAuthModal();
           setIsCreateUserWizardOpen(true);
