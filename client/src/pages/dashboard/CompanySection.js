@@ -124,7 +124,6 @@ const CompanySection = ({
         setTermsOfUseDraft(termsOfUse);
       },
       onError: (error) => {
-        console.error('Error loading company:', error);
         toast.error(t('admin.companyLoadFailed'), { position: 'top-center', autoClose: 3000 });
       }
     }
@@ -145,7 +144,6 @@ const CompanySection = ({
         const responseData = response?.data || response;
         return responseData?.result || responseData;
       } catch (error) {
-        console.error('[CompanySection] Error fetching Stripe status:', error);
         if (error.response?.status === 401 || error.response?.status === 404 || error.response?.status === 503) {
           return { chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, accountStatus: 'not_started' };
         }
@@ -177,7 +175,6 @@ const CompanySection = ({
                       s.name?.toLowerCase().includes('sandbox')
         }));
       } catch (error) {
-        console.error('[CompanySection] Error fetching Stripe settings:', error);
         return [];
       }
     },
@@ -204,7 +201,6 @@ const CompanySection = ({
     {
       enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && activeTab === 'locations' && activeLocationSubTab === 'company',
       onError: (error) => {
-        console.error('Error loading company locations:', error);
         toast.error(t('admin.locationsLoadFailed'), { position: 'top-center', autoClose: 3000 });
       }
     }
@@ -217,7 +213,6 @@ const CompanySection = ({
     {
       enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId && (activeTab === 'locations'),
       onError: (error) => {
-        console.error('Error loading pickup locations:', error);
         toast.error(t('admin.locationsLoadFailed'), { position: 'top-center', autoClose: 3000 });
       }
     }
@@ -238,7 +233,6 @@ const CompanySection = ({
         queryClient.invalidateQueries(['company', currentCompanyId]);
       },
       onError: (error) => {
-        console.error('Error updating company:', error);
         const errorMessage = error.response?.data?.message || error.response?.data || t('admin.companyUpdateFailed');
         toast.error(typeof errorMessage === 'string' ? errorMessage : t('admin.companyUpdateFailed'), { position: 'top-center', autoClose: 5000 });
       }
@@ -257,7 +251,6 @@ const CompanySection = ({
         setLocationFormData(initialLocationFormData);
       },
       onError: (error) => {
-        console.error('Error creating location:', error);
         toast.error(error.response?.data?.message || t('admin.locationCreateFailed') || 'Failed to create location');
       }
     }
@@ -275,7 +268,6 @@ const CompanySection = ({
         setLocationFormData(initialLocationFormData);
       },
       onError: (error) => {
-        console.error('Error updating location:', error);
         toast.error(error.response?.data?.message || t('admin.locationUpdateFailed') || 'Failed to update location');
       }
     }
@@ -290,7 +282,6 @@ const CompanySection = ({
         queryClient.invalidateQueries(['pickupLocations', currentCompanyId]);
       },
       onError: (error) => {
-        console.error('Error deleting location:', error);
         toast.error(t('admin.locationDeleteFailed'), { position: 'top-center', autoClose: 3000 });
       }
     }
@@ -306,7 +297,6 @@ const CompanySection = ({
         setLocationFormData(initialLocationFormData);
       },
       onError: (error) => {
-        console.error('Error creating company location:', error);
         toast.error(error.response?.data?.message || t('admin.locationCreateFailed') || 'Failed to create location');
       }
     }
@@ -322,7 +312,6 @@ const CompanySection = ({
         setLocationFormData(initialLocationFormData);
       },
       onError: (error) => {
-        console.error('Error updating company location:', error);
         toast.error(error.response?.data?.message || t('admin.locationUpdateFailed') || 'Failed to update location');
       }
     }
@@ -335,7 +324,6 @@ const CompanySection = ({
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
       },
       onError: (error) => {
-        console.error('Error deleting company location:', error);
         toast.error(error.response?.data?.message || t('admin.locationDeleteFailed') || 'Failed to delete location');
       }
     }
@@ -421,7 +409,6 @@ const CompanySection = ({
           queryClient.invalidateQueries(['company', newCompanyId]);
         }
       } catch (error) {
-        console.error('Error creating company:', error);
         setIsCreatingCompany(false);
         toast.error(error.response?.data?.message || t('admin.companyCreateFailed') || 'Failed to create company');
       }
@@ -471,9 +458,7 @@ const CompanySection = ({
       });
       queryClient.invalidateQueries(['company', currentCompanyId]);
       setIsEditingDeposit(false);
-      toast.success(t('admin.securityDepositSaved', 'Security deposit saved successfully.'));
     } catch (error) {
-      console.error('Error saving security deposit:', error);
       toast.error(t('admin.securityDepositSaveError', 'Failed to save security deposit.'));
     } finally {
       setIsSavingDeposit(false);
@@ -485,9 +470,7 @@ const CompanySection = ({
     try {
       await apiService.updateCompany(currentCompanyId, { termsOfUse: termsOfUseDraft });
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success(t('admin.termsOfUseSaved', 'Terms of Use saved successfully.'));
     } catch (error) {
-      console.error('Error saving terms of use:', error);
       toast.error(t('admin.termsOfUseSaveError', 'Failed to save Terms of Use.'));
     } finally {
       setIsSavingTermsOfUse(false);
@@ -521,7 +504,6 @@ const CompanySection = ({
         setIsCreatingStripeAccount(false);
       }
     } catch (error) {
-      console.error('Error creating Stripe account:', error);
       toast.error(error.response?.data?.message || t('admin.stripeAccountCreateFailed', 'Failed to create Stripe account'));
       setIsCreatingStripeAccount(false);
     }
@@ -573,9 +555,7 @@ const CompanySection = ({
         await apiService.updateCompany(currentCompanyId, { stripeSettingsId: newEnvId });
         queryClient.invalidateQueries(['company', currentCompanyId]);
         queryClient.invalidateQueries(['stripeStatus', currentCompanyId]);
-        toast.success(t('admin.stripeEnvironmentChanged', 'Stripe environment updated'));
       } catch (error) {
-        console.error('Error changing Stripe environment:', error);
         toast.error(t('admin.stripeEnvironmentChangeFailed', 'Failed to save Stripe environment'));
         // Revert the selection on save failure
         if (actualCompanyData?.stripeSettingsId) {
@@ -585,7 +565,6 @@ const CompanySection = ({
         setIsSavingStripeEnvironment(false);
       }
     } catch (error) {
-      console.error('Error testing Stripe connection:', error);
       setStripeConnectionStatus({
         success: false,
         error: error.response?.data?.error || t('admin.stripeConnectionTestError', 'Error testing Stripe API keys')
@@ -696,10 +675,8 @@ const CompanySection = ({
         const fieldName = type === 'logo' ? 'logoLink' : type === 'banner' ? 'bannerLink' : 'videoLink';
         setCompanyFormData(prev => ({ ...prev, [fieldName]: url }));
         queryClient.invalidateQueries(['company', currentCompanyId]);
-        toast.success(t('admin.uploadSuccess', 'File uploaded successfully'));
       }
     } catch (error) {
-      console.error(`Error uploading ${type}:`, error);
       toast.error(t('admin.uploadError', 'Failed to upload file'));
     } finally {
       setIsUploading(prev => ({ ...prev, [type]: false }));
@@ -729,9 +706,7 @@ const CompanySection = ({
       await apiService.updateCompany(currentCompanyId, { logoLink: null });
       setCompanyFormData(prev => ({ ...prev, logoLink: null }));
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success(t('admin.logoDeleted', 'Logo deleted successfully'));
     } catch (error) {
-      console.error('Error deleting logo:', error);
       toast.error(t('admin.logoDeleteError', 'Failed to delete logo'));
     }
   }, [currentCompanyId, queryClient, t]);
@@ -742,9 +717,7 @@ const CompanySection = ({
       await apiService.updateCompany(currentCompanyId, { bannerLink: null });
       setCompanyFormData(prev => ({ ...prev, bannerLink: null }));
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success(t('admin.bannerDeleted', 'Banner deleted successfully'));
     } catch (error) {
-      console.error('Error deleting banner:', error);
       toast.error(t('admin.bannerDeleteError', 'Failed to delete banner'));
     }
   }, [currentCompanyId, queryClient, t]);
@@ -756,9 +729,7 @@ const CompanySection = ({
       await apiService.updateCompany(currentCompanyId, { videoLink: null });
       setCompanyFormData(prev => ({ ...prev, videoLink: null }));
       queryClient.invalidateQueries(['company', currentCompanyId]);
-      toast.success(t('admin.videoDeleted', 'Video deleted successfully'));
     } catch (error) {
-      console.error('Error deleting video:', error);
       toast.error(t('admin.videoDeleteError', 'Failed to delete video'));
     }
   }, [currentCompanyId, queryClient, t]);
@@ -1325,7 +1296,6 @@ const CompanySection = ({
                           window.open(dashboardUrl, '_blank');
                         }
                       } catch (error) {
-                        console.error('Error getting Stripe dashboard:', error);
                       }
                     }}
                     className="btn-secondary text-sm"

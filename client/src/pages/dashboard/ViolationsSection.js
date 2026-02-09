@@ -91,7 +91,6 @@ const ViolationsSection = ({
     {
       enabled: isAuthenticated && !!currentCompanyId && isUSCompany,
       onError: (error) => {
-        console.error('Error loading finders list:', error);
       },
     }
   );
@@ -188,7 +187,6 @@ const ViolationsSection = ({
         }));
       },
       onError: (error) => {
-        console.error('Error saving finders list:', error);
         toast.error(t('admin.findersListSaveError', 'Failed to save finders list'));
       },
     }
@@ -267,7 +265,6 @@ const ViolationsSection = ({
             if (isComplete) {
               if (intervalId) clearInterval(intervalId);
               queryClient.invalidateQueries(['violations', currentCompanyId]);
-              toast.success(t('admin.violationsFindingCompleted', 'Violations finding completed!'));
               setTimeout(() => setViolationsFindingProgress(null), 3000);
             } else if (isError) {
               if (intervalId) clearInterval(intervalId);
@@ -353,7 +350,6 @@ const ViolationsSection = ({
           try {
             await navigator.clipboard.writeText(violationNumber);
           } catch (err) {
-            console.error('Failed to copy:', err);
           }
           if (link) {
             let finalLink = link;
@@ -510,7 +506,6 @@ const ViolationsSection = ({
   const handleSaveFinders = () => {
     const stateCodes = Array.from(selectedStates);
     saveFindersListMutation.mutate(stateCodes);
-    toast.success(t('admin.findersListSaved', 'Finders list saved successfully!'));
   };
 
   // Get US states for finders tab

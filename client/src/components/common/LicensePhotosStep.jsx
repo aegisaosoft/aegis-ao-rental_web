@@ -81,7 +81,6 @@ const LicensePhotosStep = ({
           }
         }
       } catch (error) {
-        console.error('[LicensePhotosStep] Error fetching existing images:', error);
       }
     };
     
@@ -179,7 +178,6 @@ const LicensePhotosStep = ({
           setLocalPreviews(prev => ({ ...prev, [side]: null }));
         }
       } catch (error) {
-        console.error(`[LicensePhotosStep] Error uploading ${side} image:`, error);
         onError?.(t('license.uploadError', 'Failed to upload image. Please try again.'));
       } finally {
         setIsLoading(false);
@@ -219,7 +217,6 @@ const LicensePhotosStep = ({
         });
       }
     } catch (error) {
-      console.error(`[LicensePhotosStep] Error deleting ${side} image:`, error);
       onError?.(t('license.deleteError', 'Failed to delete image'));
     } finally {
       setIsLoading(false);
@@ -302,7 +299,6 @@ const LicensePhotosStep = ({
                     alt="Driver license front"
                     className="w-full h-48 object-contain rounded-lg border-2 border-green-500 bg-gray-50"
                     onError={(e) => {
-                      console.error('[LicensePhotosStep] Front image failed to load');
                       if (setUploadedImages) {
                         setUploadedImages(prev => ({ ...prev, front: null }));
                       }
@@ -336,7 +332,6 @@ const LicensePhotosStep = ({
                     alt="Driver license back"
                     className="w-full h-48 object-contain rounded-lg border-2 border-green-500 bg-gray-50"
                     onError={(e) => {
-                      console.error('[LicensePhotosStep] Back image failed to load');
                       if (setUploadedImages) {
                         setUploadedImages(prev => ({ ...prev, back: null }));
                       }

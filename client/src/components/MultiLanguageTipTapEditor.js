@@ -382,7 +382,6 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
       }
     } catch (e) {
       // If parsing fails, keep current content
-      console.error('Error parsing terms of use content:', e);
     }
   }, [content]);
 
@@ -463,7 +462,6 @@ const MultiLanguageTipTapEditor = ({ content, onChange, placeholder = 'Start typ
       
       alert(`Translation completed! ${LANGUAGES.find(l => l.code === activeLanguage)?.name || activeLanguage} content has been updated.`);
     } catch (error) {
-      console.error('Translation error:', error);
       alert(`Translation failed: ${error.message || 'Unknown error'}`);
     } finally {
       setIsTranslating(false);

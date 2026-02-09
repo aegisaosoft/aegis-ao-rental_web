@@ -142,6 +142,37 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Get customer with details (license info)
+router.get('/data/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = req.token || req.session?.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const axios = require('axios');
+    const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
+
+    const response = await axios.get(`${apiBaseUrl}/api/customers/data/${id}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : undefined,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      httpsAgent: new (require('https')).Agent({
+        rejectUnauthorized: false
+      }),
+      validateStatus: () => true
+    });
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Customer details fetch error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get customer by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {

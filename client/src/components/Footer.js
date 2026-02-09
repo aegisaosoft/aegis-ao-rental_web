@@ -66,7 +66,6 @@ const Footer = () => {
           setLocations(activeLocations);
         }
       } catch (error) {
-        console.error('Error fetching locations for footer:', error);
         setLocations([]);
       }
     };

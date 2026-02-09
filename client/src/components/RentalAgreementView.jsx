@@ -27,6 +27,7 @@ const RULES_TEXTS = {
     ruleNoCellPhone: "No cell phone use while operating the Vehicle unless it is a hands free device such as a Bluetooth. It's the law, the driver is prohibited from handling any Electronic device while driving regardless of the behavior of use.",
     ruleCardAuthorization: 'I authorize the rental company to charge my credit/debit card on file for: the rental amount, security deposit, fuel charges if applicable, traffic violations, parking tickets, toll charges, damage repairs, cleaning fees, and any other charges incurred during or as a result of this rental.',
     ruleTermsAgreement: 'I have read and agree to the',
+    ruleSmsConsent: 'I consent to receive SMS notifications and updates related to my rental.',
     rentalTermsLink: 'Rental Terms and Conditions',
     signatureLabel: 'Your Signature',
     signatureHelper: 'Please sign in the box above using your mouse or finger',
@@ -94,6 +95,7 @@ const RULES_TEXTS = {
     ruleNoCellPhone: 'No use el teléfono celular mientras opera el vehículo a menos que sea un dispositivo manos libres como Bluetooth. Es la ley, el conductor tiene prohibido manejar cualquier dispositivo electrónico mientras conduce independientemente del comportamiento de uso.',
     ruleCardAuthorization: 'Autorizo a la empresa de alquiler a cargar mi tarjeta de crédito/débito en archivo por: el monto del alquiler, depósito de seguridad, cargos de combustible si corresponde, violaciones de tráfico, multas de estacionamiento, cargos de peaje, reparaciones de daños, cargos de limpieza y cualquier otro cargo incurrido durante o como resultado de este alquiler.',
     ruleTermsAgreement: 'He leído y acepto los',
+    ruleSmsConsent: 'Consiento recibir notificaciones SMS y actualizaciones relacionadas con mi alquiler.',
     rentalTermsLink: 'Términos y Condiciones de Alquiler',
     signatureLabel: 'Su Firma',
     signatureHelper: 'Por favor firme en el cuadro de arriba usando su ratón o dedo',
@@ -161,6 +163,7 @@ const RULES_TEXTS = {
     ruleNoCellPhone: 'Não use celular enquanto opera o veículo, a menos que seja um dispositivo viva-voz como Bluetooth. É a lei, o motorista está proibido de manusear qualquer dispositivo eletrônico enquanto dirige, independentemente do comportamento de uso.',
     ruleCardAuthorization: 'Autorizo a empresa de locação a cobrar meu cartão de crédito/débito em arquivo pelo: valor da locação, depósito de segurança, taxas de combustível se aplicável, violações de trânsito, multas de estacionamento, taxas de pedágio, reparos de danos, taxas de limpeza e quaisquer outros encargos incorridos durante ou como resultado desta locação.',
     ruleTermsAgreement: 'Li e concordo com os',
+    ruleSmsConsent: 'Consinto em receber notificações SMS e atualizações relacionadas ao meu aluguel.',
     rentalTermsLink: 'Termos e Condições de Locação',
     signatureLabel: 'Sua Assinatura',
     signatureHelper: 'Por favor assine na caixa acima usando seu mouse ou dedo',
@@ -228,6 +231,7 @@ const RULES_TEXTS = {
     ruleNoCellPhone: 'Pas d\'utilisation du téléphone portable en conduisant le véhicule sauf s\'il s\'agit d\'un dispositif mains libres comme Bluetooth. C\'est la loi, le conducteur n\'a pas le droit de manipuler tout appareil électronique en conduisant.',
     ruleCardAuthorization: 'J\'autorise la société de location à débiter ma carte de crédit/débit enregistrée pour: le montant de la location, le dépôt de garantie, les frais de carburant le cas échéant, les infractions au code de la route, les contraventions de stationnement, les péages, les réparations, les frais de nettoyage et tous autres frais encourus pendant ou à la suite de cette location.',
     ruleTermsAgreement: 'J\'ai lu et j\'accepte les',
+    ruleSmsConsent: 'Je consens à recevoir des notifications SMS et des mises à jour relatives à ma location.',
     rentalTermsLink: 'Conditions Générales de Location',
     signatureLabel: 'Votre Signature',
     signatureHelper: 'Veuillez signer dans le cadre ci-dessus avec votre souris ou votre doigt',
@@ -295,6 +299,7 @@ const RULES_TEXTS = {
     ruleNoCellPhone: 'Keine Handynutzung während der Fahrt, es sei denn, es handelt sich um eine Freisprechanlage wie Bluetooth. Es ist Gesetz, der Fahrer darf während der Fahrt kein elektronisches Gerät bedienen.',
     ruleCardAuthorization: 'Ich ermächtige das Mietunternehmen, meine hinterlegte Kredit-/Debitkarte zu belasten für: Mietbetrag, Kaution, Kraftstoffgebühren falls zutreffend, Verkehrsverstöße, Parkgebühren, Mautgebühren, Schadensreparaturen, Reinigungsgebühren und alle anderen Kosten, die während oder infolge dieser Anmietung entstehen.',
     ruleTermsAgreement: 'Ich habe die folgenden gelesen und stimme zu',
+    ruleSmsConsent: 'Ich stimme zu, SMS-Benachrichtigungen und Updates zu meiner Anmietung zu erhalten.',
     rentalTermsLink: 'Mietbedingungen',
     signatureLabel: 'Ihre Unterschrift',
     signatureHelper: 'Bitte unterschreiben Sie im obigen Feld mit Ihrer Maus oder Ihrem Finger',
@@ -361,6 +366,7 @@ const RULE_KEYS = [
   'rule24Hour',
   'ruleNoCellPhone',
   'ruleCardAuthorization',
+  'ruleSmsConsent',
   'ruleTermsAgreement',
 ];
 
@@ -528,8 +534,8 @@ const SignaturePad = ({ onSignatureChange, signatureData, disabled }) => {
 // ============== MAIN COMPONENT ==============
 
 const RentalAgreementView = ({
-  bookingId,
-  rentalInfo, // Data from form (when booking doesn't exist yet)
+  bookingId, // REQUIRED - data must always come from database
+  // rentalInfo removed - data should always come from database
   language = 'en',
   onConfirm,
   onClose,
@@ -537,21 +543,35 @@ const RentalAgreementView = ({
   viewMode = false,
   isPage = false, // true if used as standalone page
   t = (key, defaultValue) => defaultValue,
+  // Props for signature and consents (external state management)
+  signatureData,
+  setSignatureData,
+  consents,
+  setConsents,
+  loading,
+  // agreementData removed - data should always come from database
 }) => {
   // State
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState(null);
   const [existingPdfUrl, setExistingPdfUrl] = useState(null);
   const [checkingExistingPdf, setCheckingExistingPdf] = useState(!!bookingId); // Only check if bookingId exists
   const [loadedBookingData, setLoadedBookingData] = useState(null);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [localConsents, setLocalConsents] = useState({});
-  const [localSignature, setLocalSignature] = useState(null);
+  const [bookingError, setBookingError] = useState(null);
   
   const checkedPdfRef = useRef(false);
   const loadedBookingRef = useRef(false);
   
   const texts = getConsentTexts(language);
+
+  // Debug consents state
+  console.log('RentalAgreementView state:', {
+    consents,
+    setConsents: !!setConsents,
+    viewMode,
+    isPage,
+    bookingId,
+  });
 
   // Check if signed agreement PDF exists
   useEffect(() => {
@@ -575,10 +595,11 @@ const RentalAgreementView = ({
         }
       })
       .catch(err => {
-        if (err?.response?.status === 404) {
+        if (err?.response?.status === 404 || err?.response?.status === 401) {
+          // 404: Agreement not found
+          // 401: Unauthorized (also means agreement doesn't exist or user doesn't have access)
           setExistingPdfUrl('');
         } else {
-          console.error('Error checking existing agreement:', err);
           setExistingPdfUrl('');
         }
       })
@@ -598,9 +619,42 @@ const RentalAgreementView = ({
     setBookingLoading(true);
     
     api.getBooking(bookingId)
-      .then(response => {
+      .then(async (response) => {
         const booking = response.data;
-        
+
+        // Load customer with details (including license)
+        let customer = null;
+        let license = null;
+
+        if (booking.customerId) {
+          try {
+            const customerDetailsResponse = await api.getCustomerWithDetails(booking.customerId);
+            const customerDetails = customerDetailsResponse.data;
+
+            customer = customerDetails.customer;
+            license = customerDetails.license;
+
+
+            // Debug specific fields we're looking for
+            console.log('Customer debug fields:', {
+              phone: customer?.Phone || customer?.phone,
+              dateOfBirth: customer?.DateOfBirth || customer?.dateOfBirth,
+              address: customer?.Address || customer?.address,
+            });
+            console.log('License debug fields:', {
+              licenseAddress: license?.LicenseAddress || license?.licenseAddress,
+              middleName: license?.MiddleName || license?.middleName,
+              dateOfBirth: license?.DateOfBirth || license?.dateOfBirth,
+            });
+          } catch (err) {
+            console.error('Error loading customer details:', {
+              status: err.response?.status,
+              statusText: err.response?.statusText,
+              message: err.message,
+            });
+          }
+        }
+
         const pickupDate = booking.pickupDate ? new Date(booking.pickupDate) : new Date();
         const returnDate = booking.returnDate ? new Date(booking.returnDate) : new Date();
         const diffTime = Math.abs(returnDate - pickupDate);
@@ -608,16 +662,16 @@ const RentalAgreementView = ({
         
         setLoadedBookingData({
           renter: {
-            firstName: booking.customerFirstName || booking.customer?.firstName || '',
-            lastName: booking.customerLastName || booking.customer?.lastName || '',
-            email: booking.customerEmail || booking.customer?.email || '',
-            phone: booking.customerPhone || booking.customer?.phone || '',
-            middleName: booking.customer?.middleName || '',
-            dateOfBirth: booking.customer?.dateOfBirth || '',
-            address: booking.customer?.address || '',
-            driverLicense: booking.customer?.licenseNumber || '',
-            state: booking.customer?.licenseState || '',
-            licenseExpiration: booking.customer?.licenseExpiration || '',
+            firstName: customer?.FirstName || customer?.firstName || booking.customerFirstName || '',
+            lastName: customer?.LastName || customer?.lastName || booking.customerLastName || '',
+            email: customer?.Email || customer?.email || booking.customerEmail || '',
+            phone: customer?.Phone || customer?.phone || booking.customerPhone || '',
+            middleName: license?.MiddleName || license?.middleName || '',
+            dateOfBirth: customer?.DateOfBirth || customer?.dateOfBirth || license?.DateOfBirth || license?.dateOfBirth || '',
+            address: customer?.Address || customer?.address || license?.LicenseAddress || license?.licenseAddress || booking.customerAddress || '',
+            driverLicense: license?.LicenseNumber || license?.licenseNumber || '',
+            state: license?.StateIssued || license?.stateIssued || '',
+            licenseExpiration: license?.ExpirationDate || license?.expirationDate || '',
           },
           vehicle: {
             type: booking.vehicleCategory || '',
@@ -647,9 +701,18 @@ const RentalAgreementView = ({
             price: s.total || s.subtotal || 0,
           })),
         });
+
+        console.log('Agreement data preview:', {
+          renterFirstName: customer?.firstName || '',
+          renterLastName: customer?.lastName || '',
+          renterEmail: customer?.email || '',
+          driverLicense: license?.licenseNumber || '',
+          licenseState: license?.stateIssued || '',
+          hasCustomer: !!customer,
+          hasLicense: !!license,
+        });
       })
       .catch(err => {
-        console.error('Error loading booking:', err);
         setLoadedBookingData({});
       })
       .finally(() => {
@@ -657,70 +720,77 @@ const RentalAgreementView = ({
       });
   }, [bookingId, viewMode, existingPdfUrl]);
 
-  // Use rentalInfo if no bookingId (new booking from form) - fallback only
+  // Data validation - bookingId is required for database loading
   useEffect(() => {
-    if (bookingId) return; // Has bookingId - data loaded from API
-    if (!rentalInfo) return; // No data at all
-    
-    // Transform rentalInfo to loadedBookingData format
-    const pickupDate = rentalInfo.pickupDate ? new Date(rentalInfo.pickupDate) : new Date();
-    const returnDate = rentalInfo.returnDate ? new Date(rentalInfo.returnDate) : new Date();
-    const diffTime = Math.abs(returnDate - pickupDate);
-    const rentalDays = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 1);
-    
-    setLoadedBookingData({
-      renter: rentalInfo.renter || {},
-      vehicle: rentalInfo.vehicle || {},
-      pickupDate: rentalInfo.pickupDate,
-      returnDate: rentalInfo.returnDate,
-      startTime: rentalInfo.startTime || rentalInfo.pickupTime,
-      returnTime: rentalInfo.returnTime,
-      rates: rentalInfo.rates || {
-        dailyRate: rentalInfo.dailyRate || 0,
-        ratePerDay: rentalInfo.dailyRate || 0,
-        numberOfDays: rentalDays,
-        dailyTotal: (rentalInfo.dailyRate || 0) * rentalDays,
-        total: rentalInfo.totalAmount || 0,
-        totalCharges: rentalInfo.totalAmount || 0,
-        securityDeposit: rentalInfo.securityDeposit || 0,
-      },
-      totalAmount: rentalInfo.totalAmount || 0,
-      securityDeposit: rentalInfo.securityDeposit || 0,
-      selectedServices: rentalInfo.selectedServices || [],
-    });
-  }, [bookingId, rentalInfo]);
+    if (!bookingId) {
+      setBookingError('Booking ID is required to load agreement data from database');
+      return;
+    }
+  }, [bookingId]);
+
+  // Local state for consents and signature if not provided via props
+  const [localConsents, setLocalConsents] = useState(null);
+  const [localSignature, setLocalSignature] = useState(null);
+
+  // Use props or local state
+  const effectiveConsents = consents || localConsents;
+  const effectiveSetConsents = setConsents || setLocalConsents;
+  const effectiveSignature = signatureData || localSignature;
+  const effectiveSetSignature = setSignatureData || setLocalSignature;
 
   // Initialize consents
   useEffect(() => {
-    if (viewMode) return;
+    if (viewMode || effectiveConsents) return; // Don't initialize if consents already exist
     const initial = {};
     RULE_KEYS.forEach(key => {
       initial[key] = false;
       initial[`${key}AcceptedAt`] = null;
     });
-    setLocalConsents(initial);
-  }, [viewMode]);
+    if (setConsents) {
+      setConsents(initial);
+    } else {
+      setLocalConsents(initial);
+    }
+  }, [viewMode, effectiveConsents, setConsents]);
 
   const handleConsentChange = (type, checked) => {
-    if (viewMode) return;
+    if (viewMode || !effectiveSetConsents) {
+      return;
+    }
     const now = checked ? new Date().toISOString() : null;
-    setLocalConsents(prev => ({
+    effectiveSetConsents(prev => ({
       ...prev,
       [type]: checked,
       [`${type}AcceptedAt`]: now,
     }));
   };
 
-  const allConsentsAccepted = RULE_KEYS.every(key => localConsents[key]);
-  const canProceed = allConsentsAccepted && localSignature;
+  const allConsentsAccepted = RULE_KEYS.every(key => effectiveConsents?.[key]);
+  const canProceed = allConsentsAccepted && effectiveSignature;
 
   const handleConfirm = () => {
-    if (viewMode || !canProceed) return;
+    console.log('Handle confirm:', {
+      viewMode,
+      canProceed,
+      hasOnConfirm: !!onConfirm,
+      signatureData: !!signatureData,
+      consents
+    });
+
+    if (viewMode || !canProceed) {
+      return;
+    }
+
     if (onConfirm) {
-      onConfirm({
-        signature: localSignature,
-        consents: localConsents,
+      console.log('Confirming with data:', {
+        signature: signatureData,
+        consents: consents,
       });
+      onConfirm({
+        signature: signatureData,
+        consents: consents,
+      });
+    } else {
     }
   };
 
@@ -729,7 +799,7 @@ const RentalAgreementView = ({
     if (!loadedBookingData) return;
     
     setPdfLoading(true);
-    setPdfError(null);
+    // Removed: setPdfError(null) - no error display
     
     const info = loadedBookingData;
     
@@ -780,6 +850,9 @@ const RentalAgreementView = ({
         securityDeposit: depositAmount,
         additionalServices: additionalServices,
         totalCharges: totalCharges,
+        // SMS Consent - Include by default with auto-generated text based on language
+        includeSmsConsent: true,
+        smsConsentText: null, // Will use auto-generated text based on language
       };
 
       const response = await api.previewAgreementPdf(previewData);
@@ -790,14 +863,38 @@ const RentalAgreementView = ({
         window.open(url, '_blank');
       }
     } catch (err) {
-      console.error('Error generating preview PDF:', err);
-      setPdfError('Error generating preview');
+      // Removed: setPdfError - error logged to console only
     } finally {
       setPdfLoading(false);
     }
   };
 
   // ============== RENDER ==============
+
+  // Error state - no bookingId
+  if (bookingError) {
+    return (
+      <div className={`flex items-center justify-center ${isPage ? 'min-h-screen bg-gray-100' : 'p-8'}`}>
+        <div className="bg-white rounded-2xl p-8 text-center shadow-lg max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Database Loading Required</h3>
+          <p className="text-gray-600 mb-4">{bookingError}</p>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+            >
+              Close
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (checkingExistingPdf || bookingLoading) {
@@ -967,16 +1064,16 @@ const RentalAgreementView = ({
                   <div className="relative flex-shrink-0 mt-0.5">
                     <input
                       type="checkbox"
-                      checked={localConsents[key] || false}
+                      checked={effectiveConsents?.[key] || false}
                       onChange={(e) => handleConsentChange(key, e.target.checked)}
                       className="sr-only"
                     />
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      localConsents[key] 
-                        ? 'bg-blue-600 border-blue-600' 
+                      effectiveConsents?.[key]
+                        ? 'bg-blue-600 border-blue-600'
                         : 'border-gray-300 group-hover:border-blue-400'
                     }`}>
-                      {localConsents[key] && <Check className="h-3 w-3 text-white" />}
+                      {effectiveConsents?.[key] && <Check className="h-3 w-3 text-white" />}
                     </div>
                   </div>
                   <span className="text-sm text-gray-700 leading-relaxed">
@@ -1003,8 +1100,8 @@ const RentalAgreementView = ({
             <SectionHeader title={texts.signatureLabel} />
             <div className="p-4">
               <SignaturePad
-                onSignatureChange={setLocalSignature}
-                signatureData={localSignature}
+                onSignatureChange={effectiveSetSignature}
+                signatureData={effectiveSignature}
                 disabled={viewMode}
               />
               <p className="text-xs text-gray-500 mt-2">{texts.signatureHelper}</p>
@@ -1012,11 +1109,7 @@ const RentalAgreementView = ({
           </div>
         )}
 
-        {pdfError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-            {pdfError}
-          </div>
-        )}
+        {/* Removed: PDF error display - errors logged to console only */}
       </div>
 
       {/* Footer */}

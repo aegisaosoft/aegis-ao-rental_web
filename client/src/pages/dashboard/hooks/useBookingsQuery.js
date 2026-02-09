@@ -57,7 +57,6 @@ const useBookingsQuery = ({
       keepPreviousData: true,
       staleTime: 30 * 1000,
       onError: (error) => {
-        console.error('Error loading company bookings:', error);
         if (onError) onError(error);
       },
     }

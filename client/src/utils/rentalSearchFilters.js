@@ -86,6 +86,5 @@ export const clearStoredFilterDates = (storageKey = STORAGE_KEY_FALLBACK) => {
       localStorage.setItem(storageKey, JSON.stringify(sanitized));
     }
   } catch (error) {
-    console.warn('[rentalSearchFilters] Failed to clear stored filter dates:', error);
   }
 };

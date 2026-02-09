@@ -48,7 +48,6 @@ export const useSpeechRecognition = (language = 'en') => {
         };
 
         recognitionInstance.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
           setIsListening(false);
         };
 

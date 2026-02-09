@@ -7,8 +7,6 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@microblink/blinkid": "^7.6.0",
-    "@microblink/blinkid-in-browser-sdk": "^6.13.3",
     "@stripe/react-stripe-js": "^5.4.0",
     "@stripe/stripe-js": "^8.5.2",
     "@stripe/terminal-js": "^0.26.0",
@@ -45,7 +43,7 @@
     "start": "react-scripts start",
     "start:https": "set HTTPS=true&& react-scripts start",
     "prebuild": "node -e \"console.log('Building...')\"",
-    "build": "react-scripts build && copyfiles -u 3 \"node_modules/@microblink/blinkid/resources/**\" \"build\"",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "postinstall": "node -e \"console.log('Install complete')\""
@@ -56,6 +54,7 @@
       "react-app/jest"
     ]
   },
+  "proxy": "https://localhost:7163",
   "browserslist": {
     "production": [
       ">0.2%",

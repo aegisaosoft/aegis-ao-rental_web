@@ -409,7 +409,6 @@ const VehicleList = () => {
               
               // Skip if no vehicle ID
               if (!vehicleId) {
-                console.error('Vehicle missing ID:', vehicle);
                 return null;
               }
 

@@ -29,6 +29,7 @@ import {
   BookingDetailsModal,
 } from './modals';
 import RentalAgreementModal from '../../components/RentalAgreementModal';
+import { useRentalAgreement } from '../../hooks/useRentalAgreement';
 
 const ReservationsSection = ({
   currentCompanyId,
@@ -39,6 +40,14 @@ const ReservationsSection = ({
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { formatPrice, currencyCode } = useCompany();
+
+  // Rental agreement state management
+  const {
+    agreementSignature,
+    setAgreementSignature,
+    agreementConsents,
+    setAgreementConsents,
+  } = useRentalAgreement(i18n.language || 'en');
   const { user, restoreUser } = useAuth();
 
   // ============== FILTER STATE ==============
@@ -104,7 +113,7 @@ const ReservationsSection = ({
 
   // ============== QUERIES ==============
 
-  const { data: companyBookingsResponse, isLoading: isLoadingBookings } = useBookingsQuery({
+  const { data: companyBookingsResponse, isLoading: isLoadingBookings, refetch } = useBookingsQuery({
     companyId: currentCompanyId,
     enabled: isAuthenticated,
     filters: {
@@ -141,7 +150,6 @@ const ReservationsSection = ({
         setSelectedBooking(null);
       },
       onError: (error) => {
-        console.error('Error updating booking status:', error);
         toast.error(error.response?.data?.message || t('admin.bookingUpdateError', 'Failed to update booking status'));
       }
     }
@@ -156,7 +164,6 @@ const ReservationsSection = ({
         setSelectedBooking(null);
       },
       onError: (error) => {
-        console.error('Error processing refund:', error);
         toast.error(error.response?.data?.message || t('admin.refundError', 'Failed to process refund'));
       }
     }
@@ -211,7 +218,6 @@ const ReservationsSection = ({
               restoreUser(userData);
             }
           } catch (e) {
-            console.error('Error restoring user:', e);
           }
         }
         sessionStorage.removeItem('stripeRedirect');
@@ -222,19 +228,14 @@ const ReservationsSection = ({
       // Get bookingId from URL and update status
       const bookingIdFromUrl = urlParams.get('bookingId');
       if (bookingIdFromUrl) {
-        console.log('[Reservations] Updating booking after Stripe success:', bookingIdFromUrl);
         apiService.updateBooking(bookingIdFromUrl, { 
           status: 'Confirmed', 
           paymentStatus: 'Paid' 
         }).then(() => {
           queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-          toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
         }).catch(err => {
-          console.error('Error updating booking after payment:', err);
-          toast.success(t('admin.paymentSuccessful', 'Payment processed successfully!'));
         });
       } else {
-        toast.success(t('admin.paymentSuccessful', 'Payment processed successfully!'));
         queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
       }
       
@@ -294,7 +295,6 @@ const ReservationsSection = ({
           
           if (update.bookingId === bookingId || update.bookingId?.toString() === bookingId?.toString()) {
             // User returned from Stripe checkout success page - update status
-            console.log('[Reservations] Updating booking status after Stripe return:', update);
             updateBookingStatusMutation.mutate({ 
               bookingId, 
               status: update.status || 'Confirmed',
@@ -302,12 +302,10 @@ const ReservationsSection = ({
             });
             sessionStorage.removeItem('pendingBookingStatusUpdate');
             setPendingConfirmedStatus('');
-            toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
           }
         } else {
           // No selected booking yet, try to update directly if we have bookingId
           if (update.bookingId) {
-            console.log('[Reservations] Updating booking status (no selection):', update);
             updateBookingStatusMutation.mutate({ 
               bookingId: update.bookingId, 
               status: update.status || 'Confirmed',
@@ -315,11 +313,9 @@ const ReservationsSection = ({
             });
             sessionStorage.removeItem('pendingBookingStatusUpdate');
             setPendingConfirmedStatus('');
-            toast.success(t('admin.paymentSuccessful', 'Payment successful! Booking confirmed.'));
           }
         }
       } catch (error) {
-        console.error('Error parsing pending status update:', error);
         sessionStorage.removeItem('pendingBookingStatusUpdate');
       }
     }
@@ -386,7 +382,6 @@ const ReservationsSection = ({
         toast.info(t('admin.agreementPdfNotReady', 'Agreement PDF not generated yet.'));
       }
     } catch (error) {
-      console.error('View contract error:', error);
       toast.error(t('admin.agreementFetchFailed', 'Failed to fetch rental agreement.'));
     }
   };
@@ -399,7 +394,19 @@ const ReservationsSection = ({
 
   // Handle sign agreement confirmation
   const handleSignAgreementConfirm = async ({ signature, consents }) => {
-    if (!signingBooking || !signature) return;
+    console.log('Sign agreement confirm:', {
+      hasSignature: !!signature,
+      hasSigningBooking: !!signingBooking,
+      consents
+    });
+
+    if (!signingBooking || !signature) {
+      console.log('Missing required data:', {
+        signingBooking: !!signingBooking,
+        signature: !!signature
+      });
+      return;
+    }
     
     const bookingId = signingBooking.id || signingBooking.Id || signingBooking.bookingId || signingBooking.BookingId;
     
@@ -429,16 +436,19 @@ const ReservationsSection = ({
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
+      console.log('Signing agreement:', {
+        bookingId,
+        agreementData
+      });
+
       await apiService.signBookingAgreement(bookingId, agreementData);
-      
-      toast.success(t('admin.agreementSigned', 'Agreement signed successfully'));
+
       setShowSignAgreementModal(false);
       setSigningBooking(null);
       
       // Refresh bookings
       queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
     } catch (error) {
-      console.error('Sign agreement error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
       toast.error(errorMessage);
     } finally {
@@ -482,7 +492,14 @@ const ReservationsSection = ({
       const bookingDepositAmount = parseFloat(selectedBooking.securityDeposit || 0);
       const companyDepositAmount = parseFloat(actualCompanyData?.securityDeposit || 0);
       const depositAmount = bookingDepositAmount > 0 ? bookingDepositAmount : companyDepositAmount;
-      const isDepositAlreadyPaid = !!selectedBooking.securityDepositPaymentIntentId;
+      // Check multiple fields to ensure security deposit is paid (in case webhook failed)
+      const isDepositAlreadyPaid = !!(
+        selectedBooking.securityDepositPaymentIntentId ||
+        selectedBooking.securityDepositAuthorizedAt ||
+        (selectedBooking.securityDepositStatus &&
+         selectedBooking.securityDepositStatus !== 'pending' &&
+         selectedBooking.securityDepositStatus !== 'failed')
+      );
       
       if (isDepositMandatory && depositAmount > 0 && !isDepositAlreadyPaid) {
         setPendingActiveStatus(nextStatus);
@@ -558,7 +575,25 @@ const ReservationsSection = ({
     try {
       if (method === 'checkout') {
         const response = await apiService.createSecurityDepositCheckout(selectedBooking.id, i18n.language);
-        const { sessionUrl } = response.data;
+        const responseData = response.data;
+
+
+        // Check if security deposit is already authorized
+        if (responseData.alreadyAuthorized) {
+          console.log('Security deposit already authorized:', {
+            bookingId: responseData.bookingId,
+            authorizedAt: responseData.authorizedAt,
+            status: responseData.status,
+            redirectUrl: responseData.redirectUrl
+          });
+          setShowSecurityDepositModal(false);
+          setPaymentMethod('');
+          // Refresh the bookings data to show updated status
+          refetch();
+          return;
+        }
+
+        const { sessionUrl } = responseData;
         setShowSecurityDepositModal(false);
         setPaymentMethod('');
         sessionStorage.setItem('stripeRedirect', 'true');
@@ -574,7 +609,6 @@ const ReservationsSection = ({
         toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
     } catch (error) {
-      console.error('Security deposit error:', error);
       toast.error(t('admin.securityDepositError', 'Failed to initiate payment'));
     } finally {
       setPayingSecurityDeposit(false);
@@ -626,7 +660,6 @@ const ReservationsSection = ({
         toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
     } catch (error) {
-      console.error('Booking payment error:', error);
       toast.error(t('admin.bookingPaymentError', 'Failed to process booking payment'));
     } finally {
       setPayingBooking(false);
@@ -672,19 +705,14 @@ const ReservationsSection = ({
 
   const confirmSyncPayments = async () => {
     setShowSyncConfirmModal(false);
-    let successCount = 0, failureCount = 0;
     for (const booking of filteredBookings) {
       try {
-        const response = await apiService.syncPaymentFromStripe(booking.id);
-        if (response.data.success) successCount++;
-        else failureCount++;
+        await apiService.syncPaymentFromStripe(booking.id);
       } catch (error) {
-        const msg = error.response?.data?.message || '';
-        if (!msg.toLowerCase().includes('no stripe payment found')) failureCount++;
+        // Ignore "no stripe payment found" errors as they're expected for some bookings
       }
     }
     queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-    toast.success(t('admin.syncComplete', `Sync: ${successCount} updated, ${failureCount} failed`));
   };
 
   // ============== RENDER ==============
@@ -872,6 +900,10 @@ const ReservationsSection = ({
           language={i18n.language || 'en'}
           bookingId={signingBooking.id}
           t={t}
+          signatureData={agreementSignature}
+          setSignatureData={setAgreementSignature}
+          consents={agreementConsents}
+          setConsents={setAgreementConsents}
         />
       )}
     </>

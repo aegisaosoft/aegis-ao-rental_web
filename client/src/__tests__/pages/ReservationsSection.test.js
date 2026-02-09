@@ -261,7 +261,6 @@ describe('ReservationsSection', () => {
         language: 'en',
       });
 
-      // In real component, toast.success would be called
       expect(translatedApiService.signBookingAgreement).toHaveBeenCalled();
     });
 

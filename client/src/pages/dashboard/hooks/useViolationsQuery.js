@@ -54,7 +54,6 @@ const useViolationsQuery = ({
       keepPreviousData: true,
       staleTime: 60 * 1000,
       onError: (error) => {
-        console.error('Error loading violations:', error);
         if (onError) onError(error);
       },
     }

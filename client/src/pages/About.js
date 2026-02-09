@@ -119,7 +119,6 @@ const About = () => {
           const parsed = JSON.parse(source);
           return normalizeSections(parsed);
         } catch (err) {
-          console.warn('[About] Unable to parse company about JSON:', err);
           return [];
         }
       }

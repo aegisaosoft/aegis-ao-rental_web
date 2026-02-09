@@ -56,7 +56,6 @@ const StripeTerminalHookExample = ({
       setStatus('idle');
     },
     onError: (err) => {
-      console.error('Terminal error:', err);
     }
   });
 
@@ -103,7 +102,6 @@ const StripeTerminalHookExample = ({
       setStatus('authorized');
     } catch (err) {
       setStatus('connected');
-      console.error('Payment error:', err);
     }
   };
 
@@ -115,7 +113,6 @@ const StripeTerminalHookExample = ({
         onPaymentSuccess({ paymentIntentId, status: 'captured' });
       }
     } catch (err) {
-      console.error('Capture error:', err);
     }
   };
 
@@ -130,7 +127,6 @@ const StripeTerminalHookExample = ({
         onPaymentCancel();
       }
     } catch (err) {
-      console.error('Cancel error:', err);
     }
   };
 

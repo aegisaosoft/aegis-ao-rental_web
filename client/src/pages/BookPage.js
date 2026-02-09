@@ -103,24 +103,22 @@ const BookPage = () => {
     ['stripeAccountCheck', companyId],
     async () => {
       if (!companyId) {
-        console.log('[BookPage] No companyId, skipping Stripe account check');
         return null;
       }
       
       try {
-        console.log('[BookPage] Checking Stripe account for company:', companyId);
         const response = await apiService.checkStripeAccount(companyId);
         const responseData = response?.data || response;
         const checkData = responseData?.result || responseData;
-        
-        console.log('[BookPage] Stripe account check received:', {
+
+        console.log('Stripe account check result:', {
           hasStripeAccount: checkData?.hasStripeAccount,
           fullResponse: checkData
         });
         
         return checkData;
       } catch (error) {
-        console.error('[BookPage] Error checking Stripe account:', {
+        console.error('Stripe account check error:', {
           status: error.response?.status,
           message: error.message,
           data: error.response?.data
@@ -141,7 +139,6 @@ const BookPage = () => {
   const isBookingAvailable = stripeAccountCheck?.hasStripeAccount === true;
   
   // Removed excessive logging - only log when value changes
-  // console.log('[BookPage] Booking availability check:', {
   //   isBookingAvailable,
   //   hasStripeAccount: stripeAccountCheck?.hasStripeAccount,
   //   isLoadingStripe
@@ -168,7 +165,6 @@ const BookPage = () => {
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   
   const [selectedLocationId, setSelectedLocationId] = useState(searchParams.get('locationId') || '');
-  const [userSelectedLocation, setUserSelectedLocation] = useState(false);
 
 
 
@@ -260,7 +256,6 @@ const BookPage = () => {
 
     } catch (error) {
 
-      console.warn('[BookPage] Failed to load saved search filters:', error);
 
       return null;
 
@@ -577,7 +572,6 @@ const BookPage = () => {
   
   // Debug: Log when wizard state changes
   React.useEffect(() => {
-    console.log('[BookPage] isCreateUserWizardOpen changed to:', isCreateUserWizardOpen);
   }, [isCreateUserWizardOpen]);
   const [wizardInitialEmail, setWizardInitialEmail] = useState(null); // Email to pre-fill wizard when opened from auth modal
   
@@ -587,6 +581,9 @@ const BookPage = () => {
     back: null,
   });
   
+  // Created booking ID for rental agreement
+  const [createdBookingId, setCreatedBookingId] = useState(null);
+
   // Rental Agreement state - managed by custom hook
   const {
     isRentalAgreementModalOpen,
@@ -669,7 +666,6 @@ const BookPage = () => {
 
     } catch (err) {
 
-      console.error('Error loading scanned license:', err);
 
     }
 
@@ -714,17 +710,14 @@ const BookPage = () => {
           }
         } catch (error) {
           if (error.response?.status === 401) {
-            console.error('[BookPage] ❌ Session lost after Stripe redirect');
             
             // Try to restore from sessionStorage backup
             const storedUserData = sessionStorage.getItem('stripeUserBackup');
             if (storedUserData) {
               try {
-                const userData = JSON.parse(storedUserData);
-                console.log('[BookPage] Found user data backup, role:', userData.role);
+                JSON.parse(storedUserData);
                 // User data will be restored when they log in again via auth modal
               } catch (parseError) {
-                console.error('[BookPage] Failed to parse stored user data:', parseError);
               }
             }
             
@@ -766,7 +759,6 @@ const BookPage = () => {
 
     } catch (error) {
 
-      console.warn('[BookPage] Failed to persist search filters:', error);
 
     }
 
@@ -921,7 +913,6 @@ const BookPage = () => {
 
         }
 
-        console.error('Error fetching customer license:', error);
 
         return null;
 
@@ -1013,7 +1004,6 @@ const BookPage = () => {
 
         toast.error(error.response?.data?.message || error.message || t('bookPage.licenseSaveFailed'));
 
-        console.error('Error saving license:', error);
 
       }
 
@@ -1069,165 +1059,13 @@ const BookPage = () => {
     return Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
   }, [pickupLocationsData]);
   
-  // State to track which locations have available vehicles
-  const [locationsWithVehicles, setLocationsWithVehicles] = React.useState(new Set());
-  const [isCheckingAvailability, setIsCheckingAvailability] = React.useState(false);
+  // Removed: availability tracking state - server will check availability when booking is created
   
-  // Check availability for each location
-  React.useEffect(() => {
-    if (allCompanyLocations.length <= 1 || !companyId) {
-      // If 1 or fewer locations, mark all as available
-      if (allCompanyLocations.length > 0) {
-        const locationIds = allCompanyLocations.map(loc => {
-          const id = loc.id || loc.Id || loc.locationId || loc.LocationId;
-          return id ? String(id) : null;
-        }).filter(Boolean);
-        setLocationsWithVehicles(new Set(locationIds));
-        setIsCheckingAvailability(false);
-      }
-      return;
-    }
-    
-    // Check availability for each location
-    const checkAvailability = async () => {
-      setIsCheckingAvailability(true);
-      const availableLocationIds = new Set();
-      
-      // Check each location in parallel
-      const availabilityChecks = allCompanyLocations.map(async (location) => {
-        const locationId = location.id || location.Id || location.locationId || location.LocationId;
-        if (!locationId) return null;
-        
-        try {
-          const response = await apiService.getModelsGroupedByCategory(
-            companyId,
-            locationId,
-            formData.pickupDate || null,
-            formData.returnDate || null,
-            formData.pickupTime || null,
-            formData.returnTime || null
-          );
-          
-          const modelsData = response?.data || response;
-          const categories = Array.isArray(modelsData) ? modelsData : [];
-          
-          // Check if the SPECIFIC make/model is available at this location
-          // If make/model are specified, only check for that specific vehicle
-          let totalAvailable = 0;
-          let hasSpecificModel = false;
-          
-          for (const category of categories) {
-            const models = category.models || category.Models || [];
-            for (const modelItem of models) {
-              const modelMake = (modelItem.make || modelItem.Make || '').toLowerCase();
-              const modelName = (modelItem.modelName || modelItem.ModelName || '').toLowerCase();
-              const availableCount = modelItem.availableCount || modelItem.available_count || 0;
-              totalAvailable += availableCount;
-              
-              // If make/model are specified, only check for that specific make/model
-              if (make && model) {
-                const searchMake = (make || '').toLowerCase().trim();
-                const searchModel = (model || '').toLowerCase().trim();
-                
-                // Debug logging
-                if (modelMake === searchMake && modelName === searchModel) {
-                  console.log(`[BookPage] Found matching make/model at location ${locationId}: ${modelMake} ${modelName}, availableCount: ${availableCount}`);
-                }
-                
-                if (modelMake === searchMake && modelName === searchModel && availableCount > 0) {
-                  hasSpecificModel = true;
-                  return String(locationId); // This location has the specific make/model available
-                }
-              } else {
-                // If no specific make/model, check for any available vehicles
-                if (availableCount > 0) {
-                  console.log(`[BookPage] Location ${locationId} has ${availableCount} available vehicles in model ${modelItem.make || ''} ${modelItem.modelName || ''}`);
-                  return String(locationId); // This location has available vehicles
-                }
-              }
-            }
-          }
-          
-          if (make && model && !hasSpecificModel) {
-            console.log(`[BookPage] Location ${locationId} has no available ${make} ${model} vehicles (total checked: ${totalAvailable})`);
-          } else {
-            console.log(`[BookPage] Location ${locationId} has no available vehicles (total checked: ${totalAvailable})`);
-          }
-          
-          return null; // No available vehicles
-        } catch (error) {
-          console.warn(`Error checking availability for location ${locationId}:`, error);
-          return null;
-        }
-      });
-      
-      const results = await Promise.all(availabilityChecks);
-      results.forEach(locationId => {
-        if (locationId) {
-          availableLocationIds.add(locationId);
-        }
-      });
-      
-      console.log('[BookPage] Locations with available vehicles:', Array.from(availableLocationIds));
-      setLocationsWithVehicles(availableLocationIds);
-      
-      // Clear selected location if it doesn't have vehicles available
-      // Do not clear if user explicitly picked a location (avoid bouncing selection)
-      if (selectedLocationId && !userSelectedLocation) {
-        const currentLocationIdStr = String(selectedLocationId);
-        if (!availableLocationIds.has(currentLocationIdStr)) {
-          console.log(`[BookPage] Clearing selected location ${currentLocationIdStr} - no vehicles available`);
-          setSelectedLocationId('');
-        }
-      }
-      
-      setIsCheckingAvailability(false);
-    };
-    
-    checkAvailability();
-  }, [allCompanyLocations, companyId, formData.pickupDate, formData.returnDate, formData.pickupTime, formData.returnTime, make, model, selectedLocationId, userSelectedLocation]);
+  // Removed: Complex availability checking logic - server will check availability when booking is created
   
-  // Filter locations to only show those with available vehicles
-  const companyLocations = React.useMemo(() => {
-    if (allCompanyLocations.length <= 1) {
-      return allCompanyLocations; // If 1 or fewer locations, show all
-    }
-    
-    // If we're still checking availability, return empty array (will show loading state)
-    if (isCheckingAvailability) {
-      return [];
-    }
-    
-    // If no locations have vehicles after check completed, show all (fallback)
-    if (locationsWithVehicles.size === 0) {
-      console.warn('[BookPage] No locations with vehicles found, showing all locations as fallback');
-      return allCompanyLocations;
-    }
-    
-    // Filter to only locations with available vehicles
-    const filtered = allCompanyLocations.filter(location => {
-      const locationId = location.id || location.Id || location.locationId || location.LocationId;
-      if (!locationId) return false;
-      
-      // Convert both to strings for comparison (in case one is GUID and one is string)
-      const locationIdStr = String(locationId);
-      const hasVehicle = locationsWithVehicles.has(locationIdStr);
-      
-      if (!hasVehicle) {
-        console.log(`[BookPage] Filtering out location ${locationIdStr} - no vehicles available`);
-      }
-      
-      return hasVehicle;
-    });
-    
-    console.log(`[BookPage] Filtered ${filtered.length} locations with vehicles out of ${allCompanyLocations.length} total`);
-    
-    // If filtering resulted in no locations, show all (fallback)
-    // This handles edge cases where availability check failed
-    return filtered.length > 0 ? filtered : allCompanyLocations;
-  }, [allCompanyLocations, locationsWithVehicles, isCheckingAvailability]);
-  
-  const showLocationDropdown = companyLocations.length > 1; // Show dropdown if multiple locations with vehicles exist
+  // Show all locations - no availability filtering
+  const companyLocations = allCompanyLocations;
+  const showLocationDropdown = companyLocations.length > 1;
   
   // Get the selected location details for display
   const selectedLocation = React.useMemo(() => {
@@ -1238,53 +1076,9 @@ const BookPage = () => {
     });
   }, [selectedLocationId, allCompanyLocations]);
   
-  // Auto-select first available location when locations with vehicles are found
-  React.useEffect(() => {
-    // Only auto-select if we have filtered locations (locations with vehicles) and no location is selected
-    // AND availability check is complete
-    if (companyLocations.length > 0 && !selectedLocationId && !isCheckingAvailability && locationsWithVehicles.size > 0) {
-      // Find the first location that has vehicles available (must be in locationsWithVehicles set)
-      const firstLocationWithVehicles = companyLocations.find(location => {
-        const locationId = location.id || location.Id || location.locationId || location.LocationId;
-        if (!locationId) return false;
-        const locationIdStr = String(locationId);
-        const hasVehicles = locationsWithVehicles.has(locationIdStr);
-        console.log(`[BookPage] Checking location ${locationIdStr} for auto-select: ${hasVehicles ? 'HAS VEHICLES' : 'NO VEHICLES'}`);
-        return hasVehicles;
-      });
-      
-      if (firstLocationWithVehicles) {
-        const firstLocationId = firstLocationWithVehicles.id || firstLocationWithVehicles.Id || firstLocationWithVehicles.locationId || firstLocationWithVehicles.LocationId;
-        if (firstLocationId) {
-          setSelectedLocationId(String(firstLocationId));
-          setUserSelectedLocation(false);
-        }
-      } else {
-        console.warn('[BookPage] ⚠️ No locations with vehicles found in filtered list, cannot auto-select');
-      }
-    } else if (companyLocations.length > 0 && !selectedLocationId && !isCheckingAvailability && locationsWithVehicles.size === 0) {
-      console.warn('[BookPage] ⚠️ Availability check complete but no locations have vehicles available');
-    }
-  }, [companyLocations, selectedLocationId, isCheckingAvailability, locationsWithVehicles]);
+  // Removed: Auto-select logic based on availability - now user selects location manually
 
-  // Fetch accurate available count using the models API (which uses the stored procedure)
-  // Must have companyId to ensure rates are filtered by company
-  const { data: modelsGroupedResponse } = useQuery(
-    ['modelsGroupedByCategory', companyId, selectedLocationId, formData.pickupDate, formData.returnDate, formData.pickupTime, formData.returnTime],
-    () => apiService.getModelsGroupedByCategory(
-      companyId || null, 
-      selectedLocationId || null,
-      formData.pickupDate || null,
-      formData.returnDate || null,
-      formData.pickupTime || null,
-      formData.returnTime || null
-    ),
-    {
-      enabled: !!companyId, // Require companyId, but dates are optional (backend uses defaults)
-      retry: 1,
-      refetchOnWindowFocus: false
-    }
-  );
+  // Removed: availability checking query - server will check availability during booking creation
 
 
 
@@ -1310,31 +1104,8 @@ const BookPage = () => {
 
   
 
-  // Get model data from modelsGroupedByCategory (same source as home page) or getModels fallback
-  // This ensures consistency with the listing page
+  // Get model data from getModels API
   const modelData = useMemo(() => {
-    // First try to get model from modelsGroupedByCategory (same as home page)
-    if (modelsGroupedResponse && make && model) {
-      const modelsGroupedData = modelsGroupedResponse?.data || modelsGroupedResponse;
-      const categories = Array.isArray(modelsGroupedData) ? modelsGroupedData : [];
-      
-      // Find the model in the grouped response (matches make and model)
-      for (const category of categories) {
-        const models = category.models || category.Models || [];
-        const matchingModel = models.find(m => {
-          const modelMake = m.make || m.Make || '';
-          const modelName = m.modelName || m.ModelName || '';
-          return modelMake?.toLowerCase() === make?.toLowerCase() && 
-                 modelName?.toLowerCase() === model?.toLowerCase();
-        });
-        
-        if (matchingModel) {
-          return matchingModel; // Found the model, return it
-        }
-      }
-    }
-    
-    // Fallback to getModels if not found in grouped data
     if (modelsResponse) {
       const modelsData = modelsResponse?.data || modelsResponse;
       const data = Array.isArray(modelsData) ? modelsData[0] : null;
@@ -1342,9 +1113,9 @@ const BookPage = () => {
         return data;
       }
     }
-    
+
     return null;
-  }, [modelsGroupedResponse, modelsResponse, make, model]);
+  }, [modelsResponse]);
 
   // Get daily rate from modelData
   const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
@@ -1452,31 +1223,7 @@ const BookPage = () => {
 
   ) : null;
 
-  // Get accurate available count from stored procedure (considers dates and location)
-  const availableVehiclesCount = React.useMemo(() => {
-    if (!modelsGroupedResponse || !make || !model) {
-      return 0;
-    }
-    
-    const modelsGroupedData = modelsGroupedResponse?.data || modelsGroupedResponse;
-    const categories = Array.isArray(modelsGroupedData) ? modelsGroupedData : [];
-    
-    // Find the model in the grouped response
-    for (const category of categories) {
-      if (category.models && Array.isArray(category.models)) {
-        const matchingModel = category.models.find(m => 
-          m.make?.toLowerCase() === make?.toLowerCase() && 
-          m.modelName?.toLowerCase() === model?.toLowerCase()
-        );
-        
-        if (matchingModel) {
-          return matchingModel.availableCount || 0;
-        }
-      }
-    }
-    
-    return 0;
-  }, [modelsGroupedResponse, make, model]);
+  // Removed: availability count calculation - server will handle availability during booking
 
 
 
@@ -1590,9 +1337,7 @@ const BookPage = () => {
 
   useEffect(() => {
 
-    console.log('[QR Code] qrOpen state changed to:', qrOpen);
 
-    console.log('[QR Code] qrUrl is:', qrUrl ? qrUrl.substring(0, 50) + '...' : 'empty');
 
   }, [qrOpen, qrUrl]);
 
@@ -1602,11 +1347,8 @@ const BookPage = () => {
 
   const handleScanOnPhone = async () => {
 
-    console.log('[QR Code] ========== handleScanOnPhone CALLED ==========');
 
-    console.log('[QR Code] Current qrOpen state:', qrOpen);
 
-    console.log('[QR Code] Current qrUrl:', qrUrl);
 
     
 
@@ -1644,7 +1386,6 @@ const BookPage = () => {
 
       // Log authentication status for debugging
 
-      console.log('[QR Code] User authenticated:', isAuthenticated);
 
         
 
@@ -1676,9 +1417,7 @@ const BookPage = () => {
 
       if (isAuthenticated) {
 
-        console.log('[QR Code] Attempting to retrieve token from session before generating QR code...');
 
-        console.log('[QR Code] User is authenticated, checking session for token...');
 
         
 
@@ -1733,7 +1472,6 @@ const BookPage = () => {
 
           } catch (err) {
 
-            console.warn('[QR Code] /session-token failed:', err.message);
 
             // NO fallback to profile endpoint - if /session-token fails, token is not available
             // This is acceptable - QR code can be generated without token if needed
@@ -1770,9 +1508,7 @@ const BookPage = () => {
 
               // No token available - proceed without it
 
-              console.log('[QR Code] ⚠️ No token available, generating QR code without token');
 
-              console.log('[QR Code] User will need to log in on mobile device');
 
               setQrUrl(baseUrl);
 
@@ -1786,7 +1522,6 @@ const BookPage = () => {
 
             // Fallback - show QR code without token
 
-            console.log('[QR Code] Token retrieval error, using base URL:', err.message);
 
             setQrUrl(baseUrl);
 
@@ -1798,7 +1533,6 @@ const BookPage = () => {
 
         // Not authenticated - show QR code immediately without token
 
-        console.log('[QR Code] User not authenticated, showing QR code without token');
 
         setQrUrl(baseUrl);
 
@@ -1812,13 +1546,9 @@ const BookPage = () => {
 
       setTimeout(() => {
 
-        console.log('[QR Code] After 100ms - checking if modal rendered');
 
-        const modalElement = document.querySelector('[data-qr-modal]');
 
-        console.log('[QR Code] Modal element:', modalElement ? 'FOUND' : 'NOT FOUND');
 
-        console.log('[QR Code] Current React qrOpen state (from closure):', qrOpen);
 
       }, 100);
 
@@ -1830,13 +1560,11 @@ const BookPage = () => {
 
       if (isMobile) {
 
-        console.log('Mobile device detected - QR code shown, direct navigation available');
 
       }
 
     } catch (error) {
 
-      console.error('[QR Code] Error in handleScanOnPhone:', error);
 
       // Even on error, try to show QR code with basic URL
 
@@ -1846,7 +1574,6 @@ const BookPage = () => {
 
       const fallbackUrl = `${origin.replace(/\/$/, '')}/driver-license-photo?returnTo=${encodeURIComponent(returnTo)}`;
 
-      console.log('[QR Code] Error fallback - setting states');
 
       setQrUrl(fallbackUrl);
 
@@ -2027,7 +1754,6 @@ const BookPage = () => {
 
       } catch (error) {
 
-        console.error('Error fetching first available vehicle:', error);
 
       }
 
@@ -2037,7 +1763,7 @@ const BookPage = () => {
 
     if (!vehicle || !vehicleId) {
 
-      toast.error(t('bookPage.pleaseSelectVehicle'));
+      // Removed: vehicle selection error - silent return
 
       return null;
 
@@ -2047,7 +1773,7 @@ const BookPage = () => {
 
     return { vehicle, vehicleId };
 
-  }, [companyId, make, model, selectedVehicle, selectedVehicleId, setSelectedVehicleId, t]);
+  }, [companyId, make, model, selectedVehicle, selectedVehicleId, setSelectedVehicleId]);
 
 
 
@@ -2158,12 +1884,10 @@ const BookPage = () => {
     try {
       // Check sequentially and stop early when found
       // Use the new API endpoint to get actual image filenames and URLs
-      console.log('[BookPage] checkDriverLicenseImagesExist - Checking images for customer:', customerId);
       
       const response = await apiService.getCustomerLicenseImages(customerId);
       const imageData = response?.data || response;
       
-      console.log('[BookPage] checkDriverLicenseImagesExist - API response:', imageData);
       
       // Construct frontend URLs using window.location.origin (frontend server)
       const frontendBaseUrl = window.location.origin;
@@ -2177,42 +1901,32 @@ const BookPage = () => {
         hasFront = true;
         // Use API endpoint for direct file serving (more reliable than static files)
         frontUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
-        console.log('[BookPage] checkDriverLicenseImagesExist - Static URL (fallback):', `${frontendBaseUrl}${imageData.frontUrl}`);
       } else {
-        console.log('[BookPage] checkDriverLicenseImagesExist - ❌ No front image found');
       }
       
       if (imageData.backUrl && imageData.back) {
         hasBack = true;
         // Use API endpoint for direct file serving (more reliable than static files)
         backUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
-        console.log('[BookPage] checkDriverLicenseImagesExist - ✅ Back image URL (API):', backUrl);
-        console.log('[BookPage] checkDriverLicenseImagesExist - Static URL (fallback):', `${frontendBaseUrl}${imageData.backUrl}`);
       } else {
-        console.log('[BookPage] checkDriverLicenseImagesExist - ❌ No back image found');
       }
       
       // Update state with found URLs
       if (frontUrl) {
         setUploadedLicenseImages(prev => ({ ...prev, front: frontUrl }));
       } else if (uploadedLicenseImages.front) {
-        console.log('[BookPage] checkDriverLicenseImagesExist - Clearing invalid front image URL from state');
         setUploadedLicenseImages(prev => ({ ...prev, front: null }));
       }
       
       if (backUrl) {
         setUploadedLicenseImages(prev => ({ ...prev, back: backUrl }));
       } else if (uploadedLicenseImages.back) {
-        console.log('[BookPage] checkDriverLicenseImagesExist - Clearing invalid back image URL from state');
         setUploadedLicenseImages(prev => ({ ...prev, back: null }));
       }
       
       const result = hasFront && hasBack;
       
       // Log the results explicitly
-      console.log('[BookPage] checkDriverLicenseImagesExist - hasFront:', hasFront, 'hasBack:', hasBack);
-      console.log('[BookPage] checkDriverLicenseImagesExist - frontUrl:', frontUrl || 'NOT FOUND');
-      console.log('[BookPage] checkDriverLicenseImagesExist - backUrl:', backUrl || 'NOT FOUND');
       
       // Cache the result
       dlImageCheckCache.current.set(cacheKey, {
@@ -2220,17 +1934,24 @@ const BookPage = () => {
         timestamp: Date.now()
       });
       
-      console.log('[BookPage] checkDriverLicenseImagesExist - Returning:', result);
       return result;
     } catch (error) {
       // If there's an error checking images, assume they don't exist
       // This will prompt user to upload them via wizard
-      console.warn('[BookPage] Error checking DL images:', error);
       return false;
     }
   }, [uploadedLicenseImages.front, uploadedLicenseImages.back, setUploadedLicenseImages]);
 
   const proceedToCheckout = useCallback(async (overrideUser = null, skipAgreementCheck = false) => {
+    // Prevent multiple concurrent calls to proceedToCheckout
+    if (checkoutLoading) {
+      return;
+    }
+
+    // If agreement modal is open, don't start new checkout process
+    if (isRentalAgreementModalOpen && !skipAgreementCheck) {
+      return;
+    }
     // User must be authenticated to proceed
     const currentUser = overrideUser || user;
     // If overrideUser is provided (from login/register), skip isAuthenticated check
@@ -2251,7 +1972,7 @@ const BookPage = () => {
       try {
         // Always check server to ensure images actually exist (don't trust state alone)
         // State might have invalid URLs from previous checks
-        console.log('[BookPage] proceedToCheckout - Checking images in state:', { 
+        console.log('Checking license images:', {
           front: uploadedLicenseImages.front || 'null',
           back: uploadedLicenseImages.back || 'null'
         });
@@ -2259,51 +1980,36 @@ const BookPage = () => {
         // Clear cache to ensure we get fresh data
         if (dlImageCheckCache.current) {
           dlImageCheckCache.current.delete(customerId);
-          console.log('[BookPage] proceedToCheckout - Cleared cache for customer:', customerId);
         }
         
         // Always check server - don't trust state (state might have invalid URLs)
-        console.log('[BookPage] proceedToCheckout - Calling checkDriverLicenseImagesExist for customer:', customerId);
         const hasDLImages = await checkDriverLicenseImagesExist(customerId);
-        console.log('[BookPage] proceedToCheckout - checkDriverLicenseImagesExist returned:', hasDLImages);
-        console.log('[BookPage] proceedToCheckout - Server check result:', hasDLImages ? '✅ IMAGES EXIST' : '❌ IMAGES NOT FOUND');
         
         if (!hasDLImages) {
           // User exists but images don't exist → show wizard from page 3
-          console.log('[BookPage] proceedToCheckout - ❌ No DL images found, opening wizard');
-          console.log('[BookPage] proceedToCheckout - hasDLImages is:', hasDLImages);
-          console.log('[BookPage] proceedToCheckout - Setting isCreateUserWizardOpen to TRUE');
           setIsCreateUserWizardOpen(true);
           
           // Verify the state was set
           setTimeout(() => {
-            console.log('[BookPage] proceedToCheckout - Verifying wizard state after setting...');
           }, 100);
           
-          console.log('[BookPage] proceedToCheckout - Wizard should now be open - returning early');
           return;
         } else {
-          console.log('[BookPage] proceedToCheckout - hasDLImages is:', hasDLImages);
         }
         
         // User exists and images exist → don't show wizard, proceed to next step
         
-        // DL exists - check if agreement is signed (skip if coming from agreement modal)
-        if (!skipAgreementCheck && !agreementSignature) {
-          // DL exists but Agreement not signed - show rental agreement modal
-          openAgreementModal();
-          return;
-        }
+        // DL exists - continue to booking creation
+        // Vehicle availability will be checked right before booking
       } catch (error) {
         // If there's an error checking DL images, proceed with booking
         // User can still complete booking even if check fails
-        console.warn('[BookPage] Error checking wizard requirements, proceeding with booking:', error);
       }
     }
 
     // Check if booking is available (Stripe account must exist)
     if (!isBookingAvailable) {
-      toast.error('Booking is currently unavailable. Please contact the company for assistance.');
+      // Removed: unavailable message - silent return
       return;
     }
 
@@ -2338,13 +2044,19 @@ const BookPage = () => {
 
 
 
-    const selection = await ensureVehicleSelection();
-
-    if (!selection) return;
-
-
-
-    const { vehicle, vehicleId } = selection;
+    // Skip vehicle selection if booking already created (agreement phase)
+    let vehicle, vehicleId;
+    if (createdBookingId) {
+      // If booking already exists, we don't need to ensure vehicle selection
+      vehicle = selectedVehicle;
+      vehicleId = selectedVehicleId;
+    } else {
+      // Only check vehicle selection when creating new booking
+      const selection = await ensureVehicleSelection();
+      if (!selection) return;
+      vehicle = selection.vehicle;
+      vehicleId = selection.vehicleId;
+    }
 
 
 
@@ -2352,7 +2064,53 @@ const BookPage = () => {
 
       setCheckoutLoading(true);
 
+      // If we already have a booking (coming from agreement signing), skip booking creation
+      if (skipAgreementCheck && createdBookingId) {
 
+        // Get existing booking data for payment
+        const amount = calculateGrandTotal();
+        if (amount <= 0) {
+          toast.error(t('bookPage.invalidAmount') || 'Payment amount must be greater than zero.');
+          setCheckoutLoading(false);
+          return;
+        }
+
+        // Continue directly to payment with existing booking
+        const checkoutResponse = await apiService.createCheckoutSession({
+          customerId: userToUse.id || userToUse.customer_id || userToUse.customerId,
+          bookingId: createdBookingId,
+          amount: amount,
+          currency: companyConfig?.currency || 'USD',
+          companyId: vehicle.company_id || vehicle.companyId || companyId,
+          language: i18n.language,
+          successUrl: `${window.location.origin}/my-bookings?booking=${createdBookingId}&stripe_success=true`,
+          cancelUrl: `${window.location.origin}${window.location.pathname}${window.location.search}&stripe_cancel=true`
+        });
+
+        const checkoutData = checkoutResponse?.data || checkoutResponse;
+        const sessionUrl = checkoutData?.url || checkoutData?.Url;
+
+        if (sessionUrl) {
+          localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
+          sessionStorage.setItem('stripeRedirect', 'true');
+          sessionStorage.setItem('stripeRedirectTime', Date.now().toString());
+
+          if (user) {
+            sessionStorage.setItem('stripeUserBackup', JSON.stringify({
+              id: user.id || user.customerId || user.customer_id,
+              email: user.email,
+              role: user.role,
+              companyId: user.companyId || user.CompanyId,
+              firstName: user.firstName,
+              lastName: user.lastName
+            }));
+          }
+          window.location.href = sessionUrl;
+        } else {
+          toast.error(t('bookPage.checkoutUnable') || 'Unable to start payment session.');
+        }
+        return;
+      }
 
       const dailyRate = Number(vehicle.daily_rate || vehicle.dailyRate || modelDailyRate || 0);
 
@@ -2394,7 +2152,16 @@ const BookPage = () => {
 
         // Rental agreement data
         agreementData: (() => {
+          // DEBUG: Log agreement state before building data
+          console.log('Agreement state debug:', {
+            agreementSignature: agreementSignature ? `[${typeof agreementSignature}] ${agreementSignature.substring(0, 50)}...` : 'NULL',
+            agreementConsents,
+            language: i18n.language || companyConfig?.language || 'en'
+          });
+
           const baseAgreementData = buildAgreementData(i18n.language || companyConfig?.language || 'en');
+
+          // DEBUG: Log result of buildAgreementData
           if (baseAgreementData && selectedServices.length > 0) {
             const numDays = calculateRentalDays();
             baseAgreementData.additionalServices = selectedServices.map(s => {
@@ -2411,13 +2178,17 @@ const BookPage = () => {
               };
             });
           }
+          // DEBUG: Log final agreement data
+
           return baseAgreementData;
         })()
       };
 
+      // DEBUG: Log final booking data agreement section
+
       // Log agreement data for debugging
       const debugInfo = getAgreementDebugInfo();
-      console.log('[BookPage] Sending booking with agreement data:', {
+      console.log('Booking final debug:', {
         ...debugInfo,
         agreementData: bookingData.agreementData ? {
           hasSignature: !!bookingData.agreementData.signatureImage,
@@ -2436,16 +2207,39 @@ const BookPage = () => {
       
       // Warn if agreement signature exists but agreementData is null
       if (agreementSignature && !bookingData.agreementData) {
-        console.error('[BookPage] ⚠️ WARNING: agreementSignature exists but agreementData is null! This should not happen.');
       }
 
+      // DEBUG: Final check before sending to server
+      console.log('Final booking check:', {
+        hasAgreementSignature: !!agreementSignature,
+        agreementSignatureLength: agreementSignature ? agreementSignature.length : 0,
+        hasAgreementData: !!bookingData.agreementData,
+        agreementData: bookingData.agreementData
+      });
 
+      // Declare variables outside try-catch for scope access
+      let reservation, bookingId;
 
-      const bookingResponse = await apiService.createBooking(bookingData);
+      try {
+        const bookingResponse = await apiService.createBooking(bookingData);
 
-      const reservation = bookingResponse?.data || bookingResponse;
+        reservation = bookingResponse?.data || bookingResponse;
+        bookingId = reservation?.id || reservation?.Id;
 
-      const bookingId = reservation?.id || reservation?.Id;
+        // Store booking ID for rental agreement modal
+        if (bookingId) {
+          setCreatedBookingId(bookingId);
+
+          // Check if agreement needs to be signed after booking creation
+          if (!agreementSignature && !skipAgreementCheck) {
+            setIsRentalAgreementModalOpen(true);
+            return; // Stop here to show agreement modal
+          }
+        }
+      } catch (error) {
+        // Don't show rental agreement modal if booking creation failed
+        return;
+      }
 
       const bookingNumber =
 
@@ -2511,9 +2305,19 @@ const BookPage = () => {
 
       const checkoutData = checkoutResponse?.data || checkoutResponse;
 
+      // Check if payment is already completed
+      if (checkoutData?.alreadyPaid) {
+        // Removed: success message - silent redirect
+
+        localStorage.removeItem(SEARCH_FILTERS_STORAGE_KEY);
+
+        // Redirect to success URL or my-bookings
+        const redirectUrl = checkoutData.redirectUrl || `/my-bookings?booking=${checkoutData.bookingId}&payment_completed=true`;
+        navigate(redirectUrl);
+        return;
+      }
+
       const sessionUrl = checkoutData?.url || checkoutData?.Url;
-
-
 
       if (sessionUrl) {
 
@@ -2563,7 +2367,6 @@ const BookPage = () => {
 
       }
 
-      console.error('Checkout error:', error);
 
     } finally {
 
@@ -2571,6 +2374,7 @@ const BookPage = () => {
 
     }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
 
     companyConfig?.currency,
@@ -2776,7 +2580,6 @@ const BookPage = () => {
       const userData = loginResponse?.result?.user || loginResponse?.user || null;
 
       if (!userData) {
-        console.error('[BookPage] ❌ No user data in login response');
         throw new Error('Login response missing user data');
       }
 
@@ -2813,14 +2616,14 @@ const BookPage = () => {
         
         // User exists and images exist → don't show wizard, proceed to checkout
         
-        // DL exists - check if agreement is signed
-        // Check if agreement signature exists (they haven't signed yet)
+        // DL exists - create booking first, then check if agreement is signed
+        await handleAuthSuccess(userData);
+
+        // After successful booking creation, check if agreement is signed
         if (!agreementSignature) {
-          // DL exists but Agreement not signed - show rental agreement modal
-          setAuthModalOpen(false);
-          resetAuthModal();
+          // Booking created but Agreement not signed - show rental agreement modal
+          // The booking ID should now be available from the handleAuthSuccess flow
           setIsRentalAgreementModalOpen(true);
-          setAuthLoading(false);
           return;
         }
       }
@@ -2897,7 +2700,6 @@ const BookPage = () => {
       const userData = registerResponse?.result?.user || registerResponse?.user || null;
 
       if (!userData) {
-        console.error('[BookPage] ❌ No user data in register response');
         throw new Error('Register response missing user data');
       }
 
@@ -2929,7 +2731,7 @@ const BookPage = () => {
 
     if (!companyId) {
 
-      toast.error('Booking is not available. Please access via a company subdomain.');
+      // Removed: unavailable message - silent navigation
 
       navigate('/');
 
@@ -2993,7 +2795,7 @@ const BookPage = () => {
       }
 
       // Use /api proxy to avoid CORS issues (goes through Node.js proxy with CORS enabled)
-      const apiBaseUrl = window.location.origin;
+      const apiBaseUrl = '/api';
       
       // Check if images exist using HEAD request through /api proxy (avoids CORS errors)
       const checkImageExists = async (url) => {
@@ -3149,7 +2951,6 @@ const BookPage = () => {
           }
         };
       } catch (e) {
-        console.log('BroadcastChannel not available:', e);
       }
       
       // Check localStorage for upload flags
@@ -3178,10 +2979,10 @@ const BookPage = () => {
       // Check upload flags periodically
       const flagCheckInterval = setInterval(checkUploadFlags, 300);
       
-      // Only poll if we don't have both images (count < 2)
-      // Stop polling once both images are found
+      // Only poll if we don't have both images AND rental agreement modal is NOT open
+      // Stop polling once both images are found OR when viewing agreement
       let interval = null;
-      if (!hasBothImages) {
+      if (!hasBothImages && !isRentalAgreementModalOpen) {
         interval = setInterval(() => {
           // Check current state by reading from the state setter callback
           // We'll check inside fetchUploadedImages and stop there if both found
@@ -3203,7 +3004,7 @@ const BookPage = () => {
     }
     // Note: When uploadedLicenseImages changes and both images are found, the effect re-runs
     // and hasBothImages will be true, preventing a new interval from being created
-  }, [user, searchParams, uploadedLicenseImages.front, uploadedLicenseImages.back, isCreateUserWizardOpen]);
+  }, [user, searchParams, uploadedLicenseImages.front, uploadedLicenseImages.back, isCreateUserWizardOpen, isRentalAgreementModalOpen]);
 
 
 
@@ -3279,14 +3080,7 @@ const BookPage = () => {
 
                   />
 
-                  <div className={`absolute top-3 right-3 ${availableVehiclesCount === 0 ? 'bg-red-600' : 'bg-blue-600'} text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg`}>
-
-                    {availableVehiclesCount === 0 
-                      ? t('bookPage.unavailable') || 'Unavailable'
-                      : `${availableVehiclesCount} ${t('bookPage.availableCars') || 'available'}`
-                    }
-
-                  </div>
+                  {/* Removed: availability badge - no client-side availability checks */}
 
                 </div>
 
@@ -3475,7 +3269,7 @@ const BookPage = () => {
                     </label>
                     <select
                       value={selectedLocationId}
-                      onChange={(e) => { setSelectedLocationId(e.target.value); setUserSelectedLocation(true); }}
+                      onChange={(e) => { setSelectedLocationId(e.target.value); }}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white"
                       required
                     >
@@ -3498,7 +3292,7 @@ const BookPage = () => {
                   <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-blue-800">
-                        {t('booking.availableAt') || 'Available at:'}
+                        {t('booking.location') || 'Location:'}
                       </span>
                       <span className="text-sm font-semibold text-blue-900">
                         {selectedLocation.locationName || selectedLocation.location_name || selectedLocation.LocationName || 'Selected Location'}
@@ -3507,14 +3301,7 @@ const BookPage = () => {
                   </div>
                 )}
                 
-                {/* Show message if checking availability */}
-                {isCheckingAvailability && (
-                  <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div className="text-sm text-gray-600">
-                      {t('booking.checkingAvailability') || 'Checking availability...'}
-                    </div>
-                  </div>
-                )}
+                {/* Removed: checking availability message - no client-side availability checks */}
 
 
 
@@ -3673,15 +3460,12 @@ const BookPage = () => {
                       className="w-full btn-primary py-3 text-lg"
 
                       disabled={
-                        checkoutLoading || 
-                        availableVehiclesCount === 0 ||
+                        checkoutLoading ||
                         (showLocationDropdown && !selectedLocationId)
                       }
 
                       title={
-                        availableVehiclesCount === 0 
-                          ? t('bookPage.unavailable') || 'Unavailable'
-                          : (showLocationDropdown && !selectedLocationId)
+                        (showLocationDropdown && !selectedLocationId)
                           ? t('booking.selectLocationRequired') || 'Please select a location'
                           : ''
                       }
@@ -3698,15 +3482,7 @@ const BookPage = () => {
 
 
 
-                    {availableVehiclesCount === 0 && (
-
-                      <p className="text-sm text-center text-red-600 mt-2 font-semibold">
-
-                        {t('bookPage.noVehiclesAvailable') || 'No vehicles available for the selected dates and location'}
-
-                      </p>
-
-                    )}
+                    {/* Removed: availability error message - server will handle availability errors */}
 
 
 
@@ -3768,7 +3544,6 @@ const BookPage = () => {
 
                       onClick={(e) => {
 
-                        console.log('[QR Code] ========== BUTTON CLICKED ==========');
 
                         e.preventDefault();
 
@@ -4817,127 +4592,71 @@ const BookPage = () => {
       />
 
       {/* Rental Agreement Modal */}
-      {console.log('RentalAgreementModal props:', {
-        modelDailyRate,
-        pickupDate: formData.pickupDate,
-        returnDate: formData.returnDate,
-        calculateTotal: calculateTotal(),
-        calculateGrandTotal: calculateGrandTotal(),
-        selectedVehicle: selectedVehicle?.make,
-      })}
-      <RentalAgreementModal
-        isOpen={isRentalAgreementModalOpen}
+      {createdBookingId && (
+        <RentalAgreementModal
+          isOpen={isRentalAgreementModalOpen}
         onClose={() => {
           setIsRentalAgreementModalOpen(false);
         }}
         onConfirm={async ({ signature, consents }) => {
-          // Save signature and consents to state
-          setAgreementSignature(signature);
-          setAgreementConsents(consents);
-          // Close modal
-          setIsRentalAgreementModalOpen(false);
-          // Proceed to checkout if user is authenticated
-          // Pass skipAgreementCheck=true since we just signed
-          if (user && isAuthenticated) {
-            // Use setTimeout to ensure modal closes and state updates
-            setTimeout(async () => {
-              // Directly proceed to booking creation without re-checking agreement
-              await proceedToCheckout(null, true); // skipAgreementCheck = true
-            }, 100);
+          try {
+
+            // Save signature and consents to state
+            setAgreementSignature(signature);
+            setAgreementConsents(consents);
+
+            // Prepare agreement data for API
+            const agreementData = {
+              signatureImage: signature, // Base64 PNG signature
+              language: i18n.language || companyConfig?.language || 'en',
+              consents: {
+                termsAcceptedAt: consents.ruleTermsAgreement ? new Date().toISOString() : null,
+                nonRefundableAcceptedAt: consents.ruleNonRefundable ? new Date().toISOString() : null,
+                damagePolicyAcceptedAt: consents.ruleDamagePolicy ? new Date().toISOString() : null,
+                cardAuthorizationAcceptedAt: consents.ruleCardAuthorization ? new Date().toISOString() : null,
+                smsConsentAcceptedAt: consents.ruleSmsConsent ? new Date().toISOString() : null,
+              },
+              consentTexts: {
+                // Add consent texts that were shown to the user
+                termsTitle: 'Terms and Conditions',
+                termsText: 'I have read and agree to the terms and conditions',
+                // Add other text fields as needed
+              }
+            };
+
+            console.log('Creating agreement with:', {
+              bookingId: createdBookingId,
+              hasSignature: !!signature,
+              consents: agreementData.consents
+            });
+
+            // Call API to create rental agreement in database
+            await apiService.signBookingAgreement(createdBookingId, agreementData);
+
+
+            // Close modal
+            setIsRentalAgreementModalOpen(false);
+
+            // Continue with the payment flow since agreement is now signed
+
+            // If booking already exists, go directly to payment instead of creating new booking
+            if (createdBookingId) {
+
+              // Continue the checkout flow from where we left off (after booking creation)
+              setTimeout(async () => {
+                // Continue with payment logic directly
+                proceedToCheckout(null, true); // This will skip booking creation
+              }, 100);
+            } else {
+              toast.error('Booking information not found. Please try again.');
+            }
+          } catch (error) {
+            toast.error('Failed to save rental agreement. Please try again.');
+            // Don't proceed to payment if agreement creation failed
           }
         }}
+        bookingId={createdBookingId}
         language={i18n.language || companyConfig?.language || 'en'}
-        rentalInfo={{
-          // Renter info
-          renter: {
-            firstName: user?.firstName || '',
-            lastName: user?.lastName || '',
-            email: user?.email || '',
-            phone: user?.phone || user?.phoneNumber || '',
-            driverLicense: user?.driverLicense || '',
-            state: user?.state || '',
-            licenseExp: user?.licenseExpiration || '',
-            dob: user?.dateOfBirth || '',
-            address: user?.address || '',
-          },
-          // Vehicle info
-          vehicle: {
-            type: selectedVehicle?.vehicleType || selectedVehicle?.type || '',
-            makeModel: (selectedVehicle?.make || make || '') && (selectedVehicle?.model || model || '')
-              ? `${selectedVehicle?.make || make || ''} ${selectedVehicle?.model || model || ''}`.trim()
-              : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
-            yearColorLicense: [
-              selectedVehicle?.year,
-              selectedVehicle?.color,
-              selectedVehicle?.licensePlate || selectedVehicle?.plateNumber
-            ].filter(Boolean).join(' / ') || '',
-            vin: selectedVehicle?.vin || '',
-            odometer: selectedVehicle?.odometer || selectedVehicle?.mileage || '',
-          },
-          // Rental period
-          vehicleName: (selectedVehicle?.make || make || '') && (selectedVehicle?.model || model || '')
-            ? `${selectedVehicle?.make || make || ''} ${selectedVehicle?.model || model || ''}`.trim()
-            : (selectedVehicle?.vehicleName || selectedVehicle?.name || ''),
-          pickupDate: formData.pickupDate,
-          returnDate: formData.returnDate,
-          startTime: formData.pickupTime || '10:00',
-          returnTime: formData.returnTime || '22:00',
-          // Rates - calculated values
-          rates: (() => {
-            // Calculate number of days using the centralized function
-            const numDays = calculateRentalDays();
-            
-            // Get daily rate from multiple sources
-            const dailyRate = modelDailyRate 
-              || selectedVehicle?.daily_rate 
-              || selectedVehicle?.dailyRate 
-              || modelData?.dailyRate 
-              || modelData?.daily_rate
-              || 0;
-            
-            // Calculate daily total
-            const dailyTotal = dailyRate * numDays || calculateTotal() || 0;
-            
-            // Calculate services total
-            const servicesTotal = calculateServicesTotal() || 0;
-            
-            return {
-              ratePerDay: dailyRate,
-              numberOfDays: numDays,
-              dailyTotal: dailyTotal,
-              weeklyTotal: 0,
-              numberOfWeeks: 0,
-              surchargeTax: 0,
-              pickupDropoff: 0,
-              cdw: 0,
-              gps: 0,
-              childSeat: 0,
-              driverUnder25: 0,
-              additionalDriver: 0,
-              creditCardFee: 0,
-              servicesTotal: servicesTotal,
-              subtotal: dailyTotal + servicesTotal,
-              vehicleStateTax: 0,
-              totalCharges: calculateGrandTotal(),
-            };
-          })(),
-          // Selected services for display
-          selectedServices: (() => {
-            const numDays = calculateRentalDays();
-            return selectedServices.map(s => {
-              const svc = s.service || s;
-              const serviceName = svc.serviceName || svc.ServiceName || svc.name || svc.Name || '';
-              const dailyPrice = svc.servicePrice || svc.ServicePrice || svc.price || svc.Price || 0;
-              const totalPrice = dailyPrice * numDays * (s.quantity || 1);
-              return {
-                name: `${serviceName} (${formatPrice(dailyPrice)}/day × ${numDays})`,
-                price: totalPrice,
-              };
-            });
-          })(),
-          totalAmount: calculateGrandTotal(),
-          securityDeposit: companyConfig?.securityDeposit ?? 0,
-        }}
         formatPrice={formatPrice}
         consents={agreementConsents}
         setConsents={setAgreementConsents}
@@ -4945,6 +4664,7 @@ const BookPage = () => {
         setSignatureData={setAgreementSignature}
         t={t}
       />
+      )}
 
       {/* Old Wizard Code - REMOVED - Now handled by BookingWizard component */}
 
@@ -4964,7 +4684,6 @@ const BookPage = () => {
 
           onClick={() => {
 
-            console.log('[QR Code] Modal backdrop clicked, closing');
 
             setQrOpen(false);
 
@@ -4990,7 +4709,6 @@ const BookPage = () => {
 
                   onError={(e) => {
 
-                    console.error('[QR Code] Failed to load QR code image');
 
                     e.target.style.display = 'none';
 
@@ -5076,7 +4794,6 @@ const BookPage = () => {
 
                       } catch (error) {
 
-                        console.warn('Failed to get token from session:', error);
 
                       }
 

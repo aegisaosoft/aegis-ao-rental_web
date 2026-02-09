@@ -19,6 +19,7 @@ import { useCompany } from '../context/CompanyContext';
 import { translateCategory } from '../i18n/translateHelpers';
 import AdminCustomerWizard from '../components/AdminCustomerWizard';
 import RentalAgreementModal from '../components/RentalAgreementModal';
+import { useRentalAgreement } from '../hooks/useRentalAgreement';
 
 const ReservationWizardPage = () => {
   const { t, i18n } = useTranslation();
@@ -26,6 +27,14 @@ const ReservationWizardPage = () => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
   const { companyConfig, formatPrice } = useCompany();
+
+  // Rental agreement state management
+  const {
+    agreementSignature,
+    setAgreementSignature,
+    agreementConsents,
+    setAgreementConsents,
+  } = useRentalAgreement(i18n.language || 'en');
 
   // Helper: Convert 24h time to AM/PM format
   const formatTimeAmPm = (time24) => {
@@ -171,7 +180,6 @@ const ReservationWizardPage = () => {
             return availableCount > 0;
           });
           
-          console.log('Available models in category:', availableModels.length);
           
           const groupedByMake = availableModels.reduce((acc, model) => {
             const make = (model.make || model.Make || '').toUpperCase().trim();
@@ -212,7 +220,6 @@ const ReservationWizardPage = () => {
           }
         })
         .catch(error => {
-          console.error('Error fetching models:', error);
           toast.error(t('admin.modelsLoadError', 'Failed to load vehicle models'));
         })
         .finally(() => setIsLoadingWizardModels(false));
@@ -250,7 +257,6 @@ const ReservationWizardPage = () => {
           }
         })
         .catch(error => {
-          console.error('Error loading services:', error);
         })
         .finally(() => setIsLoadingWizardServices(false));
     }
@@ -322,7 +328,6 @@ const ReservationWizardPage = () => {
     } catch (error) {
       const isNotFound = error.response?.status === 404 || error.message?.includes('not found');
       if (!isNotFound) {
-        console.warn('Customer lookup error:', error);
       }
       // Show customer creation wizard
       setShowCustomerWizard(true);
@@ -381,7 +386,6 @@ const ReservationWizardPage = () => {
           vehicleId = firstVehicle.vehicle_id || firstVehicle.vehicleId || firstVehicle.id || firstVehicle.VehicleId || firstVehicle.Id;
         }
       } catch (error) {
-        console.error('Error fetching first available vehicle:', error);
       }
       
       if (!vehicleId) {
@@ -389,14 +393,13 @@ const ReservationWizardPage = () => {
         setIsCreatingReservation(false);
         return;
       }
-      
-      console.log('Creating reservation:', { 
+      console.log('Creating booking with vehicle:', {
         vehicleId,
         make,
         model,
-        locationId, 
-        pickupDate: wizardPickupDate, 
-        returnDate: wizardReturnDate 
+        locationId,
+        pickupDate: wizardPickupDate,
+        returnDate: wizardReturnDate
       });
       
       const bookingData = {
@@ -431,7 +434,6 @@ const ReservationWizardPage = () => {
           : undefined
       };
       
-      console.log('Booking data:', bookingData);
       
       const bookingResponse = await apiService.createBooking(bookingData);
       const booking = bookingResponse?.data || bookingResponse;
@@ -450,14 +452,12 @@ const ReservationWizardPage = () => {
               quantity: selectedService.quantity || 1
             });
           } catch (serviceError) {
-            console.error('Error adding service:', serviceError);
           }
         }
       }
       
       queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
       queryClient.invalidateQueries(['vehicleCategories']);
-      toast.success(t('admin.reservationCreated', 'Reservation created successfully'));
       
       // Save booking info and go to Sign Agreement step
       setCreatedBookingId(bookingId);
@@ -485,7 +485,6 @@ const ReservationWizardPage = () => {
       setWizardStep(5);
       
     } catch (error) {
-      console.error('Error creating reservation:', error);
       toast.error(error.response?.data?.message || t('admin.reservationCreateError', 'Failed to create reservation'));
     } finally {
       setIsCreatingReservation(false);
@@ -540,13 +539,11 @@ const ReservationWizardPage = () => {
 
       await apiService.signBookingAgreement(createdBookingId, agreementData);
       
-      toast.success(t('admin.agreementSigned', 'Agreement signed successfully'));
       setShowSignAgreementModal(false);
       
       // Navigate to reservations with payment
       navigate(`/admin?tab=reservations&bookingId=${createdBookingId}&payment=true`);
     } catch (error) {
-      console.error('Sign agreement error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to sign agreement';
       toast.error(errorMessage);
     }
@@ -869,7 +866,6 @@ const ReservationWizardPage = () => {
                                   key={modelId}
                                   type="button"
                                   onClick={() => {
-                                    console.log('Selected model full object:', JSON.stringify(model, null, 2));
                                     setWizardSelectedMake(make);
                                     setWizardSelectedModel(model);
                                   }}
@@ -1154,6 +1150,11 @@ const ReservationWizardPage = () => {
           onConfirm={handleSignAgreementConfirm}
           language={i18n.language || 'en'}
           bookingId={createdBooking.id}
+          // Add consent and signature state management
+          consents={agreementConsents}
+          setConsents={setAgreementConsents}
+          signatureData={agreementSignature}
+          setSignatureData={setAgreementSignature}
           rentalInfo={{
             renter: {
               firstName: createdBooking.customerFirstName || '',

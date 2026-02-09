@@ -60,7 +60,6 @@ const TipTapEditor = ({ content, onChange, placeholder = 'Start typing...' }) =>
         editor.commands.insertContent(text);
       }
     } catch (err) {
-      console.error('Failed to read clipboard:', err);
       // Fallback: show a message to the user
       alert('Please paste using Ctrl+V (Cmd+V on Mac)');
     }

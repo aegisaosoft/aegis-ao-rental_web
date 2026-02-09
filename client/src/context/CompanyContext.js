@@ -62,7 +62,6 @@ export const CompanyProvider = ({ children }) => {
         
         if (isMainSite) {
           // Main site - no company config needed, show tenants grid
-          console.log('[CompanyContext] Main site detected:', hostname);
           setLoading(false);
           setError('Company configuration not available');
           return;
@@ -72,7 +71,6 @@ export const CompanyProvider = ({ children }) => {
         try {
           response = await apiService.getCurrentCompanyConfig();
         } catch (err) {
-          console.error('[CompanyContext] Could not load company configuration:', err);
           setLoading(false);
           setError('Unable to load company configuration');
           return;
@@ -81,7 +79,6 @@ export const CompanyProvider = ({ children }) => {
         let config = response.data?.result || response.data;
 
         if (!config || !config.id) {
-          console.error('[CompanyContext] No company configuration returned from API');
           setLoading(false);
           setError('Company configuration not available');
           return;
@@ -111,7 +108,6 @@ export const CompanyProvider = ({ children }) => {
           setError('Company configuration not available');
         }
       } catch (err) {
-        console.error('[CompanyContext] Could not load company configuration:', err);
         setError('Failed to load company configuration');
       } finally {
         setLoading(false);

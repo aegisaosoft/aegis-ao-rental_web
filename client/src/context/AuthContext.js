@@ -49,7 +49,6 @@ export const AuthProvider = ({ children }) => {
         return response.data;
       } else {
         // This should not happen - login response should always include user data
-        console.error('[AuthContext] ❌ No user data in login response - this is unexpected');
         throw new Error('Login response missing user data');
       }
     } catch (error) {
@@ -71,7 +70,6 @@ export const AuthProvider = ({ children }) => {
         setUser(userDataFromResponse);
       } else {
         // This should not happen - register response should always include user data
-        console.error('[AuthContext] ❌ No user data in register response - this is unexpected');
         throw new Error('Register response missing user data');
       }
       
@@ -86,7 +84,6 @@ export const AuthProvider = ({ children }) => {
       // Call logout endpoint to destroy session on server
       await apiService.logout();
     } catch (error) {
-      console.error('Error during logout:', error);
       // Continue with logout even if API call fails
     }
     

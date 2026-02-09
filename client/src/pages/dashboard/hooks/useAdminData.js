@@ -164,7 +164,6 @@ export const useUpdateCompany = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyDetails', currentCompanyId]);
-        toast.success(t('admin.companySaved', 'Company saved successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.companySaveError', 'Failed to save company'));
@@ -184,7 +183,6 @@ export const useVehicleMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehiclesList', currentCompanyId]);
-        toast.success(t('vehicles.created', 'Vehicle created successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('vehicles.createError', 'Failed to create vehicle'));
@@ -197,7 +195,6 @@ export const useVehicleMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehiclesList', currentCompanyId]);
-        toast.success(t('vehicles.updated', 'Vehicle updated successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('vehicles.updateError', 'Failed to update vehicle'));
@@ -210,7 +207,6 @@ export const useVehicleMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['vehiclesList', currentCompanyId]);
-        toast.success(t('vehicles.deleted', 'Vehicle deleted successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('vehicles.deleteError', 'Failed to delete vehicle'));
@@ -232,7 +228,6 @@ export const useBookingMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-        toast.success(t('admin.bookingUpdated', 'Booking updated successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.bookingUpdateError', 'Failed to update booking'));
@@ -246,7 +241,6 @@ export const useBookingMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-        toast.success(t('admin.bookingCancelled', 'Booking cancelled successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.bookingCancelError', 'Failed to cancel booking'));
@@ -268,7 +262,6 @@ export const useEmployeeMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyEmployees', currentCompanyId]);
-        toast.success(t('admin.employeeAdded', 'Employee added successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.employeeAddError', 'Failed to add employee'));
@@ -281,7 +274,6 @@ export const useEmployeeMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyEmployees', currentCompanyId]);
-        toast.success(t('admin.employeeUpdated', 'Employee updated successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.employeeUpdateError', 'Failed to update employee'));
@@ -294,7 +286,6 @@ export const useEmployeeMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyEmployees', currentCompanyId]);
-        toast.success(t('admin.employeeDeleted', 'Employee deleted successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.employeeDeleteError', 'Failed to delete employee'));
@@ -323,7 +314,6 @@ export const useMetaMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
-        toast.success(t('meta.disconnected', 'Disconnected from Facebook'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || t('meta.disconnectError', 'Failed to disconnect'));
@@ -336,7 +326,6 @@ export const useMetaMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
-        toast.success(t('meta.pageSelected', 'Page selected successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || t('meta.pageSelectError', 'Failed to select page'));
@@ -350,7 +339,6 @@ export const useMetaMutations = (currentCompanyId, t) => {
       onSuccess: (result) => {
         queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
         if (result?.instagramUsername) {
-          toast.success(t('meta.instagramRefreshed', `Instagram @${result.instagramUsername} connected!`));
         } else {
           toast.error(result.message || t('meta.instagramNotFound', 'Instagram not found'));
         }
@@ -375,7 +363,6 @@ export const useLocationMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
-        toast.success(t('admin.locationCreated', 'Location created successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.locationCreateError', 'Failed to create location'));
@@ -388,7 +375,6 @@ export const useLocationMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
-        toast.success(t('admin.locationUpdated', 'Location updated successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.locationUpdateError', 'Failed to update location'));
@@ -401,7 +387,6 @@ export const useLocationMutations = (currentCompanyId, t) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['companyLocations', currentCompanyId]);
-        toast.success(t('admin.locationDeleted', 'Location deleted successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || t('admin.locationDeleteError', 'Failed to delete location'));

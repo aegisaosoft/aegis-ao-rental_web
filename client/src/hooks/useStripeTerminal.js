@@ -55,13 +55,11 @@ export const useStripeTerminal = (options = {}) => {
               const response = await apiService.createConnectionToken(companyConfig?.id);
               return response.secret;
             } catch (error) {
-              console.error('Error fetching connection token:', error);
               toast.error(t('terminal.initError', 'Failed to fetch connection token'));
               throw error;
             }
           },
           onUnexpectedReaderDisconnect: () => {
-            console.log('Reader disconnected unexpectedly');
             setReader(null);
             toast.error(t('terminal.readerDisconnected', 'Card reader disconnected'));
             if (onReaderDisconnect) {
@@ -72,7 +70,6 @@ export const useStripeTerminal = (options = {}) => {
 
         setTerminal(terminalInstance);
       } catch (err) {
-        console.error('Error initializing terminal:', err);
         setError(err);
         toast.error(t('terminal.initError', 'Failed to initialize terminal'));
         if (onErrorCallback) {
@@ -91,7 +88,6 @@ export const useStripeTerminal = (options = {}) => {
     return () => {
       if (terminal) {
         terminal.disconnectReader().catch(err => {
-          console.error('Error disconnecting reader on cleanup:', err);
         });
       }
     };
@@ -100,7 +96,6 @@ export const useStripeTerminal = (options = {}) => {
   // Discover available readers
   const discoverReaders = useCallback(async () => {
     if (!terminal) {
-      console.warn('Terminal not initialized');
       return [];
     }
 
@@ -114,7 +109,6 @@ export const useStripeTerminal = (options = {}) => {
       });
 
       if (discoverResult.error) {
-        console.error('Discover error:', discoverResult.error);
         setError(discoverResult.error);
         toast.error(t('terminal.discoverError', 'Failed to discover readers'));
         if (onErrorCallback) {
@@ -132,7 +126,6 @@ export const useStripeTerminal = (options = {}) => {
 
       return readers;
     } catch (err) {
-      console.error('Error discovering readers:', err);
       setError(err);
       toast.error(t('terminal.discoverError', 'Failed to discover readers'));
       if (onErrorCallback) {
@@ -163,7 +156,6 @@ export const useStripeTerminal = (options = {}) => {
       const connectResult = await terminal.connectReader(selectedReader);
 
       if (connectResult.error) {
-        console.error('Connect error:', connectResult.error);
         setError(connectResult.error);
         toast.error(t('terminal.connectError', 'Failed to connect to reader'));
         if (onErrorCallback) {
@@ -175,7 +167,6 @@ export const useStripeTerminal = (options = {}) => {
       setReader(connectResult.reader);
       return true;
     } catch (err) {
-      console.error('Error connecting reader:', err);
       setError(err);
       toast.error(t('terminal.connectError', 'Failed to connect to reader'));
       if (onErrorCallback) {
@@ -202,7 +193,6 @@ export const useStripeTerminal = (options = {}) => {
       toast.info(t('terminal.disconnected', 'Reader disconnected'));
       return true;
     } catch (err) {
-      console.error('Error disconnecting reader:', err);
       setError(err);
       toast.error(t('terminal.disconnectError', 'Failed to disconnect reader'));
       if (onErrorCallback) {
@@ -257,7 +247,6 @@ export const useStripeTerminal = (options = {}) => {
       );
 
       if (collectResult.error) {
-        console.error('Collect error:', collectResult.error);
         setError(collectResult.error);
         toast.error(t('terminal.collectError', 'Payment collection failed'));
         if (onErrorCallback) {
@@ -270,7 +259,6 @@ export const useStripeTerminal = (options = {}) => {
       const processResult = await terminal.processPayment(collectResult.paymentIntent);
 
       if (processResult.error) {
-        console.error('Process error:', processResult.error);
         setError(processResult.error);
         toast.error(t('terminal.processError', 'Payment processing failed'));
         if (onErrorCallback) {
@@ -281,7 +269,6 @@ export const useStripeTerminal = (options = {}) => {
 
       return processResult.paymentIntent;
     } catch (err) {
-      console.error('Error processing payment:', err);
       setError(err);
       toast.error(t('terminal.error', 'Payment failed'));
       if (onErrorCallback) {
@@ -307,7 +294,6 @@ export const useStripeTerminal = (options = {}) => {
 
       return response;
     } catch (err) {
-      console.error('Error capturing payment:', err);
       setError(err);
       toast.error(t('terminal.captureError', 'Failed to capture payment'));
       if (onErrorCallback) {
@@ -333,7 +319,6 @@ export const useStripeTerminal = (options = {}) => {
       toast.info(t('terminal.cancelled', 'Payment cancelled'));
       return response;
     } catch (err) {
-      console.error('Error cancelling payment:', err);
       setError(err);
       toast.error(t('terminal.cancelError', 'Failed to cancel payment'));
       if (onErrorCallback) {

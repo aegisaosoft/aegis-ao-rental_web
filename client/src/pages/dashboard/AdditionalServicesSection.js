@@ -52,7 +52,6 @@ const AdditionalServicesSection = ({
     {
       enabled: isAuthenticated && !!currentCompanyId,
       onError: (error) => {
-        console.error('Error loading all additional services:', error);
       }
     }
   );
@@ -64,7 +63,6 @@ const AdditionalServicesSection = ({
     {
       enabled: isAuthenticated && !!currentCompanyId,
       onError: (error) => {
-        console.error('Error loading company services:', error);
       }
     }
   );
@@ -108,10 +106,8 @@ const AdditionalServicesSection = ({
         queryClient.invalidateQueries(['allAdditionalServices']);
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
         resetForm();
-        toast.success(t('admin.serviceCreated', 'Service created successfully'));
       },
       onError: (error) => {
-        console.error('Error creating service:', error);
         toast.error(error.response?.data?.message || t('admin.serviceCreateFailed', 'Failed to create service'));
       }
     }
@@ -125,10 +121,8 @@ const AdditionalServicesSection = ({
         queryClient.invalidateQueries(['allAdditionalServices']);
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
         resetForm();
-        toast.success(t('admin.serviceUpdated', 'Service updated successfully'));
       },
       onError: (error) => {
-        console.error('Error updating additional service:', error);
         toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed', 'Failed to update service'));
       }
     }
@@ -142,10 +136,8 @@ const AdditionalServicesSection = ({
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
         queryClient.invalidateQueries(['allAdditionalServices']);
         resetForm();
-        toast.success(t('admin.serviceUpdated', 'Service updated successfully'));
       },
       onError: (error) => {
-        console.error('Error updating company service:', error);
         toast.error(error.response?.data?.message || t('admin.serviceUpdateFailed', 'Failed to update service'));
       }
     }
@@ -158,10 +150,8 @@ const AdditionalServicesSection = ({
       onSuccess: () => {
         queryClient.invalidateQueries(['allAdditionalServices']);
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
-        toast.success(t('admin.serviceDeleted', 'Service deleted successfully'));
       },
       onError: (error) => {
-        console.error('Error deleting service:', error);
         toast.error(t('admin.serviceDeleteFailed', 'Failed to delete service'));
       }
     }
@@ -288,7 +278,6 @@ const AdditionalServicesSection = ({
   const handleToggleServiceAssignment = useCallback(async (service) => {
     const serviceId = getServiceIdentifier(service);
     if (!serviceId) {
-      console.error('No service ID found for service:', service);
       return;
     }
 
@@ -309,7 +298,6 @@ const AdditionalServicesSection = ({
         queryClient.invalidateQueries(['companyServices', currentCompanyId]);
       }
     } catch (error) {
-      console.error('Error toggling service assignment:', error);
       toast.error(t('admin.serviceAssignmentFailed', 'Failed to update service assignment'));
     }
   }, [currentCompanyId, assignedServiceIds, assignmentOverrides, queryClient, t]);
@@ -327,7 +315,6 @@ const AdditionalServicesSection = ({
       });
       queryClient.invalidateQueries(['companyServices', currentCompanyId]);
     } catch (error) {
-      console.error(`Error toggling ${field}:`, error);
       toast.error(t('admin.serviceUpdateFailed', 'Failed to update service'));
     }
   }, [currentCompanyId, companyServicesMap, queryClient, t]);

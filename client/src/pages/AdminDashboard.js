@@ -59,7 +59,6 @@ const AdminDashboard = () => {
 
         // Ensure we always return a string, not an object
         if (typeof translation === 'object' || translation === null) {
-          console.warn(`Translation for "${key}" returned an object instead of string. Using fallback.`);
           return String(fallback ?? '');
         }
 
@@ -68,13 +67,11 @@ const AdminDashboard = () => {
         
         // Validate the result is actually a string
         if (typeof result !== 'string' || result === '[object Object]') {
-          console.warn(`Translation for "${key}" resulted in invalid string. Using fallback.`);
           return String(fallback ?? '');
         }
 
         return result;
       } catch (error) {
-        console.error(`Error translating "${key}":`, error);
         return String(fallback ?? '');
       }
     },
@@ -119,7 +116,6 @@ const AdminDashboard = () => {
     const metaError = params.get('meta_error');
 
     if (metaSuccess === 'true') {
-      toast.success(t('meta.connected', 'Connected to Facebook successfully'));
       queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
       setActiveSection('meta');
       // Clear URL params
@@ -159,14 +155,12 @@ const AdminDashboard = () => {
           }
         } catch (error) {
           if (error.response?.status === 401) {
-            console.error('[AdminDashboard] ❌ Session lost after Stripe redirect');
             
             // Try to restore from sessionStorage backup
             const storedUserData = sessionStorage.getItem('stripeUserBackup');
             if (storedUserData) {
               try {
                 const userData = JSON.parse(storedUserData);
-                console.log('[AdminDashboard] Attempting to restore user data from backup');
                 
                 // Try to restore session using stored token if available
                 const storedToken = sessionStorage.getItem('stripeTokenBackup');
@@ -181,11 +175,9 @@ const AdminDashboard = () => {
                     sessionStorage.removeItem('stripeTokenBackup');
                     return;
                   } catch (restoreError) {
-                    console.error('[AdminDashboard] Failed to restore session:', restoreError);
                   }
                 }
               } catch (parseError) {
-                console.error('[AdminDashboard] Failed to parse stored user data:', parseError);
               }
             }
             
@@ -211,7 +203,6 @@ const AdminDashboard = () => {
       }, 1000);
     } else if (urlParams.get('deposit_cancelled') === 'true') {
       toast.warning(t('admin.securityDepositCancelled', 'Security deposit payment was cancelled.'));
-      console.log('⚠️ Security deposit payment cancelled');
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
     }
@@ -251,7 +242,6 @@ const AdminDashboard = () => {
     {
       enabled: isAuthenticated && canAccessDashboard && !!currentCompanyId,
       onError: (error) => {
-        console.error('Error loading company:', error);
         toast.error(t('admin.companyLoadFailed'), {
           position: 'top-center',
           autoClose: 3000,
@@ -276,7 +266,7 @@ const AdminDashboard = () => {
         
         return statusData;
       } catch (error) {
-        console.error('[AdminDashboard] Error fetching Stripe status:', {
+        console.error('Stripe account check error:', {
           status: error.response?.status,
           statusText: error.response?.statusText,
           data: error.response?.data,
@@ -332,7 +322,6 @@ const AdminDashboard = () => {
       retry: false,
       refetchOnWindowFocus: false,
       onError: (error) => {
-        console.error('[AdminDashboard] Stripe status query error:', error);
       },
       // Allow all authenticated users to see status, but backend will enforce admin privileges for actions
     }

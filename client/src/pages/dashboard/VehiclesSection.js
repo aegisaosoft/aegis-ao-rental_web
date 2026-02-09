@@ -110,9 +110,7 @@ const VehiclesSection = ({
       });
       queryClient.invalidateQueries(['modelsGroupedByCategory', currentCompanyId]);
       setDailyRateInputs(prev => ({ ...prev, [inputKey]: '' }));
-      toast.success(t('vehicles.rateUpdated', 'Rate updated successfully'));
     } catch (error) {
-      console.error('Error updating models:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update models';
       toast.error(errorMessage);
     } finally {

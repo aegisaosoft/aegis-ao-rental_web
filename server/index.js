@@ -79,10 +79,7 @@ app.use(helmet({
         "https://fonts.googleapis.com",
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
-        // Add Microblink license validation domains
-        "https://*.microblink.com",
-        "https://api.microblink.com",
-        "https://baltazar.microblink.com"  // BlinkID license validation server
+        // Future: Google Vision API domains will be added here
       ],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
@@ -117,7 +114,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Enable cross-origin isolation for WebAssembly-based SDKs (BlinkID)
+// Cross-origin configuration
 // Note: COOP/COEP disabled to allow cross-origin QR images to render in the modal
 
 // Rate limiting disabled (unlimited requests)
@@ -468,9 +465,8 @@ app.use('/api/*', getTokenFromSession, upload.any(), async (req, res) => {
       // Skip if this is already handled by a specific route
     // Note: /api/RentalCompanies should go through catch-all, not /api/companies
     const skipPaths = ['/api/auth', '/api/vehicles', '/api/booking', '/api/customers', '/api/payments', '/api/admin', '/api/companies', '/api/CompanyLocations', '/api/Models', '/api/scan', '/api/license', '/api/violations', '/api/finderslist', '/api/meta'];
-    // Note: /api/DriverLicense/upload and /api/DriverLicense/image are handled directly on client server, not forwarded to API
-    if (req.originalUrl.startsWith('/api/DriverLicense') ||
-        skipPaths.some(path => req.originalUrl.startsWith(path))) {
+    // Skip paths that are handled by specific route middleware (but NOT /api/DriverLicense - it should go to backend API)
+    if (skipPaths.some(path => req.originalUrl.startsWith(path))) {
       // Don't handle this request - let specific route handlers process it
       // Check if response was already sent by the specific route
       if (!res.headersSent) {
@@ -1237,22 +1233,7 @@ app.use(express.static(serverPublicPath, { fallthrough: true }));
 
 // Models are served directly from Azure Blob Storage - no local static serving needed
 
-// Serve BlinkID resources - must come BEFORE the catch-all route
-// Serve from node_modules/@microblink/blinkid/dist/resources
-// Check both server/node_modules and root node_modules
-const serverNodeModules = path.join(__dirname, 'node_modules/@microblink/blinkid/dist/resources');
-const rootNodeModules = path.join(__dirname, '../node_modules/@microblink/blinkid/dist/resources');
-const blinkidResourcesPath = fs.existsSync(serverNodeModules) ? serverNodeModules : 
-                              fs.existsSync(rootNodeModules) ? rootNodeModules : null;
-
-if (blinkidResourcesPath) {
-  app.use('/resources', express.static(blinkidResourcesPath));
-} else {
-  console.warn(`⚠️  BlinkID resources directory not found. Checked:`);
-  console.warn(`   - ${serverNodeModules}`);
-  console.warn(`   - ${rootNodeModules}`);
-  console.warn('   Make sure @microblink/blinkid is installed: npm install @microblink/blinkid');
-}
+// BlinkID resources removed - replaced with basic photo capture functionality
 
 // Helper function to detect social media crawlers
 const isSocialCrawler = (userAgent) => {
@@ -1319,7 +1300,7 @@ const generateCompanyOgHtml = (company, baseUrl, verificationCode = null) => {
 // match API routes, send back React's index.html file.
 // This MUST be the last route
 app.get('*', async (req, res) => {
-  // Don't catch API routes, static resources, or BlinkID resources
+  // Don't catch API routes or static resources
   if (req.path.startsWith('/api/') || 
       req.path.startsWith('/static/') ||
       req.path.startsWith('/resources/')) {

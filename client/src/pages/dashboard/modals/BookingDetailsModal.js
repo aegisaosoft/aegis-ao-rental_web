@@ -51,7 +51,6 @@ const BookingDetailsModal = ({
         setPdfError(t('admin.pdfNotAvailable', 'Rental agreement PDF is not available for this booking'));
       }
     } catch (err) {
-      console.error('Error fetching rental agreement:', err);
       if (err.response?.status === 404) {
         setPdfError(t('admin.noAgreementFound', 'No rental agreement found for this booking'));
       } else {

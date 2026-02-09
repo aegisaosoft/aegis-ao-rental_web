@@ -16,7 +16,6 @@ module.exports = function(app) {
       if (req.headers.cookie) {
         proxyReq.setHeader('Cookie', req.headers.cookie);
       }
-      console.log(`[Proxy] ${req.method} ${req.url} -> http://localhost:5000${req.url}`);
     },
     onProxyRes: (proxyRes, req, res) => {
       // Forward Set-Cookie headers from the server response
@@ -31,7 +30,6 @@ module.exports = function(app) {
       }
     },
     onError: (err, req, res) => {
-      console.error('[Proxy Error]', err.message);
       if (!res.headersSent) {
         res.status(503).json({
           error: 'Proxy Error',

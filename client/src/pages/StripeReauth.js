@@ -48,7 +48,6 @@ const StripeReauth = () => {
           setError('Could not get Stripe onboarding URL');
         }
       } catch (err) {
-        console.error('[StripeReauth] Error getting onboarding link:', err);
         setStatus('error');
         setError(err.response?.data?.message || 'Failed to continue Stripe setup');
       }

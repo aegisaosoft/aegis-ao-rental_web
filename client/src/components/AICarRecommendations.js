@@ -81,7 +81,6 @@ const AICarRecommendations = ({ onSelectVehicle, availableVehicles }) => {
         speak(data.summary);
       }
     } catch (error) {
-      console.error('AI recommendation error:', error);
     } finally {
       setIsLoadingAI(false);
     }

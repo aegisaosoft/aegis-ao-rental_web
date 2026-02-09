@@ -79,7 +79,6 @@ const QRCodePage = () => {
           // Convert to blob and download
           canvas.toBlob((blob) => {
             if (!blob) {
-              console.error('Failed to create blob');
               return;
             }
             
@@ -95,19 +94,16 @@ const QRCodePage = () => {
             URL.revokeObjectURL(url);
           }, 'image/png', 1.0);
         } catch (error) {
-          console.error('Error drawing image:', error);
           URL.revokeObjectURL(url);
         }
       };
 
       img.onerror = () => {
-        console.error('Error loading SVG image');
         URL.revokeObjectURL(url);
       };
 
       img.src = url;
     } catch (error) {
-      console.error('Error downloading QR code:', error);
     }
   };
 

@@ -53,20 +53,17 @@ const MyBookings = () => {
       
       // If stripe_success=true, update booking status
       if (stripeSuccess && bookingIdFromUrl) {
-        console.log('[MyBookings] Updating booking status after Stripe success:', bookingIdFromUrl);
         apiService.updateBooking(bookingIdFromUrl, { 
           status: 'Confirmed', 
           paymentStatus: 'Paid' 
         }).then(() => {
-          toast.success(t('myBookings.paymentSuccessful', 'Payment successful! Your booking is confirmed.'));
+          // Removed: success message - silent confirmation
           // Clean URL
           const newUrl = new URL(window.location);
           newUrl.searchParams.delete('stripe_success');
           window.history.replaceState({}, '', newUrl.toString());
         }).catch(err => {
-          console.error('[MyBookings] Error updating booking after payment:', err);
-          // Still show success since payment went through
-          toast.success(t('myBookings.paymentSuccessful', 'Payment successful!'));
+          // Removed: success message - silent payment confirmation
         });
       }
       
@@ -83,17 +80,14 @@ const MyBookings = () => {
           }
         } catch (error) {
           if (error.response?.status === 401) {
-            console.error('[MyBookings] ❌ Session lost after Stripe redirect');
             
             // Try to restore from sessionStorage backup
             const storedUserData = sessionStorage.getItem('stripeUserBackup');
             if (storedUserData) {
               try {
                 const userData = JSON.parse(storedUserData);
-                console.log('[MyBookings] Found user data backup, role:', userData.role);
                 // User data will be restored when they log in again
               } catch (parseError) {
-                console.error('[MyBookings] Failed to parse stored user data:', parseError);
               }
             }
             
@@ -206,10 +200,23 @@ const MyBookings = () => {
   return (
     <PageContainer>
       <PageHeader
-        title={t('myBookings.title')}
-        subtitle={t('myBookings.subtitle')}
+        title={bookingParam ? t('myBookings.bookingDetails', 'Booking Details') : t('myBookings.title')}
+        subtitle={bookingParam ? t('myBookings.bookingDetailsSubtitle', 'View your booking information') : t('myBookings.subtitle')}
         icon={<Calendar className="h-8 w-8" />}
       />
+
+      {bookingParam && (
+        <div className="mb-6">
+          <button
+            className="btn-outline text-sm flex items-center gap-2"
+            onClick={() => {
+              window.location.href = '/my-bookings';
+            }}
+          >
+            ← {t('myBookings.backToList', 'Back to Bookings')}
+          </button>
+        </div>
+      )}
 
       {!bookingList.length ? (
         <Card>
@@ -290,7 +297,14 @@ const MyBookings = () => {
                   </div>
 
                   <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col space-y-2">
-                    <button className="btn-outline text-sm">
+                    <button
+                      className="btn-outline text-sm"
+                      onClick={() => {
+                        const bookingId = booking.id || booking.bookingId || booking.booking_id;
+                        const newUrl = `/my-bookings?booking=${encodeURIComponent(bookingId)}`;
+                        window.location.href = newUrl;
+                      }}
+                    >
                       {t('myBookings.viewDetails', 'View Details')}
                     </button>
                     <button 
@@ -309,7 +323,6 @@ const MyBookings = () => {
                             setViewAgreementBookingId(booking.id || booking.bookingId || booking.booking_id);
                           }
                         } catch (error) {
-                          console.error('Error fetching rental agreement:', error);
                           alert(t('myBookings.agreementNotFound', 'Rental agreement not found for this booking'));
                         }
                       }}
@@ -318,7 +331,31 @@ const MyBookings = () => {
                       {t('myBookings.viewAgreement', 'View Agreement')}
                     </button>
                     {booking.status === 'confirmed' && (
-                      <button className="btn-secondary text-sm">
+                      <button
+                        className="btn-secondary text-sm"
+                        onClick={async () => {
+                          const confirmed = window.confirm(
+                            t('myBookings.cancelConfirmation', 'Are you sure you want to cancel this booking? This action cannot be undone.')
+                          );
+
+                          if (confirmed) {
+                            try {
+                              const bookingId = booking.id || booking.bookingId || booking.booking_id;
+                              await apiService.cancelBooking(bookingId);
+                              // Removed: success message - silent cancellation
+
+                              // Refetch the bookings to update the list
+                              if (bookingParam) {
+                                bookingQuery.refetch();
+                              } else {
+                                listQuery.refetch();
+                              }
+                            } catch (error) {
+                              toast.error(t('myBookings.cancellationFailed', 'Failed to cancel booking. Please try again.'));
+                            }
+                          }
+                        }}
+                      >
                         {t('myBookings.cancelBooking')}
                       </button>
                     )}
@@ -330,7 +367,7 @@ const MyBookings = () => {
       )}
 
       {/* Rental Agreement View Modal */}
-      {viewAgreementBookingId && agreementData && (
+      {viewAgreementBookingId && (
         <RentalAgreementModal
           isOpen={!!viewAgreementBookingId}
           onClose={() => {
@@ -338,15 +375,8 @@ const MyBookings = () => {
             setAgreementData(null);
           }}
           viewMode={true}
-          agreementData={agreementData}
-          language={agreementData.language || 'en'}
-          rentalInfo={{
-            vehicleName: agreementData.vehicleName || '',
-            pickupDate: agreementData.pickupDate ? new Date(agreementData.pickupDate).toLocaleDateString() : '',
-            returnDate: agreementData.returnDate ? new Date(agreementData.returnDate).toLocaleDateString() : '',
-            totalAmount: agreementData.rentalAmount || 0,
-            securityDeposit: agreementData.depositAmount || 0,
-          }}
+          bookingId={viewAgreementBookingId}
+          language={agreementData?.language || 'en'}
           formatPrice={formatPrice}
           t={t}
         />

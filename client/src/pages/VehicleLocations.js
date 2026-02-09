@@ -35,13 +35,12 @@ const VehicleLocations = ({ embedded = false }) => {
   useEffect(() => {
     // If embedded, skip auth checks - parent AdminDashboard handles authentication
     if (embedded) {
-      console.log('[VehicleLocations] Embedded mode - skipping auth redirects');
       return;
     }
 
     // Wait for auth and company contexts to finish loading
     if (authLoading || companyLoading) {
-      console.log('[VehicleLocations] Waiting for contexts to load...', {
+      console.log('Loading contexts:', {
         authLoading,
         companyLoading
       });
@@ -56,7 +55,7 @@ const VehicleLocations = ({ embedded = false }) => {
       return;
     }
 
-    console.log('[VehicleLocations] Auth Check:', {
+    console.log('Auth debug info:', {
       isAuthenticated,
       isAdmin,
       canAccessDashboard,
@@ -67,21 +66,18 @@ const VehicleLocations = ({ embedded = false }) => {
 
     // Only redirect if NOT embedded (standalone access)
     if (!isAuthenticated) {
-      console.log('[VehicleLocations] Not authenticated, redirecting to login');
       toast.error(t('auth.loginRequired', 'Please login to access this page'));
       navigate('/login', { replace: true });
       return;
     }
 
     if (!canAccessDashboard) {
-      console.log('[VehicleLocations] No dashboard access, redirecting to home');
       toast.error(t('auth.adminRequired', 'Admin access required'));
       navigate('/', { replace: true });
       return;
     }
 
     if (!currentCompanyId) {
-      console.log('[VehicleLocations] No company ID, redirecting to admin dashboard');
       toast.error(t('auth.noCompany', 'No company selected'));
       navigate('/admin-dashboard', { replace: true });
       return;
@@ -93,9 +89,7 @@ const VehicleLocations = ({ embedded = false }) => {
   const { data: locationsData, isLoading: locationsLoading } = useQuery(
     ['pickupLocations', currentCompanyId],
     async () => {
-      console.log('[VehicleLocations] Fetching locations for company:', currentCompanyId);
       const result = await apiService.getPickupLocations(currentCompanyId);
-      console.log('[VehicleLocations] Locations API response:', result);
       return result;
     },
     {
@@ -107,7 +101,7 @@ const VehicleLocations = ({ embedded = false }) => {
 
   // Fetch all vehicles - only after auth is ready
   // Log the conditions for vehicles query
-  console.log('[VehicleLocations] 🚗 Vehicles query enabled conditions:', {
+  console.log('Vehicles query conditions:', {
     currentCompanyId: !!currentCompanyId,
     authLoading: authLoading,
     companyLoading: companyLoading,
@@ -120,7 +114,7 @@ const VehicleLocations = ({ embedded = false }) => {
   const { data: vehiclesData, isLoading: vehiclesLoading, error: vehiclesError } = useQuery(
     ['vehicles', 'all', currentCompanyId],
     async () => {
-      console.log('[VehicleLocations] 🚗 Fetching vehicles with params:', {
+      console.log('Vehicles query params:', {
         page: 1,
         pageSize: 1000,
         companyId: currentCompanyId
@@ -132,14 +126,10 @@ const VehicleLocations = ({ embedded = false }) => {
         companyId: currentCompanyId
       });
       
-      console.log('[VehicleLocations] 🚗 Vehicles API RAW response:', result);
-      console.log('[VehicleLocations] 🚗 Response type:', typeof result);
-      console.log('[VehicleLocations] 🚗 Response keys:', result ? Object.keys(result) : 'null');
       
       // Log the full structure
       if (result && typeof result === 'object') {
         Object.keys(result).forEach(key => {
-          console.log(`[VehicleLocations] 🚗   - ${key}:`, typeof result[key], Array.isArray(result[key]) ? `(array of ${result[key].length})` : '');
         });
       }
       
@@ -150,8 +140,6 @@ const VehicleLocations = ({ embedded = false }) => {
       staleTime: 5 * 60 * 1000, // 5 minutes
       cacheTime: 10 * 60 * 1000, // 10 minutes
       onError: (error) => {
-        console.error('[VehicleLocations] ❌ Vehicles API error:', error);
-        console.error('[VehicleLocations] ❌ Error response:', error.response?.data);
       }
     }
   );
@@ -159,51 +147,40 @@ const VehicleLocations = ({ embedded = false }) => {
   // Unwrap the API responses - translatedApiService can return various formats
   // Handle: Axios response, direct array, {items: []}, {data: []}, {data: {items: []}}, paginated response, etc.
   const unwrapArray = (data, label) => {
-    console.log(`[VehicleLocations] Unwrapping ${label}:`, data);
     
     // Already an array
     if (Array.isArray(data)) {
-      console.log(`[VehicleLocations] ${label} is direct array:`, data.length);
       return data;
     }
     
     // No data
     if (!data) {
-      console.log(`[VehicleLocations] ${label} is null/undefined`);
       return [];
     }
     
     // Check if this is an Axios response object (has status, statusText, headers, config, request)
     if (data.status && data.statusText && data.headers && data.config && data.data) {
-      console.log(`[VehicleLocations] ${label} is Axios response, extracting data property`);
-      console.log(`[VehicleLocations] ${label} Axios data.data type:`, typeof data.data, Array.isArray(data.data) ? `(array of ${data.data.length})` : '');
-      console.log(`[VehicleLocations] ${label} Axios data.data keys:`, data.data ? Object.keys(data.data) : 'null');
-      console.log(`[VehicleLocations] ${label} Axios data.data.items:`, data.data?.items ? `array of ${data.data.items.length}` : 'not found');
       // Recursively unwrap the actual data
       return unwrapArray(data.data, label);
     }
     
     // Check for paginated response format: {items: [], page: 1, pageSize: 10, totalCount: 50, ...}
     if (data.items && Array.isArray(data.items)) {
-      console.log(`[VehicleLocations] ${label} has items array (paginated):`, data.items.length, 'of', data.totalCount || 'unknown');
       return data.items;
     }
     
     // Check for paginated response format: {vehicles: [], page: 1, pageSize: 10, totalCount: 50, ...}
     if (data.vehicles && Array.isArray(data.vehicles)) {
-      console.log(`[VehicleLocations] ${label} has vehicles array (paginated):`, data.vehicles.length, 'of', data.totalCount || 'unknown');
       return data.vehicles;
     }
     
     // Check for {data: [...]} format (not Axios response)
     if (data.data && !data.status) {
       if (Array.isArray(data.data)) {
-        console.log(`[VehicleLocations] ${label} has data array:`, data.data.length);
         return data.data;
       }
       // Nested: {data: {items: []}}
       if (data.data.items && Array.isArray(data.data.items)) {
-        console.log(`[VehicleLocations] ${label} has data.items array:`, data.data.items.length);
         return data.data.items;
       }
     }
@@ -211,25 +188,21 @@ const VehicleLocations = ({ embedded = false }) => {
     // Check for {result: [...]} or {result: {items: []}}
     if (data.result) {
       if (Array.isArray(data.result)) {
-        console.log(`[VehicleLocations] ${label} has result array:`, data.result.length);
         return data.result;
       }
       if (data.result.items && Array.isArray(data.result.items)) {
-        console.log(`[VehicleLocations] ${label} has result.items array:`, data.result.items.length);
         return data.result.items;
       }
     }
     
     // Unknown format - log all keys to help debug
-    console.warn(`[VehicleLocations] ${label} unknown format. Keys:`, Object.keys(data));
-    console.warn(`[VehicleLocations] ${label} full object:`, data);
     return [];
   };
   
   const locations = unwrapArray(locationsData, 'locations');
   const allVehicles = unwrapArray(vehiclesData, 'vehicles');
 
-  console.log('[VehicleLocations] ✅ Final arrays:', {
+  console.log('Vehicle locations data:', {
     locations: locations.length,
     vehicles: allVehicles.length,
     locationsIsArray: Array.isArray(locations),
@@ -246,7 +219,6 @@ const VehicleLocations = ({ embedded = false }) => {
         queryClient.invalidateQueries(['vehicles']);
       },
       onError: (error) => {
-        console.error('Error updating vehicle location:', error);
         
         // Check if it's an authentication error
         if (error.response?.status === 401) {
@@ -309,7 +281,6 @@ const VehicleLocations = ({ embedded = false }) => {
       queryClient.invalidateQueries(['vehicles']);
       clearSelection();
     } catch (error) {
-      console.error('Error moving vehicles:', error);
       
       // Check if it's an authentication error
       if (error.response?.status === 401) {

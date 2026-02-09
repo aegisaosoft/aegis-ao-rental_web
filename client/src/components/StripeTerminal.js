@@ -70,7 +70,6 @@ const StripeTerminal = ({
               const response = await apiService.createConnectionToken(companyConfig?.id);
               return response.secret;
             } catch (error) {
-              console.error('Error fetching connection token:', error);
               throw error;
             }
           },
@@ -87,7 +86,6 @@ const StripeTerminal = ({
         // Discover readers
         await discoverReaders(terminal);
       } catch (error) {
-        console.error('Error initializing terminal:', error);
         setStatus('error');
         toast.error(t('terminal.initError', 'Failed to initialize terminal'));
         if (onError) onError(error);
@@ -115,7 +113,6 @@ const StripeTerminal = ({
       const discoverResult = await terminalInstance.discoverReaders();
       
       if (discoverResult.error) {
-        console.error('Discover error:', discoverResult.error);
         toast.error(t('terminal.discoverError', 'Failed to discover readers'));
       } else {
         setReaders(discoverResult.discoveredReaders || []);
@@ -124,7 +121,6 @@ const StripeTerminal = ({
         }
       }
     } catch (error) {
-      console.error('Error discovering readers:', error);
       toast.error(t('terminal.discoverError', 'Failed to discover readers'));
     } finally {
       setLoading(false);
@@ -142,7 +138,6 @@ const StripeTerminal = ({
       const connectResult = await terminal.connectReader(reader);
       
       if (connectResult.error) {
-        console.error('Connect error:', connectResult.error);
         toast.error(t('terminal.connectError', 'Failed to connect to reader'));
         setStatus('ready');
       } else {
@@ -150,7 +145,6 @@ const StripeTerminal = ({
         setStatus('connected');
       }
     } catch (error) {
-      console.error('Error connecting reader:', error);
       toast.error(t('terminal.connectError', 'Failed to connect to reader'));
       setStatus('ready');
     } finally {
@@ -169,7 +163,6 @@ const StripeTerminal = ({
       setStatus('ready');
       toast.info(t('terminal.disconnected', 'Reader disconnected'));
     } catch (error) {
-      console.error('Error disconnecting reader:', error);
       toast.error(t('terminal.disconnectError', 'Failed to disconnect reader'));
     } finally {
       setLoading(false);
@@ -206,7 +199,6 @@ const StripeTerminal = ({
       const result = await terminal.collectPaymentMethod(paymentIntentResponse.clientSecret);
 
       if (result.error) {
-        console.error('Collect error:', result.error);
         toast.error(t('terminal.collectError', 'Payment collection failed'));
         setStatus('connected');
         if (onError) onError(result.error);
@@ -217,7 +209,6 @@ const StripeTerminal = ({
       const processResult = await terminal.processPayment(result.paymentIntent);
 
       if (processResult.error) {
-        console.error('Process error:', processResult.error);
         toast.error(t('terminal.processError', 'Payment processing failed'));
         setStatus('connected');
         if (onError) onError(processResult.error);
@@ -228,7 +219,6 @@ const StripeTerminal = ({
       if (onSuccess) onSuccess(processResult.paymentIntent);
 
     } catch (error) {
-      console.error('Error processing payment:', error);
       toast.error(t('terminal.error', 'Payment failed'));
       setStatus('connected');
       if (onError) onError(error);
@@ -250,7 +240,6 @@ const StripeTerminal = ({
       setStatus('completed');
       if (onSuccess) onSuccess({ id: paymentIntentId, status: 'captured' });
     } catch (error) {
-      console.error('Error capturing payment:', error);
       toast.error(t('terminal.captureError', 'Failed to capture payment'));
       if (onError) onError(error);
     } finally {
@@ -273,7 +262,6 @@ const StripeTerminal = ({
       setPaymentIntentId(null);
       if (onCancel) onCancel();
     } catch (error) {
-      console.error('Error cancelling payment:', error);
       toast.error(t('terminal.cancelError', 'Failed to cancel payment'));
     } finally {
       setLoading(false);

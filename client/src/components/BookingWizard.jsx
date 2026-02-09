@@ -51,6 +51,19 @@ const BookingWizard = ({
   const [showWizardQRCode, setShowWizardQRCode] = useState(false);
   const [wizardQRUrl, setWizardQRUrl] = useState('');
 
+  // License parsing state
+  const [licenseParsingResults, setLicenseParsingResults] = useState({
+    data: null,
+    confidenceScore: 0,
+    success: false,
+    method: null,
+    isAutoFilled: false,
+    error: null
+  });
+  const [autoFilledFields, setAutoFilledFields] = useState(new Set());
+  const [isParsingLicense, setIsParsingLicense] = useState(false);
+  const [parsingRetryCount, setParsingRetryCount] = useState(0);
+
   // Reset wizard state when it first opens (transitions from closed to open)
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
@@ -62,22 +75,25 @@ const BookingWizard = ({
       // Safety check: If DL images already exist in state, close wizard immediately
       // (This should not happen as we check before opening, but it's a safety net)
       // Don't auto-close based on state alone - state might have invalid URLs
-      // Let the server check in fetchImagesForStep3 determine if images actually exist
+      // Let the server check in fetchImagesForStep2 determine if images actually exist
       
-      // If user already exists (authenticated), start from step 3 (license photos)
-      // If user is new (not authenticated), start from step 1 (welcome/registration)
-      if (user && (user.id || user.customerId || user.customer_id)) {
-        // User exists - start from step 3 (license photos)
-        setWizardStep(3);
+      // If user already exists (authenticated with full profile), start from step 2 (license photos)
+      // If user is new (not authenticated or incomplete profile), start from step 1 (welcome/registration)
+      if (user && user.id && (user.firstName || user.lastName || user.email)) {
+        // Truly existing user with full profile - start from step 2 (license photos)
+
+        setWizardStep(2);
         // Pre-fill user data if available
+        const resolvedCustomerId = user.id || user.customerId || user.customer_id;
         setWizardFormData(prev => ({
           ...prev,
           firstName: user.firstName || prev.firstName,
           lastName: user.lastName || prev.lastName,
           email: user.email || initialEmail || prev.email,
           phoneNumber: user.phone || user.phoneNumber || prev.phoneNumber,
-          customerId: user.id || user.customerId || user.customer_id || prev.customerId
+          customerId: resolvedCustomerId || prev.customerId
         }));
+
         
         // Fetch existing images if they exist on server but not in state
         const fetchExistingImages = async () => {
@@ -135,7 +151,7 @@ const BookingWizard = ({
             backUrl = uploadedLicenseImages.back;
           }
           
-          // Don't close wizard here - always show images on step 3 if they exist
+          // Don't close wizard here - always show images on step 2 if they exist
           // User might want to see or replace them
         };
         
@@ -156,22 +172,22 @@ const BookingWizard = ({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialEmail, user, uploadedLicenseImages.front, uploadedLicenseImages.back, onClose, setUploadedLicenseImages]);
 
-  // Always fetch and display existing images when on step 3 (license photos)
+  // Fetch and display existing images when on step 2 (license photos)
+  // ONLY for truly existing users (not new users in creation process)
   useEffect(() => {
-    if (wizardStep === 3 && user && (user.id || user.customerId || user.customer_id)) {
+    // Only fetch images for existing users with full profile data
+    // New users in creation process should upload images, not fetch them
+    if (wizardStep === 2 && user && user.id && (user.firstName || user.lastName || user.email)) {
       const customerId = user.id || user.customerId || user.customer_id;
       if (!customerId) return;
       
-      const fetchImagesForStep3 = async () => {
-        console.log(`[BookingWizard] Step 3: Fetching images for customer ${customerId}`);
-        console.log(`[BookingWizard] Current state - front: ${uploadedLicenseImages.front || 'missing'}, back: ${uploadedLicenseImages.back || 'missing'}`);
+      const fetchImagesForStep2 = async () => {
         
         try {
           // Use the new API endpoint to get actual image filenames and URLs
           const response = await apiService.getCustomerLicenseImages(customerId);
           const imageData = response?.data || response;
           
-          console.log(`[BookingWizard] API response:`, imageData);
           
           // Construct frontend URLs using window.location.origin (frontend server)
           const frontendBaseUrl = window.location.origin;
@@ -180,26 +196,19 @@ const BookingWizard = ({
           let backUrl = null;
           
           if (imageData.frontUrl && imageData.front) {
-            // Try static file URL first: /customers/.../licenses/front.png
-            // If that doesn't work, fallback to API endpoint: /api/Media/customers/.../licenses/file/front.png
-            const staticUrl = `${frontendBaseUrl}${imageData.frontUrl}`;
+            // Use API endpoint for reliable file serving: /api/Media/customers/.../licenses/file/front.png
             const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.front}`;
             
             // Use API endpoint as it's more reliable (direct file serving)
             frontUrl = `${apiUrl}?t=${Date.now()}`;
-            console.log(`[BookingWizard] ✅ Front image URL (API endpoint): ${frontUrl}`);
-            console.log(`[BookingWizard] Static URL (fallback): ${staticUrl}`);
           }
           
           if (imageData.backUrl && imageData.back) {
-            // Try static file URL first: /customers/.../licenses/back.png
-            // If that doesn't work, fallback to API endpoint: /api/Media/customers/.../licenses/file/back.png
-            const staticUrl = `${frontendBaseUrl}${imageData.backUrl}`;
+            // Use API endpoint for reliable file serving: /api/Media/customers/.../licenses/file/back.png
             const apiUrl = `${frontendBaseUrl}/api/Media/customers/${customerId}/licenses/file/${imageData.back}`;
             
             // Use API endpoint as it's more reliable (direct file serving)
             backUrl = `${apiUrl}?t=${Date.now()}`;
-            console.log(`[BookingWizard] Static URL (fallback): ${staticUrl}`);
           }
           
           // Update state with the correct URLs
@@ -209,36 +218,31 @@ const BookingWizard = ({
                 front: frontUrl || prev.front,
                 back: backUrl || prev.back
               };
-              console.log(`[BookingWizard] Updated state:`, newState);
               return newState;
             });
           } else {
             // No images found - clear state
-            console.log(`[BookingWizard] ❌ No images found for customer ${customerId}`);
             setUploadedLicenseImages(prev => {
               if (prev.front || prev.back) {
-                console.log(`[BookingWizard] Clearing image URLs from state`);
                 return { front: null, back: null };
               }
               return prev;
             });
           }
           
-          console.log(`[BookingWizard] Step 3 fetch complete - front: ${frontUrl || 'NOT FOUND'}, back: ${backUrl || 'NOT FOUND'}`);
         } catch (error) {
-          console.error(`[BookingWizard] Error fetching images:`, error);
           // On error, don't clear existing state - might be a temporary network issue
         }
       };
       
-      fetchImagesForStep3();
+      fetchImagesForStep2();
       
       // Refresh on focus/visibility or cross-tab signals
-      const onFocus = () => fetchImagesForStep3();
-      const onRefreshEvent = () => fetchImagesForStep3();
+      const onFocus = () => fetchImagesForStep2();
+      const onRefreshEvent = () => fetchImagesForStep2();
       const onStorage = (e) => {
         if (e.key === 'licenseImagesUploaded') {
-          setTimeout(fetchImagesForStep3, 100);
+          setTimeout(fetchImagesForStep2, 100);
         }
       };
       let channel = null;
@@ -246,7 +250,7 @@ const BookingWizard = ({
         channel = new BroadcastChannel('license_images_channel');
         channel.onmessage = (event) => {
           if (event.data && event.data.type === 'licenseImageUploaded') {
-            setTimeout(fetchImagesForStep3, 100);
+            setTimeout(fetchImagesForStep2, 100);
           }
         };
       } catch (e) {
@@ -275,7 +279,6 @@ const BookingWizard = ({
     const customerId = user?.id || user?.customerId || user?.customer_id || wizardFormData.customerId;
     if (!customerId) return;
     
-    console.log('[BookingWizard] QR code shown, starting polling for images...');
     
     const pollForImages = async () => {
       try {
@@ -304,7 +307,6 @@ const BookingWizard = ({
               (backUrl && !prev.back);
             
             if (needsUpdate) {
-              console.log('[BookingWizard] Polling found new images:', { frontUrl, backUrl });
               return {
                 front: frontUrl || prev.front,
                 back: backUrl || prev.back
@@ -315,7 +317,6 @@ const BookingWizard = ({
         }
       } catch (error) {
         // Silently ignore polling errors
-        console.log('[BookingWizard] Polling error (ignored):', error.message);
       }
     };
     
@@ -324,7 +325,6 @@ const BookingWizard = ({
     const intervalId = setInterval(pollForImages, 300);
     
     return () => {
-      console.log('[BookingWizard] QR code closed, stopping polling');
       clearInterval(intervalId);
     };
   }, [showWizardQRCode, user, wizardFormData.customerId, setUploadedLicenseImages]);
@@ -336,6 +336,16 @@ const BookingWizard = ({
       ...prev,
       [name]: value
     }));
+
+    // Remove auto-filled indicator when user manually edits field
+    if (autoFilledFields.has(name)) {
+      setAutoFilledFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(name);
+        return newSet;
+      });
+    }
+
     setWizardError('');
   };
 
@@ -346,8 +356,8 @@ const BookingWizard = ({
         setWizardError(t('bookPage.invalidImageFile', 'Please upload an image file'));
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setWizardError(t('bookPage.fileTooLarge', 'File size must be less than 5MB'));
+      if (file.size > 10 * 1024 * 1024) {
+        setWizardError(t('bookPage.fileTooLarge', 'File size must be less than 10MB'));
         return;
       }
 
@@ -379,29 +389,28 @@ const BookingWizard = ({
         setWizardLoading(true);
         setWizardError('');
         
-        console.log(`[BookingWizard] handleWizardFileChange - Uploading ${side} image for customer:`, customerId);
-        console.log(`[BookingWizard] handleWizardFileChange - File:`, { name: file.name, size: file.size, type: file.type });
 
         const response = await apiService.uploadCustomerLicenseImage(customerId, side, file);
         
-        console.log(`[BookingWizard] handleWizardFileChange - Upload response:`, response);
         
         const imageUrl = response?.data?.imageUrl || response?.data?.result?.imageUrl;
         
-        console.log(`[BookingWizard] handleWizardFileChange - Image URL from response:`, imageUrl);
         
         if (imageUrl) {
-          // Backend returns path like /customers/.../licenses/front.png
-          // Convert to full frontend URL (use window.location.origin for frontend server)
-          const frontendBaseUrl = window.location.origin;
-          const fullImageUrl = `${frontendBaseUrl}${imageUrl}?t=${Date.now()}`;
-          
-          console.log(`[BookingWizard] handleWizardFileChange - Full image URL (frontend):`, fullImageUrl);
-          console.log(`[BookingWizard] handleWizardFileChange - Setting ${side} image in state`);
+          // Check if imageUrl is already a full URL or just a relative path
+          let fullImageUrl;
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            // Already a full URL (e.g., Azure Blob Storage URL)
+            fullImageUrl = `${imageUrl}?t=${Date.now()}`;
+          } else {
+            // Relative path, add frontend base URL
+            const frontendBaseUrl = window.location.origin;
+            fullImageUrl = `${frontendBaseUrl}${imageUrl}?t=${Date.now()}`;
+          }
+
           
           setUploadedLicenseImages(prev => {
             const newState = { ...prev, [side]: fullImageUrl };
-            console.log(`[BookingWizard] handleWizardFileChange - Updated state:`, newState);
             return newState;
           });
 
@@ -422,25 +431,93 @@ const BookingWizard = ({
             channel.postMessage({ type: 'licenseImageUploaded', side, customerId, imageUrl: fullImageUrl });
             channel.close();
           } catch (e) {
-            console.log('BroadcastChannel not available:', e);
           }
 
           try {
             localStorage.setItem('licenseImagesUploaded', Date.now().toString());
           } catch (e) {
-            console.log('localStorage not available:', e);
           }
 
           if (customerId && dlImageCheckCache) {
             dlImageCheckCache.current?.delete(customerId);
           }
-          
+
+          // If this is back side image, try to parse license data automatically
+          if (side === 'back') {
+            setIsParsingLicense(true);
+            try {
+              // Set longer timeout for parsing operation (60 seconds)
+              const parseResponse = await apiService.parseDriverLicenseBackSide(file, customerId);
+              const parseResult = parseResponse?.data || parseResponse;
+
+              if (parseResult?.success && parseResult?.data) {
+                // Store successful parsing results
+                setLicenseParsingResults({
+                  data: parseResult.data,
+                  confidenceScore: parseResult.confidenceScore || 0,
+                  success: true,
+                  method: 'pdf417_barcode',
+                  isAutoFilled: true,
+                  error: null
+                });
+
+                // Pre-fill form data
+                setWizardFormData(prev => {
+                  const newFormData = {
+                    ...prev,
+                    firstName: parseResult.data.firstName || prev.firstName,
+                    lastName: parseResult.data.lastName || prev.lastName,
+                    dateOfBirth: parseResult.data.dateOfBirth || prev.dateOfBirth,
+                    address: parseResult.data.addressLine1 || prev.address,
+                    city: parseResult.data.city || prev.city,
+                    state: parseResult.data.state || prev.state,
+                    postalCode: parseResult.data.zipCode || prev.postalCode
+                  };
+
+
+                  return newFormData;
+                });
+
+                // Track auto-filled fields
+                const autoFilled = new Set();
+                if (parseResult.data.firstName) autoFilled.add('firstName');
+                if (parseResult.data.lastName) autoFilled.add('lastName');
+                if (parseResult.data.dateOfBirth) autoFilled.add('dateOfBirth');
+                if (parseResult.data.addressLine1) autoFilled.add('address');
+                if (parseResult.data.city) autoFilled.add('city');
+                if (parseResult.data.state) autoFilled.add('state');
+                if (parseResult.data.zipCode) autoFilled.add('postalCode');
+                setAutoFilledFields(autoFilled);
+
+              } else {
+                setLicenseParsingResults({
+                  data: null,
+                  confidenceScore: 0,
+                  success: false,
+                  method: 'pdf417_barcode',
+                  isAutoFilled: false,
+                  error: parseResult?.Error || 'Parsing failed'
+                });
+              }
+            } catch (parseError) {
+              setLicenseParsingResults({
+                data: null,
+                confidenceScore: 0,
+                success: false,
+                method: 'pdf417_barcode',
+                isAutoFilled: false,
+                error: parseError.message || 'Network error'
+              });
+            } finally {
+              setIsParsingLicense(false);
+            }
+          }
+
         }
 
         e.target.value = '';
       } catch (err) {
-        console.error(`[BookingWizard] handleWizardFileChange - ❌ Error uploading ${side} image:`, err);
-        console.error(`[BookingWizard] handleWizardFileChange - Error details:`, {
+        console.error('License upload error:', {
           message: err.message,
           response: err.response?.data,
           status: err.response?.status
@@ -484,7 +561,6 @@ const BookingWizard = ({
           channel.postMessage({ type: 'licenseImageDeleted', side, customerId });
           channel.close();
         } catch (e) {
-          console.log('BroadcastChannel not available:', e);
         }
         
         setUploadedLicenseImages(prev => ({
@@ -496,14 +572,87 @@ const BookingWizard = ({
         removeWizardImage(fieldName);
       }
     } catch (err) {
-      console.error(`Error deleting ${side} image:`, err);
       const errorMessage = err.response?.data?.message || err.response?.data?.result?.message || err.message || t('bookPage.deleteError', 'Failed to delete image. Please try again.');
       toast.error(errorMessage);
     }
   };
 
   const handleWizardNext = async () => {
-    if (wizardStep === 2) {
+    if (wizardStep === 1) {
+      // Step 1: Create temporary customer for new users to enable license upload
+      if (!user || !user.id) {
+        setWizardLoading(true);
+
+        // Declare variables in outer scope for error handling
+        const tempEmail = wizardFormData.email || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@placeholder.local`;
+        const tempPassword = `Temp${Date.now()}!`; // Known temporary password
+
+        try {
+          const tempCustomerData = {
+            firstName: 'Temporary',
+            lastName: 'Customer',
+            email: tempEmail,
+            phoneNumber: '0000000000',
+            password: tempPassword, // Set known temporary password
+            isTemporary: true
+          };
+
+
+          const customerResponse = await apiService.createCustomer(tempCustomerData);
+
+          const customerId = customerResponse?.data?.customerId || customerResponse?.data?.id || customerResponse?.data?.customer_id || customerResponse?.id;
+          console.log('Customer ID extraction:', {
+            'response.data.customerId': customerResponse?.data?.customerId,
+            'response.data.id': customerResponse?.data?.id,
+            'response.data.customer_id': customerResponse?.data?.customer_id,
+            'response.id': customerResponse?.id
+          });
+
+          if (customerId) {
+            setWizardFormData(prev => ({
+              ...prev,
+              customerId: customerId,
+              email: wizardFormData.email || '', // Preserve any pre-filled email
+              tempPassword: tempPassword // Store temporary password for later use
+            }));
+
+          } else {
+            setWizardError('Failed to create temporary customer - no ID returned.');
+            setWizardLoading(false);
+            return;
+          }
+
+          setWizardLoading(false);
+          setWizardStep(2);
+          setWizardError('');
+          return;
+        } catch (error) {
+          console.error('Customer registration error:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            url: error.config?.url
+          });
+
+          // Check if this is the "Email already registered" error
+          if (error.response?.data?.message?.includes('already exists') ||
+              error.response?.data?.includes('already exists') ||
+              error.message?.includes('already registered')) {
+            setWizardError(`Email conflict during user creation: ${tempEmail}. This shouldn't happen if wizard was properly opened.`);
+          } else {
+            setWizardError(error?.response?.data?.message || error?.message || 'Failed to initialize session. Please try again.');
+          }
+          setWizardLoading(false);
+          return;
+        }
+      } else {
+        // User already exists, proceed directly to license scanning
+        setWizardStep(2);
+        return;
+      }
+    }
+
+    if (wizardStep === 3) {
       // Validate personal information
       if (!wizardFormData.firstName.trim()) {
         setWizardError(t('bookPage.firstNameRequired', 'First Name is required'));
@@ -545,51 +694,77 @@ const BookingWizard = ({
         // Check if customer with this email already exists
         // Skip check if email matches initialEmail (already checked in auth modal, customer doesn't exist)
         let existingCustomer = null;
-        if (initialEmail && email === initialEmail.toLowerCase()) {
-          // Email was already checked in auth modal and customer doesn't exist (404)
-          // Skip duplicate API call
-          existingCustomer = null;
-        } else {
-          try {
-            existingCustomer = await apiService.getCustomerByEmail(email);
-          } catch (error) {
-            if (error.response?.status !== 404) {
-              console.error('Error checking for existing customer:', error);
-            }
+
+        // In booking wizard, always check if customer exists (we created one in step 1)
+        try {
+          existingCustomer = await apiService.getCustomerByEmail(email);
+        } catch (error) {
+          if (error.response?.status !== 404) {
           }
         }
+
 
         let userData = null;
         let customerId = '';
 
         if (existingCustomer) {
-          // Customer already exists - verify password and update info
-          try {
-            const loginResponse = await loginUser({
-              email: email,
-              password: wizardFormData.password
-            });
-            
-            userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
-            if (!userData) {
-              throw new Error('Login failed - invalid credentials');
-            }
-            
-            customerId = userData?.customerId || userData?.id || userData?.userId || userData?.Id || userData?.UserId || userData?.sub || userData?.nameidentifier || '';
-            
-            if (customerId) {
-              try {
-                await apiService.updateCustomer(customerId, {
-                  firstName: wizardFormData.firstName.trim(),
-                  lastName: wizardFormData.lastName.trim(),
-                  phoneNumber: wizardFormData.phoneNumber.trim()
-                });
-              } catch (updateError) {
-                console.error('Error updating customer info:', updateError);
+          // This is the customer we created in step 1 - update with real data and password
+          customerId = wizardFormData.customerId || existingCustomer?.id || existingCustomer?.customerId;
+
+          if (customerId) {
+            try {
+              // First, login with temporary password to get auth token
+              const tempPassword = wizardFormData.tempPassword;
+              if (!tempPassword) {
+                throw new Error('Temporary password not found - please restart the wizard');
               }
+
+              const loginResponse = await loginUser({
+                email: email,
+                password: tempPassword
+              });
+
+              userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
+              if (!userData) {
+                throw new Error('Login failed with temporary password');
+              }
+
+              // Now update customer basic info
+              await apiService.updateCustomer(customerId, {
+                firstName: wizardFormData.firstName.trim(),
+                lastName: wizardFormData.lastName.trim(),
+                phoneNumber: wizardFormData.phoneNumber.trim()
+              });
+
+              // Then, update password using the profile API (now we're authenticated)
+              await apiService.updateProfile({
+                currentPassword: tempPassword,
+                newPassword: wizardFormData.password
+              });
+
+            } catch (updateError) {
+              console.error('Customer update error:', {
+                message: updateError.message,
+                response: updateError.response?.data,
+                status: updateError.response?.status,
+                url: updateError.config?.url,
+                email: email,
+                customerId: customerId
+              });
+
+              // Check if this is the "Email already registered" error
+              if (updateError.response?.data?.message?.includes('already exists') ||
+                  updateError.response?.data?.includes('already registered') ||
+                  updateError.message?.includes('already registered')) {
+                setWizardError(`Email conflict during update: ${email}. Customer ID: ${customerId}`);
+              } else {
+                setWizardError(`Unable to complete registration: ${updateError.response?.data?.message || updateError.message}`);
+              }
+              setWizardLoading(false);
+              return;
             }
-          } catch (loginError) {
-            setWizardError(t('bookPage.wrongPassword', 'Wrong Password'));
+          } else {
+            setWizardError('Customer ID not found. Please try again.');
             setWizardLoading(false);
             return;
           }
@@ -615,7 +790,6 @@ const BookingWizard = ({
                 phoneNumber: wizardFormData.phoneNumber.trim()
               });
             } catch (updateError) {
-              console.error('Error updating customer phone:', updateError);
             }
           }
         }
@@ -627,7 +801,7 @@ const BookingWizard = ({
           }));
         }
 
-        setWizardStep(3);
+        setWizardStep(4);
         setWizardError('');
       } catch (error) {
         setWizardError(error.response?.data?.message || error.message || t('auth.registrationFailed') || 'Unable to process account.');
@@ -637,10 +811,19 @@ const BookingWizard = ({
       return;
     }
     
-    if (wizardStep === 3) {
+    if (wizardStep === 2) {
       // Get customerId for server check
       const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
-      
+
+      // DEBUG: Log customerId sources
+      console.log('Customer ID sources:', {
+        'wizardFormData.customerId': wizardFormData.customerId,
+        'user?.customerId': user?.customerId,
+        'user?.id': user?.id,
+        'user object': user,
+        'final customerId': customerId
+      });
+
       if (!customerId) {
         setWizardError(t('bookPage.mustCompletePersonalInfo', 'Please complete personal information first'));
         return;
@@ -653,10 +836,8 @@ const BookingWizard = ({
         // First, check if there are local files to upload
         // Upload front image if it's a local file (not already uploaded)
         if (wizardFormData.driverLicenseFront && !uploadedLicenseImages.front) {
-          console.log('[BookingWizard] handleWizardNext - Uploading front image on Next click');
           const frontFile = wizardFormData.driverLicenseFront;
           const frontResponse = await apiService.uploadCustomerLicenseImage(customerId, 'front', frontFile);
-          console.log('[BookingWizard] handleWizardNext - Front upload response:', frontResponse);
           
           const frontImageUrl = frontResponse?.data?.imageUrl || frontResponse?.data?.result?.imageUrl;
           if (frontImageUrl) {
@@ -678,23 +859,83 @@ const BookingWizard = ({
         
         // Upload back image if it's a local file (not already uploaded)
         if (wizardFormData.driverLicenseBack && !uploadedLicenseImages.back) {
-          console.log('[BookingWizard] handleWizardNext - Uploading back image on Next click');
           const backFile = wizardFormData.driverLicenseBack;
+
+          // PARSE FIRST - while we still have the local file
+          try {
+            const parseResponse = await apiService.parseDriverLicenseBackSide(backFile, customerId);
+            const parseResult = parseResponse?.data || parseResponse;
+
+            if (parseResult?.success && parseResult?.data) {
+              // Store successful parsing results
+              setLicenseParsingResults({
+                data: parseResult.data,
+                confidenceScore: parseResult.confidenceScore || 0,
+                success: true,
+                method: 'pdf417_barcode',
+                isAutoFilled: true,
+                error: null
+              });
+
+              // Pre-fill form data
+              setWizardFormData(prev => ({
+                ...prev,
+                firstName: parseResult.data.firstName || prev.firstName,
+                lastName: parseResult.data.lastName || prev.lastName,
+                dateOfBirth: parseResult.data.dateOfBirth || prev.dateOfBirth,
+                address: parseResult.data.addressLine1 || prev.address,
+                city: parseResult.data.city || prev.city,
+                state: parseResult.data.state || prev.state,
+                postalCode: parseResult.data.zipCode || prev.postalCode
+              }));
+
+              // Track auto-filled fields
+              const autoFilled = new Set();
+              if (parseResult.data.firstName) autoFilled.add('firstName');
+              if (parseResult.data.lastName) autoFilled.add('lastName');
+              if (parseResult.data.dateOfBirth) autoFilled.add('dateOfBirth');
+              if (parseResult.data.addressLine1) autoFilled.add('address');
+              if (parseResult.data.city) autoFilled.add('city');
+              if (parseResult.data.state) autoFilled.add('state');
+              if (parseResult.data.zipCode) autoFilled.add('postalCode');
+              setAutoFilledFields(autoFilled);
+
+            } else {
+              setLicenseParsingResults({
+                data: null,
+                confidenceScore: 0,
+                success: false,
+                method: 'pdf417_barcode',
+                isAutoFilled: false,
+                error: parseResult?.Error || 'Parsing failed'
+              });
+            }
+          } catch (parseError) {
+            setLicenseParsingResults({
+              data: null,
+              confidenceScore: 0,
+              success: false,
+              method: 'pdf417_barcode',
+              isAutoFilled: false,
+              error: parseError.message || 'Network error'
+            });
+          }
+
+          // Now upload the file
           const backResponse = await apiService.uploadCustomerLicenseImage(customerId, 'back', backFile);
-          console.log('[BookingWizard] handleWizardNext - Back upload response:', backResponse);
-          
+
           const backImageUrl = backResponse?.data?.imageUrl || backResponse?.data?.result?.imageUrl;
           if (backImageUrl) {
             const frontendBaseUrl = window.location.origin;
             const fullBackImageUrl = `${frontendBaseUrl}${backImageUrl}?t=${Date.now()}`;
             setUploadedLicenseImages(prev => ({ ...prev, back: fullBackImageUrl }));
-            
+
             if (wizardImagePreviews.driverLicenseBack) {
               URL.revokeObjectURL(wizardImagePreviews.driverLicenseBack);
             }
             setWizardFormData(prev => ({ ...prev, driverLicenseBack: null }));
             setWizardImagePreviews(prev => ({ ...prev, driverLicenseBack: null }));
-            
+
             if (dlImageCheckCache) {
               dlImageCheckCache.current?.delete(customerId);
             }
@@ -702,11 +943,9 @@ const BookingWizard = ({
         }
         
         // NOW CHECK SERVER for actual images (not local state)
-        console.log('[BookingWizard] handleWizardNext - Checking server for images...');
         const response = await apiService.getCustomerLicenseImages(customerId);
         const imageData = response?.data || response;
         
-        console.log('[BookingWizard] handleWizardNext - Server response:', imageData);
         
         const hasFrontOnServer = !!(imageData.front && imageData.frontUrl);
         const hasBackOnServer = !!(imageData.back && imageData.backUrl);
@@ -734,13 +973,14 @@ const BookingWizard = ({
           setUploadedLicenseImages(prev => ({ ...prev, back: `${apiUrl}?t=${Date.now()}` }));
         }
         
-        console.log('[BookingWizard] handleWizardNext - Images verified on server, proceeding to step 4');
+
+        // Skip attemptLicenseParsing since we parse during upload now
+
         setWizardLoading(false);
-        setWizardStep(4);
+        setWizardStep(3);
         return;
         
       } catch (error) {
-        console.error('[BookingWizard] handleWizardNext - Error:', error);
         setWizardError(error?.response?.data?.message || t('bookPage.uploadError', 'Error uploading images. Please try again.'));
         setWizardLoading(false);
         return;
@@ -813,6 +1053,95 @@ const BookingWizard = ({
     }
   };
 
+  // Old attemptLicenseParsing function removed - parsing now happens during upload
+
+  const retryLicenseParsing = async () => {
+    const customerId = wizardFormData.customerId || user?.customerId || user?.id;
+    if (!customerId) return;
+
+    setIsParsingLicense(true);
+
+    try {
+      // Try to download the back image from blob storage and re-parse it
+      const backImageUrl = uploadedLicenseImages.back;
+      if (!backImageUrl) {
+        setLicenseParsingResults({
+          data: null,
+          confidenceScore: 0,
+          success: false,
+          method: 'pdf417_barcode',
+          isAutoFilled: false,
+          error: 'No back image found to retry parsing'
+        });
+        return;
+      }
+
+      // Convert image URL to File object for parsing
+      const response = await fetch(backImageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'back.jpg', { type: 'image/jpeg' });
+
+      const parseResponse = await apiService.parseDriverLicenseBackSide(file, customerId);
+      const parseResult = parseResponse?.data || parseResponse;
+
+      if (parseResult?.success && parseResult?.data) {
+        // Store successful parsing results
+        setLicenseParsingResults({
+          data: parseResult.data,
+          confidenceScore: parseResult.confidenceScore || 0,
+          success: true,
+          method: 'pdf417_barcode',
+          isAutoFilled: true,
+          error: null
+        });
+
+        // Pre-fill form data
+        setWizardFormData(prev => ({
+          ...prev,
+          firstName: parseResult.data.firstName || prev.firstName,
+          lastName: parseResult.data.lastName || prev.lastName,
+          dateOfBirth: parseResult.data.dateOfBirth || prev.dateOfBirth,
+          address: parseResult.data.addressLine1 || prev.address,
+          city: parseResult.data.city || prev.city,
+          state: parseResult.data.state || prev.state,
+          postalCode: parseResult.data.zipCode || prev.postalCode
+        }));
+
+        // Track auto-filled fields
+        const autoFilled = new Set();
+        if (parseResult.data.firstName) autoFilled.add('firstName');
+        if (parseResult.data.lastName) autoFilled.add('lastName');
+        if (parseResult.data.dateOfBirth) autoFilled.add('dateOfBirth');
+        if (parseResult.data.addressLine1) autoFilled.add('address');
+        if (parseResult.data.city) autoFilled.add('city');
+        if (parseResult.data.state) autoFilled.add('state');
+        if (parseResult.data.zipCode) autoFilled.add('postalCode');
+        setAutoFilledFields(autoFilled);
+
+      } else {
+        setLicenseParsingResults({
+          data: null,
+          confidenceScore: 0,
+          success: false,
+          method: 'pdf417_barcode',
+          isAutoFilled: false,
+          error: parseResult?.Error || 'Retry parsing failed'
+        });
+      }
+    } catch (error) {
+      setLicenseParsingResults({
+        data: null,
+        confidenceScore: 0,
+        success: false,
+        method: 'pdf417_barcode',
+        isAutoFilled: false,
+        error: error.message || 'Network error during retry'
+      });
+    } finally {
+      setIsParsingLicense(false);
+    }
+  };
+
   const handleCloseWizard = () => {
     if (wizardLoading) return;
     setWizardStep(1);
@@ -840,6 +1169,18 @@ const BookingWizard = ({
       driverLicenseFront: null,
       driverLicenseBack: null,
     });
+    // Reset parsing state
+    setLicenseParsingResults({
+      data: null,
+      confidenceScore: 0,
+      success: false,
+      method: null,
+      isAutoFilled: false,
+      error: null
+    });
+    setAutoFilledFields(new Set());
+    setIsParsingLicense(false);
+    setParsingRetryCount(0);
     if (onClose) {
       onClose();
     }
@@ -895,11 +1236,13 @@ const BookingWizard = ({
 
   if (!isOpen) return null;
 
+  // DEBUG: Log current wizard step
+
   return (
     <>
       {/* Wizard Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-        <div className="absolute inset-0 bg-black/50" onClick={handleCloseWizard} />
+        <div className="absolute inset-0 bg-black/50" />
         <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
           <button
             type="button"
@@ -932,8 +1275,8 @@ const BookingWizard = ({
                     </div>
                     <span className="mt-2 text-xs text-gray-600">
                       {step === 1 ? t('bookPage.wizardStep1', 'Welcome') :
-                       step === 2 ? t('bookPage.wizardStep2', 'Personal Info') :
-                       step === 3 ? t('bookPage.wizardStep3', 'License Photos') :
+                       step === 2 ? t('bookPage.wizardStep2', 'License Photos') :
+                       step === 3 ? t('bookPage.wizardStep3', 'Personal Info') :
                        t('bookPage.wizardStep4', 'Confirm')}
                     </span>
                   </div>
@@ -967,7 +1310,7 @@ const BookingWizard = ({
                   {t('bookPage.wizardWelcomeText', 'Thank you for choosing our service. We\'re excited to have you on board!')}
                 </p>
                 <p className="text-gray-700 mb-6">
-                  {t('bookPage.wizardWelcomeInstruction', 'Before you start, please prepare your driver\'s license. You\'ll need to take photos of both the front and back sides.')}
+                  {t('bookPage.wizardWelcomeInstruction', 'In the next step, you\'ll scan your driver\'s license. We\'ll then use this information to help fill out your personal details.')}
                 </p>
                 <div className="space-y-3 text-left max-w-md mx-auto">
                   <div className="flex items-center gap-3 text-gray-700">
@@ -1005,38 +1348,141 @@ const BookingWizard = ({
               </div>
             )}
 
-            {/* Step 2: Personal Information */}
-            {wizardStep === 2 && (
+            {/* Step 3: Personal Information */}
+            {wizardStep === 3 && (
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  {t('bookPage.personalInformation', 'Personal Information')}
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {t('bookPage.personalInformation', 'Personal Information')}
+                  </h3>
+                  {licenseParsingResults.success && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <Check className="h-4 w-4" />
+                      {t('bookPage.licenseDataParsed', 'License data auto-filled')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Parsing status display */}
+                {licenseParsingResults.success && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Check className="h-5 w-5 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-800">
+                        {t('bookPage.licenseDataExtracted', 'License information automatically extracted')}
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      {t('bookPage.confidenceScore', 'Confidence')}: {Math.round(licenseParsingResults.confidenceScore * 100)}% |
+                      {t('bookPage.method', 'Method')}: {licenseParsingResults.method} |
+                      <span className="text-blue-600">
+                        {t('bookPage.reviewAndEdit', 'Please review and edit as needed')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {!licenseParsingResults.success && !isParsingLicense && wizardStep === 3 && (
+                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-semibold text-yellow-800">
+                        {licenseParsingResults.error ?
+                          t('bookPage.parsingFailed', 'License parsing failed') :
+                          t('bookPage.manualEntryRequired', 'Manual entry required')
+                        }
+                      </span>
+                    </div>
+                    <div className="text-xs text-yellow-700 mb-3">
+                      {licenseParsingResults.error ?
+                        `${t('bookPage.parsingErrorDetails', 'Error details')}: ${licenseParsingResults.error}` :
+                        t('bookPage.licenseParsingFailed', 'Unable to automatically extract license information. Please fill in your details manually.')
+                      }
+                    </div>
+
+                    {licenseParsingResults.error && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={retryLicenseParsing}
+                          className="px-3 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                          disabled={isParsingLicense}
+                        >
+                          {isParsingLicense ? t('bookPage.retrying', 'Retrying...') : t('bookPage.retryParsing', 'Retry Parsing')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(2)}
+                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        >
+                          {t('bookPage.retakePhotos', 'Retake Photos')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isParsingLicense && wizardStep === 3 && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm font-semibold text-blue-800">
+                        {parsingRetryCount > 0 ?
+                          t('bookPage.retryingParsing', `Retrying license parsing (${parsingRetryCount}/2)...`) :
+                          t('bookPage.parsingLicenseData', 'Parsing license data...')
+                        }
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      {t('bookPage.pleaseWait', 'Please wait while we extract information from your license images.')}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                       {t('bookPage.firstName', 'First Name')} *
+                      {autoFilledFields.has('firstName') && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                          <Check className="h-3 w-3 mr-1" />
+                          Auto-filled
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       name="firstName"
                       value={wizardFormData.firstName}
                       onChange={handleWizardInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        autoFilledFields.has('firstName')
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                      }`}
                       required
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                       {t('bookPage.lastName', 'Last Name')} *
+                      {autoFilledFields.has('lastName') && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                          <Check className="h-3 w-3 mr-1" />
+                          Auto-filled
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       name="lastName"
                       value={wizardFormData.lastName}
                       onChange={handleWizardInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        autoFilledFields.has('lastName')
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                      }`}
                       required
                     />
                   </div>
@@ -1044,15 +1490,25 @@ const BookingWizard = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                       {t('bookPage.phoneNumber', 'Phone Number')} *
+                      {autoFilledFields.has('phoneNumber') && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                          <Check className="h-3 w-3 mr-1" />
+                          Auto-filled
+                        </span>
+                      )}
                     </label>
                     <input
                       type="tel"
                       name="phoneNumber"
                       value={wizardFormData.phoneNumber}
                       onChange={handleWizardInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        autoFilledFields.has('phoneNumber')
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-300'
+                      }`}
                       placeholder="(123) 456-7890"
                       required
                     />
@@ -1124,8 +1580,8 @@ const BookingWizard = ({
               </div>
             )}
 
-            {/* Step 3: Driver License Photos */}
-            {wizardStep === 3 && (
+            {/* Step 2: Driver License Photos */}
+            {wizardStep === 2 && (
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   {t('bookPage.driverLicensePhotos', 'Driver License Photos')}
@@ -1137,31 +1593,38 @@ const BookingWizard = ({
                   }
                 </p>
 
-                {/* Always display existing images on step 3 if they exist */}
-                {(uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack) && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <h4 className="text-sm font-semibold text-green-800 mb-3">
-                      {t('bookPage.uploadedImages', 'Uploaded Images')}
-                    </h4>
+                {/* Always display license images grid */}
+                <div className={`mb-6 p-4 rounded-lg ${
+                  (uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack)
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <h4 className={`text-sm font-semibold mb-3 ${
+                    (uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack)
+                      ? 'text-green-800'
+                      : 'text-gray-800'
+                  }`}>
+                    {(uploadedLicenseImages.front || uploadedLicenseImages.back || wizardImagePreviews.driverLicenseFront || wizardImagePreviews.driverLicenseBack)
+                      ? t('bookPage.uploadedImages', 'Uploaded Images')
+                      : t('bookPage.licenseImages', 'Driver License Images')
+                    }
+                  </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Always show front image if it exists AND loads successfully */}
-                      {(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) ? (
-                        <div>
-                          <label className="block text-xs font-medium text-green-700 mb-2">
-                            {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
-                          </label>
+                      {/* Front image - always in first position (left column) */}
+                      <div className="md:col-start-1">
+                        {(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) ? (
+                          <div>
+                            <label className="block text-xs font-medium text-green-700 mb-2">
+                              {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
+                            </label>
                           <div className="relative">
                             <img 
                               src={uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront} 
                               alt="Uploaded driver license front" 
                               className="w-full h-48 object-contain rounded-lg border-2 border-green-500 bg-gray-50"
                               onLoad={() => {
-                                console.log('[BookingWizard] ✅ Front image loaded successfully:', uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront);
                               }}
                               onError={(e) => {
-                                const failedUrl = uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront;
-                                console.error('[BookingWizard] ❌ Front image failed to load:', failedUrl);
-                                console.error('[BookingWizard] Image error details:', e);
                                 setUploadedLicenseImages(prev => ({ ...prev, front: null }));
                                 e.target.style.display = 'none';
                               }}
@@ -1176,15 +1639,41 @@ const BookingWizard = ({
                             >
                               <X className="h-4 w-4" />
                             </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
-                      {/* Always show back image if it exists AND loads successfully */}
-                      {(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) ? (
-                        <div>
-                          <label className="block text-xs font-medium text-green-700 mb-2">
-                            {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
-                          </label>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('bookPage.driverLicenseFront', 'Driver License Front')} *
+                            </label>
+                            <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture={isMobile ? "environment" : undefined}
+                                onChange={(e) => handleWizardFileChange(e, 'driverLicenseFront')}
+                                className="hidden"
+                              />
+                              <div className="text-center">
+                                {isMobile ? (
+                                  <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                ) : (
+                                  <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                )}
+                                <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Back image - always in second position (right column) */}
+                      <div className="md:col-start-2">
+                        {(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) ? (
+                          <div>
+                            <label className="block text-xs font-medium text-green-700 mb-2">
+                              {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
+                            </label>
                           <div className="relative">
                             <img 
                               src={uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack} 
@@ -1193,9 +1682,6 @@ const BookingWizard = ({
                               onLoad={() => {
                               }}
                               onError={(e) => {
-                                const failedUrl = uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack;
-                                console.error('[BookingWizard] ❌ Back image failed to load:', failedUrl);
-                                console.error('[BookingWizard] Image error details:', e);
                                 setUploadedLicenseImages(prev => ({ ...prev, back: null }));
                                 e.target.style.display = 'none';
                               }}
@@ -1210,65 +1696,103 @@ const BookingWizard = ({
                             >
                               <X className="h-4 w-4" />
                             </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {t('bookPage.driverLicenseBack', 'Driver License Back')} *
+                            </label>
+                            <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture={isMobile ? "environment" : undefined}
+                                onChange={(e) => handleWizardFileChange(e, 'driverLicenseBack')}
+                                className="hidden"
+                              />
+                              <div className="text-center">
+                                {isMobile ? (
+                                  <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                ) : (
+                                  <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                )}
+                                <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                {/* Parsing Status - Show on Step 2 */}
+                {uploadedLicenseImages.back && (
+                  <>
+                    {isParsingLicense && (
+                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-sm font-semibold text-blue-800">
+                            {t('bookPage.parsingLicenseData', 'Parsing license data...')}
+                          </span>
+                        </div>
+                        <div className="text-xs text-blue-700">
+                          {t('bookPage.pleaseWait', 'Please wait while we extract information from your license images.')}
+                        </div>
+                      </div>
+                    )}
+
+                    {!isParsingLicense && licenseParsingResults.success && (
+                      <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Check className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-semibold text-green-800">
+                            {t('bookPage.licenseDataExtracted', 'License information automatically extracted')}
+                          </span>
+                        </div>
+                        <div className="text-xs text-green-700">
+                          {t('bookPage.confidenceScore', 'Confidence')}: {Math.round(licenseParsingResults.confidenceScore * 100)}% |
+                          {t('bookPage.method', 'Method')}: {licenseParsingResults.method} |
+                          <span className="text-green-600 ml-1">
+                            {t('bookPage.dataWillBePrefilled', 'Data will be pre-filled on next step')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isParsingLicense && !licenseParsingResults.success && licenseParsingResults.error && (
+                      <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-semibold text-red-800">
+                            {t('bookPage.parsingFailed', 'License parsing failed')}
+                          </span>
+                        </div>
+                        <div className="text-xs text-red-700 mb-3">
+                          {t('bookPage.parsingErrorDetails', 'Error details')}: {licenseParsingResults.error}
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={retryLicenseParsing}
+                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            disabled={isParsingLicense}
+                          >
+                            {t('bookPage.retryParsing', 'Retry Parsing')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteWizardImage('back')}
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
+                            {t('bookPage.retakeBackPhoto', 'Retake Back Photo')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {/* File inputs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {!(uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront) && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('bookPage.driverLicenseFront', 'Driver License Front')} *
-                      </label>
-                      <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture={isMobile ? "environment" : undefined}
-                          onChange={(e) => handleWizardFileChange(e, 'driverLicenseFront')}
-                          className="hidden"
-                        />
-                        <div className="text-center">
-                          {isMobile ? (
-                            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          ) : (
-                            <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          )}
-                          <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-
-                  {!(uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack) && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('bookPage.driverLicenseBack', 'Driver License Back')} *
-                      </label>
-                      <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture={isMobile ? "environment" : undefined}
-                          onChange={(e) => handleWizardFileChange(e, 'driverLicenseBack')}
-                          className="hidden"
-                        />
-                        <div className="text-center">
-                          {isMobile ? (
-                            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          ) : (
-                            <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          )}
-                          <span className="text-sm text-gray-600">{isMobile ? t('bookPage.takePhoto', 'Take Photo') : t('bookPage.chooseFile', 'Choose File')}</span>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-                </div>
 
                 {/* Desktop QR Code Button */}
                 {!isMobile && (
@@ -1292,7 +1816,7 @@ const BookingWizard = ({
                     type="button"
                     onClick={handleWizardPrevious}
                     className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    disabled={wizardLoading}
+                    disabled={wizardLoading || isParsingLicense}
                   >
                     <ArrowLeft className="h-4 w-4 inline mr-2" />
                     {t('common.back', 'Back')}
@@ -1301,10 +1825,23 @@ const BookingWizard = ({
                     type="button"
                     onClick={handleWizardNext}
                     className="flex-1 btn-primary py-2"
-                    disabled={wizardLoading}
+                    disabled={wizardLoading || isParsingLicense}
                   >
-                    {t('common.next', 'Next')}
-                    <ArrowRight className="h-4 w-4 inline ml-2" />
+                    {wizardLoading || isParsingLicense ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        {isParsingLicense ? (
+                          parsingRetryCount > 0 ?
+                            t('bookPage.retryingParse', `Retrying... (${parsingRetryCount}/2)`) :
+                            t('bookPage.parsingLicense', 'Parsing License...')
+                        ) : t('common.loading', 'Loading...')}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        {t('common.next', 'Next')}
+                        <ArrowRight className="h-4 w-4" />
+                      </div>
+                    )}
                   </button>
                 </div>
               </div>

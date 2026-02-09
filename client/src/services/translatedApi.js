@@ -259,6 +259,12 @@ export const translatedApiService = {
     const response = await apiService.getCustomer(id);
     return translateResponse(response);
   },
+
+  getCustomerWithDetails: async (id) => {
+    const response = await apiService.getCustomerWithDetails(id);
+    return translateResponse(response);
+  },
+
   getCustomerByEmail: async (email) => {
     const response = await apiService.getCustomerByEmail(email);
     return translateResponse(response);
@@ -696,6 +702,17 @@ export const translatedApiService = {
   
   deleteWizardLicenseImage: async (wizardId, side) => {
     return await apiService.deleteWizardLicenseImage(wizardId, side);
+  },
+
+  // License Parsing (no translation needed for parsing results)
+  parseDriverLicenseBackSide: async (file, customerId = null) => {
+    return await apiService.parseDriverLicenseBackSide(file, customerId);
+  },
+  parseDriverLicenseFrontSide: async (file, customerId = null) => {
+    return await apiService.parseDriverLicenseFrontSide(file, customerId);
+  },
+  parseDriverLicenseBothSides: async (frontFile, backFile, customerId = null) => {
+    return await apiService.parseDriverLicenseBothSides(frontFile, backFile, customerId);
   },
   
   // Meta Integration (no translation needed for these)

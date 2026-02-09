@@ -9,6 +9,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import RentalAgreementView from '../components/RentalAgreementView';
+import { useRentalAgreement } from '../hooks/useRentalAgreement';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -16,6 +17,14 @@ const RentalAgreementPage = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+
+  // Use rental agreement hook for state management
+  const {
+    agreementSignature,
+    setAgreementSignature,
+    agreementConsents,
+    setAgreementConsents,
+  } = useRentalAgreement(i18n.language || 'en');
 
   const handleConfirm = async ({ signature, consents }) => {
     try {
@@ -37,15 +46,39 @@ const RentalAgreementPage = () => {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
+      console.log('Signing agreement:', {
+        bookingId,
+        hasSignature: !!agreementData.signatureImage,
+        signatureLength: agreementData.signatureImage?.length || 0,
+        language: agreementData.language,
+        consents: agreementData.consents,
+        consentTexts: agreementData.consentTexts,
+        signedAt: agreementData.signedAt
+      });
+
       await api.signBookingAgreement(bookingId, agreementData);
-      
-      toast.success(t('bookPage.agreementSigned', 'Agreement signed successfully!'));
-      
+
+
+
       // Reload page to show PDF
       window.location.reload();
       
     } catch (error) {
-      console.error('Error signing agreement:', error);
+      console.error('Agreement signing error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+        bookingId
+      });
+
+      if (error.response?.status === 404) {
+      } else if (error.response?.status === 400) {
+      } else if (error.response?.status === 500) {
+      }
+
       toast.error(t('bookPage.agreementSignError', 'Error signing agreement. Please try again.'));
     }
   };
@@ -83,6 +116,10 @@ const RentalAgreementPage = () => {
       onClose={handleClose}
       isPage={true}
       t={t}
+      signatureData={agreementSignature}
+      setSignatureData={setAgreementSignature}
+      consents={agreementConsents}
+      setConsents={setAgreementConsents}
     />
   );
 };

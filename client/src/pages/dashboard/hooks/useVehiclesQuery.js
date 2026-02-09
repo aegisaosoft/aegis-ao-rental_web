@@ -28,7 +28,6 @@ export const useVehiclesGrouped = ({
       enabled: enabled && !!companyId,
       staleTime: 2 * 60 * 1000,
       onError: (error) => {
-        console.error('Error loading vehicles grouped:', error);
         if (onError) onError(error);
       },
     }
@@ -55,7 +54,6 @@ export const useVehiclesList = ({
       enabled: enabled && !!companyId,
       staleTime: 2 * 60 * 1000,
       onError: (error) => {
-        console.error('Error loading vehicles list:', error);
         if (onError) onError(error);
       },
     }

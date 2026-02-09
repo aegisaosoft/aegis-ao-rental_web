@@ -69,7 +69,6 @@ const VehicleManagementSection = ({
     {
       enabled: isAuthenticated && !!currentCompanyId,
       onError: (error) => {
-        console.error('Error loading pickup locations:', error);
       }
     }
   );
@@ -299,11 +298,8 @@ const VehicleManagementSection = ({
           }
           
           toast.warning(errorSummary, { autoClose: 10000 });
-          console.group('🚫 Failed to Load Vehicles');
           failedCars.forEach((car, index) => {
-            console.log(`${index + 1}. ${car.licensePlate}${car.lineNumber ? ` (Line ${car.lineNumber})` : ''}: ${car.error}`);
           });
-          console.groupEnd();
         }
       }
       
@@ -313,7 +309,6 @@ const VehicleManagementSection = ({
       setPendingImportFile(null);
       setFieldMapping({});
     } catch (error) {
-      console.error('Error importing vehicles with mapping:', error);
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error?.message || 
                           error.message || 
@@ -419,7 +414,6 @@ const VehicleManagementSection = ({
       const ignoredCount = Number(result?.ignoredCount ?? errors.length ?? 0);
       
       if (ignoredCount > 0 && errors.length > 0) {
-        console.warn('Import errors:', errors);
         
         const failedCars = [];
         errors.forEach(error => {
@@ -458,11 +452,8 @@ const VehicleManagementSection = ({
           
           toast.warning(errorSummary, { autoClose: 10000 });
           
-          console.group('🚫 Failed to Load Vehicles');
           failedCars.forEach((car, index) => {
-            console.log(`${index + 1}. ${car.licensePlate}${car.lineNumber ? ` (Line ${car.lineNumber})` : ''}: ${car.error}`);
           });
-          console.groupEnd();
           
           if (failedCars.length <= 3) {
             failedCars.forEach((car, index) => {
@@ -486,7 +477,6 @@ const VehicleManagementSection = ({
       
       event.target.value = '';
     } catch (error) {
-      console.error('Error importing vehicles:', error);
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error?.message || 
                           error.message || 

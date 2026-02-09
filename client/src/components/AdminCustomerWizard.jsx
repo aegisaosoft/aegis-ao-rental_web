@@ -14,6 +14,9 @@ import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { CustomerInfoFields, LicenseInfoFields } from './common/CustomerBasicForm';
 import LicensePhotosStep from './common/LicensePhotosStep';
+import { useLicenseAutoFill } from '../hooks/useLicenseAutoFill';
+import LicenseAutoFillBanner from './common/LicenseAutoFillBanner';
+import { BatchFieldSuggestions } from './common/FieldSuggestion';
 
 const AdminCustomerWizard = ({
   isOpen,
@@ -54,12 +57,38 @@ const AdminCustomerWizard = ({
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // License auto-fill functionality
+  const {
+    isAvailable: hasLicenseData,
+    confidence: dataConfidence,
+    processingMethod,
+    suggestions,
+    validationResult,
+    applyAutoFill,
+    generateSuggestions,
+    applySuggestion,
+    applyAllSuggestions,
+    clearData: clearLicenseData,
+    isHighConfidence,
+    hasErrors,
+    hasWarnings
+  } = useLicenseAutoFill({
+    showSuggestions: true,
+    onAutoFill: (updatedData, validation) => {
+      if (validation.warnings.length > 0 || validation.errors.length > 0) {
+        toast.warning('Please review the auto-filled data carefully');
+      }
+    }
+  });
   
-  // Reset form when wizard opens
+  // Reset form when wizard opens and check for auto-fill data
   useEffect(() => {
     if (isOpen) {
       setWizardStep(1);
-      setFormData({
+
+      // Start with clean form data
+      const cleanFormData = {
         email: initialEmail || '',
         firstName: '',
         lastName: '',
@@ -75,18 +104,75 @@ const AdminCustomerWizard = ({
         licenseCountry: 'US',
         licenseExpiry: '',
         licenseIssueDate: '',
-      });
+      };
+
+      // Check if we have license data to auto-fill
+      if (hasLicenseData && isHighConfidence) {
+        // Automatically apply auto-fill for high confidence data
+        const autoFilledData = applyAutoFill(cleanFormData, {
+          overwriteExisting: true
+        });
+        setFormData(autoFilledData);
+
+        toast.success(
+          `Auto-filled form from scanned license (${Math.round(dataConfidence * 100)}% confidence)`,
+          { autoClose: 4000 }
+        );
+      } else {
+        setFormData(cleanFormData);
+
+        // Generate suggestions for manual review if data is available
+        if (hasLicenseData) {
+          setTimeout(() => generateSuggestions(cleanFormData), 500);
+        }
+      }
+
       setCreatedCustomer(null);
       setUploadedImages({ front: null, back: null });
       setLocalPreviews({ front: null, back: null });
       setError('');
     }
-  }, [isOpen, initialEmail]);
+  }, [isOpen, initialEmail, hasLicenseData, isHighConfidence, dataConfidence, applyAutoFill, generateSuggestions]);
   
   // Handle form field changes
   const handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   }, []);
+
+  // Handle auto-fill application
+  const handleApplyAutoFill = useCallback(async () => {
+    try {
+      const updatedData = applyAutoFill(formData, {
+        overwriteExisting: false // Don't overwrite existing values
+      });
+      setFormData(updatedData);
+    } catch (error) {
+      toast.error('Failed to apply license data');
+    }
+  }, [applyAutoFill, formData]);
+
+  // Handle suggestions generation
+  const handleGenerateSuggestions = useCallback(() => {
+    generateSuggestions(formData);
+  }, [generateSuggestions, formData]);
+
+  // Handle individual suggestion application
+  const handleApplySuggestion = useCallback((fieldName, suggestedValue) => {
+    const updatedData = applySuggestion(fieldName, suggestedValue, formData);
+    setFormData(updatedData);
+  }, [applySuggestion, formData]);
+
+  // Handle applying all suggestions
+  const handleApplyAllSuggestions = useCallback(() => {
+    const updatedData = applyAllSuggestions(formData);
+    setFormData(updatedData);
+  }, [applyAllSuggestions, formData]);
+
+  // Handle rejecting all suggestions
+  const handleRejectAllSuggestions = useCallback(() => {
+    generateSuggestions({}); // Clear suggestions
+    toast.info('Rejected all suggestions');
+  }, [generateSuggestions]);
   
   // Validate and create customer on step 1
   const validateAndCreateCustomer = useCallback(async () => {
@@ -120,7 +206,6 @@ const AdminCustomerWizard = ({
       } catch (checkError) {
         // 404 is expected if customer doesn't exist - continue with creation
         if (checkError.response?.status !== 404) {
-          console.warn('Error checking existing customer:', checkError);
         }
       }
       
@@ -151,11 +236,9 @@ const AdminCustomerWizard = ({
       }
       
       setCreatedCustomer(customer);
-      toast.success(t('admin.customerCreated', 'Customer created successfully'));
       return true;
       
     } catch (err) {
-      console.error('Error creating customer:', err);
       const errorMsg = err.response?.data?.message || err.message || t('admin.customerCreateError', 'Failed to create customer');
       
       // Check if it's a duplicate email error
@@ -188,7 +271,6 @@ const AdminCustomerWizard = ({
       });
       return true;
     } catch (err) {
-      console.error('Error updating customer license info:', err);
       // Don't block progression for license update errors
       toast.warning(t('admin.licenseUpdateFailed', 'Could not save license information'));
       return true;
@@ -308,7 +390,65 @@ const AdminCustomerWizard = ({
                   ✓ {t('admin.customerCreated', 'Customer created successfully')}
                 </div>
               )}
-              
+
+              {/* Auto-fill banner - show if license data is available */}
+              {hasLicenseData && !createdCustomer && (
+                <LicenseAutoFillBanner
+                  isAvailable={hasLicenseData}
+                  confidence={dataConfidence}
+                  processingMethod={processingMethod}
+                  suggestionsCount={suggestions ? Object.keys(suggestions.suggestions || {}).length : 0}
+                  validationResult={validationResult}
+                  onApplyAutoFill={handleApplyAutoFill}
+                  onGenerateSuggestions={handleGenerateSuggestions}
+                  onDismiss={clearLicenseData}
+                  variant={suggestions ? 'suggestions' : 'suggestions'}
+                  className="mb-4"
+                />
+              )}
+
+              {/* Batch suggestions - show if available */}
+              {suggestions && Object.keys(suggestions.suggestions).length > 0 && !createdCustomer && (
+                <div className="mb-4">
+                  <BatchFieldSuggestions
+                    suggestions={suggestions.suggestions}
+                    fieldLabels={{
+                      firstName: t('customer.firstName', 'First Name'),
+                      lastName: t('customer.lastName', 'Last Name'),
+                      middleName: t('customer.middleName', 'Middle Name'),
+                      dateOfBirth: t('customer.dateOfBirth', 'Date of Birth'),
+                      address: t('customer.address', 'Address'),
+                      city: t('customer.city', 'City'),
+                      state: t('customer.state', 'State'),
+                      zipCode: t('customer.zipCode', 'Zip Code'),
+                      licenseNumber: t('license.number', 'License Number'),
+                      licenseState: t('license.state', 'License State'),
+                      licenseExpiry: t('license.expiry', 'License Expiry')
+                    }}
+                    onAcceptAll={handleApplyAllSuggestions}
+                    onRejectAll={handleRejectAllSuggestions}
+                    onAcceptField={handleApplySuggestion}
+                    onRejectField={(fieldName) => {
+                      // Remove suggestion for this field
+                    }}
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              {/* Validation warnings/errors */}
+              {validationResult && (hasErrors || hasWarnings) && !createdCustomer && (
+                <LicenseAutoFillBanner
+                  isAvailable={true}
+                  confidence={dataConfidence}
+                  processingMethod={processingMethod}
+                  validationResult={validationResult}
+                  variant="validation"
+                  showDetails={true}
+                  className="mb-4"
+                />
+              )}
+
               {/* Email field - locked if passed from parent */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -330,7 +470,7 @@ const AdminCustomerWizard = ({
                   </p>
                 )}
               </div>
-              
+
               <CustomerInfoFields
                 data={formData}
                 onChange={handleFieldChange}
@@ -349,6 +489,27 @@ const AdminCustomerWizard = ({
               <p className="text-sm text-gray-600 mb-4">
                 {t('license.optional', "Driver's license information is optional but recommended for rental agreements.")}
               </p>
+
+              {/* Auto-fill banner for license fields if not already filled */}
+              {hasLicenseData && (!formData.licenseNumber || !formData.licenseState) && (
+                <LicenseAutoFillBanner
+                  isAvailable={hasLicenseData}
+                  confidence={dataConfidence}
+                  processingMethod={processingMethod}
+                  suggestionsCount={0}
+                  onApplyAutoFill={() => {
+                    // Apply only license-specific fields
+                    const licenseSpecificData = applyAutoFill(formData, {
+                      overwriteExisting: false,
+                      includeFields: ['licenseNumber', 'licenseState', 'licenseExpiry', 'licenseIssueDate']
+                    });
+                    setFormData(licenseSpecificData);
+                  }}
+                  variant="suggestions"
+                  className="mb-4"
+                />
+              )}
+
               <LicenseInfoFields
                 data={formData}
                 onChange={handleFieldChange}

@@ -8,16 +8,28 @@
 import { useState, useCallback } from 'react';
 import { getConsentTexts } from '../pages/RentalAgreementStep';
 
-const INITIAL_CONSENTS = {
-  terms: false,
-  termsAcceptedAt: null,
-  nonRefundable: false,
-  nonRefundableAcceptedAt: null,
-  damagePolicy: false,
-  damagePolicyAcceptedAt: null,
-  cardAuthorization: false,
-  cardAuthorizationAcceptedAt: null,
-};
+const RULE_KEYS = [
+  'ruleProhibitedDriver',
+  'ruleUnder25',
+  'ruleAlcohol',
+  'ruleNoSmoking',
+  'ruleLostKeys',
+  'rulePassengerCapacity',
+  'ruleCleaningFee',
+  'ruleTires',
+  'ruleTickets',
+  'rule24Hour',
+  'ruleNoCellPhone',
+  'ruleCardAuthorization',
+  'ruleSmsConsent',
+  'ruleTermsAgreement',
+];
+
+const INITIAL_CONSENTS = RULE_KEYS.reduce((acc, key) => {
+  acc[key] = false;
+  acc[`${key}AcceptedAt`] = null;
+  return acc;
+}, {});
 
 /**
  * Custom hook for managing rental agreement state and operations
@@ -66,15 +78,19 @@ export const useRentalAgreement = (language = 'en') => {
       return null;
     }
 
+    // Build consents object using actual rule keys
+    const consents = {};
+    RULE_KEYS.forEach(key => {
+      const acceptedAtKey = `${key}AcceptedAt`;
+      if (agreementConsents[acceptedAtKey]) {
+        consents[acceptedAtKey] = agreementConsents[acceptedAtKey];
+      }
+    });
+
     return {
       signatureImage: agreementSignature,
       language: currentLanguage,
-      consents: {
-        termsAcceptedAt: agreementConsents.termsAcceptedAt,
-        nonRefundableAcceptedAt: agreementConsents.nonRefundableAcceptedAt,
-        damagePolicyAcceptedAt: agreementConsents.damagePolicyAcceptedAt,
-        cardAuthorizationAcceptedAt: agreementConsents.cardAuthorizationAcceptedAt,
-      },
+      consents: consents,
       consentTexts: getConsentTexts(currentLanguage),
       userAgent: navigator.userAgent,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -95,15 +111,18 @@ export const useRentalAgreement = (language = 'en') => {
    * @returns {Object} Debug information about agreement state
    */
   const getAgreementDebugInfo = useCallback(() => {
+    const hasConsents = {};
+    RULE_KEYS.forEach(key => {
+      const acceptedAtKey = `${key}AcceptedAt`;
+      hasConsents[key] = !!agreementConsents[acceptedAtKey];
+    });
+
     return {
       hasAgreementSignature: !!agreementSignature,
       agreementSignatureLength: agreementSignature?.length || 0,
-      hasConsents: {
-        terms: !!agreementConsents.termsAcceptedAt,
-        nonRefundable: !!agreementConsents.nonRefundableAcceptedAt,
-        damagePolicy: !!agreementConsents.damagePolicyAcceptedAt,
-        cardAuthorization: !!agreementConsents.cardAuthorizationAcceptedAt,
-      },
+      hasConsents,
+      totalConsents: RULE_KEYS.length,
+      acceptedConsents: Object.values(hasConsents).filter(Boolean).length,
     };
   }, [agreementSignature, agreementConsents]);
 

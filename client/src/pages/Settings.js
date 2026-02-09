@@ -165,8 +165,7 @@ const Settings = () => {
         // For other tabs, settings saved locally (no notification needed)
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      console.error('Error details:', {
+      console.error('Settings save error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,

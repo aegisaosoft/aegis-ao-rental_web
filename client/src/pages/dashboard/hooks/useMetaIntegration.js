@@ -65,7 +65,6 @@ const useMetaIntegration = ({ currentCompanyId, isAuthenticated, enabled = true 
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
-        toast.success(t('meta.disconnected', 'Disconnected from Facebook'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || t('meta.disconnectError', 'Failed to disconnect'));
@@ -79,7 +78,6 @@ const useMetaIntegration = ({ currentCompanyId, isAuthenticated, enabled = true 
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
-        toast.success(t('meta.pageSelected', 'Page selected successfully'));
       },
       onError: (error) => {
         toast.error(error.response?.data?.error || t('meta.pageSelectError', 'Failed to select page'));
@@ -94,7 +92,6 @@ const useMetaIntegration = ({ currentCompanyId, isAuthenticated, enabled = true 
       onSuccess: (result) => {
         if (result.success) {
           queryClient.invalidateQueries(['metaStatus', currentCompanyId]);
-          toast.success(t('meta.instagramRefreshed', `Instagram @${result.instagramUsername} connected!`));
         } else {
           toast.error(result.message || t('meta.instagramNotFound', 'Instagram not found'));
         }

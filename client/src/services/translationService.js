@@ -192,7 +192,6 @@ class TranslationService {
                   translatedSentences.push(sentenceWithPunct);
                 }
               } catch (error) {
-                console.error(`Error translating sentence "${sentenceText.substring(0, 50)}...":`, error);
                 // Keep original sentence if translation fails
                 translatedSentences.push(sentenceWithPunct);
               }
@@ -209,12 +208,9 @@ class TranslationService {
               textNode.textContent = translatedText;
             } else {
               // Keep original if all translations failed
-              console.warn('All sentence translations failed, keeping original text');
             }
           } catch (error) {
-            console.error(`Error translating text node "${text.substring(0, 50)}...":`, error);
             // Keep original text if there's a critical error
-            console.warn('Keeping original text due to translation error');
           }
         }
       }
@@ -222,7 +218,6 @@ class TranslationService {
       // Return the translated HTML
       return body.innerHTML;
     } catch (error) {
-      console.error('Error translating HTML:', error);
       // Don't fall back to original - rethrow the error so the caller knows translation failed
       throw new Error(`Failed to translate HTML: ${error.message}`);
     }

@@ -56,7 +56,6 @@ const EmployeesSection = ({
       enabled: isAuthenticated && !!currentCompanyId,
       keepPreviousData: true,
       onError: (error) => {
-        console.error('Error loading employees:', error);
       },
     }
   );
@@ -104,10 +103,8 @@ const EmployeesSection = ({
         setEditingEmployeeId(null);
         setSelectedCustomer(null);
         setSelectedRole('worker');
-        toast.success(t('admin.employeeUpdated', 'Employee updated successfully'));
       },
       onError: (error) => {
-        console.error('Error updating customer:', error);
         toast.error(
           error.response?.data?.message ||
             error.response?.data?.error ||
@@ -143,7 +140,6 @@ const EmployeesSection = ({
       
       return foundCustomers;
     } catch (error) {
-      console.error('Error finding customers:', error);
       toast.error(
         error.response?.data?.message ||
           t('admin.customerSearchFailed', 'Failed to search for customers.')
@@ -182,7 +178,6 @@ const EmployeesSection = ({
         data: { role: 'customer' },
       });
     } catch (error) {
-      console.error('Error removing employee:', error);
     }
   }, [t, updateCustomerMutation]);
 
@@ -212,7 +207,6 @@ const EmployeesSection = ({
 
       await updateCustomerMutation.mutateAsync({ customerId, data: updateData });
     } catch (error) {
-      console.error('Error setting employee:', error);
     } finally {
       setIsSettingEmployee(false);
     }

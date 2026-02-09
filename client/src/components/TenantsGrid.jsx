@@ -31,7 +31,6 @@ const TenantsGrid = () => {
         return response;
       } catch (err) {
         // If API requires auth, return empty array
-        console.warn('Failed to fetch companies:', err);
         return { data: [] };
       }
     },
@@ -39,7 +38,6 @@ const TenantsGrid = () => {
       retry: 1,
       staleTime: 5 * 60 * 1000, // 5 minutes
       onError: (err) => {
-        console.warn('Error loading companies for tenants grid:', err);
       },
     }
   );

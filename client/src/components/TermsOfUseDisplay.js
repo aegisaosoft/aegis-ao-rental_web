@@ -59,7 +59,6 @@ export const getFormattedTermsOfUse = (termsOfUse, currentLanguage = 'en') => {
     
     return '';
   } catch (error) {
-    console.error('Error parsing terms of use:', error);
     return '';
   }
 };

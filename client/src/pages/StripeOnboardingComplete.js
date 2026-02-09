@@ -41,7 +41,6 @@ const StripeOnboardingComplete = () => {
           }
           setStatus('success');
         } catch (error) {
-          console.error('[StripeOnboardingComplete] Error syncing status:', error);
           // Still show success even if sync fails - the webhook will update it
           setStatus('success');
         }

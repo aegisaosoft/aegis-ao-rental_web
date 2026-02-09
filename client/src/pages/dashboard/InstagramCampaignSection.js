@@ -820,7 +820,6 @@ const PublishModal = ({
         setPreviewCaption(result);
         setCaption(result.text);
       } catch (error) {
-        console.error('Failed to generate caption:', error);
       }
     }
   };
@@ -835,7 +834,6 @@ const PublishModal = ({
         setIncludePrice(result.includePrice);
         setSelectedTemplate(templateId);
       } catch (error) {
-        console.error('Failed to apply template:', error);
       }
     }
   };

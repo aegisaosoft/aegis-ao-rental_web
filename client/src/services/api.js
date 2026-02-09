@@ -15,7 +15,7 @@
 
 import axios from 'axios';
 
-// API Base URL - use /api prefix for Node.js proxy
+// API Base URL - use /api prefix for proxy
 const API_BASE_URL = '/api';
 
 // Create axios instance
@@ -131,7 +131,6 @@ api.interceptors.response.use(
         
         // Only redirect if we're not already redirecting (prevent multiple redirects)
         if (!window.location.href.includes('/login')) {
-          console.warn('[API] Session expired (401/403), redirecting to login');
           window.location.href = '/login';
         }
       }
@@ -223,7 +222,6 @@ export const apiService = {
   updateBooking: (id, data) => api.put(`/booking/bookings/${id}`, data),
   cancelBooking: (id) => api.post(`/booking/bookings/${id}/cancel`),
   refundPayment: (bookingId, amount, reason) => {
-    console.log('[API] Sending refund request - Amount:', amount, '(type:', typeof amount + ')', 'Booking:', bookingId, 'Reason:', reason);
     return api.post(`/booking/bookings/${bookingId}/refund`, { amount, reason });
   },
   syncPaymentFromStripe: (bookingId) => api.post(`/booking/bookings/${bookingId}/sync-payment`),
@@ -243,6 +241,8 @@ export const apiService = {
   getCustomersWithBookings: (companyId, params = {}) => 
     api.get(`/customers/with-bookings/${companyId}`, { params }),
   getCustomer: (id) => api.get(`/customers/${id}`),
+  getCustomerWithDetails: (id) => api.get(`/customers/data/${id}`),
+  getCustomerTest: (id) => api.get(`/customers/${id}/test`),
   getCustomerByEmail: (email) => api.get(`/customers/email/${encodeURIComponent(email)}`),
   createCustomer: (data) => api.post('/customers', data),
   updateCustomer: (id, data) => api.put(`/customers/${id}`, data),
@@ -395,8 +395,52 @@ export const apiService = {
     return api.get(`/Media/customers/${customerId}/licenses`);
   },
   deleteCustomerLicenseImage: (customerId, side) => {
-    console.log('[API] Deleting customer license image:', { customerId, side });
     return api.delete(`/Media/customers/${customerId}/licenses/${side}`);
+  },
+
+  // License Parsing
+  parseDriverLicenseBackSide: (file, customerId = null) => {
+    const formData = new FormData();
+    formData.append('backSideImage', file);
+    if (customerId) {
+      formData.append('customerId', customerId);
+    }
+
+    return api.post('/DriverLicense/parse-back-side', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000, // 2 minutes for parsing operation
+    });
+  },
+
+  parseDriverLicenseFrontSide: (file, customerId = null) => {
+    const formData = new FormData();
+    formData.append('frontSideImage', file);
+    if (customerId) {
+      formData.append('customerId', customerId);
+    }
+
+    return api.post('/DriverLicense/parse-front-side', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  parseDriverLicenseBothSides: (frontFile, backFile, customerId = null) => {
+    const formData = new FormData();
+    formData.append('frontSideImage', frontFile);
+    formData.append('backSideImage', backFile);
+    if (customerId) {
+      formData.append('customerId', customerId);
+    }
+
+    return api.post('/DriverLicense/parse-both-sides', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
   // Wizard License Images (temporary storage for new customers without customerId)
   uploadWizardLicenseImage: (wizardId, side, file, onProgress) => {
@@ -405,7 +449,7 @@ export const apiService = {
     
     // Axios will automatically URL encode path parameters
     // Don't manually encode to avoid double-encoding issues
-    console.log('[API] Uploading wizard license image:', {
+    console.log('Uploading license image:', {
       wizardId: wizardId,
       side: side,
       fileName: file?.name,
@@ -427,7 +471,6 @@ export const apiService = {
   },
   // Delete wizard license image
   deleteWizardLicenseImage: (wizardId, side) => {
-    console.log('[API] Deleting wizard license image:', { wizardId, side });
     return api.delete(`/Media/wizard/${wizardId}/licenses/${side}`);
   },
 

@@ -213,7 +213,6 @@ const Home = () => {
           
           return null; // No available vehicles
         } catch (error) {
-          console.warn(`Error checking availability for location ${locationId}:`, error);
           return null;
         }
       });
@@ -300,7 +299,6 @@ const Home = () => {
       // Always default to "All Locations" on first page load
       setSelectedLocationId('');
     } catch (error) {
-      console.warn('[Home] Failed to load saved search filters:', error);
       // On error, set default dates (today to today) and All Locations
       const today = new Date();
       setStartDate(today.toISOString().split('T')[0]);
@@ -322,7 +320,6 @@ const Home = () => {
       };
       localStorage.setItem(SEARCH_FILTERS_STORAGE_KEY, JSON.stringify(payload));
     } catch (error) {
-      console.warn('[Home] Failed to persist search filters:', error);
     }
   }, [startDate, endDate, category, selectedLocationId]);
   
@@ -367,7 +364,6 @@ const Home = () => {
     if (!Array.isArray(allModels)) {
       // Only warn in development and if we actually have data (not just loading)
       if (process.env.NODE_ENV === 'development' && allModels !== undefined && allModels !== null) {
-        console.warn('modelsGrouped is not an array:', allModels);
       }
       return [];
     }
@@ -576,7 +572,6 @@ const Home = () => {
           const parsed = JSON.parse(source);
           return normalizeSections(parsed);
         } catch (err) {
-          console.warn('[Home] Unable to parse company texts JSON:', err);
           return [];
         }
       }
