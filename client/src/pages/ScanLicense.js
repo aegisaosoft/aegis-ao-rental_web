@@ -56,8 +56,6 @@ const ScanLicense = () => {
       streamRef.current = stream;
 
       // Log what we actually got
-      const videoTrack = stream.getVideoTracks()[0];
-      const settings = videoTrack.getSettings();
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;

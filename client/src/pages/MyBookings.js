@@ -85,7 +85,7 @@ const MyBookings = () => {
             const storedUserData = sessionStorage.getItem('stripeUserBackup');
             if (storedUserData) {
               try {
-                const userData = JSON.parse(storedUserData);
+                JSON.parse(storedUserData);
                 // User data will be restored when they log in again
               } catch (parseError) {
               }
