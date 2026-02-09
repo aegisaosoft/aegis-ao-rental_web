@@ -326,7 +326,7 @@ const ReservationWizardPage = () => {
         throw new Error('Customer not found');
       }
     } catch (error) {
-      const isNotFound = error.response?.status === 404 || error.message?.includes('not found');
+      const isNotFound = error.response?.status === 404 || (typeof error.message === 'string' && error.message.includes('not found'));
       if (!isNotFound) {
       }
       // Show customer creation wizard

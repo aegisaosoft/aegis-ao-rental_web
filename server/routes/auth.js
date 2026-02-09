@@ -268,7 +268,7 @@ router.get('/profile', async (req, res) => {
       hasToken: !!token,
       hasSessionUser: !!req.session?.user,
       hasCookies: !!req.headers.cookie,
-      cookieIncludesSession: req.headers.cookie?.includes('connect.sid')
+      cookieIncludesSession: typeof req.headers.cookie === 'string' && req.headers.cookie.includes('connect.sid')
     });
     
     // If no token, return 200 with authenticated: false (avoids browser error messages)

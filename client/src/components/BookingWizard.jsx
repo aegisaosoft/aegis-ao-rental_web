@@ -79,20 +79,32 @@ const BookingWizard = ({
       
       // If user already exists (authenticated with full profile), start from step 2 (license photos)
       // If user is new (not authenticated or incomplete profile), start from step 1 (welcome/registration)
-      if (user && user.id && (user.firstName || user.lastName || user.email)) {
-        // Truly existing user with full profile - start from step 2 (license photos)
+      if (user && (user.id || user.customerId) && user.email) {
+        // Truly existing user with email - start from step 2 (license photos)
 
         setWizardStep(2);
-        // Pre-fill user data if available
-        const resolvedCustomerId = user.id || user.customerId || user.customer_id;
-        setWizardFormData(prev => ({
-          ...prev,
-          firstName: user.firstName || prev.firstName,
-          lastName: user.lastName || prev.lastName,
-          email: user.email || initialEmail || prev.email,
-          phoneNumber: user.phone || user.phoneNumber || prev.phoneNumber,
-          customerId: resolvedCustomerId || prev.customerId
-        }));
+
+        // Use existing user's customerId
+        const resolvedCustomerId = user.customerId || user.id || user.customer_id;
+
+        // Pre-populate form with user data
+        console.log('📧 Setting email for existing user:', {
+          userEmail: user.email,
+          userCustomerId: resolvedCustomerId,
+          userHasId: !!user.id,
+          userHasCustomerId: !!user.customerId
+        });
+
+        setWizardFormData(prev => {
+          return {
+            ...prev,
+            firstName: user.firstName || prev.firstName,
+            lastName: user.lastName || prev.lastName,
+            email: user.email || prev.email,
+            phoneNumber: user.phone || user.phoneNumber || prev.phoneNumber,
+            customerId: resolvedCustomerId || prev.customerId
+          };
+        });
 
         
         // Fetch existing images if they exist on server but not in state
@@ -693,7 +705,6 @@ const BookingWizard = ({
         const email = wizardFormData.email.trim().toLowerCase();
         
         // Check if customer with this email already exists
-        // Skip check if email matches initialEmail (already checked in auth modal, customer doesn't exist)
         let existingCustomer = null;
 
         // In booking wizard, always check if customer exists (we created one in step 1)
@@ -701,47 +712,88 @@ const BookingWizard = ({
           existingCustomer = await apiService.getCustomerByEmail(email);
         } catch (error) {
           if (error.response?.status !== 404) {
+            console.error('Error checking customer by email:', error);
           }
         }
-
 
         let userData = null;
         let customerId = '';
 
         if (existingCustomer) {
-          // This is the customer we created in step 1 - update with real data and password
           customerId = wizardFormData.customerId || existingCustomer?.id || existingCustomer?.customerId;
+
+          // Update wizard form data with existing customer's info if not already set
+          const customerEmail = existingCustomer.email || existingCustomer.Email;
+          const customerFirstName = existingCustomer.firstName || existingCustomer.FirstName;
+          const customerLastName = existingCustomer.lastName || existingCustomer.LastName;
+          const customerPhone = existingCustomer.phone || existingCustomer.phoneNumber || existingCustomer.Phone;
+
+          setWizardFormData(prev => ({
+            ...prev,
+            email: customerEmail || prev.email,
+            firstName: customerFirstName || prev.firstName,
+            lastName: customerLastName || prev.lastName,
+            phoneNumber: customerPhone || prev.phoneNumber
+          }));
+
+          // Check if this is a temporary customer (created in step 1) or a real existing customer
+          const isTemporaryCustomer = wizardFormData.tempPassword && wizardFormData.customerId;
 
           if (customerId) {
             try {
-              // First, login with temporary password to get auth token
-              const tempPassword = wizardFormData.tempPassword;
-              if (!tempPassword) {
-                throw new Error('Temporary password not found - please restart the wizard');
-              }
+              let loginResponse;
 
-              const loginResponse = await loginUser({
-                email: email,
-                password: tempPassword
-              });
+              if (isTemporaryCustomer) {
+                // This is temporary customer created in step 1 - use temporary credentials
+                const tempPassword = wizardFormData.tempPassword;
+                const tempEmail = existingCustomer?.email || `temp-${customerId}@placeholder.local`;
+
+                console.log('🔍 TEMPORARY USER LOGIN:', { tempEmail, customerId });
+
+                loginResponse = await loginUser({
+                  email: tempEmail,
+                  password: tempPassword
+                });
+              } else {
+                // This is a real existing customer - use normal login
+                console.log('🔍 EXISTING USER LOGIN:', { email, customerId });
+
+                loginResponse = await loginUser({
+                  email: email,
+                  password: wizardFormData.password
+                });
+              }
 
               userData = loginResponse?.result?.user || loginResponse?.user || loginResponse?.data || null;
               if (!userData) {
-                throw new Error('Login failed with temporary password');
+                throw new Error('Login failed');
               }
 
-              // Now update customer basic info
-              await apiService.updateCustomer(customerId, {
-                firstName: wizardFormData.firstName.trim(),
-                lastName: wizardFormData.lastName.trim(),
-                phoneNumber: wizardFormData.phoneNumber.trim()
-              });
+              if (isTemporaryCustomer) {
+                // For temporary customers, update their info and password
+                await apiService.updateCustomer(customerId, {
+                  firstName: wizardFormData.firstName.trim(),
+                  lastName: wizardFormData.lastName.trim(),
+                  phoneNumber: wizardFormData.phoneNumber.trim()
+                });
 
-              // Then, update password using the profile API (now we're authenticated)
-              await apiService.updateProfile({
-                currentPassword: tempPassword,
-                newPassword: wizardFormData.password
-              });
+                // Update password for temporary customer
+                await apiService.updateProfile({
+                  currentPassword: wizardFormData.tempPassword,
+                  newPassword: wizardFormData.password
+                });
+              } else {
+                // For existing customers, just update basic info if needed
+                if (wizardFormData.firstName !== existingCustomer.firstName ||
+                    wizardFormData.lastName !== existingCustomer.lastName ||
+                    wizardFormData.phoneNumber !== existingCustomer.phone) {
+                  await apiService.updateCustomer(customerId, {
+                    firstName: wizardFormData.firstName.trim(),
+                    lastName: wizardFormData.lastName.trim(),
+                    phoneNumber: wizardFormData.phoneNumber.trim()
+                  });
+                }
+              }
 
             } catch (updateError) {
               console.error('Customer update error:', {
@@ -754,9 +806,9 @@ const BookingWizard = ({
               });
 
               // Check if this is the "Email already registered" error
-              if (updateError.response?.data?.message?.includes('already exists') ||
-                  updateError.response?.data?.includes('already registered') ||
-                  updateError.message?.includes('already registered')) {
+              if ((typeof updateError.response?.data?.message === 'string' && updateError.response.data.message.includes('already exists')) ||
+                  (typeof updateError.response?.data === 'string' && updateError.response.data.includes('already registered')) ||
+                  (typeof updateError.message === 'string' && updateError.message.includes('already registered'))) {
                 setWizardError(`Email conflict during update: ${email}. Customer ID: ${customerId}`);
               } else {
                 setWizardError(`Unable to complete registration: ${updateError.response?.data?.message || updateError.message}`);
@@ -1344,7 +1396,17 @@ const BookingWizard = ({
             )}
 
             {/* Step 3: Personal Information */}
-            {wizardStep === 3 && (
+            {wizardStep === 3 && (() => {
+              // Debug current form data on step 3
+              console.log('🔍 Step 3 - Current wizardFormData:', {
+                email: wizardFormData.email,
+                firstName: wizardFormData.firstName,
+                lastName: wizardFormData.lastName,
+                customerId: wizardFormData.customerId
+              });
+              console.log('🔍 Full user object:', user);
+              console.log('🔍 initialEmail prop:', initialEmail);
+              return (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-semibold text-gray-900">
@@ -1573,7 +1635,8 @@ const BookingWizard = ({
                   </button>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Step 2: Driver License Photos */}
             {wizardStep === 2 && (

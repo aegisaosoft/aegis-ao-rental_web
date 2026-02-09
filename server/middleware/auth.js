@@ -22,7 +22,7 @@ const authenticateToken = async (req, res, next) => {
   // However, if no session cookie is sent, express-session creates a NEW empty session
   // We need to check if this is a NEW session (no cookie) vs an existing session (has cookie but no data)
   
-  const hasSessionCookie = req.headers.cookie?.includes('connect.sid');
+  const hasSessionCookie = typeof req.headers.cookie === 'string' && req.headers.cookie.includes('connect.sid');
   const sessionToken = req.session?.token;
   const headerToken = req.headers['authorization']?.split(' ')[1];
   
@@ -39,7 +39,7 @@ const authenticateToken = async (req, res, next) => {
     hasSessionCookie: hasSessionCookie,
     isNewSession: isNewSession,
     sessionKeys: req.session ? Object.keys(req.session) : [],
-    cookieHeader: req.headers.cookie ? (req.headers.cookie.includes('connect.sid') ? 'connect.sid present' : req.headers.cookie.substring(0, 100)) : 'none',
+    cookieHeader: req.headers.cookie ? (typeof req.headers.cookie === 'string' && req.headers.cookie.includes('connect.sid') ? 'connect.sid present' : req.headers.cookie.substring(0, 100)) : 'none',
     url: req.originalUrl || req.url,
     method: req.method
   });
