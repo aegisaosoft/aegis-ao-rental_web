@@ -89,6 +89,7 @@ const LicensePhotosStep = ({
     };
     
     fetchExistingImages();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]); // Remove setUploadedImages dependency to avoid circular updates
   
   // Listen for storage events (when license is scanned on phone)
@@ -141,6 +142,7 @@ const LicensePhotosStep = ({
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showQRCode, customerId]); // Remove setUploadedImages dependency
   
   // Handle file upload
