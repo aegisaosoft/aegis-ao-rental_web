@@ -484,6 +484,8 @@ export const apiService = {
   getStripeSettings: () => api.get('/StripeSettings'),
   testStripeConnection: (settingsId) => api.post(`/StripeSettings/${settingsId}/test-connection`),
   getStripeAccountStatus: (companyId, config = {}) => api.get(`/companies/${companyId}/stripe/status?source=web`, config),
+  // Combined booking page info (services + locations + stripe check in one request)
+  getBookingInfo: (companyId) => api.get(`/booking/info/${companyId}`),
   checkStripeAccount: (companyId) => api.get(`/companies/${companyId}/stripe/check-account`),
   getStripeOnboardingLink: (companyId) => api.get(`/companies/${companyId}/stripe/reauth?json=true&source=web`),
   syncStripeAccountStatus: (companyId) => api.post(`/companies/${companyId}/stripe/sync?source=web`),

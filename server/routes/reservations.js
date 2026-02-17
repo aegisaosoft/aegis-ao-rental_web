@@ -19,6 +19,27 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Combined booking page info — public endpoint (no auth required)
+// Proxies to C# API: GET /api/Booking/info/{companyId}
+router.get('/info/:companyId', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const queryStr = new URLSearchParams(req.query).toString();
+    const url = queryStr
+      ? `/api/Booking/info/${companyId}?${queryStr}`
+      : `/api/Booking/info/${companyId}`;
+
+    console.log(`[Booking Info] GET ${url}`);
+    const response = await apiService.apiClient.get(url);
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Booking Info] Error:`, error.response?.status, error.message);
+    res.status(error.response?.status || 500).json(
+      error.response?.data || { message: 'Failed to load booking info' }
+    );
+  }
+});
+
 // Get all bookings with optional filters
 router.get('/bookings', authenticateToken, async (req, res) => {
   try {

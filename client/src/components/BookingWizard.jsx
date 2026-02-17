@@ -1577,12 +1577,10 @@ const BookingWizard = ({
                               {t('bookPage.driverLicenseFront', 'Driver License Front')} ({t('bookPage.uploaded', 'Uploaded')})
                             </label>
                           <div className="relative">
-                            <img 
-                              src={uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront} 
-                              alt="Uploaded driver license front" 
+                            <img
+                              src={uploadedLicenseImages.front || wizardImagePreviews.driverLicenseFront}
+                              alt="Uploaded driver license front"
                               className="w-full h-48 object-contain rounded-lg border-2 border-green-500 bg-gray-50"
-                              onLoad={() => {
-                              }}
                               onError={(e) => {
                                 setUploadedLicenseImages(prev => ({ ...prev, front: null }));
                                 e.target.style.display = 'none';
@@ -1635,12 +1633,10 @@ const BookingWizard = ({
                               {t('bookPage.driverLicenseBack', 'Driver License Back')} ({t('bookPage.uploaded', 'Uploaded')})
                             </label>
                           <div className="relative">
-                            <img 
-                              src={uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack} 
-                              alt="Uploaded driver license back" 
+                            <img
+                              src={uploadedLicenseImages.back || wizardImagePreviews.driverLicenseBack}
+                              alt="Uploaded driver license back"
                               className="w-full h-48 object-contain rounded-lg border-2 border-green-500 bg-gray-50"
-                              onLoad={() => {
-                              }}
                               onError={(e) => {
                                 setUploadedLicenseImages(prev => ({ ...prev, back: null }));
                                 e.target.style.display = 'none';

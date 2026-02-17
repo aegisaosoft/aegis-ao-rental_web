@@ -97,54 +97,47 @@ const BookPage = () => {
   // Priority: domain context only (no fallback)
   const companyId = companyConfig?.id || null;
 
-  // Check if Stripe account exists for this company (public endpoint, no auth required)
-  // This is used to determine if booking button should be available
-  const { data: stripeAccountCheck } = useQuery(
-    ['stripeAccountCheck', companyId],
-    async () => {
-      if (!companyId) {
-        return null;
-      }
-      
-      try {
-        const response = await apiService.checkStripeAccount(companyId);
-        const responseData = response?.data || response;
-        const checkData = responseData?.result || responseData;
-
-        
-        return checkData;
-      } catch (error) {
-        console.error('Stripe account check error:', {
-          status: error.response?.status,
-          message: error.message,
-          data: error.response?.data
-        });
-        // Return false if error (assume no account)
-        return { hasStripeAccount: false };
-      }
-    },
-    {
-      enabled: !!companyId,
-      retry: false,
-      refetchOnWindowFocus: false
-    }
-  );
-
-  // Check if booking is available (requires Stripe account)
-  // Use the public check-account endpoint result
-  const isBookingAvailable = stripeAccountCheck?.hasStripeAccount === true;
-  
-  // Removed excessive logging - only log when value changes
-  //   isBookingAvailable,
-  //   hasStripeAccount: stripeAccountCheck?.hasStripeAccount,
-  //   isLoadingStripe
-  // });
-
   const categoryId = searchParams.get('category');
 
   const make = searchParams.get('make');
 
+  // Combined booking page info — ALL data in one request
+  // Tenant data (services, locations, stripe) cached 30 min on server
+  // Vehicle data always fresh (depends on make/model)
+  const { data: bookingInfoResponse, isLoading: isBookingInfoLoading, error: bookingInfoError } = useQuery(
+    ['bookingInfo', companyId, make, searchParams.get('model'), categoryId],
+    async () => {
+      if (!companyId) return null;
+      const params = {};
+      if (make) params.make = make;
+      if (searchParams.get('model')) params.model = searchParams.get('model');
+      if (categoryId) params.categoryId = categoryId;
+      const queryStr = new URLSearchParams(params).toString();
+      const url = queryStr ? `${companyId}?${queryStr}` : companyId;
+      const response = await apiService.getBookingInfo(url);
+      return response?.data || response;
+    },
+    {
+      enabled: !!companyId,
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * Math.pow(2, attempt), 5000), // 1s, 2s, 4s
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 min — vehicles need fresher data
+    }
+  );
+
+  const bookingInfo = bookingInfoResponse?.result || bookingInfoResponse;
+
+  // Check if booking is available (requires Stripe account)
+  const isBookingAvailable = bookingInfo?.hasStripeAccount === true;
+
   const model = searchParams.get('model');
+
+  // Extract model info from combined response
+  const modelData = bookingInfo?.modelInfo || null;
+  const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
+  const modelDescription = modelData?.description || modelData?.Description || '';
+  const modelCategory = modelData?.categoryName || modelData?.CategoryName || modelData?.category || '';
 
 
 
@@ -1008,51 +1001,16 @@ const BookPage = () => {
 
 
 
-  // Fetch company additional services
-
-  const { data: companyServicesResponse } = useQuery(
-
-    ['companyServices', companyId],
-
-    () => apiService.getCompanyServices(companyId, { isActive: true }),
-
-    {
-
-      enabled: !!companyId,
-
-      retry: 1,
-
-      refetchOnWindowFocus: false
-
-    }
-
-  );
-
-  
-
-  const companyServicesData = companyServicesResponse?.data || companyServicesResponse;
-
+  // Extract services and locations from combined bookingInfo response
   const additionalOptions = useMemo(() => {
+    const services = bookingInfo?.services;
+    return Array.isArray(services) ? services : [];
+  }, [bookingInfo]);
 
-    return Array.isArray(companyServicesData) ? companyServicesData : [];
-
-  }, [companyServicesData]);
-
-  // Fetch company locations for dropdown
-  const { data: pickupLocationsResponse } = useQuery(
-    ['companyLocations', companyId],
-    () => apiService.getCompanyLocations({ companyId: companyId, isActive: true, isPickupLocation: true }),
-    {
-      enabled: !!companyId,
-      retry: 1,
-      refetchOnWindowFocus: false
-    }
-  );
-  
-  const pickupLocationsData = pickupLocationsResponse?.data || pickupLocationsResponse;
   const allCompanyLocations = React.useMemo(() => {
-    return Array.isArray(pickupLocationsData) ? pickupLocationsData : [];
-  }, [pickupLocationsData]);
+    const locations = bookingInfo?.pickupLocations;
+    return Array.isArray(locations) ? locations : [];
+  }, [bookingInfo]);
   
   // Removed: availability tracking state - server will check availability when booking is created
   
@@ -1077,48 +1035,7 @@ const BookPage = () => {
 
 
 
-  // Fetch model data to get daily rate (fallback if modelsGroupedByCategory doesn't have the rate)
-  // Must have companyId to ensure rates are filtered by company
-  const { data: modelsResponse } = useQuery(
-
-    ['models', { make, model, companyId }],
-
-    () => apiService.getModels({ make, modelName: model, companyId: companyId }),
-
-    {
-
-      enabled: !!(make && model && companyId), // Require companyId to filter rates by company
-
-      retry: 1,
-
-      refetchOnWindowFocus: false
-
-    }
-
-  );
-
-  
-
-  // Get model data from getModels API
-  const modelData = useMemo(() => {
-    if (modelsResponse) {
-      const modelsData = modelsResponse?.data || modelsResponse;
-      const data = Array.isArray(modelsData) ? modelsData[0] : null;
-      if (data) {
-        return data;
-      }
-    }
-
-    return null;
-  }, [modelsResponse]);
-
-  // Get daily rate from modelData
-  const modelDailyRate = modelData?.dailyRate || modelData?.daily_rate || modelData?.DailyRate || 0;
-
-  // Explicitly use Description field (not CategoryName)
-  const modelDescription = modelData?.description || modelData?.Description || '';
-
-  const modelCategory = modelData?.categoryName || modelData?.CategoryName || modelData?.category || '';
+  // Model data and daily rate extracted from combined bookingInfo response (defined above)
 
   
 
@@ -1156,71 +1073,19 @@ const BookPage = () => {
 
 
 
-  // Fetch available vehicles matching the model filters
-
-  const { data: vehiclesResponse } = useQuery(
-
-    ['vehicles', { categoryId, make, model, companyId, status: 'Available' }],
-
-    () => apiService.getVehicles({
-
-      categoryId,
-
-      make,
-
-      model,
-
-      companyId,
-
-      status: 'Available',
-
-      pageSize: 50
-
-    }),
-
-    {
-
-      enabled: !!(make && model),
-
-      retry: 1
-
-    }
-
-  );
-
-
-
-  // Ensure vehicles is always an array
-
+  // Vehicles extracted from combined bookingInfo response
   const vehicles = React.useMemo(() => {
-
-    const payload = vehiclesResponse?.data?.result || vehiclesResponse?.data || vehiclesResponse;
-
-    if (Array.isArray(payload?.items)) return payload.items;
-
-    if (Array.isArray(payload?.data)) return payload.data;
-
-    if (Array.isArray(payload?.vehicles)) return payload.vehicles;
-
-    if (Array.isArray(payload)) return payload;
-
-    if (Array.isArray(vehiclesResponse)) return vehiclesResponse;
-
-    return [];
-
-  }, [vehiclesResponse]);
+    const v = bookingInfo?.vehicles;
+    return Array.isArray(v) ? v : [];
+  }, [bookingInfo]);
 
 
 
-  const selectedVehicle = Array.isArray(vehicles) ? vehicles.find(v => 
+  const selectedVehicle = Array.isArray(vehicles) ? vehicles.find(v =>
 
     (v.vehicle_id || v.vehicleId || v.id) === selectedVehicleId
 
   ) : null;
-
-  // Removed: availability count calculation - server will handle availability during booking
-
-
 
   React.useEffect(() => {
 
@@ -2993,6 +2858,24 @@ const BookPage = () => {
 
   }
 
+  // Show full-page loader until booking info is ready (prevents partial render)
+  if (isBookingInfoLoading && !bookingInfo) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-blue-600 mb-6">
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            {t('bookPage.backToHome')}
+          </Link>
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-500 text-lg">{t('bookPage.loadingBookingInfo', 'Loading booking details...')}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
 
   return (
@@ -3037,7 +2920,11 @@ const BookPage = () => {
 
                   />
 
-                  {/* Removed: availability badge - no client-side availability checks */}
+                  {vehicles.length > 0 && (
+                    <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                      {vehicles.length} {t('bookPage.available', 'available')}
+                    </div>
+                  )}
 
                 </div>
 
@@ -3258,10 +3145,6 @@ const BookPage = () => {
                   </div>
                 )}
                 
-                {/* Removed: checking availability message - no client-side availability checks */}
-
-
-
                 {selectedVehicle ? (
 
                   <form onSubmit={handleSubmit} className="space-y-4">

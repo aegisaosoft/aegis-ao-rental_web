@@ -351,6 +351,11 @@ export const translatedApiService = {
     const response = await apiService.getStripeAccountStatus(companyId);
     return translateResponse(response);
   },
+  // Combined booking page info (services + locations + stripe check in one request)
+  getBookingInfo: async (companyId) => {
+    const response = await apiService.getBookingInfo(companyId);
+    return translateResponse(response);
+  },
   checkStripeAccount: async (companyId) => {
     const response = await apiService.checkStripeAccount(companyId);
     return translateResponse(response);
