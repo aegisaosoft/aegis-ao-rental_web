@@ -104,7 +104,7 @@ const BookPage = () => {
   // Combined booking page info — ALL data in one request
   // Tenant data (services, locations, stripe) cached 30 min on server
   // Vehicle data always fresh (depends on make/model)
-  const { data: bookingInfoResponse, isLoading: isBookingInfoLoading, error: bookingInfoError } = useQuery(
+  const { data: bookingInfoResponse, isLoading: isBookingInfoLoading } = useQuery(
     ['bookingInfo', companyId, make, searchParams.get('model'), categoryId],
     async () => {
       if (!companyId) return null;
