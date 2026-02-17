@@ -167,9 +167,10 @@ app.use((req, res, next) => {
 });
 
 // Multer for file uploads (memory storage for proxying)
-const upload = multer({ 
+// 20MB limit to support HEIC/HEIF files (iPhone photos) which can be larger before server-side conversion
+const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit (HEIC files can be larger)
 });
 
 // Health check endpoint - must be robust for Azure health checks

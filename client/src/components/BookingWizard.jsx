@@ -63,6 +63,7 @@ const BookingWizard = ({
   const [autoFilledFields, setAutoFilledFields] = useState(new Set());
   const [isParsingLicense, setIsParsingLicense] = useState(false);
   const [parsingRetryCount, setParsingRetryCount] = useState(0);
+  const [uploadingSide, setUploadingSide] = useState(null); // 'front' or 'back' — tracks which side is currently uploading
 
   // Reset wizard state when it first opens (transitions from closed to open)
   const prevIsOpenRef = useRef(false);
@@ -367,12 +368,19 @@ const BookingWizard = ({
   const handleWizardFileChange = async (e, fieldName) => {
     const file = e.target.files?.[0] || null;
     if (file) {
-      if (!file.type.startsWith('image/')) {
+      // Allow image/* and HEIC/HEIF (iPhone photos) — server handles conversion
+      const fileName = (file.name || '').toLowerCase();
+      const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') ||
+        file.type === 'image/heic' || file.type === 'image/heif';
+      if (!isHeic && !file.type.startsWith('image/')) {
         setWizardError(t('bookPage.invalidImageFile', 'Please upload an image file'));
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setWizardError(t('bookPage.fileTooLarge', 'File size must be less than 10MB'));
+      // HEIC files can be larger before server-side conversion to JPEG
+      const maxSize = isHeic ? 20 * 1024 * 1024 : 10 * 1024 * 1024;
+      const maxSizeLabel = isHeic ? '20MB' : '10MB';
+      if (file.size > maxSize) {
+        setWizardError(t('bookPage.fileTooLarge', `File size must be less than ${maxSizeLabel}`));
         return;
       }
 
@@ -382,16 +390,26 @@ const BookingWizard = ({
         [fieldName]: file
       }));
 
-      // Create preview
-      const previewUrl = URL.createObjectURL(file);
+      // Create preview — skip for HEIC/HEIF (browsers can't render them)
+      // Server will convert HEIC→JPEG and return the blob URL after upload
       const previewKey = fieldName === 'driverLicenseFront' ? 'driverLicenseFront' : 'driverLicenseBack';
-      setWizardImagePreviews(prev => ({
-        ...prev,
-        [previewKey]: previewUrl
-      }));
+      let previewUrl = null;
+      if (!isHeic) {
+        previewUrl = URL.createObjectURL(file);
+        setWizardImagePreviews(prev => ({
+          ...prev,
+          [previewKey]: previewUrl
+        }));
+      } else {
+        // Clear any stale preview for HEIC — the server URL will replace it after upload
+        setWizardImagePreviews(prev => ({
+          ...prev,
+          [previewKey]: null
+        }));
+      }
 
       const customerId = wizardFormData.customerId || user?.customerId || user?.id || user?.userId || user?.Id || user?.UserId || user?.sub || user?.nameidentifier || '';
-      
+
       if (!customerId) {
         // Don't upload yet if customerId is missing - will upload on Next click
         setWizardError('');
@@ -399,11 +417,11 @@ const BookingWizard = ({
       }
 
       const side = fieldName === 'driverLicenseFront' ? 'front' : 'back';
-      
+
       try {
         setWizardLoading(true);
+        setUploadingSide(side);
         setWizardError('');
-        
 
         const response = await apiService.uploadCustomerLicenseImage(customerId, side, file);
         
@@ -542,6 +560,7 @@ const BookingWizard = ({
         toast.error(errorMessage);
       } finally {
         setWizardLoading(false);
+        setUploadingSide(null);
       }
     }
   };
@@ -1599,6 +1618,16 @@ const BookingWizard = ({
                             </button>
                             </div>
                           </div>
+                        ) : uploadingSide === 'front' ? (
+                          <div>
+                            <label className="block text-xs font-medium text-blue-700 mb-2">
+                              {t('bookPage.driverLicenseFront', 'Driver License Front')}
+                            </label>
+                            <div className="w-full h-48 rounded-lg border-2 border-blue-400 bg-blue-50 flex flex-col items-center justify-center">
+                              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                              <span className="text-sm text-blue-700 font-medium">{t('bookPage.uploadingImage', 'Uploading & converting...')}</span>
+                            </div>
+                          </div>
                         ) : (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1607,7 +1636,7 @@ const BookingWizard = ({
                             <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.heic,.heif"
                                 capture={isMobile ? "environment" : undefined}
                                 onChange={(e) => handleWizardFileChange(e, 'driverLicenseFront')}
                                 className="hidden"
@@ -1655,6 +1684,16 @@ const BookingWizard = ({
                             </button>
                             </div>
                           </div>
+                        ) : uploadingSide === 'back' ? (
+                          <div>
+                            <label className="block text-xs font-medium text-blue-700 mb-2">
+                              {t('bookPage.driverLicenseBack', 'Driver License Back')}
+                            </label>
+                            <div className="w-full h-48 rounded-lg border-2 border-blue-400 bg-blue-50 flex flex-col items-center justify-center">
+                              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                              <span className="text-sm text-blue-700 font-medium">{t('bookPage.uploadingImage', 'Uploading & converting...')}</span>
+                            </div>
+                          </div>
                         ) : (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1663,7 +1702,7 @@ const BookingWizard = ({
                             <label className={`block w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 flex items-center justify-center ${!isMobile ? 'bg-gray-50' : ''}`}>
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.heic,.heif"
                                 capture={isMobile ? "environment" : undefined}
                                 onChange={(e) => handleWizardFileChange(e, 'driverLicenseBack')}
                                 className="hidden"
