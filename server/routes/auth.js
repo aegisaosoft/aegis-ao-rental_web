@@ -23,7 +23,7 @@ const router = express.Router();
 
 // Register new customer
 router.post('/register', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().trim().toLowerCase(),
   body('password').isLength({ min: 6 }),
   body('firstName').trim().isLength({ min: 1 }),
   body('lastName').trim().isLength({ min: 1 }),
@@ -112,7 +112,7 @@ router.post('/register', [
 
 // Login customer
 router.post('/login', [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().trim().toLowerCase(),
   body('password').exists()
 ], async (req, res) => {
   try {
