@@ -519,7 +519,13 @@ export const apiService = {
       paymentIntentId
     });
   },
-  
+  captureTerminalBooking: (paymentIntentId, bookingId) => {
+    return api.post('/terminal/capture', {
+      paymentIntentId,
+      bookingId
+    });
+  },
+
   // Booking Services
   addServiceToBooking: (data) => api.post('/BookingServices', data),
 

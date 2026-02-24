@@ -92,7 +92,11 @@ const AppLayout = () => {
   const fullScreenRoutes = ['/dl-scan'];
   const isFullScreen = fullScreenRoutes.includes(location.pathname);
 
-  if (loading && !companyConfig) {
+  // Страницы, которые работают без контекста компании (личные операции пользователя)
+  const companyFreeRoutes = ['/reset-password', '/forgot-password', '/login', '/register'];
+  const isCompanyFreeRoute = companyFreeRoutes.includes(location.pathname);
+
+  if (loading && !companyConfig && !isCompanyFreeRoute) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
         <LoadingSpinner size="lg" text={t('common.loadingExperience')} />
@@ -100,7 +104,7 @@ const AppLayout = () => {
     );
   }
 
-  if (error && !companyConfig) {
+  if (error && !companyConfig && !isCompanyFreeRoute) {
     return <TenantsGrid />;
   }
 

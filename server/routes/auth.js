@@ -433,6 +433,7 @@ router.get('/session-token', authenticateToken, (req, res) => {
 // Forgot password
 router.post('/forgot-password', async (req, res) => {
   try {
+    console.log('[Forgot Password] Request:', { email: req.body.email, subdomain: req.body.subdomain });
     const response = await apiService.forgotPassword(req.body);
     return res.status(response.status).json(response.data);
   } catch (error) {
@@ -446,12 +447,20 @@ router.post('/forgot-password', async (req, res) => {
 // Reset password
 router.post('/reset-password', async (req, res) => {
   try {
+    console.log('[Reset Password] Request body:', {
+      email: req.body.email,
+      tokenLength: req.body.token?.length,
+      tokenFirst10: req.body.token?.substring(0, 10),
+      hasNewPassword: !!req.body.newPassword,
+      passwordLength: req.body.newPassword?.length
+    });
     const response = await apiService.resetPassword(req.body);
+    console.log('[Reset Password] Success response:', response.status, response.data?.message);
     return res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(error.response?.status || 500).json({ 
-      message: error.response?.data?.message || 'Server error during password reset' 
+    console.error('Reset password error:', error.response?.status, error.response?.data);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Server error during password reset'
     });
   }
 });

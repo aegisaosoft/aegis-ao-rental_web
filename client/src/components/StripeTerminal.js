@@ -24,8 +24,10 @@ import './StripeTerminal.css';
  * Stripe Terminal Component for processing card-present payments
  * Requires @stripe/terminal-js package
  */
-const StripeTerminal = ({ 
-  amount, 
+// DEV ONLY: const isDevelopment = process.env.NODE_ENV === 'development';
+
+const StripeTerminal = ({
+  amount,
   currency = 'usd',
   bookingId = null,
   description = '',
@@ -110,7 +112,9 @@ const StripeTerminal = ({
 
     try {
       setLoading(true);
-      const discoverResult = await terminalInstance.discoverReaders();
+      const discoverResult = await terminalInstance.discoverReaders({
+        // DEV ONLY: ...(isDevelopment && { simulated: true }),
+      });
       
       if (discoverResult.error) {
         toast.error(t('terminal.discoverError', 'Failed to discover readers'));
@@ -194,6 +198,13 @@ const StripeTerminal = ({
       );
 
       setPaymentIntentId(paymentIntentResponse.id);
+
+      // DEV ONLY: configure simulator with test card
+      // if (isDevelopment) {
+      //   await terminal.setSimulatorConfiguration({
+      //     testCardNumber: '4242424242424242',
+      //   });
+      // }
 
       // Collect payment method
       const result = await terminal.collectPaymentMethod(paymentIntentResponse.clientSecret);

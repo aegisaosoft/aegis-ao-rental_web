@@ -32,7 +32,20 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiService.forgotPassword({ email });
+      // Определяем субдомен из текущего hostname, чтобы бэкенд сгенерировал правильную ссылку
+      const hostname = window.location.hostname.toLowerCase();
+      let subdomain = null;
+      if (hostname.endsWith('.localhost')) {
+        // miamilifecars.localhost → miamilifecars
+        subdomain = hostname.split('.')[0];
+      } else if (hostname.endsWith('.aegis-rental.com')) {
+        const parts = hostname.split('.');
+        if (parts.length > 2 && parts[0] !== 'www') {
+          subdomain = parts[0];
+        }
+      }
+
+      const response = await apiService.forgotPassword({ email, subdomain });
       
       // Check if email doesn't exist - redirect to signup
       if (response.data?.emailNotFound || response.data?.redirectToSignup) {

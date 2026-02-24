@@ -33,9 +33,12 @@ export const useStripeTerminal = (options = {}) => {
   const [error, setError] = useState(null);
   const [discoveredReaders, setDiscoveredReaders] = useState([]);
 
+  // DEV ONLY: const isDevelopment = process.env.NODE_ENV === 'development';
+
   const {
-    simulated = false, // Set to true for testing without physical reader
+    simulated = false, // DEV ONLY: change to isDevelopment to auto-enable simulated mode
     locationId = null, // Stripe location ID (optional)
+    bookingId = null, // Booking ID for saving card info after payment
     onReaderDisconnect = null,
     onError: onErrorCallback = null
   } = options;
@@ -241,7 +244,14 @@ export const useStripeTerminal = (options = {}) => {
         }
       );
 
-      // 2. Collect payment method from card reader
+      // DEV ONLY: configure simulator with test card
+      // if (isDevelopment && simulated) {
+      //   await terminal.setSimulatorConfiguration({
+      //     testCardNumber: '4242424242424242',
+      //   });
+      // }
+
+      // 3. Collect payment method from card reader
       const collectResult = await terminal.collectPaymentMethod(
         paymentIntentResponse.clientSecret
       );
@@ -255,7 +265,7 @@ export const useStripeTerminal = (options = {}) => {
         throw collectResult.error;
       }
 
-      // 3. Process payment
+      // 4. Process payment
       const processResult = await terminal.processPayment(collectResult.paymentIntent);
 
       if (processResult.error) {
@@ -265,6 +275,19 @@ export const useStripeTerminal = (options = {}) => {
           onErrorCallback(processResult.error);
         }
         throw processResult.error;
+      }
+
+      // 5. Save card info to booking if bookingId provided
+      if (bookingId && processResult.paymentIntent?.id) {
+        try {
+          await apiService.captureTerminalBooking(
+            processResult.paymentIntent.id,
+            bookingId
+          );
+        } catch (captureErr) {
+          console.error('[Terminal] Failed to save card info to booking:', captureErr);
+          // Don't throw — payment succeeded, capture is secondary
+        }
       }
 
       return processResult.paymentIntent;
@@ -278,7 +301,7 @@ export const useStripeTerminal = (options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [terminal, reader, companyConfig?.id, t, onErrorCallback]);
+  }, [terminal, reader, companyConfig?.id, bookingId, t, onErrorCallback]);
 
   // Capture payment (for manual capture)
   const capturePayment = useCallback(async (paymentIntentId, amountToCapture = null) => {

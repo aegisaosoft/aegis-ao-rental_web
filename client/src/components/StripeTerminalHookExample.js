@@ -50,7 +50,7 @@ const StripeTerminalHookExample = ({
     isConnected,
     isInitialized
   } = useStripeTerminal({
-    simulated: false, // Set to true for testing
+    // DEV ONLY: simulated: true, // enable for simulated readers in development
     locationId: null, // Optional: Stripe location ID
     onReaderDisconnect: () => {
       setStatus('idle');
