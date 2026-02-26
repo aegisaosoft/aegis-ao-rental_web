@@ -34,6 +34,7 @@ import {
   CompanySection,
   MetaSection,
   InstagramCampaignSection,
+  DisputesSection,
 } from './dashboard';
 import { AdminSidebar } from './dashboard/components';
 
@@ -406,9 +407,9 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Main Content - Two Column Layout (1/5 left, 4/5 right) */}
-      <div className="grid grid-cols-5 gap-8">
-        {/* Left Sidebar - Navigation (1/5 width) */}
+      {/* Main Content - Two Column Layout (3/12 left, 9/12 right) */}
+      <div className="grid grid-cols-12 gap-8">
+        {/* Left Sidebar - Navigation (3/12 width) */}
         <AdminSidebar
           t={t}
           activeSection={activeSection}
@@ -419,8 +420,8 @@ const AdminDashboard = () => {
           isEditing={isEditing}
         />
 
-        {/* Right Side - Content (4/5 width) */}
-        <div className="col-span-4">
+        {/* Right Side - Content (9/12 width) */}
+        <div className="col-span-9">
           {/* Company Profile Section */}
           {activeSection === 'company' && (
             <CompanySection
@@ -504,6 +505,14 @@ const AdminDashboard = () => {
           {activeSection === 'instagram' && (
             <InstagramCampaignSection
               t={t}
+              currentCompanyId={currentCompanyId}
+              isAuthenticated={isAuthenticated}
+            />
+          )}
+
+          {/* Disputes Section */}
+          {activeSection === 'disputes' && (
+            <DisputesSection
               currentCompanyId={currentCompanyId}
               isAuthenticated={isAuthenticated}
             />

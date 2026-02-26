@@ -6,13 +6,14 @@
  */
 
 import React from 'react';
-import { 
-  Building2, 
-  Car, 
-  Users, 
-  TrendingUp, 
-  Calendar, 
-  AlertTriangle
+import {
+  Building2,
+  Car,
+  Users,
+  TrendingUp,
+  Calendar,
+  AlertTriangle,
+  Shield,
 } from 'lucide-react';
 import { Card } from '../../../components/common';
 
@@ -46,14 +47,14 @@ const AdminSidebar = ({
   const isActive = (section) => activeSection === section;
 
   return (
-    <div className="col-span-1">
+    <div className="col-span-3">
       <Card title={t('admin.navigation')} className="sticky top-4">
-        <div className="space-y-2">
+        <div className="space-y-1">
           {/* Company Profile - Admin only */}
           {isAdmin && (
             <button
               onClick={() => setActiveSection('company')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('company')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -62,15 +63,15 @@ const AdminSidebar = ({
               title={t('admin.companyProfile')}
               aria-label={t('admin.companyProfile')}
             >
-              <Building2 className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs">{t('admin.companyProfile')}</span>
+              <Building2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.companyProfile')}</span>
             </button>
           )}
-          
+
           {/* Reservations - All roles can see and edit */}
           <button
             onClick={() => setActiveSection('reservations')}
-            className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+            className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
               isActive('reservations')
                 ? 'bg-blue-100 text-blue-700 font-semibold'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -79,15 +80,15 @@ const AdminSidebar = ({
             title={t('admin.reservations')}
             aria-label={t('admin.reservations')}
           >
-            <Calendar className="h-5 w-5" aria-hidden="true" />
-            <span className="text-xs text-center">{t('admin.reservations')}</span>
+            <Calendar className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm">{t('admin.reservations')}</span>
           </button>
-          
+
           {/* Violations - Only visible for USA companies */}
           {isUSCompany && (
             <button
               onClick={() => setActiveSection('violations')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('violations')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -96,15 +97,33 @@ const AdminSidebar = ({
               title={t('admin.violations', 'Violations')}
               aria-label={t('admin.violations', 'Violations')}
             >
-              <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.violations', 'Violations')}</span>
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.violations', 'Violations')}</span>
             </button>
           )}
-          
+
+          {/* Disputes - Admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveSection('disputes')}
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
+                isActive('disputes')
+                  ? 'bg-blue-100 text-blue-700 font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              disabled={isEditing}
+              title={t('admin.disputes.title', 'Disputes')}
+              aria-label={t('admin.disputes.title', 'Disputes')}
+            >
+              <Shield className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.disputes.title', 'Disputes')}</span>
+            </button>
+          )}
+
           {/* Vehicles (Daily Rates) - All roles can see (workers: view only) */}
           <button
             onClick={() => setActiveSection('vehicles')}
-            className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+            className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
               isActive('vehicles')
                 ? 'bg-blue-100 text-blue-700 font-semibold'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -113,15 +132,15 @@ const AdminSidebar = ({
             title={t('admin.dailyRates', 'Daily Rates')}
             aria-label={t('admin.dailyRates', 'Daily Rates')}
           >
-            <Car className="h-5 w-5" aria-hidden="true" />
-            <span className="text-xs text-center">{t('admin.dailyRates', 'Daily Rates')}</span>
+            <Car className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm">{t('admin.dailyRates', 'Daily Rates')}</span>
           </button>
-          
+
           {/* Vehicle Management - Admin and MainAdmin */}
           {(isAdmin || isMainAdmin) && (
             <button
               onClick={() => setActiveSection('vehicleManagement')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('vehicleManagement')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -130,16 +149,16 @@ const AdminSidebar = ({
               title={t('vehicles.vehicleManagement', 'Vehicle Management')}
               aria-label={t('vehicles.vehicleManagement', 'Vehicle Management')}
             >
-              <Car className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('vehicles.vehicleManagement', 'Vehicles')}</span>
+              <Car className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('vehicles.vehicleManagement', 'Vehicles')}</span>
             </button>
           )}
-          
+
           {/* Employees - Admin only */}
           {isAdmin && (
             <button
               onClick={() => setActiveSection('employees')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('employees')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -148,16 +167,16 @@ const AdminSidebar = ({
               title={t('admin.employees', 'Employees')}
               aria-label={t('admin.employees', 'Employees')}
             >
-              <Users className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.employees', 'Employees')}</span>
+              <Users className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.employees', 'Employees')}</span>
             </button>
           )}
-          
+
           {/* Additional Services - Admin only */}
           {isAdmin && (
             <button
               onClick={() => setActiveSection('additionalServices')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('additionalServices')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -166,16 +185,16 @@ const AdminSidebar = ({
               title={t('admin.additionalServices')}
               aria-label={t('admin.additionalServices')}
             >
-              <Calendar className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.additionalServices')}</span>
+              <Calendar className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.additionalServices')}</span>
             </button>
           )}
-          
+
           {/* Reports - Admin only */}
           {isAdmin && (
             <button
               onClick={() => setActiveSection('reports')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('reports')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -184,16 +203,16 @@ const AdminSidebar = ({
               title={t('admin.viewReports')}
               aria-label={t('admin.viewReports')}
             >
-              <TrendingUp className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.viewReports')}</span>
+              <TrendingUp className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.viewReports')}</span>
             </button>
           )}
-          
+
           {/* Meta Integration - Admin and MainAdmin only */}
           {(isAdmin || isMainAdmin) && (
             <button
               onClick={() => setActiveSection('meta')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('meta')
                   ? 'bg-blue-100 text-blue-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -202,8 +221,8 @@ const AdminSidebar = ({
               title={t('admin.metaIntegration', 'Meta')}
               aria-label={t('admin.metaIntegration', 'Meta')}
             >
-              <FacebookIcon className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.metaIntegration', 'Meta')}</span>
+              <FacebookIcon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.metaIntegration', 'Meta')}</span>
             </button>
           )}
 
@@ -211,7 +230,7 @@ const AdminSidebar = ({
           {(isAdmin || isMainAdmin) && (
             <button
               onClick={() => setActiveSection('instagram')}
-              className={`w-full px-4 py-4 rounded-lg transition-colors flex flex-col items-center justify-center gap-2 ${
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
                 isActive('instagram')
                   ? 'bg-pink-100 text-pink-700 font-semibold'
                   : 'text-gray-700 hover:bg-gray-100'
@@ -220,8 +239,8 @@ const AdminSidebar = ({
               title={t('admin.instagramCampaign', 'Instagram')}
               aria-label={t('admin.instagramCampaign', 'Instagram')}
             >
-              <InstagramIcon className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs text-center">{t('admin.instagramCampaign', 'Instagram')}</span>
+              <InstagramIcon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.instagramCampaign', 'Instagram')}</span>
             </button>
           )}
         </div>

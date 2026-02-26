@@ -542,6 +542,35 @@ export const apiService = {
   getCatalogStatus: (companyId) => api.get(`/companies/${companyId}/meta/catalog/status`),
   createCatalog: (companyId) => api.post(`/companies/${companyId}/meta/catalog/create`),
   syncProductsToCatalog: (companyId) => api.post(`/companies/${companyId}/meta/catalog/sync`),
+
+  // Disputes
+  getDisputes: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    return api.get(`/Dispute?${searchParams.toString()}`);
+  },
+  getDispute: (id) => api.get(`/Dispute/${id}`),
+  getDisputeEvidence: (disputeId) => api.get(`/Dispute/${disputeId}/evidence`),
+  getDisputeTimeline: (disputeId) => api.get(`/Dispute/${disputeId}/timeline`),
+  getDisputeStats: (companyOwnerId) => {
+    const params = companyOwnerId ? `?companyOwnerId=${companyOwnerId}` : '';
+    return api.get(`/Dispute/stats${params}`);
+  },
+  submitDisputeEvidence: (disputeId, data) => api.post(`/Dispute/${disputeId}/evidence/submit`, data),
+  uploadDisputeDocument: (disputeId, file, evidenceType) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('evidenceType', evidenceType);
+    return api.post(`/Dispute/${disputeId}/documents/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  acceptDispute: (disputeId) => api.post(`/Dispute/${disputeId}/accept`),
+  syncDisputesFromStripe: () => api.post('/Dispute/sync'),
 };
 
 // Export the axios instance for direct API calls (e.g., translation service)
