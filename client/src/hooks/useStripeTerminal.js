@@ -39,7 +39,6 @@ export const useStripeTerminal = (options = {}) => {
   const {
     simulated = false, // DEV ONLY: change to isDevelopment to auto-enable simulated mode
     locationId = null, // Stripe location ID (optional)
-    bookingId = null, // Booking ID for saving card info after payment
     onReaderDisconnect = null,
     onError: onErrorCallback = null
   } = options;
