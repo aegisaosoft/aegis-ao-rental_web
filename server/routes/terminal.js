@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const apiService = require('../config/api');
+const { apiClient } = require('../config/api');
 
 /**
  * Create connection token for Stripe Terminal
@@ -8,7 +8,7 @@ const apiService = require('../config/api');
  */
 router.post('/connection-token', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/connection-token', req.body, {
+    const response = await apiClient.post('/api/Terminal/connection-token', req.body, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -29,7 +29,7 @@ router.post('/connection-token', async (req, res) => {
  */
 router.post('/create-payment-intent', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/create-payment-intent', req.body, {
+    const response = await apiClient.post('/api/Terminal/create-payment-intent', req.body, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -50,7 +50,7 @@ router.post('/create-payment-intent', async (req, res) => {
  */
 router.post('/capture-payment-intent', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/capture-payment-intent', req.body, {
+    const response = await apiClient.post('/api/Terminal/capture-payment-intent', req.body, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -71,7 +71,7 @@ router.post('/capture-payment-intent', async (req, res) => {
  */
 router.post('/cancel-payment-intent', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/cancel-payment-intent', req.body, {
+    const response = await apiClient.post('/api/Terminal/cancel-payment-intent', req.body, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -92,7 +92,7 @@ router.post('/cancel-payment-intent', async (req, res) => {
  */
 router.post('/refund', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/refund', req.body, {
+    const response = await apiClient.post('/api/Terminal/refund', req.body, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -113,7 +113,7 @@ router.post('/refund', async (req, res) => {
  */
 router.get('/payments', async (req, res) => {
   try {
-    const response = await apiService.get(`/Terminal/payments?${new URLSearchParams(req.query).toString()}`, {
+    const response = await apiClient.get(`/api/Terminal/payments?${new URLSearchParams(req.query).toString()}`, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -134,7 +134,7 @@ router.get('/payments', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    const response = await apiService.get(`/Terminal/stats?${new URLSearchParams(req.query).toString()}`, {
+    const response = await apiClient.get(`/api/Terminal/stats?${new URLSearchParams(req.query).toString()}`, {
       headers: {
         Authorization: req.headers.authorization
       }
@@ -159,7 +159,7 @@ router.get('/stats', async (req, res) => {
  */
 router.post('/locations', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/locations', req.body, {
+    const response = await apiClient.post('/api/Terminal/locations', req.body, {
       headers: { Authorization: req.headers.authorization }
     });
     res.json(response.data);
@@ -178,8 +178,8 @@ router.post('/locations', async (req, res) => {
  */
 router.get('/locations', async (req, res) => {
   try {
-    const response = await apiService.get(
-      `/Terminal/locations?${new URLSearchParams(req.query).toString()}`,
+    const response = await apiClient.get(
+      `/api/Terminal/locations?${new URLSearchParams(req.query).toString()}`,
       { headers: { Authorization: req.headers.authorization } }
     );
     res.json(response.data);
@@ -198,8 +198,8 @@ router.get('/locations', async (req, res) => {
  */
 router.put('/locations/:locationId', async (req, res) => {
   try {
-    const response = await apiService.put(
-      `/Terminal/locations/${req.params.locationId}`,
+    const response = await apiClient.put(
+      `/api/Terminal/locations/${req.params.locationId}`,
       req.body,
       { headers: { Authorization: req.headers.authorization } }
     );
@@ -219,8 +219,8 @@ router.put('/locations/:locationId', async (req, res) => {
  */
 router.delete('/locations/:locationId', async (req, res) => {
   try {
-    const response = await apiService.delete(
-      `/Terminal/locations/${req.params.locationId}?${new URLSearchParams(req.query).toString()}`,
+    const response = await apiClient.delete(
+      `/api/Terminal/locations/${req.params.locationId}?${new URLSearchParams(req.query).toString()}`,
       { headers: { Authorization: req.headers.authorization } }
     );
     res.json(response.data);
@@ -239,7 +239,7 @@ router.delete('/locations/:locationId', async (req, res) => {
  */
 router.post('/readers', async (req, res) => {
   try {
-    const response = await apiService.post('/Terminal/readers', req.body, {
+    const response = await apiClient.post('/api/Terminal/readers', req.body, {
       headers: { Authorization: req.headers.authorization }
     });
     res.json(response.data);
@@ -258,8 +258,8 @@ router.post('/readers', async (req, res) => {
  */
 router.get('/readers', async (req, res) => {
   try {
-    const response = await apiService.get(
-      `/Terminal/readers?${new URLSearchParams(req.query).toString()}`,
+    const response = await apiClient.get(
+      `/api/Terminal/readers?${new URLSearchParams(req.query).toString()}`,
       { headers: { Authorization: req.headers.authorization } }
     );
     res.json(response.data);
@@ -278,8 +278,8 @@ router.get('/readers', async (req, res) => {
  */
 router.delete('/readers/:readerId', async (req, res) => {
   try {
-    const response = await apiService.delete(
-      `/Terminal/readers/${req.params.readerId}?${new URLSearchParams(req.query).toString()}`,
+    const response = await apiClient.delete(
+      `/api/Terminal/readers/${req.params.readerId}?${new URLSearchParams(req.query).toString()}`,
       { headers: { Authorization: req.headers.authorization } }
     );
     res.json(response.data);

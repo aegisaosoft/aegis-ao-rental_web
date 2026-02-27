@@ -13,7 +13,7 @@
  *
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadStripeTerminal } from '@stripe/terminal-js';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,7 @@ export const useStripeTerminal = (options = {}) => {
   const { t } = useTranslation();
   const { companyConfig } = useCompany();
   const [terminal, setTerminal] = useState(null);
+  const terminalRef = useRef(null);
   const [reader, setReader] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -56,7 +57,9 @@ export const useStripeTerminal = (options = {}) => {
           onFetchConnectionToken: async () => {
             try {
               const response = await apiService.createConnectionToken(companyConfig?.id);
-              return response.secret;
+              const secret = response?.data?.secret || response?.secret;
+              console.log('[Terminal] Connection token fetched:', secret ? 'pst_***' : 'EMPTY');
+              return secret;
             } catch (error) {
               toast.error(t('terminal.initError', 'Failed to fetch connection token'));
               throw error;
@@ -71,6 +74,7 @@ export const useStripeTerminal = (options = {}) => {
           },
         });
 
+        terminalRef.current = terminalInstance;
         setTerminal(terminalInstance);
       } catch (err) {
         setError(err);
@@ -89,14 +93,17 @@ export const useStripeTerminal = (options = {}) => {
 
     // Cleanup on unmount
     return () => {
-      if (terminal) {
-        terminal.disconnectReader().catch(err => {
-        });
+      if (terminalRef.current) {
+        terminalRef.current.disconnectReader().catch(() => {});
       }
     };
-  }, [companyConfig?.id, t, onReaderDisconnect, onErrorCallback]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyConfig?.id]);
 
   // Discover available readers
+  const [discoverStatus, setDiscoverStatus] = useState(null); // null | 'no_readers' | 'error'
+  const [discoverMessage, setDiscoverMessage] = useState('');
+
   const discoverReaders = useCallback(async () => {
     if (!terminal) {
       return [];
@@ -104,16 +111,27 @@ export const useStripeTerminal = (options = {}) => {
 
     setLoading(true);
     setError(null);
+    setDiscoverStatus(null);
+    setDiscoverMessage('');
 
     try {
+      console.log('[Terminal] Discovering readers...', { simulated, locationId });
       const discoverResult = await terminal.discoverReaders({
         simulated: simulated,
         ...(locationId && { location: locationId })
       });
 
       if (discoverResult.error) {
+        console.warn('[Terminal] discoverReaders returned error:', discoverResult.error);
+        const errorCode = discoverResult.error.code || '';
+        const errorMessage = discoverResult.error.message || '';
+
+        // Не показываем красную ошибку — показываем информативный статус
         setError(discoverResult.error);
-        toast.error(t('terminal.discoverError', 'Failed to discover readers'));
+        setDiscoverStatus('no_readers');
+        setDiscoverMessage(errorMessage || errorCode);
+        setDiscoveredReaders([]);
+
         if (onErrorCallback) {
           onErrorCallback(discoverResult.error);
         }
@@ -124,13 +142,19 @@ export const useStripeTerminal = (options = {}) => {
       setDiscoveredReaders(readers);
 
       if (readers.length === 0) {
-        toast.info(t('terminal.noReaders', 'No card readers found'));
+        setDiscoverStatus('no_readers');
+        setDiscoverMessage(t('terminal.noReadersHint', 'No readers are registered or online for this account.'));
+      } else {
+        setDiscoverStatus(null);
+        setDiscoverMessage('');
       }
 
       return readers;
     } catch (err) {
+      console.error('[Terminal] discoverReaders exception:', err);
       setError(err);
-      toast.error(t('terminal.discoverError', 'Failed to discover readers'));
+      setDiscoverStatus('error');
+      setDiscoverMessage(err.message || 'Unknown error');
       if (onErrorCallback) {
         onErrorCallback(err);
       }
@@ -301,7 +325,7 @@ export const useStripeTerminal = (options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [terminal, reader, companyConfig?.id, bookingId, t, onErrorCallback]);
+  }, [terminal, reader, companyConfig?.id, t, onErrorCallback]);
 
   // Capture payment (for manual capture)
   const capturePayment = useCallback(async (paymentIntentId, amountToCapture = null) => {
@@ -373,6 +397,8 @@ export const useStripeTerminal = (options = {}) => {
     clearError,
     isConnected: !!reader,
     isInitialized: !!terminal,
+    discoverStatus,
+    discoverMessage,
   };
 };
 

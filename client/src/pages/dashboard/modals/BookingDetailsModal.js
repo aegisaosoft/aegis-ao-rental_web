@@ -182,9 +182,6 @@ const BookingDetailsModal = ({
     setSendingMethod(method);
     try {
       await api.sendAgreementLink(booking.id, { method });
-      const successMsg = method === 'sms'
-        ? t('admin.agreementSentSms', 'Agreement link sent via SMS')
-        : t('admin.agreementSentEmail', 'Agreement link sent via email');
       // Agreement link sent
       setShowSendDialog(false);
     } catch (err) {
