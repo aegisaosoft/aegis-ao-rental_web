@@ -373,27 +373,6 @@ const ReservationsSection = ({
 
   // ============== HANDLERS ==============
 
-  const handleViewContract = async (booking) => {
-    try {
-      const bookingId = booking.id || booking.Id || booking.bookingId || booking.BookingId;
-      if (!bookingId) {
-        toast.error(t('admin.bookingIdMissing', 'Booking ID is missing.'));
-        return;
-      }
-      const response = await apiService.getRentalAgreement(bookingId);
-      const data = response?.data || response;
-      const pdfUrl = data?.pdfUrl || data?.PdfUrl;
-      if (pdfUrl) {
-        const url = `${window.location.origin}/api${pdfUrl}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } else {
-        toast.info(t('admin.agreementPdfNotReady', 'Agreement PDF not generated yet.'));
-      }
-    } catch (error) {
-      toast.error(t('admin.agreementFetchFailed', 'Failed to fetch rental agreement.'));
-    }
-  };
-
   // Open sign agreement modal
   const handleSignAgreement = (booking) => {
     setSigningBooking(booking);
