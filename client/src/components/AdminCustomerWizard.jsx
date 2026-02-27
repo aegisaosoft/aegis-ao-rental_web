@@ -148,10 +148,7 @@ const AdminCustomerWizard = ({
       });
       setFormData(autoFilledData);
 
-      toast.success(
-        `Auto-filled form from scanned license (${Math.round(dataConfidence * 100)}% confidence)`,
-        { autoClose: 4000 }
-      );
+      // Auto-filled from scanned license
     } else if (hasLicenseData) {
       // Generate suggestions for manual review if data is available
       setTimeout(() => generateSuggestions(formData), 500);

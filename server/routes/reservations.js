@@ -79,21 +79,18 @@ router.post('/bookings/sync-payments-bulk', authenticateToken, async (req, res) 
   }
 });
 
-// Get booking by ID
-router.get('/bookings/:id', authenticateToken, async (req, res) => {
+// Get booking by ID (public — allows unauthenticated access for rental agreement email links)
+router.get('/bookings/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    // Use token from authenticateToken middleware (req.token) - it gets it from session
-    const token = req.token || req.session?.token;
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    // Use token if available (logged-in user), but don't require it
+    const token = req.session?.token || req.headers['authorization']?.split(' ')[1] || null;
     const response = await apiService.getBooking(token, id);
     res.json(response.data);
   } catch (error) {
     console.error('Reservation fetch error:', error);
-    res.status(error.response?.status || 500).json({ 
-      message: error.response?.data?.message || 'Server error' 
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Server error'
     });
   }
 });
@@ -320,57 +317,74 @@ router.post('/bookings/:id/security-deposit-payment-intent', authenticateToken, 
 router.post('/bookings/:id/security-deposit-checkout', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { language, returnUrl } = req.query;
     // Use token from authenticateToken middleware (req.token) - it gets it from session
     const token = req.token || req.session?.token;
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    console.log(`[Proxy] Creating security deposit checkout session for booking ${id}`);
-    const response = await apiService.createSecurityDepositCheckout(token, id);
+    console.log(`[Proxy] Creating security deposit checkout session for booking ${id}, returnUrl=${returnUrl}`);
+    const response = await apiService.createSecurityDepositCheckout(token, id, language, returnUrl);
     console.log(`[Proxy] Checkout session created: ${response.data.sessionId}`);
     res.json(response.data);
   } catch (error) {
     console.error(`[Proxy] Security deposit checkout error for booking ${req.params.id}:`, error.message);
-    res.status(error.response?.status || 500).json({ 
-      error: error.response?.data?.error || error.message || 'Failed to create checkout session' 
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || error.message || 'Failed to create checkout session'
     });
   }
 });
 
-// Get rental agreement for a booking
-router.get('/bookings/:id/rental-agreement', authenticateToken, async (req, res) => {
+// Get rental agreement for a booking (public — allows unauthenticated access for email links)
+router.get('/bookings/:id/rental-agreement', async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.token || req.session?.token;
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
-    console.log(`[Proxy] Fetching rental agreement for booking ${id}`);
+    // Use token if available, but don't require it
+    const token = req.session?.token || req.headers['authorization']?.split(' ')[1] || null;
+    console.log(`[Proxy] Fetching rental agreement for booking ${id} (auth: ${token ? 'yes' : 'no'})`);
     const response = await apiService.getRentalAgreement(token, id);
     res.json(response.data);
   } catch (error) {
     console.error(`[Proxy] Rental agreement fetch error for booking ${req.params.id}:`, error.message);
-    res.status(error.response?.status || 500).json({ 
-      message: error.response?.data?.message || 'Rental agreement not found' 
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Rental agreement not found'
     });
   }
 });
 
-// Sign an existing booking (create agreement + PDF)
-router.post('/bookings/:id/sign-agreement', authenticateToken, async (req, res) => {
+// Send agreement signing link to customer via email or SMS
+router.post('/bookings/:id/send-agreement-link', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const token = req.token || req.session?.token;
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    console.log(`[Proxy] Signing booking ${id}`);
+    const method = req.body?.method || 'email';
+    console.log(`[Proxy] Sending agreement link for booking ${id} via ${method}`);
+    const response = await apiService.sendAgreementLink(token, id, { method });
+    res.json(response.data);
+  } catch (error) {
+    console.error(`[Proxy] Send agreement link error for booking ${req.params.id}:`, error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to send agreement link'
+    });
+  }
+});
+
+// Sign an existing booking (create agreement + PDF) (public — allows unauthenticated access for email links)
+router.post('/bookings/:id/sign-agreement', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Use token if available, but don't require it
+    const token = req.session?.token || req.headers['authorization']?.split(' ')[1] || null;
+    console.log(`[Proxy] Signing booking ${id} (auth: ${token ? 'yes' : 'no'})`);
     const response = await apiService.signBookingAgreement(token, id, req.body);
     res.json(response.data);
   } catch (error) {
     console.error(`[Proxy] Sign agreement error for booking ${req.params.id}:`, error.message);
-    res.status(error.response?.status || 500).json({ 
-      message: error.response?.data?.message || 'Failed to sign agreement' 
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to sign agreement'
     });
   }
 });

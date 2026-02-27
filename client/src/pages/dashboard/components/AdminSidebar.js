@@ -14,6 +14,7 @@ import {
   Calendar,
   AlertTriangle,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 import { Card } from '../../../components/common';
 
@@ -205,6 +206,24 @@ const AdminSidebar = ({
             >
               <TrendingUp className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
               <span className="text-sm">{t('admin.viewReports')}</span>
+            </button>
+          )}
+
+          {/* Terminal (Card Reader) - Admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveSection('terminal')}
+              className={`w-full px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 ${
+                isActive('terminal')
+                  ? 'bg-blue-100 text-blue-700 font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              disabled={isEditing}
+              title={t('admin.terminal', 'Card Terminal')}
+              aria-label={t('admin.terminal', 'Card Terminal')}
+            >
+              <CreditCard className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span className="text-sm">{t('admin.terminal', 'Card Terminal')}</span>
             </button>
           )}
 

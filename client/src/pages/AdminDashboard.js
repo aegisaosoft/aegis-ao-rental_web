@@ -35,6 +35,7 @@ import {
   MetaSection,
   InstagramCampaignSection,
   DisputesSection,
+  TerminalSection,
 } from './dashboard';
 import { AdminSidebar } from './dashboard/components';
 
@@ -196,12 +197,25 @@ const AdminDashboard = () => {
     }
     
     if (urlParams.get('deposit_success') === 'true') {
+      const depositBookingId = urlParams.get('booking_id');
       // Clean up URL
       window.history.replaceState({}, '', '/admin-dashboard?tab=reservations');
-      // Refresh bookings list
-      setTimeout(() => {
-        queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
-      }, 1000);
+      // Sync payment from Stripe to ensure deposit status is updated in DB
+      // (webhook may not have fired yet)
+      if (depositBookingId) {
+        apiService.syncPaymentFromStripe(depositBookingId)
+          .then(() => {
+            queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+          })
+          .catch(() => {
+            // Even if sync fails, refresh the list (webhook may have handled it)
+            queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+          });
+      } else {
+        setTimeout(() => {
+          queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+        }, 1000);
+      }
     } else if (urlParams.get('deposit_cancelled') === 'true') {
       toast.warning(t('admin.securityDepositCancelled', 'Security deposit payment was cancelled.'));
       // Clean up URL
@@ -513,6 +527,14 @@ const AdminDashboard = () => {
           {/* Disputes Section */}
           {activeSection === 'disputes' && (
             <DisputesSection
+              currentCompanyId={currentCompanyId}
+              isAuthenticated={isAuthenticated}
+            />
+          )}
+
+          {/* Terminal Section */}
+          {activeSection === 'terminal' && (
+            <TerminalSection
               currentCompanyId={currentCompanyId}
               isAuthenticated={isAuthenticated}
             />

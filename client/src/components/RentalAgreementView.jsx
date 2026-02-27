@@ -578,9 +578,11 @@ const RentalAgreementView = ({
     
     setCheckingExistingPdf(true);
     
+    console.log('[RentalAgreement] Checking existing PDF for bookingId:', bookingId);
     api.getRentalAgreement(bookingId)
       .then(response => {
         const agreement = response?.data;
+        console.log('[RentalAgreement] getRentalAgreement response:', { pdfUrl: agreement?.pdfUrl, status: agreement?.status });
         if (agreement?.pdfUrl) {
           setExistingPdfUrl(agreement.pdfUrl);
         } else {
@@ -588,9 +590,8 @@ const RentalAgreementView = ({
         }
       })
       .catch(err => {
+        console.log('[RentalAgreement] getRentalAgreement error:', err?.response?.status, err?.message);
         if (err?.response?.status === 404 || err?.response?.status === 401) {
-          // 404: Agreement not found
-          // 401: Unauthorized (also means agreement doesn't exist or user doesn't have access)
           setExistingPdfUrl('');
         } else {
           setExistingPdfUrl('');
@@ -611,9 +612,22 @@ const RentalAgreementView = ({
     loadedBookingRef.current = true;
     setBookingLoading(true);
     
+    console.log('[RentalAgreement] Loading booking data for bookingId:', bookingId);
     api.getBooking(bookingId)
       .then(async (response) => {
         const booking = response.data;
+        console.log('[RentalAgreement] Booking loaded:', {
+          customerId: booking?.customerId,
+          customerName: booking?.customerName,
+          customerEmail: booking?.customerEmail,
+          vehicleName: booking?.vehicleName,
+          vehicleMake: booking?.vehicleMake,
+          vehicleModel: booking?.vehicleModel,
+          dailyRate: booking?.dailyRate,
+          totalAmount: booking?.totalAmount,
+          pickupDate: booking?.pickupDate,
+          allKeys: booking ? Object.keys(booking) : [],
+        });
 
         // Load customer with details (including license)
         let customer = null;
@@ -621,45 +635,57 @@ const RentalAgreementView = ({
 
         if (booking.customerId) {
           try {
+            console.log('[RentalAgreement] Loading customer details for customerId:', booking.customerId);
             const customerDetailsResponse = await api.getCustomerWithDetails(booking.customerId);
             const customerDetails = customerDetailsResponse.data;
 
             customer = customerDetails.customer;
             license = customerDetails.license;
-
-
-            // Extract customer and license data for agreement
+            console.log('[RentalAgreement] Customer loaded:', {
+              firstName: customer?.firstName,
+              lastName: customer?.lastName,
+              email: customer?.email,
+              phone: customer?.phone,
+              customerKeys: customer ? Object.keys(customer) : [],
+            });
+            console.log('[RentalAgreement] License loaded:', {
+              licenseNumber: license?.licenseNumber,
+              stateIssued: license?.stateIssued,
+              licenseKeys: license ? Object.keys(license) : [],
+            });
           } catch (err) {
-            console.error('Error loading customer details:', {
+            console.error('[RentalAgreement] Error loading customer details:', {
               status: err.response?.status,
               statusText: err.response?.statusText,
               message: err.message,
             });
           }
+        } else {
+          console.warn('[RentalAgreement] No customerId in booking data!');
         }
 
         const pickupDate = booking.pickupDate ? new Date(booking.pickupDate) : new Date();
         const returnDate = booking.returnDate ? new Date(booking.returnDate) : new Date();
         const diffTime = Math.abs(returnDate - pickupDate);
         const rentalDays = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 1);
-        
-        setLoadedBookingData({
+
+        const loadedData = {
           renter: {
-            firstName: customer?.FirstName || customer?.firstName || booking.customerFirstName || '',
-            lastName: customer?.LastName || customer?.lastName || booking.customerLastName || '',
-            email: customer?.Email || customer?.email || booking.customerEmail || '',
-            phone: customer?.Phone || customer?.phone || booking.customerPhone || '',
-            middleName: license?.MiddleName || license?.middleName || '',
-            dateOfBirth: customer?.DateOfBirth || customer?.dateOfBirth || license?.DateOfBirth || license?.dateOfBirth || '',
-            address: customer?.Address || customer?.address || license?.LicenseAddress || license?.licenseAddress || booking.customerAddress || '',
-            driverLicense: license?.LicenseNumber || license?.licenseNumber || '',
-            state: license?.StateIssued || license?.stateIssued || '',
-            licenseExpiration: license?.ExpirationDate || license?.expirationDate || '',
+            firstName: customer?.firstName || booking.customerFirstName || '',
+            lastName: customer?.lastName || booking.customerLastName || '',
+            email: customer?.email || booking.customerEmail || '',
+            phone: customer?.phone || booking.customerPhone || '',
+            middleName: license?.middleName || '',
+            dateOfBirth: customer?.dateOfBirth || license?.dateOfBirth || '',
+            address: customer?.address || license?.licenseAddress || booking.customerAddress || '',
+            driverLicense: license?.licenseNumber || '',
+            state: license?.stateIssued || '',
+            licenseExpiration: license?.expirationDate || '',
           },
           vehicle: {
             type: booking.vehicleCategory || '',
             makeModel: booking.vehicleName || `${booking.vehicleMake || ''} ${booking.vehicleModel || ''}`.trim(),
-            yearColorLicense: [booking.vehicleYear, booking.vehicleColor, booking.vehiclePlate].filter(Boolean).join(' / '),
+            yearColorLicense: [booking.vehicleYear, booking.vehicleColor, booking.vehicleLicensePlate].filter(Boolean).join(' / '),
             vin: booking.vehicleVin || '',
           },
           pickupDate: booking.pickupDate,
@@ -683,11 +709,22 @@ const RentalAgreementView = ({
             name: s.name || s.serviceName || '',
             price: s.total || s.subtotal || 0,
           })),
+        };
+
+        console.log('[RentalAgreement] Final loaded data:', {
+          renterFirstName: loadedData.renter.firstName,
+          renterLastName: loadedData.renter.lastName,
+          vehicleMakeModel: loadedData.vehicle.makeModel,
+          totalAmount: loadedData.totalAmount,
         });
 
-        // Agreement data loaded successfully
+        setLoadedBookingData(loadedData);
       })
       .catch(err => {
+        console.error('[RentalAgreement] Error loading booking:', {
+          status: err.response?.status,
+          message: err.message,
+        });
         setLoadedBookingData({});
       })
       .finally(() => {
@@ -905,16 +942,17 @@ const RentalAgreementView = ({
             </a>
           </div>
         </div>
-        
+
         {/* PDF Viewer */}
-        <div className={`flex-1 min-h-0 p-4 bg-gray-100 ${isPage ? '' : ''}`}>
+        <div className="flex-1 p-4 bg-gray-100">
           <iframe
             src={existingPdfUrl}
-            className="w-full h-full rounded-lg border border-gray-300 bg-white"
+            className="w-full rounded-lg border border-gray-300 bg-white"
+            style={{ height: 'calc(100vh - 10rem)' }}
             title="Rental Agreement"
           />
         </div>
-        
+
         {/* Footer */}
         {onClose && (
           <div className="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end">

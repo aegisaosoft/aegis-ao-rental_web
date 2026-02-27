@@ -28,16 +28,22 @@ const api = axios.create({
   withCredentials: true, // Send cookies with requests for session management
 });
 
-// Request interceptor - sessions are handled via cookies automatically
+// Request interceptor - send Authorization header from localStorage as fallback
+// when server-side session cookie is lost (e.g., after Stripe redirect)
 api.interceptors.request.use(
   (config) => {
-    // Sessions are managed server-side via HTTP-only cookies
-    // No need to add Authorization headers - the session cookie is sent automatically
+    // Add JWT token from localStorage as Authorization header backup
+    // Server-side middleware checks both session cookie AND Authorization header
+    const token = localStorage.getItem('authToken');
+    if (token && !config.headers['Authorization']) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Disable SSL verification for development (localhost with self-signed cert)
     if (typeof config.baseURL === 'string' && config.baseURL.includes('localhost')) {
       config.httpsAgent = false;
     }
-    
+
     // CRITICAL: If FormData is being sent, remove Content-Type header
     // so Axios can automatically set it with the correct boundary
     // The default 'application/json' header will break multipart/form-data
@@ -45,7 +51,7 @@ api.interceptors.request.use(
       delete config.headers['Content-Type'];
       // Axios will automatically set: multipart/form-data; boundary=----WebKitFormBoundary...
     }
-    
+
     return config;
   },
   (error) => {
@@ -97,44 +103,29 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Handle 401/403 errors - session expired or invalid
+    // Handle 401/403 errors - session expired or token invalid
     if (error.response?.status === 401 || error.response?.status === 403) {
       const currentPath = window.location.pathname;
-      const publicPaths = ['/login', '/register', '/', '/home', '/locations'];
+      const publicPaths = ['/login', '/register', '/', '/home', '/locations', '/rental-agreement'];
       const isPublicPath = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
-      
+
       // Don't redirect for CompanyLocations or Locations endpoints - let the component handle it
-      // These endpoints may allow anonymous access or the component will handle auth
       const isLocationEndpoint = (typeof error.config?.url === 'string' && error.config.url.includes('/CompanyLocations')) ||
                                   (typeof error.config?.url === 'string' && error.config.url.includes('/Locations/'));
 
       // Don't redirect for Media license endpoints - they have AllowAnonymous for wizard flow
-      // These endpoints are used during customer creation wizard without authentication
       const isMediaLicenseEndpoint = (typeof error.config?.url === 'string' && error.config.url.includes('/Media/customers/')) &&
                                       (typeof error.config?.url === 'string' && error.config.url.includes('/licenses'));
 
-      // Don't redirect for Stripe status endpoints - 401 may mean no Stripe account or insufficient permissions
-      // Let the component handle it gracefully
+      // Don't redirect for Stripe status endpoints
       const isStripeStatusEndpoint = typeof error.config?.url === 'string' && error.config.url.includes('/stripe/status');
-      
-      // If we're on a protected page (not public) and get 401/403, redirect to login
-      // This handles both auth endpoints and other protected endpoints (like /admin, /booking, etc.)
-      // But skip redirect for location, media license, and Stripe status endpoints - let the component handle auth
+
       if (!isPublicPath && !isLocationEndpoint && !isMediaLicenseEndpoint && !isStripeStatusEndpoint) {
-        // Preserve companyId and userId (they persist through auth errors)
-        const preservedCompanyId = localStorage.getItem('companyId');
-        const preservedUserId = localStorage.getItem('userId');
-        
-        // Session is invalid - redirect to login
-        // CompanyId and userId will be restored if they existed
-        if (preservedCompanyId) {
-          localStorage.setItem('companyId', preservedCompanyId);
-        }
-        if (preservedUserId) {
-          localStorage.setItem('userId', preservedUserId);
-        }
-        
-        // Only redirect if we're not already redirecting (prevent multiple redirects)
+        // Token is expired/invalid — clear stale auth data
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+
+        // Only redirect if we're not already on /login
         if (typeof window.location.href === 'string' && !window.location.href.includes('/login')) {
           window.location.href = '/login';
         }
@@ -234,11 +225,17 @@ export const apiService = {
     timeout: 300000, // 5 minutes timeout for bulk sync (can take a while with many bookings)
   }),
   createSecurityDepositPaymentIntent: (bookingId) => api.post(`/booking/bookings/${bookingId}/security-deposit-payment-intent`),
-  createSecurityDepositCheckout: (bookingId, language) => api.post(`/booking/bookings/${bookingId}/security-deposit-checkout${language ? `?language=${language}` : ''}`),
+  createSecurityDepositCheckout: (bookingId, language) => {
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    params.append('returnUrl', window.location.origin);
+    return api.post(`/booking/bookings/${bookingId}/security-deposit-checkout?${params.toString()}`);
+  },
   
   // Rental Agreements
   getRentalAgreement: (bookingId) => api.get(`/booking/bookings/${bookingId}/rental-agreement`),
   signBookingAgreement: (bookingId, agreementData) => api.post(`/booking/bookings/${bookingId}/sign-agreement`, agreementData),
+  sendAgreementLink: (bookingId, data = {}) => api.post(`/booking/bookings/${bookingId}/send-agreement-link`, data),
   previewAgreementPdf: (data) => api.post('/booking/preview-agreement-pdf', data, { responseType: 'blob' }),
 
   // Customers
@@ -525,6 +522,40 @@ export const apiService = {
       bookingId
     });
   },
+  refundTerminalPayment: ({ paymentIntentId, amount, reason, companyId }) => {
+    return api.post('/terminal/refund', {
+      paymentIntentId,
+      amount,
+      reason,
+      companyId,
+    });
+  },
+  getTerminalPayments: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    return api.get(`/terminal/payments?${searchParams.toString()}`);
+  },
+  getTerminalStats: (companyId) => {
+    const params = companyId ? `?companyId=${companyId}` : '';
+    return api.get(`/terminal/stats${params}`);
+  },
+
+  // Terminal Setup — Locations
+  createTerminalLocation: (data) => api.post('/terminal/locations', data),
+  getTerminalLocations: (companyId) => api.get(`/terminal/locations?companyId=${companyId}`),
+  updateTerminalLocation: (locationId, data) => api.put(`/terminal/locations/${locationId}`, data),
+  deleteTerminalLocation: (locationId, companyId) =>
+    api.delete(`/terminal/locations/${locationId}?companyId=${companyId}`),
+
+  // Terminal Setup — Readers
+  registerTerminalReader: (data) => api.post('/terminal/readers', data),
+  getTerminalReaders: (companyId) => api.get(`/terminal/readers?companyId=${companyId}`),
+  deleteTerminalReader: (readerId, companyId) =>
+    api.delete(`/terminal/readers/${readerId}?companyId=${companyId}`),
 
   // Booking Services
   addServiceToBooking: (data) => api.post('/BookingServices', data),

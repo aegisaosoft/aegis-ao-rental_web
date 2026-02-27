@@ -86,5 +86,211 @@ router.post('/cancel-payment-intent', async (req, res) => {
   }
 });
 
+/**
+ * Refund a terminal payment
+ * POST /api/terminal/refund
+ */
+router.post('/refund', async (req, res) => {
+  try {
+    const response = await apiService.post('/Terminal/refund', req.body, {
+      headers: {
+        Authorization: req.headers.authorization
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error refunding terminal payment:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to process refund',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Get terminal payment history
+ * GET /api/terminal/payments
+ */
+router.get('/payments', async (req, res) => {
+  try {
+    const response = await apiService.get(`/Terminal/payments?${new URLSearchParams(req.query).toString()}`, {
+      headers: {
+        Authorization: req.headers.authorization
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching terminal payments:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to fetch terminal payments',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Get terminal payment stats
+ * GET /api/terminal/stats
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const response = await apiService.get(`/Terminal/stats?${new URLSearchParams(req.query).toString()}`, {
+      headers: {
+        Authorization: req.headers.authorization
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching terminal stats:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to fetch terminal stats',
+      error: error.response?.data
+    });
+  }
+});
+
+// ==========================================
+// Terminal Setup: Locations & Readers
+// ==========================================
+
+/**
+ * Create a terminal location
+ * POST /api/terminal/locations
+ */
+router.post('/locations', async (req, res) => {
+  try {
+    const response = await apiService.post('/Terminal/locations', req.body, {
+      headers: { Authorization: req.headers.authorization }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error creating terminal location:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to create location',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * List terminal locations
+ * GET /api/terminal/locations
+ */
+router.get('/locations', async (req, res) => {
+  try {
+    const response = await apiService.get(
+      `/Terminal/locations?${new URLSearchParams(req.query).toString()}`,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error listing terminal locations:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to list locations',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Update a terminal location
+ * PUT /api/terminal/locations/:locationId
+ */
+router.put('/locations/:locationId', async (req, res) => {
+  try {
+    const response = await apiService.put(
+      `/Terminal/locations/${req.params.locationId}`,
+      req.body,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error updating terminal location:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to update location',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Delete a terminal location
+ * DELETE /api/terminal/locations/:locationId
+ */
+router.delete('/locations/:locationId', async (req, res) => {
+  try {
+    const response = await apiService.delete(
+      `/Terminal/locations/${req.params.locationId}?${new URLSearchParams(req.query).toString()}`,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error deleting terminal location:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to delete location',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Register a terminal reader
+ * POST /api/terminal/readers
+ */
+router.post('/readers', async (req, res) => {
+  try {
+    const response = await apiService.post('/Terminal/readers', req.body, {
+      headers: { Authorization: req.headers.authorization }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error registering terminal reader:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to register reader',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * List terminal readers
+ * GET /api/terminal/readers
+ */
+router.get('/readers', async (req, res) => {
+  try {
+    const response = await apiService.get(
+      `/Terminal/readers?${new URLSearchParams(req.query).toString()}`,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error listing terminal readers:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to list readers',
+      error: error.response?.data
+    });
+  }
+});
+
+/**
+ * Delete (deregister) a terminal reader
+ * DELETE /api/terminal/readers/:readerId
+ */
+router.delete('/readers/:readerId', async (req, res) => {
+  try {
+    const response = await apiService.delete(
+      `/Terminal/readers/${req.params.readerId}?${new URLSearchParams(req.query).toString()}`,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error deleting terminal reader:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      message: error.response?.data?.message || 'Failed to delete reader',
+      error: error.response?.data
+    });
+  }
+});
+
 module.exports = router;
 

@@ -218,6 +218,13 @@ const apiService = {
     }
     return apiClient.post(`/api/booking/bookings/${bookingId}/sign-agreement`, agreementData, config);
   },
+  sendAgreementLink: (token, bookingId, data = {}) => {
+    const config = {};
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    return apiClient.post(`/api/booking/bookings/${bookingId}/send-agreement-link`, data, config);
+  },
   previewAgreementPdf: (data) => {
     return apiClient.post('/api/booking/preview-agreement-pdf', data, {
       responseType: 'arraybuffer',
@@ -257,13 +264,17 @@ const apiService = {
     return apiClient.post(`/api/Booking/${bookingId}/security-deposit-payment-intent`, {}, config);
   },
 
-  createSecurityDepositCheckout: (token, bookingId) => {
+  createSecurityDepositCheckout: (token, bookingId, language, returnUrl) => {
     const config = {};
     if (token) {
       config.headers = { Authorization: `Bearer ${token}` };
     }
-    console.log(`[API Config] Creating security deposit checkout session for booking ${bookingId}`);
-    return apiClient.post(`/api/Booking/${bookingId}/security-deposit-checkout`, {}, config);
+    const params = new URLSearchParams();
+    if (language) params.append('language', language);
+    if (returnUrl) params.append('returnUrl', returnUrl);
+    const qs = params.toString();
+    console.log(`[API Config] Creating security deposit checkout session for booking ${bookingId}, returnUrl=${returnUrl}`);
+    return apiClient.post(`/api/Booking/${bookingId}/security-deposit-checkout${qs ? `?${qs}` : ''}`, {}, config);
   },
 
   // Customers

@@ -6,7 +6,7 @@
  * Aegis AO Soft
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { Card, LoadingSpinner } from '../../components/common';
 import { translatedApiService as apiService } from '../../services/translatedApi';
-import { useCompany } from '../../context/CompanyContext';
+
 
 // === Constants ===
 
@@ -393,7 +393,6 @@ const DisputesList = ({ disputes, stats, isLoading, filters, setFilters, totalPa
 
 const DisputeDetail = ({ disputeId, onBack, t }) => {
   const queryClient = useQueryClient();
-  const { formatPrice } = useCompany();
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showDLModal, setShowDLModal] = useState(null); // 'front' | 'back' | null
@@ -425,7 +424,6 @@ const DisputeDetail = ({ disputeId, onBack, t }) => {
     () => apiService.acceptDispute(disputeId),
     {
       onSuccess: () => {
-        toast.success(t('admin.disputes.disputeAccepted', 'Dispute accepted'));
         queryClient.invalidateQueries(['dispute', disputeId]);
         setShowAcceptModal(false);
       },
@@ -437,7 +435,6 @@ const DisputeDetail = ({ disputeId, onBack, t }) => {
     ({ file, type }) => apiService.uploadDisputeDocument(disputeId, file, type),
     {
       onSuccess: () => {
-        toast.success(t('admin.disputes.documentUploaded', 'Document uploaded'));
         queryClient.invalidateQueries(['dispute', disputeId]);
       },
       onError: () => toast.error(t('admin.disputes.uploadFailed', 'Failed to upload document')),
@@ -448,7 +445,6 @@ const DisputeDetail = ({ disputeId, onBack, t }) => {
     () => apiService.submitDisputeEvidence(disputeId, { uncategorizedText: additionalText || undefined }),
     {
       onSuccess: () => {
-        toast.success(t('admin.disputes.evidenceSubmitted', 'Evidence submitted to Stripe'));
         setAdditionalText('');
         queryClient.invalidateQueries(['dispute', disputeId]);
       },
@@ -1065,7 +1061,7 @@ const DisputesSection = ({ currentCompanyId, isAuthenticated }) => {
       await new Promise((resolve) => setTimeout(resolve, 5000));
       await queryClient.invalidateQueries(['disputes']);
       await queryClient.invalidateQueries(['disputeStats']);
-      toast.success(t('admin.disputes.syncComplete', 'Disputes synced from Stripe'));
+      // Disputes synced
     } catch (err) {
       console.error('Failed to sync disputes:', err);
       toast.error(t('admin.disputes.syncFailed', 'Failed to sync disputes from Stripe'));

@@ -16,3 +16,4 @@ export { default as ReportsSection } from './ReportsSection';
 export { default as MetaSection } from './MetaSection';
 export { default as InstagramCampaignSection } from './InstagramCampaignSection';
 export { default as DisputesSection } from './DisputesSection';
+export { default as TerminalSection } from './TerminalSection';

@@ -15,7 +15,7 @@ import {
   Eye, FileText, PenTool
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Card, LoadingSpinner } from '../../components/common';
+import { Card, LoadingSpinner, ConfirmDialog } from '../../components/common';
 import { useCompany } from '../../context/CompanyContext';
 import { useAuth } from '../../context/AuthContext';
 import { translatedApiService as apiService } from '../../services/translatedApi';
@@ -27,6 +27,7 @@ import {
   BookingPaymentModal,
   DamageConfirmationModal,
   BookingDetailsModal,
+  TerminalPaymentModal,
 } from './modals';
 import RentalAgreementModal from '../../components/RentalAgreementModal';
 import { useRentalAgreement } from '../../hooks/useRentalAgreement';
@@ -105,6 +106,13 @@ const ReservationsSection = ({
     pendingCompletedStatus,
     setPendingCompletedStatus,
   } = useBookingModals();
+
+  // Terminal Payment Modal State
+  const [showTerminalModal, setShowTerminalModal] = useState(false);
+  const [terminalPaymentType, setTerminalPaymentType] = useState(null); // 'booking' or 'deposit'
+
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   // Sign Agreement Modal State
   const [showSignAgreementModal, setShowSignAgreementModal] = useState(false);
@@ -604,7 +612,10 @@ const ReservationsSection = ({
         }
         window.location.href = sessionUrl;
       } else if (method === 'terminal') {
-        toast.info(t('admin.terminalNotImplemented', 'Terminal payment not yet implemented'));
+        setShowSecurityDepositModal(false);
+        setPaymentMethod('');
+        setTerminalPaymentType('deposit');
+        setShowTerminalModal(true);
       } else {
         toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
@@ -655,7 +666,10 @@ const ReservationsSection = ({
         }
         window.location.href = sessionUrl;
       } else if (method === 'terminal') {
-        toast.info(t('admin.terminalNotImplemented', 'Terminal payment not yet implemented'));
+        setShowBookingPaymentModal(false);
+        setPaymentMethod('');
+        setTerminalPaymentType('booking');
+        setShowTerminalModal(true);
       } else {
         toast.error(t('admin.unknownPaymentMethod', 'Unknown payment method'));
       }
@@ -668,13 +682,19 @@ const ReservationsSection = ({
 
   const handleRefund = () => {
     if (!selectedBooking) return;
-    if (window.confirm(t('admin.confirmRefund', 'Are you sure you want to process a refund?'))) {
-      refundPaymentMutation.mutate({
-        bookingId: selectedBooking.id,
-        amount: selectedBooking.totalAmount,
-        reason: 'Full refund via booking details'
-      });
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: t('admin.confirmRefundTitle', 'Process Refund'),
+      message: t('admin.confirmRefund', 'Are you sure you want to process a refund?'),
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        refundPaymentMutation.mutate({
+          bookingId: selectedBooking.id,
+          amount: selectedBooking.totalAmount,
+          reason: 'Full refund via booking details'
+        });
+      }
+    });
   };
 
   const handleConfirmCancelRefund = async () => {
@@ -799,8 +819,9 @@ const ReservationsSection = ({
                     <td className="px-4 py-3 text-sm">
                       <div className="flex gap-2">
                         <button onClick={() => handleOpenBookingDetails(booking)} className="text-blue-600 hover:text-blue-800" title={t('admin.viewDetails', 'View')}><Eye className="h-4 w-4" /></button>
-                        <button onClick={() => handleViewContract(booking)} className="text-green-600 hover:text-green-800" title={t('admin.viewContract', 'Contract')}><FileText className="h-4 w-4" /></button>
-                        <button onClick={() => handleSignAgreement(booking)} className="text-purple-600 hover:text-purple-800" title={t('admin.signAgreement', 'Sign Agreement')}><PenTool className="h-4 w-4" /></button>
+                        <button onClick={() => handleSignAgreement(booking)} className={booking.isAgreementSigned ? "text-green-600 hover:text-green-800" : "text-purple-600 hover:text-purple-800"} title={booking.isAgreementSigned ? t('admin.rentalAgreement', 'Rental Agreement') : t('admin.signAgreement', 'Sign Agreement')}>
+                          {booking.isAgreementSigned ? <FileText className="h-4 w-4" /> : <PenTool className="h-4 w-4" />}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -883,6 +904,10 @@ const ReservationsSection = ({
           onClose={() => setShowBookingDetailsModal(false)}
           onRefund={handleRefund}
           onUpdateStatus={handleUpdateBookingStatus}
+          onSignAgreement={(booking) => {
+            setShowBookingDetailsModal(false);
+            handleSignAgreement(booking);
+          }}
           isRefunding={refundPaymentMutation.isLoading}
           isUpdating={updateBookingStatusMutation.isLoading}
         />
@@ -906,6 +931,72 @@ const ReservationsSection = ({
           setConsents={setAgreementConsents}
         />
       )}
+
+      {/* Terminal Payment Modal */}
+      {showTerminalModal && selectedBooking && (
+        <TerminalPaymentModal
+          t={t}
+          amount={
+            terminalPaymentType === 'deposit'
+              ? Math.round((parseFloat(selectedBooking.securityDeposit || actualCompanyData?.securityDeposit || 0)) * 100)
+              : Math.round((parseFloat(selectedBooking.totalAmount || 0)) * 100)
+          }
+          currency={(currencyCode || 'USD').toLowerCase()}
+          description={
+            terminalPaymentType === 'deposit'
+              ? `Security Deposit - ${selectedBooking.bookingNumber || ''}`
+              : `Booking Payment - ${selectedBooking.bookingNumber || ''}`
+          }
+          bookingId={selectedBooking.id}
+          metadata={{
+            bookingNumber: selectedBooking.bookingNumber,
+            customerId: selectedBooking.customerId,
+            companyId: currentCompanyId,
+            paymentType: terminalPaymentType,
+          }}
+          autoCapture={terminalPaymentType === 'booking'}
+          title={
+            terminalPaymentType === 'deposit'
+              ? t('admin.paySecurityDeposit', 'Pay Security Deposit')
+              : t('admin.payBooking', 'Pay Booking')
+          }
+          subtitle={selectedBooking.bookingNumber || ''}
+          onSuccess={(paymentIntent) => {
+            setShowTerminalModal(false);
+            if (terminalPaymentType === 'booking') {
+              // Update booking status to Confirmed after successful payment
+              updateBookingStatusMutation.mutate({
+                bookingId: selectedBooking.id,
+                status: 'Confirmed',
+                paymentStatus: 'Paid',
+              });
+              // Payment completed
+            } else {
+              // Security deposit paid — refresh data
+              queryClient.invalidateQueries(['companyBookings', currentCompanyId]);
+            }
+            setTerminalPaymentType(null);
+          }}
+          onError={(err) => {
+            console.error('[Terminal] Payment error:', err);
+          }}
+          onClose={() => {
+            setShowTerminalModal(false);
+            setTerminalPaymentType(null);
+          }}
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={t('common.yes', 'Yes')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 };

@@ -142,24 +142,26 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Get customer with details (license info)
-router.get('/data/:id', authenticateToken, async (req, res) => {
+// Get customer with details (license info) (public — allows unauthenticated access for rental agreement email links)
+router.get('/data/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const token = req.token || req.session?.token;
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    // Use token if available, but don't require it
+    const token = req.session?.token || req.headers['authorization']?.split(' ')[1] || null;
 
     const axios = require('axios');
     const apiBaseUrl = process.env.API_BASE_URL || 'https://localhost:7163';
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await axios.get(`${apiBaseUrl}/api/customers/data/${id}`, {
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : undefined,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers,
       httpsAgent: new (require('https')).Agent({
         rejectUnauthorized: false
       }),

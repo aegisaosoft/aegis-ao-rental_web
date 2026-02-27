@@ -12,3 +12,4 @@ export { default as SecurityDepositModal } from './SecurityDepositModal';
 export { default as BookingPaymentModal } from './BookingPaymentModal';
 export { default as DamageConfirmationModal } from './DamageConfirmationModal';
 export { default as BookingDetailsModal } from './BookingDetailsModal';
+export { default as TerminalPaymentModal } from './TerminalPaymentModal';

@@ -28,27 +28,45 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const loading = false; // Always false - no auto-check on load
+  // Restore user from localStorage on mount (survives page reload / external redirects)
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('authUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const loading = false;
 
-  // Do NOT automatically check session on mount - app must start logged out
-  // User must explicitly log in to be authenticated
+  // Helper: persist auth data to localStorage
+  const persistAuth = (token, userData) => {
+    try {
+      if (token) localStorage.setItem('authToken', token);
+      if (userData) localStorage.setItem('authUser', JSON.stringify(userData));
+    } catch (e) {
+      console.warn('[Auth] Failed to persist auth to localStorage:', e.message);
+    }
+  };
+
+  // Helper: clear auth data from localStorage
+  const clearAuth = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+  };
 
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      
-      // Token is stored in session on the server - no need to store in localStorage
-      // User data comes with the login response - use it directly
-      // DO NOT call getProfile - user data is already in login response and stored in session
+
       const userData = response.data.result?.user || response.data.user;
-      
+      const token = response.data.result?.token || response.data.token;
+
       if (userData) {
-        // Use user data from login response directly - NO profile call needed
         setUser(userData);
+        persistAuth(token, userData);
         return response.data;
       } else {
-        // This should not happen - login response should always include user data
         throw new Error('Login response missing user data');
       }
     } catch (error) {
@@ -59,20 +77,17 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await apiService.register(userData);
-      
-      // Token is stored in session on the server - no need to store in localStorage
-      // User data comes with the register response - use it directly
-      // DO NOT call getProfile - user data is already in register response and stored in session
+
       const userDataFromResponse = response.data.result?.user || response.data.user;
-      
+      const token = response.data.result?.token || response.data.token;
+
       if (userDataFromResponse) {
-        // Use user data from register response directly - NO profile call needed
         setUser(userDataFromResponse);
+        persistAuth(token, userDataFromResponse);
       } else {
-        // This should not happen - register response should always include user data
         throw new Error('Register response missing user data');
       }
-      
+
       return response.data;
     } catch (error) {
       throw error;
@@ -81,16 +96,14 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Call logout endpoint to destroy session on server
       await apiService.logout();
     } catch (error) {
       // Continue with logout even if API call fails
     }
-    
+
     clearStoredFilterDates();
+    clearAuth();
     setUser(null);
-    
-    // Company selection persists through logout
   };
 
 
@@ -98,16 +111,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiService.updateProfile(profileData);
       setUser(response.data);
+      persistAuth(null, response.data);
       return response.data;
     } catch (error) {
       throw error;
     }
   };
 
-  // Restore user data (e.g., after Stripe redirect) - updates AuthContext without API call
+  // Restore user data (e.g., after Stripe redirect) - updates AuthContext and localStorage
   const restoreUser = (userData) => {
     if (userData) {
       setUser(userData);
+      persistAuth(null, userData);
     }
   };
 

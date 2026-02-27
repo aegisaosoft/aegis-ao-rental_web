@@ -239,7 +239,8 @@ export const translatedApiService = {
     const response = await apiService.signBookingAgreement(bookingId, agreementData);
     return translateResponse(response);
   },
-  
+  sendAgreementLink: (bookingId, data) => apiService.sendAgreementLink(bookingId, data),
+
   cancelBooking: async (id) => {
     const response = await apiService.cancelBooking(id);
     return translateResponse(response);
@@ -795,7 +796,36 @@ export const translatedApiService = {
     const response = await apiService.removeServiceFromCompany(companyId, serviceId);
     return response.data || response;
   },
-  
+
+  // ==========================================
+  // Stripe Terminal (pass-through, no translation needed)
+  // ==========================================
+  createConnectionToken: (companyId) => apiService.createConnectionToken(companyId),
+  createTerminalPaymentIntent: (companyId, amount, currency, options) =>
+    apiService.createTerminalPaymentIntent(companyId, amount, currency, options),
+  capturePaymentIntent: (companyId, paymentIntentId, amountToCapture) =>
+    apiService.capturePaymentIntent(companyId, paymentIntentId, amountToCapture),
+  cancelPaymentIntent: (companyId, paymentIntentId) =>
+    apiService.cancelPaymentIntent(companyId, paymentIntentId),
+  captureTerminalBooking: (paymentIntentId, bookingId) =>
+    apiService.captureTerminalBooking(paymentIntentId, bookingId),
+  refundTerminalPayment: (data) => apiService.refundTerminalPayment(data),
+  getTerminalPayments: (params) => apiService.getTerminalPayments(params),
+  getTerminalStats: (companyId) => apiService.getTerminalStats(companyId),
+
+  // Terminal Setup — Locations
+  createTerminalLocation: (data) => apiService.createTerminalLocation(data),
+  getTerminalLocations: (companyId) => apiService.getTerminalLocations(companyId),
+  updateTerminalLocation: (locationId, data) => apiService.updateTerminalLocation(locationId, data),
+  deleteTerminalLocation: (locationId, companyId) =>
+    apiService.deleteTerminalLocation(locationId, companyId),
+
+  // Terminal Setup — Readers
+  registerTerminalReader: (data) => apiService.registerTerminalReader(data),
+  getTerminalReaders: (companyId) => apiService.getTerminalReaders(companyId),
+  deleteTerminalReader: (readerId, companyId) =>
+    apiService.deleteTerminalReader(readerId, companyId),
+
 };
 
 export default translatedApiService;
